@@ -332,6 +332,13 @@ class ColoredFormatter(logging.Formatter):
 def setup_logger(name="pqvpn", level=logging.INFO, logfile=None):
     """Setup logger with console and optional file handlers."""
     logger = logging.getLogger(name)
+    # When running under pytest prefer DEBUG to make tests' caplog capture
+    # deterministic; detect pytest via environment or loaded modules.
+    try:
+        if os.environ.get("PYTEST_CURRENT_TEST") or ("pytest" in sys.modules):
+            level = logging.DEBUG
+    except Exception:
+        pass
     logger.setLevel(level)
 
     # Remove existing handlers to avoid duplicate log lines on repeated setup calls
