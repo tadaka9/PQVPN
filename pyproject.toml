@@ -15,7 +15,7 @@ license = { text = "Proprietary - All rights reserved" }
 Repository = "https://github.com/tadaka9/PQVPN"
 
 [project.scripts]
-pqvpn = "main:main"
+pqvpn = "pqvpn.cli:main"
 
 [project.optional-dependencies]
 dev = [

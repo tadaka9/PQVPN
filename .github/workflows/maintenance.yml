@@ -1,20 +1,16 @@
-name: CI
+name: Maintenance
 
 on:
-  push:
-  pull_request:
+  schedule:
+    - cron: "0 4 * * 0"  # weekly, Sunday 04:00 UTC
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  smoke:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.13"]
 
     steps:
       - name: Checkout
@@ -23,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
           cache: pip
 
       - name: Install
@@ -31,14 +27,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Ruff (lint)
+      - name: Ruff
         run: |
           ruff check .
-
-      - name: Ruff (format check)
-        run: |
           ruff format --check .
 
-      - name: Pytest
+      - name: Tests
         run: |
           pytest

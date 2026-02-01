@@ -2,11 +2,10 @@ name: CodeQL
 
 on:
   push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
   schedule:
-    - cron: "0 3 * * 0"
+    - cron: "0 3 * * 0"  # weekly, Sunday 03:00 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,12 +17,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
+          queries: security-extended
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
