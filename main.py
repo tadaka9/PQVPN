@@ -57,7 +57,7 @@ try:
         _HAS_PYDANTIC = False
 
     class KDFConfig(BaseModel):
-        time_cost = Field(3)
+        time_cost = Field(2)
         memory_cost_kib = Field(65536)
         parallelism = Field(4)
 
@@ -783,6 +783,17 @@ def _normalize_sig_config_name(alg_name: str | None) -> str:
 
 # OQSPY probe variables (populated later if oqs-python detected)
 OQSPY_AVAILABLE = False
+
+# Argon2 KDF parameters (enforced)
+ARGON2_TIME_COST = 2
+ARGON2_MEMORY_COST = 65536  # in KiB
+ARGON2_PARALLELISM = 4
+ARGON2_HASH_LEN = 64  # bytes
+
+# Hybrid algorithm enforcement
+HYBRID_KEM = 'Kyber1024'
+HYBRID_SIG = 'ML-DSA-87'
+HYBRID_ECDH_ALGS = ['x25519', 'BrainpoolP512R1']
 OQSPY_KEMALG = None
 OQSPY_SIGALG = None
 OQSPY_KEM_PUBLEN = None
