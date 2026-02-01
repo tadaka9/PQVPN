@@ -1,24 +1,33 @@
 # Usage
 
-PQVPN currently ships a minimal CLI scaffold to make the repository runnable while the core protocol and networking stack are designed.
+PQVPN ships a small CLI wrapper that launches the node runtime implemented in `main.py` (via `main.main_loop(...)`).
 
-## Commands
+## Run
 
 ```bash
-# Help
+# From a repo checkout
+python -m pqvpn --config config.yaml
+
+# Or if installed as a package
+pqvpn --config config.yaml
+```
+
+## Common options
+
+```bash
 pqvpn --help
 
-# Version
-pqvpn version
+# Change logging
+pqvpn --config config.yaml --loglevel DEBUG
+pqvpn --config config.yaml --logfile pqvpn.log
 
-# Basic environment checks
-pqvpn doctor
-
-# Placeholder run command
-pqvpn run --bind 127.0.0.1 --port 51820
+# Optional
+pqvpn --config config.yaml --pidfile pqvpn.pid
+pqvpn --config config.yaml --disable-discovery
+pqvpn --config config.yaml --enable-relay
 ```
 
 ## Notes
 
-- `run` is a placeholder and does not create a real tunnel yet.
-- The CLI is implemented in `main.py`.
+- The CLI entry point is in `src/pqvpn/cli.py` and supports flags (no subcommands yet).
+- The core protocol/transport implementation is currently a single large module (`main.py`) and may change as the project is refactored.
