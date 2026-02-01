@@ -4075,6 +4075,7 @@ class PQVPNNode:
             except Exception:
                 verified_mldsa = False
 
+            logger.debug(f"S1 verification results: verified_ed={verified_ed} verified_mldsa={verified_mldsa} peerid_field={peerid_field} sid={sid_hex}")
             if self.require_hybrid_handshake and not (verified_ed and verified_mldsa):
                 logger.warning(
                     f"S1 signature policy: hybrid verification failed for session {sid_hex}"
@@ -4396,6 +4397,7 @@ class PQVPNNode:
             except Exception:
                 verified_mldsa = False
 
+            logger.debug(f"S2 verification results: verified_ed={verified_ed} verified_mldsa={verified_mldsa} sid={sid_hex}")
             if self.require_hybrid_handshake and not (verified_ed and verified_mldsa):
                 logger.warning(
                     f"S2 signature policy: hybrid verification failed for session {sid_hex}"
