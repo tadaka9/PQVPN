@@ -1,0 +1,168 @@
+# Path Quilt VPN configuration (for main.py)
+# Save this as `config.yaml` and run: python main.py --config config.yaml
+
+# NOTE: This file contains recommended production values for Argon2 KDF
+# as well as options for discovery (centralized bootstrap vs Kademlia DHT),
+# TUN tunneling and optional SOCKS5 proxy. Adjust according to your
+# environment and the resources of participating peers.
+
+peer:
+  # human-readable node name (used to derive fallback ID if needed)
+  nickname: Alice
+
+network:
+  # bind address and UDP listen port
+  # Default to IPv6 ANY ('::') for modern networks. For pure IPv4-only hosts use 0.0.0.0
+  # When binding to an IPv6-any address the socket will accept IPv4-mapped addresses
+  # on many platforms (dual-stack) unless disabled. Use a specific address to force v4 or v6.
+  bind_host: '::'
+  listen_port: 9000
+
+  # protection against floods - max concurrent datagram handlers
+  max_concurrent_datagrams: 300
+
+keys:
+  # If persist=true then keys are stored in keys.dir, otherwise a temporary
+  # per-run directory is created and removed on shutdown (recommended for tests)
+  persist: false
+  # when persist=true, write/read keys here
+  dir: keys
+
+  # optional explicit key filenames (if you want persistent separate files)
+  # For PQ signature alg names the loader looks for normalized names (e.g. mldsa87)
+  # and legacy names like mldsa65, mldsa, sig as fallbacks.
+  # Example: mldsa87: path/to/mldsa87.key
+  # mldsa87: keys/alice-mldsa87.key
+
+bootstrap:
+  # list of bootstrap peers - string format host:port or dict entries
+  - host: 192.168.50.61
+    port: 9990
+    nickname: Bob
+
+# Discovery options: choose one of 'centralized' (bootstrap-only, simple)
+# or 'kademlia' (DHT-based, decentralized). The default below is
+# centralized for simplicity; change to 'kademlia' to enable local DHT.
+discovery:
+  mode: centralized        # centralized | kademlia
+  # When centralized, nodes use the bootstrap list above.
+  # When kademlia, you can tune the following parameters.
+  kademlia:
+    enabled: false
+    # bucket size (k), concurrency (alpha) and refresh interval (s)
+    k_bucket_size: 20
+    alpha: 3
+    refresh_interval: 3600
+    # local storage path for DHT state (if persist=true in keys)
+    dht_store: dht_store.db
+
+security:
+  # Enforce full hybrid handshake (Kyber + brainpoolP512r1 and Ed25519 + ML-DSA)
+  # Set true for production. main.py will raise/exit if required components missing.
+  require_hybrid_handshake: true
+
+  # cryptographic KDF / Argon2 parameters (time cost, memory in KiB, parallelism)
+  # Presets (choose by risk/performance profile):
+  #   - low:   time_cost=2,  memory_cost_kib=65536   (64MiB),   parallelism=2
+  #   - medium:time_cost=3,  memory_cost_kib=131072  (128MiB),  parallelism=4  (DEFAULT)
+  #   - high:  time_cost=4,  memory_cost_kib=262144  (256MiB),  parallelism=4
+  # Note: higher memory/time gives stronger resistance against offline attacks
+  # but increases CPU/memory load on all peers. Tune for your target devices.
+  kdf:
+    preset: medium
+    time_cost: 3
+    memory_cost_kib: 131072
+    parallelism: 4
+
+  # Tofu/known-peers policy: store peers TOFU by default
+  tofu: true
+  strict_tofu: false
+  # strictly reject peers that fail signature verification when true
+  strict_sig_verify: false
+
+  # per-IP handshake rate limiting
+  handshake_per_minute_per_ip: 10
+
+  # pending handshake retry policy
+  handshake_retries: 3
+  handshake_backoff_base: 2.0
+  handshake_backoff_factor: 2.0
+
+  # known peers store file (can be encrypted if passphrase set below)
+  known_peers_file: known_peers.yaml
+
+  # Optional: passphrase if known_peers_file is ENCv1:...
+  # known_peers_passphrase: super-secret-passphrase
+
+metrics:
+  enabled: true
+  # metrics HTTP exporter address
+  host: 127.0.0.1
+  port: 9100
+
+node:
+  # make this node act as a relay (announce relay capability in HELLO)
+  is_relay: true
+
+  # optional relay capacity (used by routing/load-balancer heuristics)
+  relay_capacity: 64
+
+  # whether this node will accept transit relay traffic (if false it only
+  # accepts endpoint connections)
+  accept_relay_traffic: true
+
+  # SOCKS5 local proxy - optional
+  socks5:
+    enabled: true
+    bind_host: 127.0.0.1
+    bind_port: 1080
+    # Authentication: none | username_password
+    auth: none
+    username: ""
+    password: ""
+    # policy: route socks through a single session or build multi-hop pathlets
+    route_mode: single_hop   # single_hop | multi_hop
+
+traffic_obfuscation:
+  # enable compression (zlib) for payloads
+  compression: false
+  compression_ratio: 0.7
+  # padding buckets used for obfuscation
+  buckets:
+    - 128
+    - 256
+    - 512
+    - 1024
+    - 1500
+
+tun:
+  # TUN-based tunneling configuration (cross-platform; requires OS helper scripts)
+  enabled: true
+  # Friendly name for the tun interface (system will choose a name if blank)
+  if_name: pqvpn0
+  # CIDR assigned to this node's TUN interface for routing private traffic
+  cidr: 10.33.0.1/24
+  mtu: 1400
+  # automatic platform-specific setup:
+  #  - linux: requires `ip`/`iproute2` and running as root or using setcap
+  #  - macos: requires tuntap or utun support with helper script
+  #  - windows: requires Wintun driver; use the provided helper script
+  setup_script: scripts/pqvpn_setup_tun.sh
+  teardown_script: scripts/pqvpn_teardown_tun.sh
+
+logging:
+  # console/file log level (used by main.py CLI --log-level too)
+  level: INFO
+  logfile: pqvpn.log
+
+runtime:
+  # how often background keepalive/rekey/diagnostics run (seconds)
+  keepalive_interval: 30
+
+  # whether to start the built-in metrics HTTP server
+  start_metrics_server: true
+
+  # rekey policy (hours or bytes threshold)
+  rekey_interval_hours: 4
+  rekey_interval_gb: 100
+

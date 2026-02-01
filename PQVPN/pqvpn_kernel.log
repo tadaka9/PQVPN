@@ -1,0 +1,1288 @@
+[2026-01-05 12:46:07,942] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:46:07,942] INFO - pqvpn_kernel - PQVPN Kernel Engine v2.0 - PRODUCTION READY
+[2026-01-05 12:46:07,942] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:46:07,942] INFO - pqvpn_kernel - Creating TUN interface: pqvpn0
+[2026-01-05 12:46:07,942] INFO - pqvpn_kernel -   ✅ TUN access OK (direct)
+[2026-01-05 12:46:07,943] INFO - pqvpn_kernel -   ✅ Device created
+[2026-01-05 12:46:08,471] ERROR - pqvpn_kernel -   ❌ Configuration failed: 'bool' object is not callable
+[2026-01-05 12:46:17,526] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:46:17,526] INFO - pqvpn_kernel - PQVPN Kernel Engine v2.0 - PRODUCTION READY
+[2026-01-05 12:46:17,526] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:46:17,526] INFO - pqvpn_kernel - Creating TUN interface: pqvpn0
+[2026-01-05 12:46:17,527] INFO - pqvpn_kernel -   ✅ TUN access OK (direct)
+[2026-01-05 12:46:17,527] INFO - pqvpn_kernel -   ✅ Device created
+[2026-01-05 12:46:18,053] ERROR - pqvpn_kernel -   ❌ Configuration failed: 'bool' object is not callable
+[2026-01-05 12:47:51,773] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:47:51,774] INFO - pqvpn_kernel - PQVPN Kernel Engine v2.1 - PRODUCTION READY - FIXED
+[2026-01-05 12:47:51,774] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:47:51,774] INFO - pqvpn_kernel - Creating TUN interface: pqvpn0
+[2026-01-05 12:47:51,774] INFO - pqvpn_kernel -   ✅ TUN access OK (direct)
+[2026-01-05 12:47:51,774] INFO - pqvpn_kernel -   ✅ Device created
+[2026-01-05 12:47:52,314] DEBUG - pqvpn_kernel - Interface status:
+13: pqvpn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 500
+    link/none 
+    inet 10.8.0.2/24 scope global pqvpn0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::c7a9:6c7f:6832:99f/64 scope link stable-privacy proto kernel_ll 
+       valid_lft forever preferred_lft forever
+
+[2026-01-05 12:47:52,314] INFO - pqvpn_kernel -   ✅ Configured 10.8.0.2/24
+[2026-01-05 12:47:52,314] INFO - pqvpn_kernel - ✅ TUN interface pqvpn0 ready (10.8.0.2/24)
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel - ✅ Crypto engine initialized (ChaCha20-Poly1305)
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -   ✅ UDP socket ready on 0.0.0.0:9999
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel - ✅ PQVPN Kernel Engine v2.1 initialized
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -    Node: bob-node
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -    Listen: 0.0.0.0:9999
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -    Interface: pqvpn0 (10.8.0.2/24)
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -   ✅ Peer registered: peer_1 (10.8.0.3) -> 192.168.1.50:9999
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel -   ✅ Peer registered: peer_2 (10.8.0.4) -> 192.168.1.51:9999
+[2026-01-05 12:47:52,315] INFO - pqvpn_kernel - 🚀 Starting PQVPN engine v2.1...
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 🔄 TUN->Peer thread started
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 🔄 Peer->TUN thread started
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 🏥 Health check thread started
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - ✅ Engine started (4 worker threads)
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 🚀 ENGINE RUNNING - Monitor in background with:
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel -    tail -f pqvpn_kernel.log
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 
+[2026-01-05 12:47:52,316] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:47:57,316] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:47:57,316] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:47:57,316] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:02,316] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:02,316] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:02,317] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:02,317] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:02,317] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:02,318] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:02,319] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:07,317] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:07,317] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:07,317] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:12,317] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:12,317] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:12,317] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:12,317] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:12,320] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:12,321] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:12,321] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:17,318] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:17,318] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:17,318] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:22,317] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:22,318] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:22,318] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:22,318] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:22,322] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:22,323] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:22,323] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:27,318] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:27,318] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:27,318] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:32,317] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:32,318] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:32,318] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:32,318] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:32,324] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:32,325] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:32,325] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:37,319] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:37,319] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:37,319] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:42,317] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:42,319] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:42,319] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:42,319] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:42,327] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:42,328] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:42,328] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:47,319] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:47,319] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:47,319] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:52,318] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:48:52,320] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:52,320] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:52,320] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:52,330] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:48:52,331] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:48:52,331] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:48:57,320] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:48:57,320] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:48:57,320] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:02,318] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:02,320] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:02,320] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:02,320] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:02,332] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:02,333] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:02,333] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:07,320] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:07,320] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:07,321] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:12,318] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:12,321] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:12,321] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:12,321] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:12,334] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:12,335] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:12,335] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:17,321] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:17,321] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:17,321] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:22,318] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:22,321] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:22,321] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:22,321] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:22,337] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:22,337] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:22,338] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:27,322] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:27,322] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:27,322] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:32,318] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:32,322] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:32,322] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:32,322] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:32,339] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:32,340] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:32,340] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:37,322] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:37,322] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:37,322] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:42,319] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:42,322] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:42,322] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:42,323] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:42,341] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:42,342] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:42,342] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:47,323] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:47,323] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:47,323] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:52,319] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:49:52,323] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:52,323] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:52,323] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:52,344] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:49:52,345] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:49:52,345] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:49:57,323] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:49:57,323] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:49:57,323] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:02,319] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:02,324] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:02,324] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:02,324] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:02,346] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:02,347] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:02,347] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:07,324] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:07,324] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:07,324] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:12,319] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:12,324] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:12,324] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:12,324] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:12,348] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:12,349] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:12,349] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:17,325] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:17,325] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:17,325] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:22,319] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:22,325] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:22,325] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:22,325] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:22,350] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:22,352] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:22,352] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:27,325] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:27,325] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:27,325] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:32,320] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:32,326] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:32,326] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:32,326] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:32,353] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:32,354] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:32,354] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:37,326] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:37,326] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:37,326] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:42,320] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:42,326] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:42,326] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:42,326] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:42,355] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:42,356] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:42,356] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:47,327] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:47,327] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:47,327] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:52,320] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:50:52,327] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:52,327] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:52,327] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:52,358] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:50:52,359] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:50:52,359] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:50:57,327] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:50:57,327] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:50:57,327] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:02,320] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:02,327] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:02,328] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:02,328] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:02,360] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:02,361] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:02,361] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:07,328] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:07,328] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:07,328] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:12,320] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:12,328] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:12,328] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:12,328] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:12,362] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:12,363] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:12,363] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:17,329] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:17,329] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:17,329] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:22,321] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:22,329] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:22,329] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:22,329] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:22,365] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:22,366] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:22,366] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:27,329] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:27,330] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:27,330] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:32,321] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:32,330] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:32,330] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:32,330] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:32,367] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:32,368] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:32,368] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:37,330] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:37,330] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:37,330] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:42,321] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:42,330] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:42,331] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:42,331] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:42,369] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:42,370] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:42,370] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:47,331] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:47,331] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:47,331] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:52,321] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:51:52,331] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:52,331] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:52,331] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:52,372] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:51:52,373] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:51:52,373] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:51:57,331] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:51:57,332] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:51:57,332] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:02,321] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:02,332] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:02,332] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:02,332] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:02,374] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:02,375] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:02,375] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:07,332] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:07,332] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:07,333] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:12,322] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:12,333] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:12,333] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:12,333] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:12,377] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:12,378] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:12,378] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:17,333] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:17,333] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:17,333] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:22,322] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:22,333] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:22,334] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:22,334] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:22,379] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:22,380] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:22,380] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:27,334] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:27,334] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:27,334] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:32,322] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:32,334] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:32,334] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:32,334] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:32,382] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:32,383] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:32,383] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:37,334] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:37,335] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:37,335] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:42,322] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:42,335] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:42,335] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:42,335] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:42,384] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:42,386] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:42,386] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:47,335] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:47,335] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:47,335] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:52,323] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:52:52,336] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:52,336] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:52,336] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:52,387] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:52:52,388] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:52:52,389] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:52:57,336] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:52:57,336] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:52:57,336] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:02,323] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:02,336] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:02,336] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:02,336] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:02,390] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:02,391] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:02,391] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:07,337] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:07,337] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:07,337] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:12,323] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:12,337] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:12,337] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:12,337] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:12,392] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:12,394] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:12,394] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:17,338] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:17,338] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:17,338] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:22,323] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:22,338] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:22,338] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:22,338] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:22,395] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:22,396] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:22,396] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:27,338] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:27,338] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:27,339] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:32,323] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:32,339] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:32,339] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:32,339] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:32,398] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:32,399] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:32,399] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:37,339] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:37,339] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:37,339] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:42,324] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:42,339] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:42,339] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:42,339] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:42,400] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:42,401] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:42,401] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:47,340] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:47,340] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:47,340] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:52,324] INFO - pqvpn_kernel - 📡 LIVE: running=True, peers=2, encrypted=0, decrypted=0
+[2026-01-05 12:53:52,340] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:52,340] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:52,340] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:52,403] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:53:52,405] DEBUG - pqvpn_kernel - PQVPN route exists: True
+[2026-01-05 12:53:52,405] DEBUG - pqvpn_kernel - Routes:
+default via 192.168.50.1 dev wlan0 proto dhcp src 192.168.50.151 metric 600 
+10.8.0.0/24 dev pqvpn0 proto kernel scope link src 10.8.0.2 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-ff6d6192f8c1 proto kernel scope link src 172.18.0.1 linkdown 
+172.19.0.0/16 dev br-81f84814fa89 proto kernel scope link src 172.19.0.1 linkdown 
+172.20.0.0/16 dev br-aab3cd1d7dbb proto kernel scope link src 172.20.0.1 linkdown 
+192.168.50.0/24 dev wlan0 proto kernel scope link src 192.168.50.151 metric 600 
+
+[2026-01-05 12:53:57,340] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:53:57,341] INFO - pqvpn_kernel -   └─ peer_1: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:57,341] INFO - pqvpn_kernel -   └─ peer_2: enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 12:53:58,334] INFO - pqvpn_kernel - 
+[2026-01-05 12:53:58,334] INFO - pqvpn_kernel - ⏹️  Shutting down...
+[2026-01-05 12:53:58,334] INFO - pqvpn_kernel - ⏹️  Stopping engine...
+[2026-01-05 12:53:58,372] INFO - pqvpn_kernel - ✅ Interface pqvpn0 cleaned up
+[2026-01-05 12:53:58,372] INFO - pqvpn_kernel - ✅ Engine stopped
+[2026-01-05 12:53:58,372] INFO - pqvpn_kernel - ✅ PQVPN Engine stopped - Goodbye!
+[2026-01-05 12:54:04,512] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:54:04,512] INFO - pqvpn_kernel - PQVPN Kernel Engine v3.0 - PRODUCTION READY - MULTI-PEER
+[2026-01-05 12:54:04,512] INFO - pqvpn_kernel - ================================================================================
+[2026-01-05 12:54:04,512] INFO - pqvpn_kernel - Creating TUN interface: pqvpn0
+[2026-01-05 12:54:04,512] INFO - pqvpn_kernel -   ✅ TUN access OK (direct)
+[2026-01-05 12:54:04,513] INFO - pqvpn_kernel -   ✅ Device created
+[2026-01-05 12:54:05,040] DEBUG - pqvpn_kernel - Interface status:
+14: pqvpn0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 500
+    link/none 
+    inet 10.8.0.2/24 scope global pqvpn0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::ca24:c0f5:e5fa:e96a/64 scope link stable-privacy proto kernel_ll 
+       valid_lft forever preferred_lft forever
+
+[2026-01-05 12:54:05,040] INFO - pqvpn_kernel -   ✅ Configured 10.8.0.2/24
+[2026-01-05 12:54:05,040] INFO - pqvpn_kernel - ✅ TUN interface pqvpn0 ready (10.8.0.2/24)
+[2026-01-05 12:54:05,040] INFO - pqvpn_kernel - ✅ Crypto engine initialized (ChaCha20-Poly1305)
+[2026-01-05 12:54:05,040] INFO - pqvpn_kernel -   ✅ UDP socket ready on 0.0.0.0:9999
+[2026-01-05 12:54:05,040] INFO - pqvpn_kernel - ✅ PQVPN Kernel Engine v3.0 initialized
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel -    Node: bob-node
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel -    Listen: 0.0.0.0:9999
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel -    Interface: pqvpn0 (10.8.0.2/24)
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel -   ✅ Peer registered: alice-node (10.8.0.3) -> 192.168.1.50:9999
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel -   ✅ Peer registered: charlie-node (10.8.0.4) -> 192.168.1.51:9999
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel - 🚀 Starting PQVPN engine v3.0...
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel - 🔄 TUN->Peer thread started
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel - 🔄 Peer->TUN thread started
+[2026-01-05 12:54:05,041] INFO - pqvpn_kernel - 🏥 Health check thread started
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - ✅ Engine started (4 worker threads)
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 🚀 ENGINE RUNNING - To test traffic:
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel -    Terminal 1: sudo python3 pqvpn_kernel.py
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel -    Terminal 2: sudo python3 pqvpn_kernel.py (on alice-node)
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel -    Terminal 3: ping -I pqvpn0 10.8.0.3
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 📊 Monitor in background with:
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel -    tail -f pqvpn_kernel.log | grep 'STATS\|ENCRYPT\|DECRYPT'
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 
+[2026-01-05 12:54:05,042] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:10,041] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:10,042] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:10,042] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:15,042] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:15,042] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:15,042] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:15,042] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:15,043] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:54:15,044] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:54:20,042] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:20,043] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:20,043] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:25,042] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:25,043] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:25,043] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:25,043] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:25,045] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:54:25,046] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:54:30,043] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:30,043] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:30,043] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:35,043] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:35,043] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:35,043] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:35,043] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:35,048] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:54:35,049] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:54:40,044] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:40,044] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:40,044] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:45,043] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:45,044] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:45,044] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:45,044] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:45,050] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:54:45,051] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:54:50,044] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:50,044] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:50,044] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:55,043] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:54:55,044] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:54:55,045] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:54:55,045] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:54:55,053] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:54:55,054] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:00,045] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:00,045] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:00,045] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:05,044] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:05,045] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:05,045] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:05,045] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:05,055] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:05,057] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:10,045] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:10,046] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:10,046] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:15,044] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:15,046] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:15,046] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:15,046] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:15,058] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:15,059] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:20,046] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:20,046] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:20,046] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:25,044] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:25,046] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:25,046] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:25,047] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:25,060] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:25,061] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:30,047] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:30,047] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:30,047] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:35,044] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:35,047] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:35,047] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:35,047] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:35,063] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:35,064] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:40,047] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:40,047] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:40,048] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:45,044] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:45,048] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:45,048] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:45,048] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:45,065] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:45,066] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:55:50,048] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:50,049] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:50,049] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:55,045] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:55:55,049] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:55:55,049] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:55:55,049] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:55:55,067] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:55:55,069] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:00,049] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:00,049] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:00,049] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:05,045] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:05,049] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:05,050] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:05,050] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:05,070] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:05,071] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:10,050] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:10,050] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:10,050] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:15,045] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:15,050] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:15,050] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:15,050] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:15,073] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:15,074] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:20,051] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:20,051] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:20,051] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:25,045] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:25,051] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:25,051] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:25,051] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:25,076] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:25,077] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:30,051] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:30,052] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:30,052] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:35,046] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:35,052] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:35,052] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:35,052] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:35,078] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:35,079] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:40,052] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:40,052] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:40,052] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:45,046] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:45,053] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:45,053] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:45,053] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:45,080] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:45,081] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:56:50,053] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:50,053] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:50,053] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:55,046] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:56:55,053] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:56:55,053] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:56:55,053] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:56:55,082] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:56:55,083] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:00,054] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:00,054] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:00,054] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:05,046] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:05,054] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:05,054] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:05,054] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:05,084] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:05,085] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:10,054] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:10,054] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:10,054] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:15,046] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:15,055] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:15,055] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:15,055] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:15,087] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:15,088] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:20,055] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:20,055] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:20,055] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:25,047] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:25,055] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:25,055] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:25,055] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:25,089] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:25,090] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:30,055] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:30,056] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:30,056] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:35,047] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:35,056] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:35,056] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:35,056] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:35,091] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:35,092] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:40,056] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:40,056] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:40,056] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:45,047] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:45,056] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:45,057] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:45,057] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:45,093] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:45,095] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:57:50,057] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:50,057] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:50,057] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:55,047] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:57:55,057] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:57:55,057] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:57:55,057] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:57:55,096] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:57:55,097] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:00,058] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:00,058] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:00,058] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:05,047] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:05,058] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:05,058] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:05,058] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:05,098] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:05,100] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:10,058] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:10,058] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:10,058] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:15,048] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:15,058] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:15,059] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:15,059] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:15,101] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:15,102] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:20,059] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:20,059] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:20,059] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:25,048] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:25,059] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:25,059] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:25,059] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:25,103] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:25,104] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:30,059] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:30,060] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:30,060] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:35,048] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:35,060] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:35,060] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:35,060] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:35,106] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:35,107] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:40,060] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:40,060] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:40,061] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:45,048] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:45,061] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:45,061] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:45,061] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:45,108] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:45,109] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:58:50,061] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:50,061] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:50,061] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:55,048] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:58:55,061] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:58:55,061] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:58:55,062] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:58:55,111] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:58:55,112] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:00,062] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:00,062] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:00,062] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:05,049] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:05,062] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:05,062] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:05,062] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:05,113] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:05,114] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:10,062] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:10,063] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:10,063] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:15,049] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:15,063] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:15,063] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:15,063] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:15,115] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:15,116] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:20,063] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:20,063] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:20,063] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:25,049] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:25,063] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:25,064] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:25,064] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:25,118] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:25,120] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:30,064] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:30,064] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:30,064] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:35,049] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:35,064] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:35,065] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:35,065] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:35,121] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:35,123] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:40,065] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:40,065] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:40,065] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:45,049] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:45,065] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:45,065] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:45,065] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:45,125] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:45,127] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 12:59:50,065] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:50,066] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:50,066] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:55,050] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 12:59:55,066] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 12:59:55,066] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 12:59:55,066] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 12:59:55,128] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 12:59:55,129] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:00,066] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:00,066] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:00,066] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:05,050] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:05,066] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:05,066] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:05,067] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:05,130] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:05,131] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:10,067] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:10,067] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:10,067] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:15,050] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:15,067] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:15,067] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:15,067] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:15,133] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:15,134] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:20,067] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:20,068] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:20,068] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:25,050] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:25,068] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:25,068] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:25,068] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:25,136] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:25,137] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:30,068] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:30,068] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:30,068] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:35,051] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:35,069] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:35,069] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:35,069] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:35,138] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:35,139] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:40,069] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:40,069] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:40,069] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:45,051] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:45,069] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:45,069] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:45,069] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:45,141] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:45,142] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:00:50,069] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:50,070] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:50,070] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:55,051] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:00:55,070] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:00:55,070] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:00:55,070] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:00:55,143] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:00:55,144] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:00,070] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:00,070] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:00,071] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:05,051] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:05,071] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:05,071] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:05,071] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:05,146] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:05,147] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:10,071] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:10,071] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:10,071] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:15,052] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:15,071] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:15,071] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:15,071] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:15,149] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:15,150] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:20,072] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:20,072] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:20,072] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:25,052] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:25,072] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:25,072] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:25,072] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:25,151] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:25,152] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:30,072] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:30,072] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:30,072] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:35,052] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:35,072] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:35,073] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:35,073] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:35,153] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:35,154] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:40,073] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:40,073] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:40,073] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:45,052] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:45,073] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:45,073] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:45,073] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:45,155] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:45,156] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:50,074] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:50,074] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:50,074] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:55,053] INFO - pqvpn_kernel - 📡 LIVE: peers=2, encrypted=0, decrypted=0, ↑0KB ↓0KB
+[2026-01-05 13:01:55,074] INFO - pqvpn_kernel - 📊 STATS: encrypted=0 decrypted=0 out=0KB in=0KB errors=0 peers=2
+[2026-01-05 13:01:55,074] INFO - pqvpn_kernel -   └─ alice-node (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041138
+[2026-01-05 13:01:55,074] INFO - pqvpn_kernel -   └─ charlie-node (10.8.0.4): enc=0 dec=0 ↑0KB ↓0KB last_seen=5.041189
+[2026-01-05 13:01:55,157] DEBUG - pqvpn_kernel - ✅ Interface pqvpn0 is UP
+[2026-01-05 13:01:55,158] DEBUG - pqvpn_kernel - ✅ PQVPN route exists
+[2026-01-05 13:01:57,017] INFO - pqvpn_kernel - 
+[2026-01-05 13:01:57,017] INFO - pqvpn_kernel - ⏹️  Shutting down...
+[2026-01-05 13:01:57,017] INFO - pqvpn_kernel - ⏹️  Stopping engine...
+[2026-01-05 13:01:57,050] INFO - pqvpn_kernel - ✅ Interface pqvpn0 cleaned up
+[2026-01-05 13:01:57,050] INFO - pqvpn_kernel - ✅ Engine stopped
+[2026-01-05 13:01:57,051] INFO - pqvpn_kernel - ✅ PQVPN Engine stopped - Goodbye!
+[2026-01-05 13:03:42,477] INFO - ======================================================================
+[2026-01-05 13:03:42,477] INFO - PQVPN Kernel Engine v3.1 - PRODUCTION
+[2026-01-05 13:03:42,477] INFO - ======================================================================
+[2026-01-05 13:03:42,477] INFO - Creating TUN: pqvpn0 (10.8.0.2/24)
+[2026-01-05 13:03:42,781] INFO - ✅ TUN interface ready
+[2026-01-05 13:03:42,782] INFO - ✅ Crypto: ChaCha20-Poly1305 initialized
+[2026-01-05 13:03:42,782] INFO - ✅ PQVPN Engine initialized
+[2026-01-05 13:03:42,782] INFO -    Node: bob
+[2026-01-05 13:03:42,782] INFO -    IP: 10.8.0.2
+[2026-01-05 13:03:42,782] INFO -    Port: 9999
+[2026-01-05 13:03:42,782] INFO - ✅ Peer: alice (10.8.0.3) → 192.168.50.151:9999
+[2026-01-05 13:03:42,783] INFO - 🚀 Starting PQVPN engine...
+[2026-01-05 13:03:42,783] INFO - 🔄 TUN thread started
+[2026-01-05 13:03:42,783] INFO - 🔄 Peer thread started
+[2026-01-05 13:03:42,784] INFO - ✅ Engine started (3 worker threads)
+[2026-01-05 13:03:42,784] INFO - 
+[2026-01-05 13:03:42,784] INFO - 🚀 ENGINE RUNNING
+[2026-01-05 13:03:42,784] INFO - 
+[2026-01-05 13:03:42,784] INFO - 📍 Test traffic:
+[2026-01-05 13:03:42,784] INFO -    ping -I pqvpn0 10.8.0.3
+[2026-01-05 13:03:42,784] INFO -    nc -u 10.8.0.3 8080
+[2026-01-05 13:03:42,784] INFO - 
+[2026-01-05 13:03:47,784] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:03:47,784] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:03:52,784] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:03:52,784] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:03:57,784] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:03:57,784] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:02,784] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:02,784] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:07,785] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:07,785] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:12,785] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:12,785] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:17,785] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:17,785] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:22,785] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:22,786] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:27,786] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:27,786] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:32,786] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:32,786] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:37,786] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:37,786] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:42,787] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:42,787] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:47,787] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:47,787] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:52,787] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:52,788] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:04:57,788] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:04:57,788] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:02,788] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:02,788] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:07,788] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:07,789] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:12,789] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:12,789] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:17,789] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:17,789] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:22,789] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:22,790] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:27,790] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:27,790] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:32,790] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:32,790] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:37,790] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:37,791] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:42,791] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:42,791] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:47,791] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:47,791] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:52,791] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:52,791] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:05:57,791] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:05:57,792] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:02,792] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:02,792] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:07,792] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:07,792] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:12,792] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:12,793] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:17,793] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:17,793] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:22,793] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:22,793] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:27,793] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:27,793] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:32,794] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:32,794] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:37,794] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:37,794] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:42,794] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:42,795] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:47,795] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:47,795] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:52,795] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:52,795] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:06:57,795] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:06:57,795] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:02,795] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:02,796] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:07,796] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:07,796] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:12,796] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:12,796] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:17,797] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:17,797] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:22,797] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:22,797] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:27,797] INFO - 📊 enc=0 dec=0 ↑0KB ↓0KB peers=1
+[2026-01-05 13:07:27,797] INFO -   └─ alice (10.8.0.3): enc=0 dec=0 ↑0KB ↓0KB
+[2026-01-05 13:07:28,425] INFO - 
+⏹️  Shutting down...
+[2026-01-05 13:07:28,456] INFO - ✅ Engine stopped

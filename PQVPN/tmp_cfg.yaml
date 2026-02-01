@@ -1,0 +1,5 @@
+peer:
+  nickname: test
+network:
+  bind_host: 127.0.0.1
+  listen_port: 9001

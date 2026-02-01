@@ -1,0 +1,458 @@
+[2026-01-31T21:09:27+01:00] Dev cycle summary
+--- healthcheck ---
+{
+  "repo": "/home/dvx3/Documenti/Programming/Python/PQVPN",
+  "python": "/home/dvx3/Documenti/Programming/Python/PQVPN/.venv/bin/python",
+  "venv_exists": true,
+  "config_exists": true,
+  "keys_dir_exists": true,
+  "keys_permissions": "0o700",
+  "oqs": {
+    "ok": true,
+    "enabled_sigs": [
+      "Dilithium2",
+      "Dilithium3",
+      "Dilithium5",
+      "ML-DSA-44",
+      "ML-DSA-65",
+      "ML-DSA-87",
+      "Falcon-512",
+      "Falcon-1024",
+      "Falcon-padded-512",
+      "Falcon-padded-1024",
+      "SPHINCS+-SHA2-128f-simple",
+      "SPHINCS+-SHA2-128s-simple",
+      "SPHINCS+-SHA2-192f-simple",
+      "SPHINCS+-SHA2-192s-simple",
+      "SPHINCS+-SHA2-256f-simple",
+      "SPHINCS+-SHA2-256s-simple",
+      "SPHINCS+-SHAKE-128f-simple",
+      "SPHINCS+-SHAKE-128s-simple",
+      "SPHINCS+-SHAKE-192f-simple",
+      "SPHINCS+-SHAKE-192s-simple",
+      "SPHINCS+-SHAKE-256f-simple",
+      "SPHINCS+-SHAKE-256s-simple",
+      "MAYO-1",
+      "MAYO-2",
+      "MAYO-3",
+      "MAYO-5",
+      "cross-rsdp-128-balanced",
+      "cross-rsdp-128-fast",
+      "cross-rsdp-128-small",
+      "cross-rsdp-192-balanced",
+      "cross-rsdp-192-fast",
+      "cross-rsdp-192-small",
+      "cross-rsdp-256-balanced",
+      "cross-rsdp-256-fast",
+      "cross-rsdp-256-small",
+      "cross-rsdpg-128-balanced",
+      "cross-rsdpg-128-fast",
+      "cross-rsdpg-128-small",
+      "cross-rsdpg-192-balanced",
+      "cross-rsdpg-192-fast",
+      "cross-rsdpg-192-small",
+      "cross-rsdpg-256-balanced",
+      "cross-rsdpg-256-fast",
+      "cross-rsdpg-256-small",
+      "OV-Is",
+      "OV-Ip",
+      "OV-III",
+      "OV-V",
+      "OV-Is-pkc",
+      "OV-Ip-pkc",
+      "OV-III-pkc",
+      "OV-V-pkc",
+      "OV-Is-pkc-skc",
+      "OV-Ip-pkc-skc",
+      "OV-III-pkc-skc",
+      "OV-V-pkc-skc",
+      "SNOVA_24_5_4",
+      "SNOVA_24_5_4_SHAKE",
+      "SNOVA_24_5_4_esk",
+      "SNOVA_24_5_4_SHAKE_esk",
+      "SNOVA_37_17_2",
+      "SNOVA_25_8_3",
+      "SNOVA_56_25_2",
+      "SNOVA_49_11_3",
+      "SNOVA_37_8_4",
+      "SNOVA_24_5_5",
+      "SNOVA_60_10_4",
+      "SNOVA_29_6_5"
+    ]
+  },
+  "config_sample": {
+    "peer": {
+      "nickname": "Alice"
+    },
+    "network": "present"
+  }
+}
+--- ruff check (no fixes) ---
+F841 Local variable `server` is assigned to but never used
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/cli.py:19:5
+   |
+18 |     # SOCKS5 server
+19 |     server = await asyncio.start_server(
+   |     ^^^^^^
+20 |         lambda r, w: socks5.handle_socks5(r, w), "127.0.0.1", 1080
+21 |     )
+   |
+help: Remove assignment to unused variable `server`
+
+E402 Module level import not at top of file
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/debug_inst.py:89:1
+   |
+87 | )
+88 |
+89 | import importlib
+   | ^^^^^^^^^^^^^^^^
+90 | import traceback
+   |
+
+E402 Module level import not at top of file
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/debug_inst.py:90:1
+   |
+89 | import importlib
+90 | import traceback
+   | ^^^^^^^^^^^^^^^^
+91 |
+92 | try:
+   |
+
+E722 Do not use bare `except`
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/gui.py:82:9
+   |
+80 |             with open(LOG_FILE, "a") as f:
+81 |                 f.write(full_msg + "\n")
+82 |         except:
+   |         ^^^^^^
+83 |             pass
+   |
+
+E722 Do not use bare `except`
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/gui.py:1050:9
+     |
+1048 |             timestamp = datetime.now().strftime("%H:%M:%S")
+1049 |             self.logs_display.append(f"[{timestamp}] ERROR: {error_msg}")
+1050 |         except:
+     |         ^^^^^^
+1051 |             pass
+     |
+
+E722 Do not use bare `except`
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/gui.py:1164:13
+     |
+1162 |             try:
+1163 |                 self.proc.kill()
+1164 |             except:
+     |             ^^^^^^
+1165 |                 pass
+1166 |             self.proc = None
+     |
+
+E722 Do not use bare `except`
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/gui.py:1187:9
+     |
+1185 |             scrollbar = self.node_log.verticalScrollBar()
+1186 |             scrollbar.setValue(scrollbar.maximum())
+1187 |         except:
+     |         ^^^^^^
+1188 |             pass
+     |
+
+E722 Do not use bare `except`
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/gui.py:1198:9
+     |
+1196 |                     self._append_log("[ERROR] Node process terminated")
+1197 |                     self.proc = None
+1198 |         except:
+     |         ^^^^^^
+1199 |             pass
+     |
+
+F841 Local variable `discovery_task` is assigned to but never used
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/main.py:5007:5
+     |
+5006 |     # Start discovery if present and not disabled
+5007 |     discovery_task = None
+     |     ^^^^^^^^^^^^^^
+5008 |     if not disable_discovery and getattr(node, "discovery", None):
+5009 |         try:
+     |
+help: Remove assignment to unused variable `discovery_task`
+
+E731 Do not assign a `lambda` expression, use a `def`
+    --> /home/dvx3/Documenti/Programming/Python/PQVPN/main.py:5036:9
+     |
+5034 |         bind_host = getattr(node, "host", "0.0.0.0")
+5035 |         bind_port = int(getattr(node, "port", 9000))
+5036 |         proto_factory = lambda: _make_udp_protocol(node)
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+5037 |
+5038 |         # Bind explicit IPv4 transport first to ensure we have an AF_INET socket
+     |
+help: Rewrite `proto_factory` as a `def`
+
+F821 Undefined name `serialization`
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/node.py:54:22
+   |
+52 |         self.keys = keybundle
+53 |         self.local_id = keybundle.x_pub.public_bytes(
+54 |             encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+   |                      ^^^^^^^^^^^^^
+55 |         )
+56 |         self.peers = {}  # peer_id -> PeerSession
+   |
+
+F821 Undefined name `serialization`
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/node.py:54:57
+   |
+52 |         self.keys = keybundle
+53 |         self.local_id = keybundle.x_pub.public_bytes(
+54 |             encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+   |                                                         ^^^^^^^^^^^^^
+55 |         )
+56 |         self.peers = {}  # peer_id -> PeerSession
+   |
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/node.py:104:9
+    |
+102 |             if ver != 1:
+103 |                 return
+104 |         except:
+    |         ^^^^^^
+105 |             return
+    |
+
+F821 Undefined name `serialization`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn.py:121:24
+    |
+120 |         # Keys
+121 |         self.ed_priv = serialization.load_pem_private_key(
+    |                        ^^^^^^^^^^^^^
+122 |             open(self.config["keys"]["ed25519"], "rb").read()
+123 |         )
+    |
+
+F841 Local variable `next_hash` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn.py:205:9
+    |
+203 |     async def handle_frame(self, data: bytes, src_addr):
+204 |         frame_type = data[1]
+205 |         next_hash = data[2:10]
+    |         ^^^^^^^^^
+206 |         circuit_id = struct.unpack("!I", data[10:14])[0]
+207 |         length = struct.unpack("!H", data[14:16])[0]
+    |
+help: Remove assignment to unused variable `next_hash`
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn.py:272:13
+    |
+270 |                 data, addr = sock.recvfrom(4096)
+271 |                 asyncio.create_task(self.handle_frame(data, addr))
+272 |             except:
+    |             ^^^^^^
+273 |                 await asyncio.sleep(0.01)
+    |
+
+E741 Ambiguous variable name: `l`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn/adapters/tun.py:349:21
+    |
+347 |                 )
+348 |                 print("Generated commands to run as root (or copy/paste):")
+349 |                 for l in cmds:
+    |                     ^
+350 |                     print("  ", l)
+351 |                 return
+    |
+
+E402 Module level import not at top of file
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn/discovery.py:47:1
+   |
+45 |     Argon2Type = None  # type: ignore
+46 |
+47 | from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+48 |
+49 | logger = logging.getLogger("pqvpn.discovery")
+   |
+
+F841 Local variable `val` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn/discovery.py:452:13
+    |
+450 |         # store JSON string as DHT value
+451 |         try:
+452 |             val = json.dumps(rec, separators=(',', ':'), sort_keys=True)
+    |             ^^^
+453 |             # Use DHTClient.set which rate-limits and serializes. Ensure record includes ttl and ts
+454 |             if 'ts' not in rec or not rec['ts']:
+    |
+help: Remove assignment to unused variable `val`
+
+F821 Undefined name `struct`
+ --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn/nat/holepunch.py:7:39
+  |
+5 |     """Send UDP probes to punch NAT hole"""
+6 |     for i in range(count):
+7 |         transport.sendto(b"PQPUNCH" + struct.pack("!I", i), remote_addr)
+  |                                       ^^^^^^
+8 |         await asyncio.sleep(0.1 * (i + 1))
+9 |     print(f"🔨 Holepunch to {remote_addr} ({count} probes)")
+  |
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn_kernel.py:163:9
+    |
+162 |             return pkt
+163 |         except:
+    |         ^^^^^^
+164 |             return None
+    |
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn_kernel.py:200:9
+    |
+198 |             tag = data[-POLY1305_TAG_SIZE:]
+199 |             return PQVPNPacket(seq=seq, nonce=nonce, ciphertext=ciphertext, tag=tag)
+200 |         except:
+    |         ^^^^^^
+201 |             return None
+    |
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn_kernel.py:232:9
+    |
+230 |         try:
+231 |             return self.cipher.decrypt(nonce, ciphertext + tag, None)
+232 |         except:
+    |         ^^^^^^
+233 |             return None
+    |
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/pqvpn_kernel.py:301:9
+    |
+299 |                 os.close(self.fd)
+300 |             subprocess.run(["ip", "link", "del", self.name], capture_output=True)
+301 |         except:
+    |         ^^^^^^
+302 |             pass
+    |
+
+F841 Local variable `port` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/scripts/log_correlate.py:154:9
+    |
+152 | …     # collect all reconstructed that have same ip if possible
+153 | …     ip = s.get("ip")
+154 | …     port = s.get("port")
+    |       ^^^^
+155 | …     # naive matching: any reconstructed whose raw line mentions the same ip:port or whose JSON contains peer_id/keys present in oth…
+156 | …     for r in reconstructed:
+    |
+help: Remove assignment to unused variable `port`
+
+E741 Ambiguous variable name: `l`
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/scripts/pqvpn_route_restore.py:63:13
+   |
+61 |     raw_lines = [
+62 |         l.rstrip("\n")
+63 |         for l in snap.read_text(errors="replace").splitlines()
+   |             ^
+64 |         if l.strip()
+65 |     ]
+   |
+
+F841 Local variable `loop` is assigned to but never used
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/test_alice_bob.py:86:9
+   |
+84 |     async def start(self):
+85 |         """Start the test client."""
+86 |         loop = asyncio.get_event_loop()
+   |         ^^^^
+87 |         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+88 |         self.sock.setblocking(False)
+   |
+help: Remove assignment to unused variable `loop`
+
+E402 Module level import not at top of file
+  --> /home/dvx3/Documenti/Programming/Python/PQVPN/tests/test_circuits.py:89:1
+   |
+87 | # Import parts of main.py as module
+88 | sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+89 | from main import PQVPNNode, SessionInfo
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F841 Local variable `nonce` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/tests/test_circuits.py:152:5
+    |
+150 |     # session id prepended
+151 |     sid = payload[:8]
+152 |     nonce = payload[8:20]
+    |     ^^^^^
+153 |     ct = payload[20:]
+    |
+help: Remove assignment to unused variable `nonce`
+
+F841 Local variable `ct` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/tests/test_circuits.py:153:5
+    |
+151 |     sid = payload[:8]
+152 |     nonce = payload[8:20]
+153 |     ct = payload[20:]
+    |     ^^
+154 |
+155 |     # Attempt AD decryption - should succeed with correct AD
+    |
+help: Remove assignment to unused variable `ct`
+
+F841 Local variable `aead` is assigned to but never used
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/tests/test_circuits.py:157:5
+    |
+155 |     # Attempt AD decryption - should succeed with correct AD
+156 |     ad = b"PQVPN" + sid + nexthash + struct.pack("!I", circuit_id)
+157 |     aead = ChaCha20Poly1305(key_ba)
+    |     ^^^^
+158 |     # decryption should succeed (we used key_ab to encrypt) -> symmetric mismatch because test keys are simple
+159 |     # The purpose here is to ensure function calls succeed and AD includes circuit id
+    |
+help: Remove assignment to unused variable `aead`
+
+E722 Do not use bare `except`
+   --> /home/dvx3/Documenti/Programming/Python/PQVPN/verify_ed25519.py:116:17
+    |
+114 |                         print(json.dumps(js, sort_keys=True)[:400])
+115 |                         break
+116 |                 except:
+    |                 ^^^^^^
+117 |                     continue
+    |
+
+Found 32 errors.
+No fixes available (10 hidden fixes can be enabled with the `--unsafe-fixes` option).
+ruff: issues
+--- pytest (quick) ---
+
+==================================== ERRORS ====================================
+_ ERROR collecting LocalAGI/volumes/localai-backends/cuda13-llama-cpp-development _
+../Documenti/Programming/Python/PQVPN/.venv/lib/python3.14/site-packages/_pytest/runner.py:353: in from_call
+    result: TResult | None = func()
+                             ^^^^^^
+../Documenti/Programming/Python/PQVPN/.venv/lib/python3.14/site-packages/_pytest/runner.py:398: in collect
+    return list(collector.collect())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+../Documenti/Programming/Python/PQVPN/.venv/lib/python3.14/site-packages/_pytest/main.py:557: in collect
+    for direntry in scandir(self.path):
+                    ^^^^^^^^^^^^^^^^^^
+../Documenti/Programming/Python/PQVPN/.venv/lib/python3.14/site-packages/_pytest/pathlib.py:963: in scandir
+    scandir_iter = os.scandir(path)
+                   ^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: '/home/dvx3/Workspace/LocalAGI/volumes/localai-backends/cuda13-llama-cpp-development'
+=========================== short test summary info ============================
+ERROR LocalAGI/volumes/localai-backends/cuda13-llama-cpp-development - Permis...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.21s
+pytest: failed or no tests
+---------------------

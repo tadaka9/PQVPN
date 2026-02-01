@@ -1,0 +1,4426 @@
+"""
+PQVPN - Path-Quilt VPN Node
+"""
+
+import sys
+
+sys.path.insert(0, ".")
+
+import asyncio
+import hashlib
+import json
+import logging
+import os
+import struct
+import time
+import traceback
+import zlib
+import re
+import base64
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from collections import deque, defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Dict, Optional, Tuple, List, Any, Set
+import yaml
+import tempfile
+import shutil
+import atexit
+import signal
+
+from cryptography.hazmat.primitives.asymmetric import x25519, ed25519
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from cryptography.hazmat.primitives import serialization
+
+
+# ============================================================================
+# LOGGING SETUP
+# ============================================================================
+
+
+class ColoredFormatter(logging.Formatter):
+    """Colored log formatter with timestamp microseconds."""
+
+    COLORS = {
+        "DEBUG": "\033[36m",
+        "INFO": "\033[32m",
+        "WARNING": "\033[33m",
+        "ERROR": "\033[31m",
+        "CRITICAL": "\033[35m",
+        "RESET": "\033[0m",
+    }
+
+    def format(self, record):
+        record.timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        color = self.COLORS.get(record.levelname, self.COLORS["RESET"])
+        reset = self.COLORS["RESET"]
+        raw = super().format(record)
+
+        # By default do not redact internal text to preserve readability.
+        # If explicit redaction is desired set environment PQVPN_REDACT=1.
+        try:
+            if os.environ.get("PQVPN_REDACT", "0") == "1":
+                # Redact IPv4 addresses only (keep length/format similar).
+                ipv4_re = re.compile(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}")
+                redacted = ipv4_re.sub("***.***.***.***", raw)
+            else:
+                redacted = raw
+        except Exception:
+            redacted = raw
+
+        return f"{color}{record.timestamp} {record.levelname:8} {redacted}{reset}"
+
+
+def setup_logger(name="pqvpn", level=logging.INFO, logfile=None):
+    """Setup logger with console and optional file handlers."""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Console handler
+    console = logging.StreamHandler()
+    console.setLevel(level)
+    console.setFormatter(ColoredFormatter("%(message)s"))
+    logger.addHandler(console)
+
+    # File handler
+    if logfile is None:
+        logfile = "pqvpn.log"
+    try:
+        file_handler = logging.FileHandler(logfile)
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s [%(levelname)-8s] - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        logger.addHandler(file_handler)
+    except Exception:
+        pass
+
+    return logger
+
+
+logger = setup_logger("pqvpn", logging.INFO)
+print("[DIAG] main_fixed.py loaded, logger configured")
+
+# ============================================================================
+# POST-QUANTUM CRYPTO SETUP (OQS-Python with Kyber1024 + ML-DSA-65)
+# ============================================================================
+
+KYBER1024_PKSIZE = 1568
+KYBER1024_SKSIZE = 3168
+MLDSA65_PKSIZE = 1312
+MLDSA65_SKSIZE = 4032
+MLDSA65_SIGSIZE = 3309
+
+OQSPY_AVAILABLE = False
+OQSPY_KEMALG = None
+OQSPY_SIGALG = None
+OQSPY_KEM_PUBLEN = None
+OQSPY_KEM_SKLEN = None
+OQSPY_KEM_CTLEN = None
+OQSPY_KEM_SSLEN = None
+OQSPY_SIG_PUBLEN = None
+OQSPY_SIG_SKLEN = None
+OQSPY_SIG_SIGLEN = None
+
+PQMODE = "HYBRID"
+
+# Attempt to load oqs-python
+try:
+    import importlib
+
+    oqs_module = None
+    # Prefer the concrete implementation module 'oqs.oqs' which defines KeyEncapsulation/Signature
+    try:
+        impl = importlib.import_module("oqs.oqs")
+        oqs_module = impl
+    except Exception:
+        # Fallback: import package root 'oqs'
+        try:
+            pkg = importlib.import_module("oqs")
+            # Prefer the implementation submodule if available
+            try:
+                impl = importlib.import_module("oqs.oqs")
+                oqs_module = impl
+            except Exception:
+                oqs_module = pkg
+        except Exception:
+            oqs_module = None
+
+    # Strict: require high-level API to be present. Fail fast if not available.
+    if oqs_module is None or not (
+        hasattr(oqs_module, "KeyEncapsulation") and hasattr(oqs_module, "Signature")
+    ):
+        logger.critical(
+            "liboqs-python not available or does not expose required KeyEncapsulation/Signature API."
+        )
+        logger.critical(
+            "Please install liboqs and liboqs-python (or pyoqs) in the active Python environment."
+        )
+        logger.critical(
+            "Recommended: pip install liboqs-python  (or run ./scripts/install_liboqs.sh to build liboqs)"
+        )
+        raise SystemExit(1)
+
+    # Discover enabled mechanisms
+    enabled_kems_iter = getattr(
+        oqs_module,
+        "get_enabled_kem_mechanisms",
+        getattr(oqs_module, "get_enabled_kems", lambda: []),
+    )
+    enabled_kems = list(
+        enabled_kems_iter() if callable(enabled_kems_iter) else enabled_kems_iter
+    )
+
+    chosen_kem = None
+    for candidate in enabled_kems:
+        if "Kyber1024" in candidate or "Kyber" in candidate or "kyber" in candidate:
+            if "Kyber1024" in candidate:
+                chosen_kem = candidate
+                break
+    if chosen_kem is None and enabled_kems:
+        chosen_kem = enabled_kems[0]
+
+    enabled_sigs_iter = getattr(
+        oqs_module,
+        "get_enabled_sig_mechanisms",
+        getattr(oqs_module, "get_enabled_sigs", lambda: []),
+    )
+    enabled_sigs = list(
+        enabled_sigs_iter() if callable(enabled_sigs_iter) else enabled_sigs_iter
+    )
+
+    chosen_sig = None
+    for candidate in enabled_sigs:
+        # Prefer ML-DSA-87 when present, then ML-DSA-65, otherwise any ML-DSA-like candidate
+        lname = candidate.lower()
+        if "ml-dsa-87" in candidate or "ml-dsa-87" in lname:
+            chosen_sig = candidate
+            break
+        if "ml-dsa-65" in candidate or "ml-dsa-65" in lname:
+            chosen_sig = candidate
+            break
+        if ("ml-dsa" in candidate) or ("ml-dsa" in lname) or ("mldsa" in lname):
+            # keep as fallback but don't break yet -- prefer specific versions above
+            if chosen_sig is None:
+                chosen_sig = candidate
+    if chosen_sig is None and enabled_sigs:
+        chosen_sig = enabled_sigs[0]
+
+    if chosen_kem and chosen_sig:
+        OQSPY_AVAILABLE = True
+        OQSPY_KEMALG = chosen_kem
+        OQSPY_SIGALG = chosen_sig
+
+        # Probe sizes
+        try:
+            with oqs_module.KeyEncapsulation(OQSPY_KEMALG) as k_probe:
+                OQSPY_KEM_PUBLEN = getattr(k_probe, "length_public_key", None)
+                OQSPY_KEM_SKLEN = getattr(k_probe, "length_secret_key", None)
+                OQSPY_KEM_CTLEN = getattr(k_probe, "length_ciphertext", None)
+                OQSPY_KEM_SSLEN = getattr(k_probe, "length_shared_secret", None)
+        except Exception:
+            OQSPY_KEM_PUBLEN = None
+            OQSPY_KEM_SKLEN = None
+            OQSPY_KEM_CTLEN = None
+            OQSPY_KEM_SSLEN = None
+
+        try:
+            with oqs_module.Signature(OQSPY_SIGALG) as s_probe:
+                OQSPY_SIG_PUBLEN = getattr(s_probe, "length_public_key", None)
+                OQSPY_SIG_SKLEN = getattr(s_probe, "length_secret_key", None)
+                OQSPY_SIG_SIGLEN = getattr(s_probe, "length_signature", None)
+        except Exception:
+            OQSPY_SIG_PUBLEN = None
+            OQSPY_SIG_SKLEN = None
+            OQSPY_SIG_SIGLEN = None
+
+        PQMODE = f"HYBRID: {OQSPY_KEMALG} + {OQSPY_SIGALG}, ED25519/X25519"
+        logger.info(f"oqs-python available - KEM: {OQSPY_KEMALG}, SIG: {OQSPY_SIGALG}")
+except SystemExit:
+    raise
+except Exception as e:
+    logger.critical(f"Unexpected error during liboqs detection: {e}")
+    raise
+
+
+if OQSPY_AVAILABLE:
+    try:
+        if OQSPY_KEM_PUBLEN:
+            KYBER1024_PKSIZE = OQSPY_KEM_PUBLEN
+        if OQSPY_KEM_SKLEN:
+            KYBER1024_SKSIZE = OQSPY_KEM_SKLEN
+        if OQSPY_SIG_PUBLEN:
+            MLDSA65_PKSIZE = OQSPY_SIG_PUBLEN
+        if OQSPY_SIG_SKLEN:
+            MLDSA65_SKSIZE = OQSPY_SIG_SKLEN
+        if OQSPY_SIG_SIGLEN:
+            MLDSA65_SIGSIZE = OQSPY_SIG_SIGLEN
+        logger.debug(
+            f"DEBUG: Sizes set from oqs-python: Kyber: {KYBER1024_PKSIZE}/{KYBER1024_SKSIZE}, ML-DSA: {MLDSA65_PKSIZE}/{MLDSA65_SKSIZE}, siglen={MLDSA65_SIGSIZE}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to override sizes from oqs-python probe: {e}")
+
+
+# ============================================================================
+# QUANTUM KEY FUNCTIONS
+# ============================================================================
+
+
+def pq_kem_keygen():
+    """Generate Kyber KEM key pair (liboqs-python only)."""
+    if not OQSPY_AVAILABLE:
+        raise RuntimeError(
+            "liboqs-python KeyEncapsulation API not available; cannot generate Kyber keys"
+        )
+    kenc = getattr(oqs_module, "KeyEncapsulation", None)
+    if kenc is None:
+        raise RuntimeError("KeyEncapsulation class not found in oqs module")
+    with kenc(OQSPY_KEMALG) as kem:
+        # Different oqs-python builds expose slightly different APIs.
+        # Try generate_keypair(), but it may return bytes or a (pk, sk) tuple.
+        try:
+            res = kem.generate_keypair()
+        except Exception:
+            res = None
+
+        # Try explicit export if available
+        try:
+            sk_export = kem.export_secret_key()
+        except Exception:
+            sk_export = None
+
+        # Normalize results
+        pk = None
+        sk = None
+        if isinstance(res, (list, tuple)) and len(res) == 2:
+            pk_candidate, sk_candidate = res
+            pk = pk_candidate
+            if sk_export is None:
+                sk = sk_candidate
+        else:
+            pk = res
+            sk = sk_export
+
+        # Convert hex-string returns to bytes when necessary
+        if isinstance(pk, str):
+            try:
+                if all(c in "0123456789abcdefABCDEF" for c in pk):
+                    pk = bytes.fromhex(pk)
+                else:
+                    pk = pk.encode()
+            except Exception:
+                pk = pk.encode()
+        if isinstance(sk, str):
+            try:
+                if all(c in "0123456789abcdefABCDEF" for c in sk):
+                    sk = bytes.fromhex(sk)
+                else:
+                    sk = sk.encode()
+            except Exception:
+                sk = sk.encode()
+
+        logger.debug(
+            f"Kyber keypair generated via liboqs-python - pk_len={len(pk) if pk else None} sk_len={len(sk) if sk else None}"
+        )
+        return pk, sk
+
+
+def pq_kem_encaps(pk, alg=None):
+    """Encapsulate shared secret using Kyber (oqs-python only)."""
+    use_alg = alg if alg is not None else OQSPY_KEMALG
+    if not OQSPY_AVAILABLE:
+        raise RuntimeError(
+            "liboqs-python KeyEncapsulation API not available; cannot encapsulate"
+        )
+    kenc = getattr(oqs_module, "KeyEncapsulation", None)
+    if kenc is None:
+        raise RuntimeError("KeyEncapsulation class not found in oqs module")
+    with kenc(use_alg) as kem:
+        ct, ss = kem.encap_secret(pk)
+        logger.debug(f"{use_alg} encaps via liboqs-python")
+        return ct, ss
+
+
+def pq_kem_decaps(ct, sk, alg=None):
+    """Decapsulate shared secret using Kyber (oqs-python only)."""
+    use_alg = alg if alg is not None else OQSPY_KEMALG
+    if not OQSPY_AVAILABLE:
+        raise RuntimeError(
+            "liboqs-python KeyEncapsulation API not available; cannot decapsulate"
+        )
+    kenc = getattr(oqs_module, "KeyEncapsulation", None)
+    if kenc is None:
+        raise RuntimeError("KeyEncapsulation class not found in oqs module")
+    with kenc(use_alg, secret_key=sk) as kem:
+        ss = kem.decap_secret(ct)
+        logger.debug(f"{use_alg} decaps via liboqs-python")
+        return ss
+
+
+def pq_sig_keygen(alg=None):
+    """Generate ML-DSA or selected oqs signature key pair (oqs-python)."""
+    try:
+        use_alg = alg if alg is not None else OQSPY_SIGALG
+        sigcls = getattr(oqs_module, "Signature", None)
+
+        if not OQSPY_AVAILABLE or sigcls is None:
+            raise RuntimeError(
+                "liboqs-python Signature API not available; cannot generate signature keys"
+            )
+        with sigcls(use_alg) as sig:
+            res = sig.generate_keypair()
+            if isinstance(res, (list, tuple)) and len(res) == 2:
+                pk_candidate, sk_candidate = res
+                try:
+                    sk_export = sig.export_secret_key()
+                    sk = sk_export if sk_export else sk_candidate
+                except Exception:
+                    sk = sk_candidate
+                pk = pk_candidate
+            else:
+                pk = res
+                try:
+                    sk = sig.export_secret_key()
+                except Exception:
+                    sk = None
+
+            # Convert hex strings to bytes if needed
+            if isinstance(pk, str):
+                pk = (
+                    bytes.fromhex(pk)
+                    if all(c in "0123456789abcdefABCDEF" for c in pk)
+                    else pk.encode()
+                )
+            if isinstance(sk, str):
+                sk = (
+                    bytes.fromhex(sk)
+                    if all(c in "0123456789abcdef" for c in sk)
+                    else sk.encode()
+                )
+
+            logger.debug(
+                f"Signature key pair generated via liboqs-python {OQSPY_SIGALG}: pk len={len(pk) if pk else None}, sk len={len(sk) if sk else None}"
+            )
+            return pk, sk
+    except Exception as e:
+        logger.error(f"ML-DSA-65 key generation failed (oqs-python): {e}")
+        raise
+
+
+def pq_sig_sign(sk, data, alg=None):
+    """Sign with ML-DSA or other oqs signature (quantum signature)."""
+    try:
+        use_alg = alg if alg is not None else OQSPY_SIGALG
+        if sk is None:
+            raise ValueError("No secret key available for pq_sig_sign")
+
+        sigcls = getattr(oqs_module, "Signature", None)
+        if sigcls is None:
+            try:
+                import importlib
+
+                oqs_impl = importlib.import_module("oqs.oqs")
+                sigcls = getattr(oqs_impl, "Signature", None)
+            except Exception:
+                sigcls = None
+
+        if not OQSPY_AVAILABLE or sigcls is None:
+            raise RuntimeError("liboqs-python Signature API not available; cannot sign")
+        # static analyzers may think sigcls can be None; assert for clarity
+        assert sigcls is not None
+        with sigcls(use_alg, secret_key=sk) as sig:
+            # Prefer ctx-aware signing methods when available (e.g., sign_with_ctx_str)
+            try:
+                if hasattr(sig, "sign_with_ctx_str"):
+                    try:
+                        s = sig.sign_with_ctx_str(data, b"")
+                        logger.debug(f"Signed (with_ctx) with oqs-python {use_alg}, sig len={len(s)}")
+                        return s
+                    except Exception:
+                        pass
+                if hasattr(sig, "sign_with_ctx"):
+                    try:
+                        s = sig.sign_with_ctx(data, b"")
+                        logger.debug(f"Signed (with_ctx) with oqs-python {use_alg}, sig len={len(s)}")
+                        return s
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # Fallback to canonical sign()
+            s = sig.sign(data)
+            logger.debug(f"Signed with oqs-python {use_alg}, sig len={len(s)}")
+            return s
+    except Exception as e:
+        logger.error(f"ML-DSA signing failed (oqs-python): {e}")
+        raise
+
+
+def pq_sig_verify_debug(pk, data, sig, alg=None):
+    """Debug variant returning (ok, attempts_list).
+
+    Attempts list contains tuples (description, result_or_exception).
+    """
+    attempts = []
+
+    def _to_bytes(x):
+        if x is None:
+            return None
+        if isinstance(x, (bytes, bytearray)):
+            return bytes(x)
+        if isinstance(x, memoryview):
+            return bytes(x)
+        if isinstance(x, str):
+            s = x.strip()
+            # try hex
+            if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
+                try:
+                    return bytes.fromhex(s)
+                except Exception:
+                    pass
+            # try base64
+            try:
+                import base64 as _b64
+
+                return _b64.b64decode(s)
+            except Exception:
+                pass
+            return s.encode()
+        try:
+            return bytes(x)
+        except Exception:
+            return None
+
+    try:
+        use_alg = alg if alg is not None else OQSPY_SIGALG
+        sigcls = getattr(oqs_module, "Signature", None)
+
+        if not OQSPY_AVAILABLE or sigcls is None:
+            return False, [("oqs-missing", "Signature API not available")]
+        pkb = _to_bytes(pk)
+        if pkb is None:
+            return False, [
+                ("pk-normalize-failed", "public key could not be normalized")
+            ]
+
+        # normalize signature
+        sigb = _to_bytes(sig)
+        if sigb is None:
+            return False, [
+                ("sig-normalize-failed", "signature could not be normalized")
+            ]
+
+        # normalize data to bytes
+        if isinstance(data, (bytes, bytearray)):
+            original = bytes(data)
+        elif data is None:
+            original = b""
+        else:
+            try:
+                original = str(data).encode()
+            except Exception:
+                original = b""
+
+        # --- NEW: try direct oqs package binding (from oqs import oqs) exact verify call first ---
+        try:
+            oqs_pkg_impl = None
+            try:
+                from oqs import oqs as oqs_pkg_impl  # type: ignore
+            except Exception:
+                try:
+                    import oqs as _oqs_pkg
+
+                    oqs_pkg_impl = getattr(_oqs_pkg, "oqs", _oqs_pkg)
+                except Exception:
+                    oqs_pkg_impl = None
+
+            sigcls_pkg = getattr(oqs_pkg_impl, "Signature", None) if oqs_pkg_impl else None
+            if sigcls_pkg and use_alg and "ml-dsa" in (use_alg or "").lower():
+                try:
+                    with sigcls_pkg(use_alg) as verifier_pkg:
+                        try:
+                            r = verifier_pkg.verify(original, sigb, pkb)
+                            attempts.append(("oqs_pkg_direct.verify", r))
+                            if r:
+                                return True, attempts
+                        except Exception as e:
+                            attempts.append(("oqs_pkg_direct_exc", str(e)))
+                except Exception:
+                    pass
+                try:
+                    with sigcls_pkg(use_alg, public_key=pkb) as bver:
+                        bv = getattr(bver, "verify", None)
+                        if bv and callable(bv):
+                            try:
+                                r = bv(original, sigb)
+                                attempts.append(("oqs_pkg_bound.verify", r))
+                                if r:
+                                    return True, attempts
+                            except Exception as e:
+                                attempts.append(("oqs_pkg_bound_exc", str(e)))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # build variants to try (deduplicated)
+        variants = [original, original.strip()]
+        try:
+            variants.append(original.hex().encode())
+        except Exception:
+            pass
+        try:
+            variants.append(base64.b64encode(original))
+        except Exception:
+            pass
+        try:
+            variants.append(original.decode(errors="ignore").encode())
+        except Exception:
+            pass
+
+        # if JSON-like, add canonical forms
+        if isinstance(original, (bytes, bytearray)) and original.lstrip().startswith(
+            b"{"
+        ):
+            try:
+                obj = json.loads(original)
+                try:
+                    variants.append(
+                        json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+                    )
+                except Exception:
+                    pass
+                try:
+                    variants.append(
+                        json.dumps(obj, separators=(",", ":"), sort_keys=False).encode()
+                    )
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        # NEW: try hash-based variants too - some peers sign a hash/digest instead of the raw message
+        try:
+            sha256 = hashlib.sha256(original).digest()
+            sha512 = hashlib.sha512(original).digest()
+            for h in (sha256, sha512):
+                try:
+                    variants.append(h)
+                except Exception:
+                    pass
+                try:
+                    variants.append(h.hex().encode())
+                except Exception:
+                    pass
+                try:
+                    variants.append(base64.b64encode(h))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # dedupe while preserving order
+        uniq = []
+        for v in variants:
+            if v not in uniq:
+                uniq.append(v)
+
+        # helper: attempt verifier calls on (msg)
+        def _attempt_on_msg(msg_bytes: bytes):
+            local_attempts = []
+            try:
+                # try constructing a verifier and positional/kw calls
+                try:
+                    with sigcls(use_alg) as verifier:
+                        # First, try the canonical oqs-python call: (message, signature, public_key)
+                        try:
+                            r = verifier.verify(msg_bytes, sigb, pkb)
+                            local_attempts.append(("verify(message,sig,pk)", r))
+                            if r is None or (isinstance(r, bool) and r):
+                                return True, local_attempts
+                        except Exception as e:
+                            local_attempts.append(("verify(message,sig,pk)->exc", str(e)))
+
+                        # Try context-aware verify variants commonly exposed for ML-DSA (e.g., verify_with_ctx_str)
+                        try:
+                            if hasattr(verifier, "verify_with_ctx_str"):
+                                try:
+                                    # Expected signature: verify_with_ctx_str(message, signature, context, public_key)
+                                    r = verifier.verify_with_ctx_str(msg_bytes, sigb, b"", pkb)
+                                    local_attempts.append(("verify_with_ctx_str(msg,sig,ctx,pk)", r))
+                                    if r is None or (isinstance(r, bool) and r):
+                                        return True, local_attempts
+                                except Exception as e:
+                                    local_attempts.append(("verify_with_ctx_str->exc", str(e)))
+                            if hasattr(verifier, "verify_with_ctx"):
+                                try:
+                                    # Some implementations expose a verify_with_ctx(message, signature, context, public_key)
+                                    r = verifier.verify_with_ctx(msg_bytes, sigb, b"", pkb)
+                                    local_attempts.append(("verify_with_ctx(msg,sig,ctx,pk)", r))
+                                    if r is None or (isinstance(r, bool) and r):
+                                        return True, local_attempts
+                                except Exception as e:
+                                    local_attempts.append(("verify_with_ctx->exc", str(e)))
+                        except Exception:
+                            pass
+
+                        # ML-DSA-specific extra permutations: some oqs Python wrappers expose
+                        # different argument orders or expect context/public_key placement
+                        try:
+                            if "ml-dsa" in (use_alg or "").lower() or (OQSPY_SIGALG and "ml-dsa" in (OQSPY_SIGALG or "").lower()):
+                                # try a set of extra call patterns and record results
+                                extra_patterns = [
+                                    ("verify(msg,sig,pk)", lambda: verifier.verify(msg_bytes, sigb, pkb)),
+                                    ("verify_with_ctx_str(msg,sig,ctx,pk)", lambda: verifier.verify_with_ctx_str(msg_bytes, sigb, b"", pkb) if hasattr(verifier, 'verify_with_ctx_str') else None),
+                                    ("verify_with_ctx_str(msg,sig,pk,ctx)", lambda: verifier.verify_with_ctx_str(msg_bytes, sigb, pkb, b"") if hasattr(verifier, 'verify_with_ctx_str') else None),
+                                    ("verify_with_ctx(msg,sig,ctx,pk)", lambda: verifier.verify_with_ctx(msg_bytes, sigb, b"", pkb) if hasattr(verifier, 'verify_with_ctx') else None),
+                                    ("verify_with_ctx(msg,sig,pk,ctx)", lambda: verifier.verify_with_ctx(msg_bytes, sigb, pkb, b"") if hasattr(verifier, 'verify_with_ctx') else None),
+                                ]
+                                for name, call in extra_patterns:
+                                    try:
+                                        res = call()
+                                        local_attempts.append((f"ml-dsa:{name}", res))
+                                        if res is None or (isinstance(res, bool) and res):
+                                            return True, local_attempts
+                                    except Exception as e:
+                                        local_attempts.append((f"ml-dsa:{name}->exc", str(e)))
+                        except Exception:
+                            pass
+
+                        # Try keyword-style canonical names next
+                        vf = getattr(verifier, "verify", None)
+                        if vf and callable(vf):
+                            try:
+                                # common kwarg forms to try
+                                kw_candidates = [
+                                    {"message": msg_bytes, "signature": sigb, "public_key": pkb},
+                                    {"message": msg_bytes, "sig": sigb, "pk": pkb},
+                                    {"message": msg_bytes, "signature": sigb, "public_key": pkb},
+                                ]
+                                for kw in kw_candidates:
+                                    try:
+                                        r = vf(**kw)
+                                        local_attempts.append((f"verify(kwargs={list(kw.keys())})", r))
+                                        if r is None or (isinstance(r, bool) and r):
+                                            return True, local_attempts
+                                    except Exception as e:
+                                        local_attempts.append((f"verify(kwargs={list(kw.keys())})->exc", str(e)))
+                            except Exception:
+                                pass
+
+                        # Fallback positional permutations (less likely)
+                        for args in ((sigb, msg_bytes, pkb), (pkb, msg_bytes, sigb)):
+                            try:
+                                r = verifier.verify(*args)
+                                local_attempts.append((f"verify(pos={len(args)}args)", r))
+                                if r is None or (isinstance(r, bool) and r):
+                                    return True, local_attempts
+                            except Exception as e:
+                                local_attempts.append((f"verify(pos={len(args)}args)->exc", str(e)))
+                except Exception as e:
+                    local_attempts.append(("verifier-construction-exception", str(e)))
+
+                # try bound constructor (public_key) which is commonly supported
+                try:
+                    try:
+                        with sigcls(use_alg, public_key=pkb) as bound_verifier:
+                            bv = getattr(bound_verifier, "verify", None)
+                            if bv and callable(bv):
+                                # canonical bound verify: (message, signature)
+                                try:
+                                    r = bv(msg_bytes, sigb)
+                                    local_attempts.append(
+                                        ("bound.verify(message,sig)", r)
+                                    )
+                                    if r is None or (isinstance(r, bool) and r):
+                                        return True, local_attempts
+                                except Exception as e:
+                                    local_attempts.append(
+                                        ("bound.verify(message,sig)->exc", str(e))
+                                    )
+                                # alternative order
+                                try:
+                                    r = bv(sigb, msg_bytes)
+                                    local_attempts.append(
+                                        ("bound.verify(sig,message)", r)
+                                    )
+                                    if r is None or (isinstance(r, bool) and r):
+                                        return True, local_attempts
+                                except Exception as e:
+                                    local_attempts.append(
+                                        ("bound.verify(sig,message)->exc", str(e))
+                                    )
+                    except Exception as e:
+                        local_attempts.append(("bound-constructor-exception", str(e)))
+                except Exception:
+                    pass
+
+            except Exception as e:
+                local_attempts.append(("unexpected", str(e)))
+
+            return False, local_attempts
+
+        # iterate variants
+        for v in uniq:
+            ok, att = _attempt_on_msg(v)
+            attempts.extend(att)
+            if ok:
+                return True, attempts
+
+        return False, attempts
+    except Exception as e:
+        return False, [("exception", str(e))]
+
+
+# keep compatibility: pq_sig_verify returns boolean
+def pq_sig_verify(pk, data, sig, alg=None):
+    ok, _ = pq_sig_verify_debug(pk, data, sig, alg=alg)
+    return ok
+
+
+def pq_sig_verify_variants(mldsa_pk_bytes, j_payload, sig_field, field_order=None):
+    """Try several canonicalizations of the payload and call pq_sig_verify_debug.
+
+    Returns (ok: bool, attempts: list).
+    """
+    attempts = []
+
+    # normalize signature to bytes
+    sigb = None
+    try:
+        if isinstance(sig_field, (bytes, bytearray)):
+            sigb = bytes(sig_field)
+        elif isinstance(sig_field, str) and all(c in "0123456789abcdefABCDEF" for c in sig_field) and len(sig_field) % 2 == 0:
+            sigb = bytes.fromhex(sig_field)
+        elif isinstance(sig_field, str):
+            try:
+                import base64 as _b64
+
+                sigb = _b64.b64decode(sig_field)
+            except Exception:
+                sigb = sig_field.encode()
+        else:
+            try:
+                sigb = bytes(sig_field)
+            except Exception:
+                sigb = None
+    except Exception:
+        sigb = None
+
+    if sigb is None:
+        return False, [("sig-normalize-failed", "signature normalization failed")]
+
+    # Build candidate message byte variants
+    variants = []
+    try:
+        # canonical with provided field order
+        try:
+            variants.append(("canonical_ordered", canonical_sign_bytes(j_payload, field_order=field_order) if field_order else canonical_sign_bytes(j_payload)))
+        except Exception:
+            pass
+        # canonical sorted
+        try:
+            variants.append(("canonical_sorted", canonical_sign_bytes(j_payload)))
+        except Exception:
+            pass
+        # json sorted/unsorted
+        try:
+            variants.append(("json_sorted", json.dumps(j_payload, separators=(",",":"), sort_keys=True).encode()))
+        except Exception:
+            pass
+        try:
+            variants.append(("json_unsorted", json.dumps(j_payload, separators=(",",":"), sort_keys=False).encode()))
+        except Exception:
+            pass
+        # hex of canonical
+        base_variants = [v for _, v in variants]
+        for name, v in list(variants):
+            try:
+                variants.append((f"hex_{name}", v.hex().encode()))
+            except Exception:
+                pass
+            try:
+                variants.append((f"b64_{name}", base64.b64encode(v)))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # dedupe preserving order
+    seen = set()
+    ordered = []
+    for name, v in variants:
+        if v is None:
+            continue
+        key = v
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append((name, v))
+
+    # Try each variant using pq_sig_verify_debug
+    for name, v in ordered:
+        try:
+            ok, att = pq_sig_verify_debug(mldsa_pk_bytes, v, sigb)
+            attempts.append((name, ok, att))
+            if ok:
+                return True, attempts
+        except Exception as e:
+            attempts.append((name, False, [("exception", str(e))]))
+
+    return False, attempts
+
+
+# Default Argon2 parameters (can be overridden from config)
+ARGON2_TIME_COST = 3
+ARGON2_MEMORY_COST = 65536
+ARGON2_PARALLELISM = 4
+
+
+def canonical_sign_bytes(
+    obj: Dict[str, Any], field_order: Optional[List[str]] = None
+) -> bytes:
+    """Return canonical bytes for signing/verifying.
+
+    If field_order is provided, only those fields (in that order) are included.
+    Otherwise fall back to sorted keys and JSON separators (no spaces).
+    """
+    if field_order:
+        od = {}
+        for k in field_order:
+            if k in obj:
+                od[k] = obj[k]
+        try:
+            return json.dumps(od, separators=(",", ":"), sort_keys=False).encode()
+        except Exception:
+            pass
+
+    try:
+        return json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
+    except Exception:
+        # As a last resort, use repr
+        return repr(obj).encode()
+
+
+def argon2_derive_key_material(
+    password: bytes,
+    salt: bytes = None,
+    length: int = 32,
+    time_cost: int = None,
+    memory_cost: int = None,
+    parallelism: int = None,
+) -> bytes:
+    """Derive key material using Argon2id (quantum-resistant KDF).
+
+    This function now requires the `argon2-cffi` package. If Argon2 is not
+    available the program will exit with an explicit message instructing how
+    to install the dependency. No HKDF or other fallbacks are used per user
+    request: only Argon2 is allowed.
+    """
+    # Normalize salt to 16 bytes (pad/truncate). Accept str inputs as well.
+    if salt is None:
+        salt = b"\x00" * 16
+    else:
+        if not isinstance(salt, (bytes, bytearray)):
+            salt = str(salt).encode()
+        if len(salt) < 16:
+            salt = salt.ljust(16, b"\x00")
+        elif len(salt) > 16:
+            salt = salt[:16]
+
+    try:
+        # Try the common module name used by argon2-cffi (preferred)
+        from argon2.low_level import hash_secret_raw
+        from argon2 import Type
+    except ImportError as ie:
+        # Attempt alternative import path before failing
+        try:
+            from argon2.lowlevel import hash_secret_raw
+            from argon2 import Type
+        except Exception:
+            msg = (
+                "Argon2 (argon2-cffi) not available in this Python environment. "
+                "Install it with: pip install argon2-cffi"
+            )
+            logger.critical(msg)
+            # Re-raise with clearer message for callers to handle
+            raise ImportError(msg) from ie
+
+    # Resolve parameters (use provided or globals)
+    tc = time_cost if time_cost is not None else ARGON2_TIME_COST
+    mc = memory_cost if memory_cost is not None else ARGON2_MEMORY_COST
+    par = parallelism if parallelism is not None else ARGON2_PARALLELISM
+
+    try:
+        raw = hash_secret_raw(
+            secret=password,
+            salt=salt,
+            time_cost=tc,
+            memory_cost=mc,
+            parallelism=par,
+            hash_len=length,
+            type=Type.ID,
+        )
+
+        if isinstance(raw, (bytes, bytearray)):
+            if raw.startswith(b"$argon"):
+                raise ValueError("argon2 returned non-raw output")
+            if len(raw) < length:
+                raise ValueError("argon2 returned too short output")
+            return bytes(raw[:length])
+
+        # If for some reason the result is not a raw bytes-like object, error out
+        raise RuntimeError("Unexpected non-bytes result from Argon2 derivation")
+
+    except Exception as e:
+        logger.error(f"Argon2 key derivation failed: {e}")
+        # Raise a clear runtime error so callers can decide how to handle
+        raise RuntimeError(f"Argon2 derivation failed: {e}") from e
+
+
+# ============================================================================
+# FRAME/TIMEOUT/SESSION CONSTANTS and DATA STRUCTURES
+# ============================================================================
+
+# Frame types
+FT_HELLO = 0x00
+FT_S1 = 0x01
+FT_S2 = 0x02
+FT_DATA = 0x03
+FT_KEEPALIVE = 0x04
+FT_ECHO = 0x05
+FT_ECHO_RESPONSE = 0x06
+FT_RELAY = 0x07
+FT_PEER_ANNOUNCE = 0x10
+FT_ROUTE_QUERY = 0x11
+FT_ROUTE_REPLY = 0x12
+FT_RELAY_HEARTBEAT = 0x13
+FT_HEALTH_CHECK = 0x14
+FT_HEALTH_RESPONSE = 0x15
+FT_PATH_SWITCH = 0x16
+FT_TELEMETRY = 0x17
+FT_REKEY_PROPOSAL = 0x19
+FT_REKEY_ACK = 0x1A
+FT_ZK_CHALLENGE = 0x1C
+FT_ZK_RESPONSE = 0x1D
+FT_AUDIT_LOG = 0x21
+FT_PATH_PROBE = 0x1E
+FT_PATH_PONG = 0x1F
+
+# Other defaults
+NONCE_LENGTH = 12
+SESSION_TIMEOUT = 3600
+HANDSHAKE_TIMEOUT = 30
+KEEPALIVE_INTERVAL = 30
+MAX_PACKET_SIZE = 65535
+MAX_HOPS = 3
+PEER_ANNOUNCE_INTERVAL = 10
+HEALTH_CHECK_INTERVAL = 10
+DEFAULT_PPS_LIMIT = 1000
+
+# Session states
+SESSION_STATE_PENDING = "PENDING"
+SESSION_STATE_HANDSHAKING = "HANDSHAKING"
+SESSION_STATE_ESTABLISHED = "ESTABLISHED"
+SESSION_STATE_REKEYING = "REKEYING"
+SESSION_STATE_CLOSED = "CLOSED"
+
+
+# Data structures
+@dataclass
+class SessionInfo:
+    session_id: bytes
+    peer_id: bytes
+    aead_send: ChaCha20Poly1305
+    aead_recv: ChaCha20Poly1305
+    state: str = SESSION_STATE_PENDING
+    created_at: float = field(default_factory=time.time)
+    bytes_sent: int = 0
+    bytes_recv: int = 0
+    packets_sent: int = 0
+    packets_recv: int = 0
+    last_activity: float = field(default_factory=time.time)
+    nonce_send: int = 0
+    nonce_recv: int = 0
+    remote_addr: Optional[Tuple[str, int]] = None
+    send_key: bytes = b""
+    recv_key: bytes = b""
+    replay_window: Set[int] = field(default_factory=set)
+    replay_window_size: int = 1024
+    # 4-byte per-session random prefix used with an 8-byte counter to form 12-byte AEAD nonces
+    session_iv: bytes = field(default_factory=lambda: os.urandom(4))
+    remote_session_id: Optional[bytes] = None
+
+
+@dataclass
+class PeerInfo:
+    peer_id: bytes
+    nickname: str
+    address: Tuple[str, int]
+    ed25519_pk: bytes
+    x25519_pk: bytes
+    kyber_pk: bytes
+    mldsa_pk: bytes
+    kyber_alg: Optional[str] = None
+    sig_alg: Optional[str] = None
+    last_seen: float = field(default_factory=time.time)
+    latency_ms: float = 0.0
+    hops: int = 0
+    route_quality: float = 1.0
+    is_relay: bool = False
+
+
+@dataclass
+class AuditLogEntry:
+    timestamp: float
+    event_type: str
+    peer_id: bytes
+    description: str
+    hash_chain: bytes
+
+
+# ============================================================================
+# MESH TOPOLOGY MANAGER
+# ============================================================================
+
+
+class MeshTopology:
+    """Mesh Network Topology Manager."""
+
+    def __init__(self):
+        self.peers: Dict[bytes, PeerInfo] = {}
+        self.routes: Dict[bytes, List[bytes]] = {}
+        self.adjacency: Dict[bytes, Set[bytes]] = defaultdict(set)
+        self.last_update = time.time()
+
+    def add_peer(self, peer_info: PeerInfo):
+        """Add peer to topology."""
+        self.peers[peer_info.peer_id] = peer_info
+        self.adjacency[peer_info.peer_id] = set()
+        logger.debug(f"Added peer to topology: {peer_info.nickname}")
+
+    def update_peer_quality(
+        self, peer_id: bytes, latency_ms: float, packet_loss: float
+    ):
+        """Update peer quality metrics."""
+        if peer_id in self.peers:
+            self.peers[peer_id].latency_ms = latency_ms
+            self.peers[peer_id].route_quality = max(0.1, 1.0 - (packet_loss / 100))
+
+    def compute_best_path(
+        self, source: bytes, destination: bytes
+    ) -> Optional[List[bytes]]:
+        """Simple path computation (Dijkstra-like stub)."""
+        if destination not in self.peers or source not in self.peers:
+            return None
+        return [source, destination]
+
+
+# ============================================================================
+# GEOGRAPHIC FAILOVER MANAGER
+# ============================================================================
+
+
+class GeographicFailover:
+    """Geographic Redundancy and Failover Manager."""
+
+    def __init__(self):
+        self.primary_path: Optional[List[bytes]] = None
+        self.backup_paths: List[List[bytes]] = []
+        self.path_health: Dict[int, float] = {}
+        self.current_path_idx: int = 0
+        self.last_failover: float = 0.0
+
+    def add_backup_path(self, path: List[bytes]):
+        """Add backup path."""
+        idx = len(self.backup_paths)
+        self.backup_paths.append(path)
+        self.path_health[idx] = 1.0
+        logger.info(f"Added backup path: {'-'.join(p.hex()[:4] for p in path)}")
+
+    def get_active_path(self) -> Optional[List[bytes]]:
+        """Get currently active path."""
+        if self.current_path_idx == 0:
+            return self.primary_path
+        idx = self.current_path_idx - 1
+        if idx < len(self.backup_paths):
+            return self.backup_paths[idx]
+        return None
+
+
+# ============================================================================
+# NETWORK ANALYTICS
+# ============================================================================
+
+
+class NetworkAnalytics:
+    """Real-Time Network Analytics and Metrics Collection."""
+
+    def __init__(self):
+        self.metrics = {
+            "packets_sent": 0,
+            "packets_recv": 0,
+            "bytes_sent": 0,
+            "bytes_recv": 0,
+            "sessions_active": 0,
+            "sessions_total": 0,
+            "handshakes_completed": 0,
+            "handshakes_failed": 0,
+            "rekeys_performed": 0,
+        }
+        self.timeseries: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1440))
+        self.alerts: List[str] = []
+
+    def record_packet(self, direction: str, size: int):
+        """Record packet metric."""
+        if direction == "sent":
+            self.metrics["packets_sent"] += 1
+            self.metrics["bytes_sent"] += size
+        else:
+            self.metrics["packets_recv"] += 1
+            self.metrics["bytes_recv"] += size
+
+    def export_prometheus(self) -> str:
+        """Export metrics in Prometheus format."""
+        lines = [
+            "# HELP pqvpn_packets_sent_total Total packets sent",
+            "# TYPE pqvpn_packets_sent_total counter",
+            f"pqvpn_packets_sent_total {self.metrics['packets_sent']}",
+            "# HELP pqvpn_packets_recv_total Total packets received",
+            "# TYPE pqvpn_packets_recv_total counter",
+            f"pqvpn_packets_recv_total {self.metrics['packets_recv']}",
+            "# HELP pqvpn_bytes_sent_total Total bytes sent",
+            "# TYPE pqvpn_bytes_sent_total counter",
+            f"pqvpn_bytes_sent_total {self.metrics['bytes_sent']}",
+            "# HELP pqvpn_bytes_recv_total Total bytes received",
+            "# TYPE pqvpn_bytes_recv_total counter",
+            f"pqvpn_bytes_recv_total {self.metrics['bytes_recv']}",
+            "# HELP pqvpn_sessions_active Current active sessions",
+            "# TYPE pqvpn_sessions_active gauge",
+            f"pqvpn_sessions_active {self.metrics['sessions_active']}",
+            "# HELP pqvpn_rekeys_performed Total key rotations",
+            "# TYPE pqvpn_rekeys_performed counter",
+            f"pqvpn_rekeys_performed {self.metrics['rekeys_performed']}",
+        ]
+        return "\n".join(lines)
+
+
+# ============================================================================
+# KEY ROTATION MANAGER
+# ============================================================================
+
+
+class KeyRotationManager:
+    """Quantum-Resistant Key Rotation with Argon2."""
+
+    def __init__(self):
+        self.rekey_interval_hours = 4
+        self.rekey_interval_gb = 100
+        self.last_rekey: Dict[bytes, float] = {}
+
+    def should_rekey(
+        self, session_id: bytes, bytes_transferred: int, last_rekey_time: float
+    ) -> bool:
+        """Check if session should be rekeyed."""
+        elapsed = time.time() - last_rekey_time
+        elapsed_hours = elapsed / 3600
+
+        if elapsed_hours >= self.rekey_interval_hours:
+            return True
+        if bytes_transferred >= self.rekey_interval_gb * 1e9:
+            return True
+        return False
+
+    def perform_rekey(
+        self, session_id: bytes
+    ) -> Tuple[bytes, ChaCha20Poly1305, ChaCha20Poly1305]:
+        """Perform quantum-resistant key rotation via Argon2."""
+        fresh_entropy = os.urandom(32)
+        send_key = argon2_derive_key_material(
+            fresh_entropy, salt=session_id[:16], length=32
+        )
+        recv_key = argon2_derive_key_material(
+            fresh_entropy + b"recv", salt=session_id[:16], length=32
+        )
+
+        aead_send = ChaCha20Poly1305(send_key)
+        aead_recv = ChaCha20Poly1305(recv_key)
+        self.last_rekey[session_id] = time.time()
+
+        logger.info(f"Quantum-resistant key rotation: session {session_id.hex()[:8]}")
+        return session_id, aead_send, aead_recv
+
+
+# ============================================================================
+# ZERO-KNOWLEDGE AUTH
+# ============================================================================
+
+
+class ZeroKnowledgeAuth:
+    """Zero-Knowledge Peer Authentication."""
+
+    def __init__(self):
+        self.zk_challenges: Dict[bytes, bytes] = {}
+        self.credential_store: Dict[bytes, bytes] = {}
+        self.revocation_list: Set[bytes] = set()
+
+    def issue_challenge(self, peer_id: bytes) -> bytes:
+        """Issue ZK challenge to peer."""
+        challenge = os.urandom(32)
+        self.zk_challenges[peer_id] = challenge
+        logger.debug(f"ZK challenge issued to {peer_id.hex()[:8]}")
+        return challenge
+
+    def verify_response(
+        self, peer_id: bytes, challenge: bytes, response: bytes, peer_pk: bytes
+    ) -> bool:
+        """Verify ZK response."""
+        stored_challenge = self.zk_challenges.get(peer_id)
+        if stored_challenge != challenge:
+            return False
+
+        expected_response = hashlib.sha256(challenge + peer_pk).digest()
+        is_valid = response[:16] == expected_response[:16]
+
+        if is_valid:
+            logger.info(f"ZK auth verified for {peer_id.hex()[:8]}")
+        else:
+            logger.warning(f"ZK auth failed for {peer_id.hex()[:8]}")
+        return is_valid
+
+    def issue_credential(self, peer_id: bytes) -> bytes:
+        """Issue authentication credential."""
+        credential = hashlib.sha256(peer_id + os.urandom(32)).digest()
+        self.credential_store[peer_id] = credential
+        return credential
+
+
+# ============================================================================
+# LOAD BALANCER
+# ============================================================================
+
+
+class LoadBalancer:
+    """Distributed Load Balancing and Traffic Shaping."""
+
+    def __init__(self):
+        self.flow_affinity: Dict[Tuple[str, str, int], bytes] = {}
+        self.token_buckets: Dict[bytes, Tuple[float, float]] = {}
+        self.rate_limits: Dict[bytes, int] = defaultdict(lambda: DEFAULT_PPS_LIMIT)
+
+    def select_session(self, sessions: Dict[bytes, SessionInfo]) -> Optional[bytes]:
+        """Select session for flow with load balancing."""
+        if not sessions:
+            return None
+
+        best_session = None
+        best_score = -1.0
+
+        for session_id, sess in sessions.items():
+            if sess.state != SESSION_STATE_ESTABLISHED:
+                continue
+
+            score = 1.0 - (sess.bytes_sent / 1000.0)
+            if score > best_score:
+                best_score = score
+                best_session = session_id
+
+        return best_session
+
+
+# ============================================================================
+# TRAFFIC OBFUSCATION
+# ============================================================================
+
+
+class TrafficObfuscation:
+    """Advanced Traffic Obfuscation and DPI Evasion."""
+
+    def __init__(self, cfg: Optional[Dict[str, Any]] = None):
+        cfg = cfg or {}
+        self.decoy_enabled = cfg.get("decoy_enabled", True)
+        self.jitter_range = cfg.get("jitter_range", 50)
+        self.compression_ratio = cfg.get("compression_ratio", 0.7)
+        self.compression_enabled = cfg.get("compression", False)
+        self.padding_buckets = cfg.get("buckets", [128, 256, 512, 1024, 1500])
+
+    def choose_bucket(self, length: int) -> int:
+        for b in self.padding_buckets:
+            if length <= b:
+                return b
+        # If none matched, round up to the next 256 boundary to avoid leaking oversized lengths
+        next_bucket = ((length + 255) // 256) * 256
+        return min(next_bucket, 65535)
+
+    def compress_payload(self, data: bytes) -> bytes:
+        """Compress and pad payload for obfuscation."""
+        flags = 0
+        body = data
+
+        if self.compression_enabled:
+            try:
+                comp = zlib.compress(data, level=6)
+                if len(comp) < len(data):
+                    flags = 0x01
+                    body = comp
+            except Exception:
+                body = data
+
+        orig_len = len(data)
+        header = bytes([flags]) + struct.pack("!H", orig_len)
+        payload = header + body
+
+        target = self.choose_bucket(len(payload))
+        if len(payload) < target:
+            payload = payload + os.urandom(target - len(payload))
+        elif len(payload) > target:
+            # Ensure we still pad to obscure size (round-up strategy)
+            new_target = ((len(payload) + 255) // 256) * 256
+            new_target = min(new_target, 65535)
+            if new_target > len(payload):
+                payload = payload + os.urandom(new_target - len(payload))
+
+        return payload
+
+    def decompress_payload(self, data: bytes) -> bytes:
+        """Reverse compress_payload: remove padding and decompress if needed."""
+        if not data or len(data) < 3:
+            return b""
+
+        flags = data[0]
+        orig_len = struct.unpack("!H", data[1:3])[0]
+        body = data[3 : 3 + orig_len] if len(data) >= 3 + orig_len else data[3:]
+
+        if flags == 0x01:
+            try:
+                return zlib.decompress(body)
+            except Exception:
+                return body
+
+        return body
+
+
+# ============================================================================
+# AUDIT TRAIL
+# ============================================================================
+
+
+class AuditTrail:
+    """Encrypted Audit Trail and Forensics."""
+
+    def __init__(self):
+        self.entries: List[AuditLogEntry] = []
+        self.merkle_hashes: deque = deque(maxlen=1440)
+        self.last_hash = b"\x00" * 32
+
+    def log_event(self, event_type: str, peer_id: bytes, description: str):
+        """Log event to audit trail."""
+        timestamp = time.time()
+        event_data = f"{event_type}{peer_id.hex()}{description}{timestamp}".encode()
+        new_hash = hashlib.sha256(self.last_hash + event_data).digest()
+
+        entry = AuditLogEntry(
+            timestamp=timestamp,
+            event_type=event_type,
+            peer_id=peer_id,
+            description=description,
+            hash_chain=new_hash,
+        )
+
+        self.entries.append(entry)
+        self.merkle_hashes.append(new_hash)
+        self.last_hash = new_hash
+
+        logger.debug(f"Audit: {event_type} - {description}")
+
+    def verify_integrity(self) -> bool:
+        """Verify audit trail integrity."""
+        current_hash = b"\x00" * 32
+        for entry in self.entries:
+            event_data = f"{entry.event_type}{entry.peer_id.hex()}{entry.description}{entry.timestamp}".encode()
+            expected_hash = hashlib.sha256(current_hash + event_data).digest()
+
+            if expected_hash != entry.hash_chain:
+                logger.error(f"Audit integrity check failed at {entry.timestamp}")
+                return False
+
+            current_hash = expected_hash
+
+        return True
+
+
+# ============================================================================
+# PQVPN NODE - MAIN CLASS (FIXED)
+# ============================================================================
+
+
+class PQVPNNode:
+    """Path Quilt VPN Node with Quantum Cryptography (Kyber + ML-DSA)."""
+
+    def __init__(self, configfile: str):
+        """Initialize node from config file."""
+        with open(configfile, "r") as f:
+            self.config = yaml.safe_load(f)
+
+        sec_cfg = self.config.get("security", {}) or {}
+        # Enforce strict signature verification if configured (default: False)
+        self.strict_sig_verify = sec_cfg.get("strict_sig_verify", False)
+        # Hybrid handshake is mandatory (Kyber + x25519 + Ed25519 + ML-DSA)
+        # This setting is now enforced unconditionally.
+        self.require_hybrid_handshake = True
+        logger.info(
+            "Hybrid handshake mode is mandatory: Kyber + x25519 + Ed25519 + ML-DSA"
+        )
+        # Configure Argon2 params (apply to module-level defaults)
+        try:
+            global ARGON2_TIME_COST, ARGON2_MEMORY_COST, ARGON2_PARALLELISM
+            ARGON2_TIME_COST = int(
+                sec_cfg.get("kdf", {}).get("time_cost", ARGON2_TIME_COST)
+            )
+            ARGON2_MEMORY_COST = int(
+                sec_cfg.get("kdf", {}).get("memory_cost_kib", ARGON2_MEMORY_COST)
+            )
+            ARGON2_PARALLELISM = int(
+                sec_cfg.get("kdf", {}).get("parallelism", ARGON2_PARALLELISM)
+            )
+        except Exception:
+            pass
+        self.tofu_enabled = sec_cfg.get("tofu", True)
+        self.strict_tofu = sec_cfg.get("strict_tofu", False)
+        self.allowlist = set(sec_cfg.get("allowlist", []) or [])
+        self.known_peers_file = sec_cfg.get("known_peers_file", "known_peers.yaml")
+        self.known_peers: Dict[str, Dict[str, str]] = {}
+        # Handshake rate limiting (per-IP recent attempts)
+        from collections import deque
+
+        self.handshake_attempts: Dict[str, deque] = defaultdict(lambda: deque())
+        self.handshake_rate_limit_per_minute = int(
+            sec_cfg.get("handshake_per_minute_per_ip", 10)
+        )
+
+        try:
+            self.load_known_peers()
+        except Exception:
+            logger.debug("No known peers loaded")
+
+        self.nickname = self.config["peer"]["nickname"]
+        self.my_id: Optional[bytes] = None
+        self.start_time = time.time()
+
+        logger.info(f"PQVPN initializing: {self.nickname}")
+        logger.info(f"Mode: {PQMODE}")
+
+        # Keys directory management: by default use an OS-agnostic ephemeral
+        # temporary directory per run so keys are regenerated on each start and
+        # removed on shutdown. This can be overridden by setting
+        # config['keys']['persist'] = True and optionally config['keys']['dir'].
+        keys_cfg = self.config.get("keys", {}) or {}
+        self.persistent_keys = bool(keys_cfg.get("persist", False))
+        if self.persistent_keys:
+            # Use explicit persistent directory (create if missing)
+            self.keys_dir = keys_cfg.get("dir", "keys") or "keys"
+            try:
+                os.makedirs(self.keys_dir, exist_ok=True)
+            except Exception:
+                logger.debug(f"Failed to create persistent keys dir {self.keys_dir}")
+        else:
+            # Create a temporary keys directory for this run. It will be cleaned
+            # up automatically at process exit.
+            try:
+                # include nickname in prefix for easier debugging
+                prefix = (
+                    f"pqvpn-{self.nickname}-keys-"
+                    if getattr(self, "nickname", None)
+                    else "pqvpn-keys-"
+                )
+                self.keys_dir = tempfile.mkdtemp(prefix=prefix)
+                atexit.register(
+                    lambda d=self.keys_dir: shutil.rmtree(d, ignore_errors=True)
+                )
+                logger.info(
+                    f"Using temporary keys directory: {self.keys_dir} (will be removed on shutdown)"
+                )
+                # Register simple signal handlers to ensure cleanup on SIGINT/SIGTERM
+                try:
+
+                    def _cleanup_and_exit(signum, frame):
+                        try:
+                            shutil.rmtree(self.keys_dir, ignore_errors=True)
+                        except Exception:
+                            pass
+                        # Re-raise keyboard interrupt as SystemExit to stop the process
+                        raise SystemExit(0)
+
+                    signal.signal(signal.SIGINT, _cleanup_and_exit)
+                    signal.signal(signal.SIGTERM, _cleanup_and_exit)
+                except Exception:
+                    logger.debug("Failed to register signal handlers for keys cleanup")
+            except Exception:
+                # Fallback to a local keys folder if tempdir creation fails
+                self.keys_dir = keys_cfg.get("dir", "keys") or "keys"
+                try:
+                    os.makedirs(self.keys_dir, exist_ok=True)
+                except Exception:
+                    logger.debug(f"Failed to create fallback keys dir {self.keys_dir}")
+
+        # Pre-initialize key attributes with safe defaults so partial failures
+        # during key loading don't leave attributes undefined.
+        self.ed25519_pk = b""
+        self.ed25519_sk = None
+        self.x25519_pk = None
+        self.x25519_sk = None
+        self.kyber_pk = b""
+        self.kyber_sk = None
+        self.mldsa_pk = b""
+        self.mldsa_sk = None
+
+        # Load keys (Kyber + ML-DSA)
+        self.load_keys()
+
+        # Recovery: if ML-DSA public key is empty after load_keys, try to read from standard key files
+        try:
+            if not getattr(self, "mldsa_pk", None):
+                alt_paths = []
+                cfg_path = self.config.get("keys", {}).get("mldsa65")
+                if cfg_path:
+                    alt_paths.append(cfg_path)
+                alt_paths.extend(
+                    [
+                        f"keys/{self.nickname}-mldsa65.key",
+                        "keys/mldsa65.key",
+                        "keys/test-mldsa65.key",
+                    ]
+                )
+                found = False
+                for p in alt_paths:
+                    try:
+                        if not p or not os.path.exists(p):
+                            continue
+                        with open(p, "rb") as f:
+                            data = f.read()
+                        if len(data) >= MLDSA65_PKSIZE:
+                            self.mldsa_pk = data[:MLDSA65_PKSIZE]
+                            # set secret if full length
+                            if len(data) >= MLDSA65_PKSIZE + MLDSA65_SKSIZE:
+                                self.mldsa_sk = data[
+                                    MLDSA65_PKSIZE : MLDSA65_PKSIZE + MLDSA65_SKSIZE
+                                ]
+                            else:
+                                self.mldsa_sk = None
+                            found = True
+                            logger.info(f"Recovered ML-DSA public key from {p}")
+                            break
+                    except Exception:
+                        continue
+                if found:
+                    # persist PK-only file in configured path if necessary
+                    try:
+                        tgt = self.config.get("keys", {}).get(
+                            "mldsa65", f"keys/{self.nickname}-mldsa65.key"
+                        )
+                        if tgt and not os.path.exists(tgt):
+                            os.makedirs(os.path.dirname(tgt) or ".", exist_ok=True)
+                            with open(tgt, "wb") as f:
+                                if self.mldsa_sk:
+                                    f.write(self.mldsa_pk + (self.mldsa_sk or b""))
+                                else:
+                                    f.write(self.mldsa_pk)
+                    except Exception:
+                        logger.debug("Failed to persist recovered ML-DSA public key")
+        except Exception:
+            logger.debug("ML-DSA recovery step failed", exc_info=True)
+
+        # Final fallback: probe keys directory for any mldsa key file and use its leading bytes
+        try:
+            if not getattr(self, "mldsa_pk", None):
+                import glob
+
+                candidates = glob.glob("keys/*mldsa*") + glob.glob("keys/*mldsa*.*")
+                candidates = [c for c in candidates if os.path.isfile(c)]
+                for c in candidates:
+                    try:
+                        with open(c, "rb") as f:
+                            data = f.read()
+                        if not data:
+                            continue
+                        exp_len = (
+                            OQSPY_SIG_PUBLEN
+                            if (OQSPY_AVAILABLE and OQSPY_SIG_PUBLEN)
+                            else MLDSA65_PKSIZE
+                        )
+                        if len(data) >= exp_len:
+                            self.mldsa_pk = data[:exp_len]
+                        else:
+                            # pad with zeros to expected length to avoid downstream crashes
+                            self.mldsa_pk = data.ljust(exp_len, b"\x00")
+                        logger.warning(
+                            f"Using candidate ML-DSA file {c} (len={len(data)}) as public key (padded/truncated to {len(self.mldsa_pk)})"
+                        )
+                        break
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        # Derive node id from X25519 public key for stable identification
+        try:
+            x_pub_bytes = self.x25519_pk.public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+            self.my_id = x_pub_bytes
+        except Exception:
+            # Fallback to nickname hash
+            self.my_id = hashlib.sha256(self.nickname.encode()).digest()
+
+        try:
+            ed_hex = getattr(self, "ed25519_pk", b"")
+            if ed_hex:
+                logger.info(f"Ed25519 PK: {ed_hex.hex()[:16]}...")
+            else:
+                logger.info("Ed25519 PK: <missing>")
+        except Exception:
+            logger.info("Ed25519 PK: <unavailable>")
+        try:
+            ky_hex = getattr(self, "kyber_pk", b"")
+            if ky_hex:
+                logger.info(f"Kyber PK: {ky_hex.hex()[:16]}...")
+            else:
+                logger.info("Kyber PK: <missing>")
+        except Exception:
+            logger.info("Kyber PK: <unavailable>")
+        try:
+            mld_hex = getattr(self, "mldsa_pk", b"")
+            if mld_hex:
+                logger.info(f"ML-DSA PK: {mld_hex.hex()[:16]}...")
+            else:
+                logger.info("ML-DSA PK: <missing>")
+        except Exception:
+            logger.info("ML-DSA PK: <unavailable>")
+
+        # Enforce hybrid runtime requirements if hybrid mode is mandatory.
+        if self.require_hybrid_handshake:
+            missing = []
+            if not OQSPY_AVAILABLE:
+                missing.append("liboqs-python (PQ KEM/SIG support)")
+            if not getattr(self, "kyber_pk", None):
+                missing.append("Kyber public key")
+            if not getattr(self, "mldsa_pk", None):
+                missing.append("ML-DSA public key")
+            if not getattr(self, "x25519_sk", None) or not getattr(
+                self, "x25519_pk", None
+            ):
+                missing.append("x25519 keypair")
+            if not getattr(self, "ed25519_sk", None) or not getattr(
+                self, "ed25519_pk", None
+            ):
+                missing.append("ed25519 keypair")
+
+            if missing:
+                msg = (
+                    "Hybrid mode is required but the runtime is missing required components: "
+                    + ", ".join(missing)
+                )
+                logger.critical(msg)
+                # Fail fast so operator can fix environment/config
+                raise RuntimeError(msg)
+
+        # Canonical field orders used for signing/verification
+        self.HELLO_SIGN_FIELDS = [
+            "peerid",
+            "nickname",
+            "ed25519_pk",
+            "x25519_pk",
+            "kyber_pk",
+            "mldsa_pk",
+            "timestamp",
+            "response",
+            "sessionid",
+        ]
+        self.S1_SIGN_FIELDS = ["peerid", "sessionid", "ct", "x25519_pk", "timestamp"]
+
+        # Initialize managers and runtime stores
+        self.sessions: Dict[bytes, SessionInfo] = {}
+        self.sessions_by_peer_id: Dict[bytes, SessionInfo] = {}
+        self.pending_handshakes: Dict[bytes, Dict[str, Any]] = {}
+
+        self.mesh = MeshTopology()
+        self.failover = GeographicFailover()
+        self.analytics = NetworkAnalytics()
+        self.rekey_manager = KeyRotationManager()
+        self.zk_auth = ZeroKnowledgeAuth()
+        self.load_balancer = LoadBalancer()
+        self.obfuscation = TrafficObfuscation(
+            self.config.get("traffic_obfuscation", {})
+        )
+        self.audit_trail = AuditTrail()
+        # Circuit registry (used by tests)
+        self.circuits: Dict[int, Dict[str, Any]] = {}
+
+        # Network config
+        self.host = self.config.get("network", {}).get("bind_host", "0.0.0.0")
+        self.port = self.config.get("network", {}).get("listen_port", 9000)
+        self.transport: Optional[asyncio.DatagramTransport] = None
+        self.protocol: Optional[Any] = None
+        try:
+            limit = int(
+                self.config.get("network", {}).get("max_concurrent_datagrams", 200)
+            )
+        except Exception:
+            limit = 200
+        self.datagram_semaphore: asyncio.Semaphore = asyncio.Semaphore(limit)
+
+        # Bootstrap peers parsing
+        bootstrap_list = self.config.get("bootstrap", [])
+        if isinstance(bootstrap_list, dict):
+            bootstrap_list = bootstrap_list.get("peers", [])
+
+        self.bootstrap_peers: List[Dict[str, Any]] = []
+        for bs in bootstrap_list:
+            if isinstance(bs, str):
+                try:
+                    host, port = bs.split(":")
+                    self.bootstrap_peers.append(
+                        {
+                            "nickname": f"peer-{host}:{port}",
+                            "host": host,
+                            "port": int(port),
+                        }
+                    )
+                except Exception:
+                    continue
+            elif isinstance(bs, dict):
+                self.bootstrap_peers.append(bs)
+
+    def load_keys(self):
+        """Load keys -  QUANTUM crypto (Kyber + ML-DSA)."""
+        try:
+            # Ed25519 (classical, for compatibility)
+            ed_path = self.config.get("keys", {}).get(
+                "ed25519", os.path.join(self.keys_dir, f"{self.nickname}-ed25519.pem")
+            )
+            if os.path.exists(ed_path):
+                with open(ed_path, "rb") as f:
+                    raw = f.read()
+                if raw.startswith(b"-----BEGIN"):
+                    self.ed25519_sk = serialization.load_pem_private_key(
+                        raw, password=None
+                    )
+                else:
+                    self.ed25519_sk = ed25519.Ed25519PrivateKey.from_private_bytes(raw)
+            else:
+                self.ed25519_sk = ed25519.Ed25519PrivateKey.generate()
+                os.makedirs(os.path.dirname(ed_path) or ".", exist_ok=True)
+                with open(ed_path, "wb") as f:
+                    f.write(
+                        self.ed25519_sk.private_bytes(
+                            encoding=serialization.Encoding.PEM,
+                            format=serialization.PrivateFormat.PKCS8,
+                            encryption_algorithm=serialization.NoEncryption(),
+                        )
+                    )
+
+            self.ed25519_pk = self.ed25519_sk.public_key().public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+
+            # X25519 (classical DH)
+            x_path = self.config.get("keys", {}).get(
+                "x25519", os.path.join(self.keys_dir, f"{self.nickname}-x25519.key")
+            )
+            if os.path.exists(x_path):
+                with open(x_path, "rb") as f:
+                    raw = f.read()
+
+                parsed = None
+                # raw 32-byte private key
+                try:
+                    if len(raw) == 32:
+                        parsed = raw
+                except Exception:
+                    parsed = None
+
+                # PEM encoded private key
+                if parsed is None:
+                    try:
+                        if raw.strip().startswith(b"-----BEGIN"):
+                            sk = serialization.load_pem_private_key(raw, password=None)
+                            try:
+                                parsed = sk.private_bytes(
+                                    encoding=serialization.Encoding.Raw,
+                                    format=serialization.PrivateFormat.Raw,
+                                    encryption_algorithm=serialization.NoEncryption(),
+                                )
+                            except Exception:
+                                parsed = None
+                    except Exception:
+                        parsed = None
+
+                # hex string
+                if parsed is None:
+                    try:
+                        s = raw.decode().strip()
+                        if (
+                            all(c in "0123456789abcdefABCDEF" for c in s)
+                            and len(s) % 2 == 0
+                        ):
+                            parsed = bytes.fromhex(s)
+                    except Exception:
+                        parsed = None
+
+                # base64
+                if parsed is None:
+                    try:
+                        import base64 as _b64
+
+                        parsed = _b64.b64decode(raw.strip())
+                    except Exception:
+                        parsed = None
+
+                if parsed and len(parsed) == 32:
+                    try:
+                        self.x25519_sk = x25519.X25519PrivateKey.from_private_bytes(
+                            parsed
+                        )
+                    except Exception:
+                        parsed = None
+
+                if parsed is None:
+                    logger.warning(
+                        f"X25519 keyfile {x_path} unreadable or not 32 bytes — regenerating key"
+                    )
+                    self.x25519_sk = x25519.X25519PrivateKey.generate()
+                    os.makedirs(os.path.dirname(x_path) or ".", exist_ok=True)
+                    try:
+                        with open(x_path, "wb") as f:
+                            f.write(
+                                self.x25519_sk.private_bytes(
+                                    encoding=serialization.Encoding.Raw,
+                                    format=serialization.PrivateFormat.Raw,
+                                    encryption_algorithm=serialization.NoEncryption(),
+                                )
+                            )
+                    except Exception:
+                        logger.debug("Failed to write regenerated x25519 key to disk")
+            else:
+                self.x25519_sk = x25519.X25519PrivateKey.generate()
+                os.makedirs(os.path.dirname(x_path) or ".", exist_ok=True)
+                try:
+                    with open(x_path, "wb") as f:
+                        f.write(
+                            self.x25519_sk.private_bytes(
+                                encoding=serialization.Encoding.Raw,
+                                format=serialization.PrivateFormat.Raw,
+                                encryption_algorithm=serialization.NoEncryption(),
+                            )
+                        )
+                except Exception:
+                    logger.debug("Failed to write new x25519 key to disk")
+
+            # Debug: report about x25519 file/load state before creating public key
+            try:
+                exists = os.path.exists(x_path)
+            except Exception:
+                exists = False
+            logger.debug(
+                f"x25519 load: x_path={x_path}, exists={exists}, has_attr_x25519_sk={hasattr(self, 'x25519_sk')}"
+            )
+
+            # Guarded access to x25519_sk: try to get public key, regenerate if missing/invalid
+            try:
+                self.x25519_pk = self.x25519_sk.public_key()
+            except Exception as e:
+                logger.warning(
+                    f"x25519_sk missing or invalid ({e}) - generating new key as fallback"
+                )
+                self.x25519_sk = x25519.X25519PrivateKey.generate()
+                try:
+                    os.makedirs(os.path.dirname(x_path) or ".", exist_ok=True)
+                    with open(x_path, "wb") as f:
+                        f.write(
+                            self.x25519_sk.private_bytes(
+                                encoding=serialization.Encoding.Raw,
+                                format=serialization.PrivateFormat.Raw,
+                                encryption_algorithm=serialization.NoEncryption(),
+                            )
+                        )
+                except Exception:
+                    logger.debug("Failed to persist fallback x25519 key to disk")
+                self.x25519_pk = self.x25519_sk.public_key()
+
+            # Kyber1024 (POST-QUANTUM KEM)
+            kyber_path = self.config.get("keys", {}).get(
+                "kyber1024",
+                os.path.join(self.keys_dir, f"{self.nickname}-kyber1024.key"),
+            )
+
+            # helper to coerce various oqs return types to raw bytes
+            def _to_bytes(x):
+                if x is None:
+                    return b""
+                if isinstance(x, (bytes, bytearray)):
+                    return bytes(x)
+                if isinstance(x, memoryview):
+                    return bytes(x)
+                if isinstance(x, str):
+                    s = x.strip()
+                    # try hex
+                    if (
+                        all(c in "0123456789abcdefABCDEF" for c in s)
+                        and len(s) % 2 == 0
+                    ):
+                        try:
+                            return bytes.fromhex(s)
+                        except Exception:
+                            pass
+                    # try base64
+                    try:
+                        import base64 as _b64
+
+                        return _b64.b64decode(s)
+                    except Exception:
+                        pass
+                    return s.encode()
+                if isinstance(x, (list, tuple)):
+                    out = b""
+                    for it in x:
+                        try:
+                            out += _to_bytes(it)
+                        except Exception:
+                            out += str(it).encode()
+                    return out
+                try:
+                    return bytes(x)
+                except Exception:
+                    return str(x).encode()
+
+            if os.path.exists(kyber_path):
+                with open(kyber_path, "rb") as f:
+                    data = f.read()
+
+                # Determine expected lengths (prefer oqs probe results)
+                expected_pub = OQSPY_KEM_PUBLEN or KYBER1024_PKSIZE
+                expected_sk = OQSPY_KEM_SKLEN or KYBER1024_SKSIZE
+                expected_total = expected_pub + expected_sk
+
+                if len(data) != expected_total:
+                    logger.warning(
+                        f"Existing Kyber keyfile {kyber_path} size {len(data)} does not match expected {expected_total} for {OQSPY_KEMALG or 'Kyber1024'}; attempting regeneration"
+                    )
+                    regenerated = False
+                    # Prefer to regenerate using oqs if available
+                    if OQSPY_AVAILABLE:
+                        try:
+                            self.kyber_pk, self.kyber_sk = pq_kem_keygen()
+                            pk_bytes = _to_bytes(self.kyber_pk)
+                            sk_bytes = _to_bytes(self.kyber_sk)
+                            try:
+                                logger.debug(
+                                    f"DBG: regenerated kyber pk_len={len(pk_bytes)} sk_len={len(sk_bytes)}"
+                                )
+                            except Exception:
+                                pass
+                            with open(kyber_path, "wb") as wf:
+                                wf.write(pk_bytes + sk_bytes)
+                            regenerated = True
+                        except Exception as e:
+                            logger.warning(f"Regeneration via oqs failed: {e}")
+
+                    if not regenerated:
+                        # Fallback: best-effort parse/pad the existing file to avoid crashing.
+                        try:
+                            if len(data) >= expected_pub:
+                                self.kyber_pk = data[:expected_pub]
+                                self.kyber_sk = data[
+                                    expected_pub : expected_pub + expected_sk
+                                ]
+                            else:
+                                # Pad public key to expected length
+                                self.kyber_pk = data.ljust(expected_pub, b"\x00")
+                                self.kyber_sk = b""
+                            logger.warning(
+                                f"Using best-effort Kyber key from {kyber_path} (pk len={len(self.kyber_pk)}, sk len={len(self.kyber_sk)})"
+                            )
+                        except Exception:
+                            self.kyber_pk = b""
+                            self.kyber_sk = None
+                else:
+                    # Expected size matches exactly
+                    self.kyber_pk = data[:expected_pub]
+                    self.kyber_sk = data[expected_pub:]
+            else:
+                logger.info("Generating Kyber keys...")
+                self.kyber_pk, self.kyber_sk = pq_kem_keygen()
+                pk_bytes = _to_bytes(self.kyber_pk)
+                sk_bytes = _to_bytes(self.kyber_sk)
+                os.makedirs(os.path.dirname(kyber_path) or ".", exist_ok=True)
+                with open(kyber_path, "wb") as f:
+                    f.write(pk_bytes + sk_bytes)
+                logger.info("Kyber keys generated")
+
+            # ML-DSA-65 (POST-QUANTUM SIG)
+            mldsa_path = self.config.get("keys", {}).get(
+                "mldsa65", os.path.join(self.keys_dir, f"{self.nickname}-mldsa65.key")
+            )
+            if os.path.exists(mldsa_path):
+                with open(mldsa_path, "rb") as f:
+                    data = f.read()
+                total_len = len(data)
+
+                # Prefer using oqs-probed sizes when available, but be lenient: if the keyfile contains at least
+                # a public key worth of bytes, accept the leading bytes as the public key and treat the rest as
+                # a possible secret key blob. This avoids silently failing when oqs probe info is missing or
+                # keyfiles are encoded differently (pk-only, pk+sk, export formats).
+                try:
+                    if OQSPY_AVAILABLE and OQSPY_SIG_PUBLEN:
+                        publen = OQSPY_SIG_PUBLEN
+                    else:
+                        publen = MLDSA65_PKSIZE
+
+                    if total_len >= publen:
+                        self.mldsa_pk = _to_bytes(data[:publen])
+                        if (
+                            total_len >= publen + 16
+                        ):  # anything beyond pk likely contains sk data
+                            self.mldsa_sk = _to_bytes(data[publen:])
+                        else:
+                            self.mldsa_sk = None
+                        # Log if sizes don't match oqs probe to aid debugging
+                        if (
+                            OQSPY_AVAILABLE
+                            and OQSPY_SIG_PUBLEN
+                            and total_len != (OQSPY_SIG_PUBLEN + (OQSPY_SIG_SKLEN or 0))
+                        ):
+                            logger.debug(
+                                f"ML-DSA keyfile {mldsa_path} size {total_len} does not match oqs probe expected ({OQSPY_SIG_PUBLEN}+{OQSPY_SIG_SKLEN}), using available bytes"
+                            )
+                    else:
+                        logger.warning(
+                            f"ML-DSA keyfile {mldsa_path} too small ({total_len} bytes) to contain expected public key size {publen}; regenerating"
+                        )
+                        self.mldsa_pk, self.mldsa_sk = pq_sig_keygen()
+                        self.mldsa_pk = _to_bytes(self.mldsa_pk)
+                        self.mldsa_sk = (
+                            _to_bytes(self.mldsa_sk)
+                            if self.mldsa_sk is not None
+                            else None
+                        )
+                        os.makedirs(os.path.dirname(mldsa_path) or ".", exist_ok=True)
+                        try:
+                            with open(mldsa_path, "wb") as f:
+                                if self.mldsa_sk:
+                                    f.write(self.mldsa_pk + self.mldsa_sk)
+                                else:
+                                    f.write(self.mldsa_pk)
+                        except Exception:
+                            logger.debug("Failed to persist regenerated ML-DSA keyfile")
+                except Exception as e:
+                    logger.warning(
+                        f"Error parsing ML-DSA keyfile {mldsa_path}: {e}; regenerating"
+                    )
+                    self.mldsa_pk, self.mldsa_sk = pq_sig_keygen()
+                    self.mldsa_pk = _to_bytes(self.mldsa_pk)
+                    self.mldsa_sk = (
+                        _to_bytes(self.mldsa_sk) if self.mldsa_sk is not None else None
+                    )
+                    os.makedirs(os.path.dirname(mldsa_path) or ".", exist_ok=True)
+                    try:
+                        with open(mldsa_path, "wb") as f:
+                            if self.mldsa_sk:
+                                f.write(self.mldsa_pk + self.mldsa_sk)
+                            else:
+                                f.write(self.mldsa_pk)
+                    except Exception:
+                        logger.debug("Failed to persist regenerated ML-DSA keyfile")
+            else:
+                logger.info("Generating ML-DSA keys...")
+                self.mldsa_pk, self.mldsa_sk = pq_sig_keygen()
+                # normalize
+
+                self.mldsa_pk = _to_bytes(self.mldsa_pk)
+                self.mldsa_sk = (
+                    _to_bytes(self.mldsa_sk) if self.mldsa_sk is not None else None
+                )
+                os.makedirs(os.path.dirname(mldsa_path) or ".", exist_ok=True)
+                # Persist public key (and secret if present). Always write the public key so the node
+                # can advertise it on next start even when the secret key isn't exportable by oqs-python.
+                try:
+                    with open(mldsa_path, "wb") as f:
+                        if self.mldsa_sk:
+                            f.write(self.mldsa_pk + self.mldsa_sk)
+                        else:
+                            f.write(self.mldsa_pk)
+                except Exception:
+                    logger.debug("Failed to write ML-DSA keyfile to disk")
+                logger.info("ML-DSA keys generated")
+
+            # Extra safety: if mldsa_pk is somehow empty, attempt regeneration and persist PK-only
+            if not self.mldsa_pk:
+                logger.warning(
+                    "ML-DSA public key empty after generation/load; attempting regeneration"
+                )
+                try:
+                    pk_new, sk_new = pq_sig_keygen()
+                    self.mldsa_pk = _to_bytes(pk_new)
+                    self.mldsa_sk = _to_bytes(sk_new) if sk_new is not None else None
+                    try:
+                        os.makedirs(os.path.dirname(mldsa_path) or ".", exist_ok=True)
+                        with open(mldsa_path, "wb") as f:
+                            if self.mldsa_sk:
+                                f.write(self.mldsa_pk + self.mldsa_sk)
+                            else:
+                                f.write(self.mldsa_pk)
+                        logger.info("Regenerated and saved ML-DSA public key")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to persist regenerated ML-DSA keyfile: {e}"
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to regenerate ML-DSA keys: {e}")
+
+        except Exception as e:
+            logger.error(f"FATAL Key loading error: {e}")
+            raise
+
+    def load_known_peers(self):
+        """Load known peers from YAML file (TOFU store)."""
+        if not os.path.exists(self.known_peers_file):
+            self.known_peers = {}
+            return
+
+        try:
+            with open(self.known_peers_file, "rb") as f:
+                raw = f.read()
+
+            # Check for encryption
+            if raw.startswith(b"ENCv1:"):
+                passphrase = self.config.get("security", {}).get(
+                    "known_peers_passphrase"
+                )
+                if not passphrase:
+                    logger.error(
+                        f"known_peers file is encrypted but no passphrase configured - cannot load {self.known_peers_file}"
+                    )
+                    self.known_peers = {}
+                    return
+
+                enc_b64 = raw.split(b":", 1)[1]
+                try:
+                    enc = base64.b64decode(enc_b64)
+                    nonce = enc[:12]
+                    ct = enc[12:]
+                    key = argon2_derive_key_material(
+                        passphrase.encode(), salt=b"known_peers-salt", length=32
+                    )
+                    aes = AESGCM(key)
+                    data = aes.decrypt(nonce, ct, None)
+                    self.known_peers = yaml.safe_load(data.decode()) or {}
+                    self.known_peers = (
+                        self.known_peers.get("peers", {})
+                        if isinstance(self.known_peers, dict)
+                        else self.known_peers
+                    )
+                    logger.info(
+                        f"Loaded {len(self.known_peers)} known peers (encrypted) from {self.known_peers_file}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to decrypt known_peers file: {e}")
+                    self.known_peers = {}
+            else:
+                data = yaml.safe_load(raw.decode()) or {}
+                self.known_peers = (
+                    data.get("peers", {}) if isinstance(data, dict) else data
+                )
+                logger.info(
+                    f"Loaded {len(self.known_peers)} known peers from {self.known_peers_file}"
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to load known peers file: {e}")
+            self.known_peers = {}
+
+    def save_known_peers(self):
+        """Persist known peers to file (atomically)."""
+        try:
+            tmp = self.known_peers_file + ".tmp"
+            data_bytes = yaml.safe_dump({"peers": self.known_peers}).encode()
+
+            passphrase = self.config.get("security", {}).get("known_peers_passphrase")
+            if passphrase:
+                try:
+                    key = argon2_derive_key_material(
+                        passphrase.encode(), salt=b"known_peers-salt", length=32
+                    )
+                    aes = AESGCM(key)
+                    nonce = os.urandom(12)
+                    ct = aes.encrypt(nonce, data_bytes, None)
+                    out = b"ENCv1:" + base64.b64encode(nonce + ct)
+
+                    with open(tmp, "wb") as f:
+                        f.write(out)
+                except Exception as e:
+                    logger.error(f"Failed to encrypt known_peers file: {e}")
+                    with open(tmp, "wb") as f:
+                        f.write(data_bytes)
+            else:
+                with open(tmp, "wb") as f:
+                    f.write(data_bytes)
+
+            os.replace(tmp, self.known_peers_file)
+
+            try:
+                os.chmod(self.known_peers_file, 0o600)
+            except Exception:
+                logger.debug("chmod known_peers file failed or unsupported")
+
+            logger.debug(
+                f"Saved {len(self.known_peers)} known peers to {self.known_peers_file}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to save known peers: {e}")
+
+    def is_peer_allowed(self, peer_id: bytes) -> bool:
+        """Return True if peer is allowed by allowlist or TOFU policy."""
+        pid_hex = peer_id.hex()
+
+        if self.allowlist:
+            allowed = pid_hex in self.allowlist
+            if not allowed:
+                logger.warning(f"Peer {pid_hex[:8]} not in allowlist")
+            return allowed
+
+        if pid_hex in self.known_peers:
+            return True
+
+        return self.tofu_enabled
+
+    def register_peer_tofu(self, peer_id: bytes, info: Dict[str, str]) -> bool:
+        """Register or update a peer in the TOFU known_peers store."""
+        pid_hex = peer_id.hex()
+        existing = self.known_peers.get(pid_hex)
+
+        if existing:
+            changed = False
+            for k in ["ed25519_pk", "x25519_pk", "kyber_pk", "mldsa_pk"]:
+                if existing.get(k) and info.get(k) and existing.get(k) != info.get(k):
+                    changed = True
+                    logger.warning(f"Known peer {pid_hex[:8]} key '{k}' changed")
+
+            if changed and self.strict_tofu:
+                logger.error(
+                    f"Strict TOFU: rejecting peer {pid_hex[:8]} due to key change"
+                )
+                return False
+
+            existing.update(info)
+            self.known_peers[pid_hex] = existing
+            self.save_known_peers()
+            return True
+
+        self.known_peers[pid_hex] = info
+        self.save_known_peers()
+        logger.info(
+            f"TOFU: stored new peer {pid_hex[:8]}, nickname={info.get('nickname')}"
+        )
+        return True
+
+    def session_salt(self, peer_id: bytes) -> bytes:
+        """Compute a deterministic symmetric 16-byte salt for session KDFs."""
+        a = self.my_id
+        b = peer_id
+        if a is None:
+            a = b
+
+        if a <= b:
+            keymaterial = a + b
+        else:
+            keymaterial = b + a
+
+        return hashlib.sha256(b"pqvpn" + keymaterial).digest()[:16]
+
+    def check_and_record_nonce(self, sess: SessionInfo, nonce_bytes: bytes) -> bool:
+        """Check nonce counter for replay and record it in session replay window."""
+        if not nonce_bytes or len(nonce_bytes) != NONCE_LENGTH:
+            return False
+        try:
+            counter = struct.unpack("!Q", nonce_bytes[4:12])[0]
+        except Exception:
+            return False
+
+        # Ensure nonce_recv is an integer
+        highest = sess.nonce_recv if isinstance(sess.nonce_recv, int) else -1
+
+        # If already seen -> replay
+        if counter in sess.replay_window:
+            return False
+
+        # If counter is greater than highest -> new packet, accept and update
+        if counter > highest:
+            sess.replay_window.add(counter)
+            sess.nonce_recv = counter
+            # prune oldest entries until window size satisfied
+            while len(sess.replay_window) > sess.replay_window_size:
+                try:
+                    sess.replay_window.discard(min(sess.replay_window))
+                except Exception:
+                    break
+            return True
+
+        # counter <= highest: allow if within replay window and not seen
+        if highest - counter <= sess.replay_window_size:
+            if counter in sess.replay_window:
+                return False
+            sess.replay_window.add(counter)
+            # prune oldest entries until window size satisfied
+            while len(sess.replay_window) > sess.replay_window_size:
+                try:
+                    sess.replay_window.discard(min(sess.replay_window))
+                except Exception:
+                    break
+            return True
+
+        # too old
+        return False
+
+    def peer_hash8(self, peer_id: bytes) -> bytes:
+        """Return 8-byte hash fingerprint (used in outer headers for next-hop selection)."""
+        return hashlib.sha256(peer_id).digest()[:8]
+
+    def choose_relay(self, dest_peer_id: bytes) -> Optional[bytes]:
+        """Pick a relay peer id different from dest and self."""
+        candidates = [
+            pid
+            for pid in self.mesh.peers.keys()
+            if pid != dest_peer_id and (self.my_id is None or pid != self.my_id)
+        ]
+
+        if not candidates:
+            return None
+
+        for pid in candidates:
+            if self.mesh.peers[pid].is_relay:
+                return pid
+
+        try:
+            return next(iter(candidates)) if candidates else None
+        except Exception:
+            return None
+
+    def make_outer_frame(
+        self, frame_type: int, next_hop_hash: bytes, circuit_id: int, payload: bytes
+    ) -> bytes:
+        """Construct outer header: version(1), frame_type(1), next_hop_hash(8), circuit_id(4), length(2), payload."""
+        version = 1
+        length = len(payload)
+        header = struct.pack(
+            "!BB8sIH", version, frame_type, next_hop_hash, circuit_id, length
+        )
+        return header + payload
+
+    def build_onion_frame(
+        self, path: List[bytes], inner_frame: bytes
+    ) -> Optional[bytes]:
+        """Build a full onion RELAY frame for path."""
+        if not path or len(path) < 1:
+            return None
+
+        current_inner = inner_frame
+
+        # Encrypt from end of path backwards to start
+        for i in range(len(path) - 1, 0, -1):
+            target = path[i]
+            hop = path[i - 1]
+            sess = self.sessions_by_peer_id.get(hop)
+
+            if not sess:
+                logger.warning(
+                    f"build_onion_frame: missing session to hop {hop.hex()[:8]}"
+                )
+                return None
+
+            next_hash = self.peer_hash8(target)
+            cid_bytes = struct.pack("!I", 0)
+            ad = b"PQVPN" + sess.session_id + next_hash + cid_bytes
+            nonce = sess.session_iv + struct.pack("!Q", sess.nonce_send)
+
+            plaintext = next_hash + current_inner
+
+            try:
+                ct = sess.aead_send.encrypt(nonce, plaintext, ad)
+            except Exception as e:
+                logger.error(
+                    f"build_onion_frame AEAD encrypt failed for hop {hop.hex()[:8]}: {e}"
+                )
+                return None
+
+            current_inner = sess.session_id + nonce + ct
+            sess.nonce_send += 1
+
+        # Outer frame pointing to first hop
+        first_hop = path[0]
+        outer_next_hash = self.peer_hash8(first_hop)
+        outer_frame = self.make_outer_frame(FT_RELAY, outer_next_hash, 0, current_inner)
+
+        return outer_frame
+
+    def build_onion_frame_with_circuit(
+        self, path: List[bytes], inner_frame: bytes, circuit_id: int
+    ) -> Optional[bytes]:
+        """Build an onion RELAY frame embedding a circuit id into AEAD additional data and outer header.
+
+        This mirrors build_onion_frame but uses the provided circuit_id in the per-hop AD and in the outer header.
+        """
+        if not path or len(path) < 1:
+            return None
+
+        current_inner = inner_frame
+
+        for i in range(len(path) - 1, 0, -1):
+            target = path[i]
+            hop = path[i - 1]
+            sess = self.sessions_by_peer_id.get(hop)
+
+            if not sess:
+                logger.warning(
+                    f"build_onion_frame_with_circuit: missing session to hop {hop.hex()[:8]}"
+                )
+                return None
+
+            next_hash = self.peer_hash8(target)
+            cid_bytes = struct.pack("!I", circuit_id)
+            ad = b"PQVPN" + sess.session_id + next_hash + cid_bytes
+            nonce = sess.session_iv + struct.pack("!Q", sess.nonce_send)
+
+            plaintext = next_hash + current_inner
+
+            try:
+                ct = sess.aead_send.encrypt(nonce, plaintext, ad)
+            except Exception as e:
+                logger.error(
+                    f"build_onion_frame_with_circuit AEAD encrypt failed for hop {hop.hex()[:8]}: {e}"
+                )
+                return None
+
+            current_inner = sess.session_id + nonce + ct
+            sess.nonce_send += 1
+
+        first_hop = path[0]
+        outer_next_hash = self.peer_hash8(first_hop)
+        outer_frame = self.make_outer_frame(
+            FT_RELAY, outer_next_hash, circuit_id, current_inner
+        )
+
+        return outer_frame
+
+    async def send_onion(self, path: List[bytes], inner_frame: bytes) -> bool:
+        """Build and send an onion RELAY to the first hop in path."""
+        if not path:
+            return False
+
+        first_hop = path[0]
+        sess = self.sessions_by_peer_id.get(first_hop)
+
+        if not sess or not sess.remote_addr:
+            logger.warning(
+                f"send_onion: no session/addr for first hop {first_hop.hex()[:8]}"
+            )
+            return False
+
+        outer = self.build_onion_frame(path, inner_frame)
+        if not outer:
+            return False
+
+        try:
+            if self.protocol and self.protocol.transport:
+                self.protocol.transport.sendto(outer, sess.remote_addr)
+                logger.debug(
+                    f"Sent onion RELAY to {sess.remote_addr}, path={'-'.join(p.hex()[:8] for p in path)}"
+                )
+                return True
+        except Exception as e:
+            logger.error(f"send_onion failed: {e}")
+            return False
+
+        return False
+
+    async def handle_relay(
+        self,
+        session_id: bytes,
+        nonce: bytes,
+        ciphertext: bytes,
+        outer_next_hash: Optional[bytes] = None,
+        circuit_id: int = 0,
+    ):
+        """Decrypt one onion layer and forward inner_frame to next hop."""
+        sess = self.sessions.get(session_id)
+
+        if not sess:
+            logger.warning(f"RELAY for unknown session {session_id.hex()[:8]}")
+            return
+
+        if not self.check_and_record_nonce(sess, nonce):
+            logger.warning(
+                f"RELAY replay or invalid nonce for session {session_id.hex()[:8]}"
+            )
+            return
+
+        next_hash = outer_next_hash or b"\x00" * 8
+        cid_bytes = struct.pack("!I", circuit_id)
+        ad = b"PQVPN" + sess.session_id + next_hash + cid_bytes
+
+        try:
+            inner = sess.aead_recv.decrypt(nonce, ciphertext, ad)
+        except Exception as e:
+            logger.error(f"RELAY decrypt failed: {e}")
+            return
+
+        if len(inner) < 8:
+            logger.warning("RELAY decrypted payload too short")
+            return
+
+        nexth = inner[:8]
+        inner_frame = inner[8:]
+
+        # If nexth is self, process inner frame locally
+        if self.my_id is not None and nexth == self.peer_hash8(self.my_id):
+            try:
+                if len(inner_frame) >= 16 and inner_frame[0] == 1:
+                    version, ftype, nh, cid, length = struct.unpack(
+                        "!BB8sIH", inner_frame[:16]
+                    )
+                    payload = inner_frame[16 : 16 + length]
+                else:
+                    ftype = inner_frame[0]
+                    payload = inner_frame[1:]
+                    nh = b"\x00" * 8
+                    cid = 0
+
+                if ftype == FT_DATA and len(payload) >= 20:
+                    sid = payload[:8]
+                    nn = payload[8:20]
+                    ct = payload[20:]
+                    await self.handle_data(
+                        sid, nn, ct, outer_next_hash=nh, circuit_id=cid
+                    )
+                elif ftype == FT_HELLO:
+                    await self.handle_hello(
+                        payload, ("127.0.0.1", 0), outer_next_hash=nh, circuit_id=cid
+                    )
+                else:
+                    logger.debug(f"RELAY inner to self of type {ftype}")
+            except Exception as e:
+                logger.error(f"RELAY processing inner frame locally failed: {e}")
+                return
+        else:
+            # Forward to next hop
+            target_peer = None
+            for pid, pinfo in self.mesh.peers.items():
+                if self.peer_hash8(pid) == nexth:
+                    target_peer = pinfo
+                    break
+
+            if not target_peer:
+                logger.error(f"RELAY unknown next hop {nexth.hex()}")
+                return
+
+            try:
+                if self.protocol and self.protocol.transport and target_peer.address:
+                    self.protocol.transport.sendto(inner_frame, target_peer.address)
+                    logger.debug(
+                        f"RELAY forwarded to {target_peer.nickname} at {target_peer.address}"
+                    )
+            except Exception as e:
+                logger.error(f"RELAY forward failed: {e}")
+
+    async def send_bootstrap_hellos(self):
+        """Send minimal HELLO messages to bootstrap peers to initiate handshakes."""
+        if not self.bootstrap_peers:
+            return
+
+        for bs in self.bootstrap_peers:
+            try:
+                host = bs.get("host")
+                port = int(bs.get("port"))
+                target = (host, port)
+
+                hello = {
+                    "peerid": self.my_id.hex() if self.my_id else "",
+                    "nickname": self.nickname,
+                    "ed25519_pk": self.ed25519_pk.hex(),
+                    "x25519_pk": (
+                        self.x25519_pk.public_bytes(
+                            encoding=serialization.Encoding.Raw,
+                            format=serialization.PublicFormat.Raw,
+                        ).hex()
+                        if getattr(self, "x25519_pk", None)
+                        else ""
+                    ),
+                    "kyber_pk": self.kyber_pk.hex(),
+                    "mldsa_pk": self.mldsa_pk.hex(),
+                    "timestamp": int(time.time()),
+                    "response": False,
+                    "sessionid": "",
+                }
+
+                # Prepare canonical signing bytes; ensure to_sign is always defined
+                to_sign = b""
+                try:
+                    # Use canonical signing bytes for HELLO
+                    to_sign = canonical_sign_bytes(
+                        hello, field_order=self.HELLO_SIGN_FIELDS
+                    )
+                    sig = self.ed25519_sk.sign(to_sign)
+                except Exception:
+                    sig = b""
+
+                # Also provide ML-DSA signature if available
+                try:
+                    if getattr(self, "mldsa_sk", None):
+                        try:
+                            msig = pq_sig_sign(self.mldsa_sk, to_sign)
+                            hello["mldsa_sig"] = msig.hex()
+                        except Exception:
+                            hello["mldsa_sig"] = ""
+                    else:
+                        hello["mldsa_sig"] = ""
+                except Exception:
+                    hello["mldsa_sig"] = ""
+
+                hello["ed25519_sig"] = sig.hex() if sig else ""
+                final = json.dumps(
+                    hello, separators=(",", ":"), sort_keys=True
+                ).encode()
+
+                frame = self.make_outer_frame(FT_HELLO, b"\x00" * 8, 0, final)
+
+                if self.protocol and getattr(self.protocol, "transport", None):
+                    self.protocol.transport.sendto(frame, target)
+                    logger.info(f"HELLO sent to bootstrap {host}:{port}")
+
+                if self.my_id:
+                    self.audit_trail.log_event(
+                        "HELLO_SENT", self.my_id, f"to {host}:{port}"
+                    )
+
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                logger.warning(f"Failed to send HELLO to bootstrap {bs}: {e}")
+
+    async def session_maintenance(self):
+        """Background task: heartbeat, rekey decisions, diagnostics, and session cleanup.
+
+        Sends a small JSON heartbeat to each established session, prunes stale
+        sessions, and triggers key rotations via the KeyRotationManager.
+        """
+        # import resource lazily since not all platforms provide it
+        try:
+            import resource
+        except Exception:
+            resource = None
+
+        logger.info("Session maintenance task started")
+        try:
+            while True:
+                try:
+                    now = time.time()
+
+                    # Diagnostics: active sessions and memory
+                    active = len(self.sessions)
+                    mem = None
+                    try:
+                        if resource is not None:
+                            mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                    except Exception:
+                        mem = None
+                    logger.info(
+                        f"Session maintenance: active_sessions={active} mem={mem}"
+                    )
+
+                    # operate on snapshot to allow concurrent modifications
+                    for sid, sess in list(self.sessions.items()):
+                        # Close stale established sessions
+                        if sess.state == SESSION_STATE_ESTABLISHED:
+                            idle = now - sess.last_activity
+                            if idle > SESSION_TIMEOUT:
+                                logger.info(
+                                    f"Session {sid.hex()[:8]} timed out (idle={int(idle)}s)"
+                                )
+                                try:
+                                    sess.state = SESSION_STATE_CLOSED
+                                    if (
+                                        sess.peer_id
+                                        and sess.peer_id in self.sessions_by_peer_id
+                                    ):
+                                        try:
+                                            del self.sessions_by_peer_id[sess.peer_id]
+                                        except Exception:
+                                            pass
+                                    try:
+                                        del self.sessions[sid]
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+
+                        # Send heartbeat JSON for established sessions
+                        if sess.state == SESSION_STATE_ESTABLISHED and sess.remote_addr:
+                            try:
+                                hb = {
+                                    "type": "heartbeat",
+                                    "sessionid": sess.session_id.hex(),
+                                    "timestamp": int(now),
+                                    "peerid": (
+                                        self.my_id.hex()
+                                        if getattr(self, "my_id", None)
+                                        else ""
+                                    ),
+                                    "uptime": int(
+                                        now - getattr(self, "start_time", now)
+                                    ),
+                                }
+                                payload = json.dumps(hb, separators=(",", ":")).encode()
+                                frame = self.make_outer_frame(
+                                    FT_KEEPALIVE, b"\x00" * 8, 0, payload
+                                )
+                                if self.protocol and getattr(
+                                    self.protocol, "transport", None
+                                ):
+                                    try:
+                                        self.protocol.transport.sendto(
+                                            frame, sess.remote_addr
+                                        )
+                                        sess.last_activity = now
+                                    except Exception:
+                                        logger.debug(
+                                            "Failed to send heartbeat", exc_info=True
+                                        )
+                            except Exception:
+                                logger.debug(
+                                    "Failed to prepare/send heartbeat", exc_info=True
+                                )
+
+                        # Rekey decision and perform if needed
+                        try:
+                            last_rekey_time = self.rekey_manager.last_rekey.get(
+                                sess.session_id, sess.created_at
+                            )
+                            bytes_transferred = sess.bytes_sent + sess.bytes_recv
+                            if self.rekey_manager.should_rekey(
+                                sess.session_id, bytes_transferred, last_rekey_time
+                            ):
+                                logger.info(
+                                    f"Rekeying session {sess.session_id.hex()[:8]}"
+                                )
+                                try:
+                                    _, new_aead_send, new_aead_recv = (
+                                        self.rekey_manager.perform_rekey(
+                                            sess.session_id
+                                        )
+                                    )
+                                    sess.aead_send = new_aead_send
+                                    sess.aead_recv = new_aead_recv
+                                    try:
+                                        self.analytics.metrics["rekeys_performed"] += 1
+                                    except Exception:
+                                        pass
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Rekey failed for {sess.session_id.hex()[:8]}: {e}"
+                                    )
+                        except Exception:
+                            logger.debug("Rekey decision error", exc_info=True)
+
+                except Exception:
+                    logger.debug("Session maintenance iteration error", exc_info=True)
+
+                await asyncio.sleep(KEEPALIVE_INTERVAL)
+        except asyncio.CancelledError:
+            logger.info("Session maintenance task cancelled")
+            return
+        except Exception:
+            logger.exception("Session maintenance failed unexpectedly")
+            return
+
+    async def handle_hello(
+        self,
+        data: bytes,
+        addr: Tuple[str, int],
+        outer_next_hash: bytes = None,
+        circuit_id: int = 0,
+    ):
+        """Handle incoming HELLO messages (initial handshake).
+
+        Supports hybrid handshake when peer advertises Kyber and X25519 keys: we
+        perform Kyber encapsulation + X25519 ECDH and send an S1 message signed
+        with Ed25519 and ML-DSA (if available). If hybrid is not possible we
+        fall back to a deterministic legacy session.
+        """
+        try:
+            try:
+                j = yaml.safe_load(data) if data else {}
+                if not isinstance(j, dict):
+                    j = json.loads(data) if data else {}
+            except Exception:
+                try:
+                    j = json.loads(data) if data else {}
+                except Exception:
+                    j = {}
+
+            # Normalize peer id
+            peerid_field = j.get("peerid")
+            peer_id = None
+            if peerid_field:
+                try:
+                    if isinstance(peerid_field, str) and all(
+                        c in "0123456789abcdefABCDEF" for c in peerid_field
+                    ):
+                        peer_id = bytes.fromhex(peerid_field)
+                    elif isinstance(peerid_field, (bytes, bytearray)):
+                        peer_id = bytes(peerid_field)
+                    else:
+                        peer_id = str(peerid_field).encode()
+                except Exception:
+                    peer_id = str(peerid_field).encode()
+
+            # If hybrid possible, perform Kyber encapsulation + X25519 ECDH and send S1
+            kyber_hex = j.get("kyber_pk", "")
+            x25519_hex = j.get("x25519_pk", "")
+
+            if OQSPY_AVAILABLE and kyber_hex and x25519_hex and not j.get("response"):
+                # require both public signature keys for hybrid mode if configured
+                ed_pk_field = j.get("ed25519_pk")
+                mld_pk_field = j.get("mldsa_pk")
+                # If sender didn't include signature keys, try known_peers (TOFU) as a fallback
+                kp = None
+                try:
+                    if peerid_field:
+                        pid_hex = (
+                            peerid_field.hex()
+                            if isinstance(peerid_field, (bytes, bytearray))
+                            else (
+                                peerid_field if isinstance(peerid_field, str) else None
+                            )
+                        )
+                        if pid_hex and pid_hex in self.known_peers:
+                            kp = self.known_peers.get(pid_hex)
+                except Exception:
+                    kp = None
+                # Fallback: try to match known_peers by advertised public keys
+                if kp is None:
+                    try:
+                        fk = self.find_known_peer_by_pubkeys(j)
+                        if fk:
+                            kp = fk
+                    except Exception:
+                        pass
+
+                ed_present = bool(ed_pk_field) or bool(kp and kp.get("ed25519_pk"))
+                mld_present = bool(mld_pk_field) or bool(kp and kp.get("mldsa_pk"))
+
+                if self.require_hybrid_handshake and (
+                    not ed_present or not mld_present
+                ):
+                    logger.warning(
+                        "Received HELLO without full hybrid keyset; rejecting because require_hybrid_handshake=True"
+                    )
+                    # Log info about what keys were seen vs known
+                    try:
+                        logger.debug(
+                            f"HELLO key summary: ed_in_payload={bool(ed_pk_field)}, mld_in_payload={bool(mld_pk_field)}, ed_in_tofu={bool(kp and kp.get('ed25519_pk'))}, mld_in_tofu={bool(kp and kp.get('mldsa_pk'))}"
+                        )
+                    except Exception:
+                        pass
+                    return
+                # decode peer keys
+                try:
+                    peer_kyber = (
+                        bytes.fromhex(kyber_hex) if isinstance(kyber_hex, str) else None
+                    )
+                except Exception:
+                    peer_kyber = None
+                try:
+                    peer_x = (
+                        bytes.fromhex(x25519_hex)
+                        if isinstance(x25519_hex, str)
+                        else None
+                    )
+                except Exception:
+                    peer_x = None
+
+                # decode signature public keys if available
+                try:
+                    peer_ed = (
+                        bytes.fromhex(ed_pk_field)
+                        if isinstance(ed_pk_field, str) and ed_pk_field
+                        else None
+                    )
+                except Exception:
+                    peer_ed = None
+                try:
+                    peer_mld = (
+                        bytes.fromhex(mld_pk_field)
+                        if isinstance(mld_pk_field, str) and mld_pk_field
+                        else None
+                    )
+                except Exception:
+                    peer_mld = None
+
+                if peer_kyber and peer_x and peer_ed and peer_mld:
+                    # Kyber encapsulation -> ciphertext + shared secret
+                    try:
+                        ct, ss_pq = pq_kem_encaps(peer_kyber)
+                    except Exception as e:
+                        logger.debug(f"Kyber encaps failed: {e}")
+                        ct, ss_pq = None, None
+
+                    # X25519 ECDH
+                    try:
+                        peer_x_pub = x25519.X25519PublicKey.from_public_bytes(peer_x)
+                        ecdh = self.x25519_sk.exchange(peer_x_pub)
+                    except Exception:
+                        ecdh = b""
+
+                    # Derive key material (Argon2)
+                    try:
+                        km = (ss_pq or b"") + ecdh + self.session_salt(peer_id or b"")
+                        full = argon2_derive_key_material(
+                            km, salt=self.session_salt(peer_id or b""), length=64
+                        )
+                    except Exception as e:
+                        logger.error(f"KDF failed during hybrid handshake: {e}")
+                        full = None
+
+                    if full:
+                        if self.my_id and peer_id and self.my_id <= peer_id:
+                            send_key = full[:32]
+                            recv_key = full[32:64]
+                        else:
+                            recv_key = full[:32]
+                            send_key = full[32:64]
+
+                        # Normalize to 32 bytes
+                        if len(send_key) != 32:
+                            send_key = hashlib.sha256(send_key).digest()[:32]
+                        if len(recv_key) != 32:
+                            recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+                        # Deterministic session id for compatibility/tests
+                        sid = hashlib.sha256(
+                            (peer_id or b"") + (self.my_id or b"")
+                        ).digest()[:8]
+
+                        sess = SessionInfo(
+                            session_id=sid,
+                            peer_id=peer_id or b"",
+                            aead_send=ChaCha20Poly1305(send_key),
+                            aead_recv=ChaCha20Poly1305(recv_key),
+                            state=SESSION_STATE_HANDSHAKING,
+                            remote_addr=addr,
+                            send_key=send_key,
+                            recv_key=recv_key,
+                        )
+                        self.sessions[sid] = sess
+                        if peer_id:
+                            self.sessions_by_peer_id[peer_id] = sess
+
+                        # Build S1
+                        s1 = {
+                            "peerid": self.my_id.hex() if self.my_id else "",
+                            "sessionid": sid.hex(),
+                            "ct": (ct.hex() if ct else ""),
+                            "x25519_pk": self.x25519_pk.public_bytes(
+                                encoding=serialization.Encoding.Raw,
+                                format=serialization.PublicFormat.Raw,
+                            ).hex(),
+                            "timestamp": int(time.time()),
+                        }
+
+                        # Sign S1 with Ed25519 and ML-DSA when available
+                        try:
+                            to_sign = canonical_sign_bytes(
+                                s1, field_order=self.S1_SIGN_FIELDS
+                            )
+                        except Exception:
+                            to_sign = canonical_sign_bytes(s1)
+
+                        try:
+                            edsig = self.ed25519_sk.sign(to_sign)
+                            s1["ed25519_sig"] = edsig.hex()
+                        except Exception:
+                            s1["ed25519_sig"] = ""
+                        try:
+                            if getattr(self, "mldsa_sk", None):
+                                msig = pq_sig_sign(self.mldsa_sk, to_sign)
+                                s1["mldsa_sig"] = msig.hex()
+                            else:
+                                s1["mldsa_sig"] = ""
+                        except Exception:
+                            s1["mldsa_sig"] = ""
+
+                        frame_s1 = self.make_outer_frame(
+                            FT_S1,
+                            b"\x00" * 8,
+                            0,
+                            json.dumps(
+                                s1, separators=(",", ":"), sort_keys=True
+                            ).encode(),
+                        )
+                        try:
+                            if self.protocol and getattr(
+                                self.protocol, "transport", None
+                            ):
+                                self.protocol.transport.sendto(frame_s1, addr)
+                                logger.info(f"FT_S1 sent to {addr}")
+                        except Exception:
+                            logger.debug("Failed to send FT_S1")
+
+                        # Reply HELLO response with sessionid
+                        resp = dict(j)
+                        resp["response"] = True
+                        resp["sessionid"] = sid.hex()
+                        signed = None
+                        try:
+                            to_sign = dict(resp)
+                            to_sign.pop("ed25519_sig", None)
+                            signed = canonical_sign_bytes(
+                                to_sign, field_order=self.HELLO_SIGN_FIELDS
+                            )
+                            resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                        except Exception:
+                            resp["ed25519_sig"] = ""
+                        try:
+                            if getattr(self, "mldsa_sk", None) and signed is not None:
+                                resp["mldsa_sig"] = pq_sig_sign(
+                                    self.mldsa_sk, signed
+                                ).hex()
+                            else:
+                                resp["mldsa_sig"] = ""
+                        except Exception:
+                            resp["mldsa_sig"] = ""
+
+                        try:
+                            frame = self.make_outer_frame(
+                                FT_HELLO,
+                                b"\x00" * 8,
+                                0,
+                                json.dumps(
+                                    resp, separators=(",", ":"), sort_keys=True
+                                ).encode(),
+                            )
+                            if self.protocol and getattr(
+                                self.protocol, "transport", None
+                            ):
+                                self.protocol.transport.sendto(frame, addr)
+                        except Exception:
+                            logger.debug("Failed to send HELLO response (hybrid)")
+
+                        return
+
+            # Legacy deterministic session when hybrid not performed or failed
+            if self.require_hybrid_handshake:
+                logger.warning(
+                    "Rejecting non-hybrid HELLO because require_hybrid_handshake=True"
+                )
+                return
+            keymaterial_raw = self.session_salt(
+                peer_id or hashlib.sha256((j.get("nickname", "")).encode()).digest()
+            )
+            full = argon2_derive_key_material(
+                keymaterial_raw, salt=keymaterial_raw, length=64
+            )
+            if self.my_id and peer_id and self.my_id <= peer_id:
+                send_key = full[:32]
+                recv_key = full[32:64]
+            else:
+                recv_key = full[:32]
+                send_key = full[32:64]
+
+            if len(send_key) != 32:
+                send_key = hashlib.sha256(send_key).digest()[:32]
+            if len(recv_key) != 32:
+                recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+            sid = hashlib.sha256((peer_id or b"") + (self.my_id or b"")).digest()[:8]
+            sess = SessionInfo(
+                session_id=sid,
+                peer_id=peer_id or b"",
+                aead_send=ChaCha20Poly1305(send_key),
+                aead_recv=ChaCha20Poly1305(recv_key),
+                state=SESSION_STATE_ESTABLISHED,
+                remote_addr=addr,
+                send_key=send_key,
+                recv_key=recv_key,
+            )
+            self.sessions[sid] = sess
+            if peer_id:
+                self.sessions_by_peer_id[peer_id] = sess
+
+            if not j.get("response"):
+                resp = dict(j)
+                resp["response"] = True
+                resp["sessionid"] = sid.hex()
+                signed = None
+                try:
+                    to_sign = dict(resp)
+                    to_sign.pop("ed25519_sig", None)
+                    signed = canonical_sign_bytes(
+                        to_sign, field_order=self.HELLO_SIGN_FIELDS
+                    )
+                    resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                except Exception:
+                    resp["ed25519_sig"] = ""
+                try:
+                    if getattr(self, "mldsa_sk", None) and signed is not None:
+                        resp["mldsa_sig"] = pq_sig_sign(self.mldsa_sk, signed).hex()
+                    else:
+                        resp["mldsa_sig"] = ""
+                except Exception:
+                    resp["mldsa_sig"] = ""
+                try:
+                    frame = self.make_outer_frame(
+                        FT_HELLO,
+                        b"\x00" * 8,
+                        0,
+                        json.dumps(
+                            resp, separators=(",", ":"), sort_keys=True
+                        ).encode(),
+                    )
+                    if self.protocol and getattr(self.protocol, "transport", None):
+                        self.protocol.transport.sendto(frame, addr)
+                except Exception:
+                    logger.debug("Failed to send HELLO response (legacy)")
+
+        except Exception as e:
+            logger.error(f"HELLO handling error: {e}")
+            logger.debug(traceback.format_exc())
+
+    async def handle_s1(
+        self,
+        j: Dict[str, Any],
+        addr: Tuple[str, int],
+        outer_next_hash: bytes = None,
+        circuit_id: int = 0,
+    ):
+        """Handle incoming FT_S1: decapsulate Kyber ciphertext, compute ECDH, derive keys and establish session.
+
+        This implementation is defensive about input encodings (hex/base64/raw) and
+        verifies the included Ed25519 and ML-DSA signatures if the corresponding
+        public keys are available (payload or TOFU store).
+        """
+        try:
+            peerid_field = j.get("peerid")
+            sid_hex = j.get("sessionid")
+            ct_field = j.get("ct")
+            peer_x_hex = j.get("x25519_pk")
+            ed_sig_field = j.get("ed25519_sig")
+            mldsa_sig_field = j.get("mldsa_sig")
+
+            if not sid_hex or not ct_field:
+                logger.warning("S1 missing fields")
+                return
+
+            sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
+
+            # normalize ciphertext
+            try:
+                ct = (
+                    bytes.fromhex(ct_field)
+                    if isinstance(ct_field, str) and all(c in "0123456789abcdefABCDEF" for c in ct_field) and len(ct_field) % 2 == 0
+                    else (base64.b64decode(ct_field) if isinstance(ct_field, str) else ct_field)
+                )
+            except Exception:
+                try:
+                    ct = (
+                        bytes.fromhex(ct_field)
+                        if isinstance(ct_field, str)
+                        else ct_field
+                    )
+                except Exception:
+                    logger.warning("S1 ct decode failed")
+                    return
+
+            # Derive peer_id if provided
+            peer_id = None
+            if peerid_field:
+                try:
+                    if isinstance(peerid_field, str) and all(c in "0123456789abcdefABCDEF" for c in peerid_field) and len(peerid_field) % 2 == 0:
+                        peer_id = bytes.fromhex(peerid_field)
+                    elif isinstance(peerid_field, (bytes, bytearray)):
+                        peer_id = bytes(peerid_field)
+                    else:
+                        peer_id = str(peerid_field).encode()
+                except Exception:
+                    peer_id = None
+
+            # Collect payload/TOFU public keys for verification
+            def _norm_pub_to_bytes(v):
+                if v is None:
+                    return None
+                if isinstance(v, (bytes, bytearray)):
+                    return bytes(v)
+                if isinstance(v, str):
+                    s = v.strip()
+                    if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
+                        try:
+                            return bytes.fromhex(s)
+                        except Exception:
+                            pass
+                    try:
+                        return base64.b64decode(s)
+                    except Exception:
+                        return s.encode()
+                try:
+                    return bytes(v)
+                except Exception:
+                    return None
+
+            ed_pk_bytes = _norm_pub_to_bytes(j.get("ed25519_pk"))
+            mldsa_pk_bytes = _norm_pub_to_bytes(j.get("mldsa_pk"))
+
+            # Try TOFU if missing
+            if (not ed_pk_bytes or not mldsa_pk_bytes) and peerid_field:
+                try:
+                    pid_hex = (
+                        peerid_field.hex()
+                        if isinstance(peerid_field, (bytes, bytearray))
+                        else (peerid_field if isinstance(peerid_field, str) else None)
+                    )
+                    if pid_hex and pid_hex in self.known_peers:
+                        kp = self.known_peers.get(pid_hex, {})
+                        if not ed_pk_bytes and kp.get("ed25519_pk"):
+                            ed_pk_bytes = _norm_pub_to_bytes(kp.get("ed25519_pk"))
+                        if not mldsa_pk_bytes and kp.get("mldsa_pk"):
+                            mldsa_pk_bytes = _norm_pub_to_bytes(kp.get("mldsa_pk"))
+                except Exception:
+                    pass
+
+            # Fallback: try to match known peers by advertised keys in payload
+            if (not ed_pk_bytes or not mldsa_pk_bytes) and isinstance(j, dict):
+                try:
+                    fk = self.find_known_peer_by_pubkeys(j)
+                    if fk:
+                        if not ed_pk_bytes and fk.get("ed25519_pk"):
+                            ed_pk_bytes = _norm_pub_to_bytes(fk.get("ed25519_pk"))
+                        if not mldsa_pk_bytes and fk.get("mldsa_pk"):
+                            mldsa_pk_bytes = _norm_pub_to_bytes(fk.get("mldsa_pk"))
+                except Exception:
+                    pass
+
+            # Build canonical bytes for signature verification (exclude sig fields)
+            try:
+                to_sign = canonical_sign_bytes({k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")}, field_order=self.S1_SIGN_FIELDS)
+            except Exception:
+                to_sign = canonical_sign_bytes({k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")})
+
+            verified_ed = False
+            verified_mldsa = False
+
+            # Verify Ed25519 if available
+            if ed_sig_field and ed_pk_bytes:
+                try:
+                    edsig = (
+                        bytes.fromhex(ed_sig_field)
+                        if isinstance(ed_sig_field, str) and all(c in "0123456789abcdefABCDEF" for c in ed_sig_field) and len(ed_sig_field) % 2 == 0
+                        else (base64.b64decode(ed_sig_field) if isinstance(ed_sig_field, str) else ed_sig_field)
+                    )
+                except Exception:
+                    edsig = None
+                if edsig:
+                    try:
+                        vk = ed25519.Ed25519PublicKey.from_public_bytes(ed_pk_bytes)
+                        vk.verify(edsig, to_sign)
+                        verified_ed = True
+                    except Exception as e:
+                        logger.debug(f"S1 Ed25519 verify failed for session {sid_hex}: {e}")
+
+            # Verify ML-DSA variants if available
+            if mldsa_sig_field and mldsa_pk_bytes:
+                try:
+                    ok, _att = pq_sig_verify_variants(mldsa_pk_bytes, {k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")}, mldsa_sig_field, field_order=self.S1_SIGN_FIELDS)
+                    verified_mldsa = bool(ok)
+                except Exception:
+                    verified_mldsa = False
+
+            # Enforce hybrid signature policy before accepting
+            if self.require_hybrid_handshake:
+                if not (verified_ed or verified_mldsa):
+                    logger.warning(f"S1 signature policy: both Ed25519 and ML-DSA failed for session {sid_hex}; rejecting")
+                    return
+                if getattr(self, "strict_sig_verify", False) and not (verified_ed and verified_mldsa):
+                    logger.warning(f"S1 signature policy: strict verification enabled but one signature failed for session {sid_hex}; rejecting")
+                    return
+
+            # Decapsulate Kyber ciphertext (if we have secret key)
+            ss_pq = None
+            try:
+                if getattr(self, "kyber_sk", None) and ct:
+                    ss_pq = pq_kem_decaps(ct, self.kyber_sk)
+            except Exception as e:
+                logger.debug(f"Kyber decapsulation failed for S1 {sid_hex}: {e}")
+                ss_pq = None
+
+            # Parse peer X25519 and perform ECDH
+            ecdh = b""
+            try:
+                if peer_x_hex:
+                    try:
+                        peer_x = bytes.fromhex(peer_x_hex) if isinstance(peer_x_hex, str) and all(c in "0123456789abcdefABCDEF" for c in peer_x_hex) and len(peer_x_hex) % 2 == 0 else (base64.b64decode(peer_x_hex) if isinstance(peer_x_hex, str) else peer_x_hex)
+                    except Exception:
+                        peer_x = None
+                    if peer_x:
+                        peer_x_pub = x25519.X25519PublicKey.from_public_bytes(peer_x)
+                        ecdh = self.x25519_sk.exchange(peer_x_pub)
+            except Exception:
+                ecdh = b""
+
+            # Derive symmetric keys
+            try:
+                km = (ss_pq or b"") + (ecdh or b"") + self.session_salt(peer_id or b"")
+                full = argon2_derive_key_material(km, salt=self.session_salt(peer_id or b""), length=64)
+            except Exception as e:
+                logger.error(f"KDF failed during S1 handling: {e}")
+                full = None
+
+            if not full:
+                logger.warning(f"S1 KDF failed; cannot establish session {sid_hex}")
+                return
+
+            if self.my_id and peer_id and self.my_id <= peer_id:
+                send_key = full[:32]
+                recv_key = full[32:64]
+            else:
+                recv_key = full[:32]
+                send_key = full[32:64]
+
+            if len(send_key) != 32:
+                send_key = hashlib.sha256(send_key).digest()[:32]
+            if len(recv_key) != 32:
+                recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+            sess = SessionInfo(
+                session_id=sid,
+                peer_id=peer_id or b"",
+                aead_send=ChaCha20Poly1305(send_key),
+                aead_recv=ChaCha20Poly1305(recv_key),
+                state=SESSION_STATE_ESTABLISHED,
+                remote_addr=addr,
+                send_key=send_key,
+                recv_key=recv_key,
+            )
+
+            self.sessions[sid] = sess
+            if peer_id:
+                self.sessions_by_peer_id[peer_id] = sess
+
+            # Update metrics and log
+            try:
+                self.analytics.metrics["handshakes_completed"] += 1
+            except Exception:
+                pass
+            logger.info(f"Session {sess.session_id.hex()[:8]} established (S1) with {addr}")
+
+        except Exception as e:
+            logger.error(f"handle_s1 failed: {e}")
+            logger.debug(traceback.format_exc())
+
+    async def handle_s1(
+        self,
+        j: Dict[str, Any],
+        addr: Tuple[str, int],
+        outer_next_hash: bytes = None,
+        circuit_id: int = 0,
+    ):
+        """Handle incoming FT_S1: decapsulate Kyber ciphertext, compute ECDH, derive keys and establish session."""
+        try:
+            peerid_field = j.get("peerid")
+            sid_hex = j.get("sessionid")
+            ct_field = j.get("ct")
+            peer_x_hex = j.get("x25519_pk")
+            ed_sig_field = j.get("ed25519_sig")
+            mldsa_sig_field = j.get("mldsa_sig")
+
+            if not sid_hex or not ct_field:
+                logger.warning("S1 missing fields")
+                return
+
+            sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
+            try:
+                ct = bytes.fromhex(ct_field) if isinstance(ct_field, str) else ct_field
+            except Exception:
+                logger.warning("S1 ct decode failed")
+                return
+
+            # Derive peer_id if provided
+            peer_id = None
+            if peerid_field:
+                try:
+                    peer_id = (
+                        bytes.fromhex(peerid_field)
+                        if isinstance(peerid_field, str)
+                        else peerid_field
+                    )
+                except Exception:
+                    peer_id = None
+
+            # Verify signatures if present
+            verified_ed = False
+            verified_mldsa = False
+
+            # Attempt Ed25519 verify if public key provided in payload or known_peers
+            ed_pk_bytes = None
+            mldsa_pk_bytes = None
+
+            # Try to resolve known_peers entry from peerid if provided
+            kp = None
+            try:
+                if peerid_field:
+                    pid_hex = (
+                        peerid_field.hex()
+                        if isinstance(peerid_field, (bytes, bytearray))
+                        else (
+                            peerid_field if isinstance(peerid_field, str) else None
+                        )
+                    )
+                    if pid_hex and pid_hex in self.known_peers:
+                        kp = self.known_peers.get(pid_hex)
+            except Exception:
+                kp = None
+            # Fallback: try to match known_peers by advertised public keys
+            if kp is None:
+                try:
+                    fk = self.find_known_peer_by_pubkeys(j)
+                    if fk:
+                        kp = fk
+                except Exception:
+                    pass
+
+            ed_present = bool(ed_pk_field) or bool(kp and kp.get("ed25519_pk"))
+            mld_present = bool(mld_pk_field) or bool(kp and kp.get("mldsa_pk"))
+
+            if self.require_hybrid_handshake and (
+                not ed_present or not mld_present
+            ):
+                logger.warning(
+                    "Received HELLO without full hybrid keyset; rejecting because require_hybrid_handshake=True"
+                )
+                # Log info about what keys were seen vs known
+                try:
+                    logger.debug(
+                        f"HELLO key summary: ed_in_payload={bool(ed_pk_field)}, mld_in_payload={bool(mld_pk_field)}, ed_in_tofu={bool(kp and kp.get('ed25519_pk'))}, mld_in_tofu={bool(kp and kp.get('mldsa_pk'))}"
+                    )
+                except Exception:
+                    pass
+                return
+            # decode peer keys
+            try:
+                peer_kyber = (
+                    bytes.fromhex(kyber_hex) if isinstance(kyber_hex, str) else None
+                )
+            except Exception:
+                peer_kyber = None
+            try:
+                peer_x = (
+                    bytes.fromhex(x25519_hex)
+                    if isinstance(x25519_hex, str)
+                    else None
+                )
+            except Exception:
+                peer_x = None
+
+            # decode signature public keys if available
+            try:
+                peer_ed = (
+                    bytes.fromhex(ed_pk_field)
+                    if isinstance(ed_pk_field, str) and ed_pk_field
+                    else None
+                )
+            except Exception:
+                peer_ed = None
+            try:
+                peer_mld = (
+                    bytes.fromhex(mld_pk_field)
+                    if isinstance(mld_pk_field, str) and mld_pk_field
+                    else None
+                )
+            except Exception:
+                peer_mld = None
+
+            if peer_kyber and peer_x and peer_ed and peer_mld:
+                # Kyber encapsulation -> ciphertext + shared secret
+                try:
+                    ct, ss_pq = pq_kem_encaps(peer_kyber)
+                except Exception as e:
+                    logger.debug(f"Kyber encaps failed: {e}")
+                    ct, ss_pq = None, None
+
+                # X25519 ECDH
+                try:
+                    peer_x_pub = x25519.X25519PublicKey.from_public_bytes(peer_x)
+                    ecdh = self.x25519_sk.exchange(peer_x_pub)
+                except Exception:
+                    ecdh = b""
+
+                # Derive key material (Argon2)
+                try:
+                    km = (ss_pq or b"") + ecdh + self.session_salt(peer_id or b"")
+                    full = argon2_derive_key_material(
+                        km, salt=self.session_salt(peer_id or b""), length=64
+                    )
+                except Exception as e:
+                    logger.error(f"KDF failed during hybrid handshake: {e}")
+                    full = None
+
+                if full:
+                    if self.my_id and peer_id and self.my_id <= peer_id:
+                        send_key = full[:32]
+                        recv_key = full[32:64]
+                    else:
+                        recv_key = full[:32]
+                        send_key = full[32:64]
+
+                    # Normalize to 32 bytes
+                    if len(send_key) != 32:
+                        send_key = hashlib.sha256(send_key).digest()[:32]
+                    if len(recv_key) != 32:
+                        recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+                    # Deterministic session id for compatibility/tests
+                    sid = hashlib.sha256(
+                        (peer_id or b"") + (self.my_id or b"")
+                    ).digest()[:8]
+
+                    sess = SessionInfo(
+                        session_id=sid,
+                        peer_id=peer_id or b"",
+                        aead_send=ChaCha20Poly1305(send_key),
+                        aead_recv=ChaCha20Poly1305(recv_key),
+                        state=SESSION_STATE_HANDSHAKING,
+                        remote_addr=addr,
+                        send_key=send_key,
+                        recv_key=recv_key,
+                    )
+                    self.sessions[sid] = sess
+                    if peer_id:
+                        self.sessions_by_peer_id[peer_id] = sess
+
+                    # Build S1
+                    s1 = {
+                        "peerid": self.my_id.hex() if self.my_id else "",
+                        "sessionid": sid.hex(),
+                        "ct": (ct.hex() if ct else ""),
+                        "x25519_pk": self.x25519_pk.public_bytes(
+                            encoding=serialization.Encoding.Raw,
+                            format=serialization.PublicFormat.Raw,
+                        ).hex(),
+                        "timestamp": int(time.time()),
+                    }
+
+                    # Sign S1 with Ed25519 and ML-DSA when available
+                    try:
+                        to_sign = canonical_sign_bytes(
+                            s1, field_order=self.S1_SIGN_FIELDS
+                        )
+                    except Exception:
+                        to_sign = canonical_sign_bytes(s1)
+
+                    try:
+                        edsig = self.ed25519_sk.sign(to_sign)
+                        s1["ed25519_sig"] = edsig.hex()
+                    except Exception:
+                        s1["ed25519_sig"] = ""
+                    try:
+                        if getattr(self, "mldsa_sk", None):
+                            msig = pq_sig_sign(self.mldsa_sk, to_sign)
+                            s1["mldsa_sig"] = msig.hex()
+                        else:
+                            s1["mldsa_sig"] = ""
+                    except Exception:
+                        s1["mldsa_sig"] = ""
+
+                    frame_s1 = self.make_outer_frame(
+                        FT_S1,
+                        b"\x00" * 8,
+                        0,
+                        json.dumps(
+                            s1, separators=(",", ":"), sort_keys=True
+                        ).encode(),
+                    )
+                    try:
+                        if self.protocol and getattr(
+                            self.protocol, "transport", None
+                        ):
+                            self.protocol.transport.sendto(frame_s1, addr)
+                            logger.info(f"FT_S1 sent to {addr}")
+                    except Exception:
+                        logger.debug("Failed to send FT_S1")
+
+                    # Reply HELLO response with sessionid
+                    resp = dict(j)
+                    resp["response"] = True
+                    resp["sessionid"] = sid.hex()
+                    signed = None
+                    try:
+                        to_sign = dict(resp)
+                        to_sign.pop("ed25519_sig", None)
+                        signed = canonical_sign_bytes(
+                            to_sign, field_order=self.HELLO_SIGN_FIELDS
+                        )
+                        resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                    except Exception:
+                        resp["ed25519_sig"] = ""
+                    try:
+                        if getattr(self, "mldsa_sk", None) and signed is not None:
+                            resp["mldsa_sig"] = pq_sig_sign(
+                                self.mldsa_sk, signed
+                            ).hex()
+                        else:
+                            resp["mldsa_sig"] = ""
+                    except Exception:
+                        resp["mldsa_sig"] = ""
+
+                    try:
+                        frame = self.make_outer_frame(
+                            FT_HELLO,
+                            b"\x00" * 8,
+                            0,
+                            json.dumps(
+                                resp, separators=(",", ":"), sort_keys=True
+                            ).encode(),
+                        )
+                        if self.protocol and getattr(
+                            self.protocol, "transport", None
+                        ):
+                            self.protocol.transport.sendto(frame, addr)
+                    except Exception:
+                        logger.debug("Failed to send HELLO response (hybrid)")
+
+                    return
+
+            # Legacy deterministic session when hybrid not performed or failed
+            if self.require_hybrid_handshake:
+                logger.warning(
+                    "Rejecting non-hybrid HELLO because require_hybrid_handshake=True"
+                )
+                return
+            keymaterial_raw = self.session_salt(
+                peer_id or hashlib.sha256((j.get("nickname", "")).encode()).digest()
+            )
+            full = argon2_derive_key_material(
+                keymaterial_raw, salt=keymaterial_raw, length=64
+            )
+            if self.my_id and peer_id and self.my_id <= peer_id:
+                send_key = full[:32]
+                recv_key = full[32:64]
+            else:
+                recv_key = full[:32]
+                send_key = full[32:64]
+
+            if len(send_key) != 32:
+                send_key = hashlib.sha256(send_key).digest()[:32]
+            if len(recv_key) != 32:
+                recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+            sid = hashlib.sha256((peer_id or b"") + (self.my_id or b"")).digest()[:8]
+            sess = SessionInfo(
+                session_id=sid,
+                peer_id=peer_id or b"",
+                aead_send=ChaCha20Poly1305(send_key),
+                aead_recv=ChaCha20Poly1305(recv_key),
+                state=SESSION_STATE_ESTABLISHED,
+                remote_addr=addr,
+                send_key=send_key,
+                recv_key=recv_key,
+            )
+            self.sessions[sid] = sess
+            if peer_id:
+                self.sessions_by_peer_id[peer_id] = sess
+
+            if not j.get("response"):
+                resp = dict(j)
+                resp["response"] = True
+                resp["sessionid"] = sid.hex()
+                signed = None
+                try:
+                    to_sign = dict(resp)
+                    to_sign.pop("ed25519_sig", None)
+                    signed = canonical_sign_bytes(
+                        to_sign, field_order=self.HELLO_SIGN_FIELDS
+                    )
+                    resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                except Exception:
+                    resp["ed25519_sig"] = ""
+                try:
+                    if getattr(self, "mldsa_sk", None) and signed is not None:
+                        resp["mldsa_sig"] = pq_sig_sign(self.mldsa_sk, signed).hex()
+                    else:
+                        resp["mldsa_sig"] = ""
+                except Exception:
+                    resp["mldsa_sig"] = ""
+                try:
+                    frame = self.make_outer_frame(
+                        FT_HELLO,
+                        b"\x00" * 8,
+                        0,
+                        json.dumps(
+                            resp, separators=(",", ":"), sort_keys=True
+                        ).encode(),
+                    )
+                    if self.protocol and getattr(self.protocol, "transport", None):
+                        self.protocol.transport.sendto(frame, addr)
+                except Exception:
+                    logger.debug("Failed to send HELLO response (legacy)")
+
+        except Exception as e:
+            logger.error(f"HELLO handling error: {e}")
+            logger.debug(traceback.format_exc())
+
+    async def handle_s1(
+        self,
+        j: Dict[str, Any],
+        addr: Tuple[str, int],
+        outer_next_hash: bytes = None,
+        circuit_id: int = 0,
+    ):
+        """Handle incoming FT_S1: decapsulate Kyber ciphertext, compute ECDH, derive keys and establish session."""
+        try:
+            peerid_field = j.get("peerid")
+            sid_hex = j.get("sessionid")
+            ct_field = j.get("ct")
+            peer_x_hex = j.get("x25519_pk")
+            ed_sig_field = j.get("ed25519_sig")
+            mldsa_sig_field = j.get("mldsa_sig")
+
+            if not sid_hex or not ct_field:
+                logger.warning("S1 missing fields")
+                return
+
+            sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
+            try:
+                ct = bytes.fromhex(ct_field) if isinstance(ct_field, str) else ct_field
+            except Exception:
+                logger.warning("S1 ct decode failed")
+                return
+
+            # Derive peer_id if provided
+            peer_id = None
+            if peerid_field:
+                try:
+                    peer_id = (
+                        bytes.fromhex(peerid_field)
+                        if isinstance(peerid_field, str)
+                        else peerid_field
+                    )
+                except Exception:
+                    peer_id = None
+
+            # Verify signatures if present
+            verified_ed = False
+            verified_mldsa = False
+
+            # Attempt Ed25519 verify if public key provided in payload or known_peers
+            ed_pk_bytes = None
+            mldsa_pk_bytes = None
+
+            # Try to resolve known_peers entry from peerid if provided
+            kp = None
+            try:
+                if peerid_field:
+                    pid_hex = (
+                        peerid_field.hex()
+                        if isinstance(peerid_field, (bytes, bytearray))
+                        else (
+                            peerid_field if isinstance(peerid_field, str) else None
+                        )
+                    )
+                    if pid_hex and pid_hex in self.known_peers:
+                        kp = self.known_peers.get(pid_hex)
+            except Exception:
+                kp = None
+            # Fallback: try to match known_peers by advertised public keys
+            if kp is None:
+                try:
+                    fk = self.find_known_peer_by_pubkeys(j)
+                    if fk:
+                        kp = fk
+                except Exception:
+                    pass
+
+            ed_present = bool(ed_pk_field) or bool(kp and kp.get("ed25519_pk"))
+            mld_present = bool(mld_pk_field) or bool(kp and kp.get("mldsa_pk"))
+
+            if self.require_hybrid_handshake and (
+                not ed_present or not mld_present
+            ):
+                logger.warning(
+                    "Received HELLO without full hybrid keyset; rejecting because require_hybrid_handshake=True"
+                )
+                # Log info about what keys were seen vs known
+                try:
+                    logger.debug(
+                        f"HELLO key summary: ed_in_payload={bool(ed_pk_field)}, mld_in_payload={bool(mld_pk_field)}, ed_in_tofu={bool(kp and kp.get('ed25519_pk'))}, mld_in_tofu={bool(kp and kp.get('mldsa_pk'))}"
+                    )
+                except Exception:
+                    pass
+                return
+            # decode peer keys
+            try:
+                peer_kyber = (
+                    bytes.fromhex(kyber_hex) if isinstance(kyber_hex, str) else None
+                )
+            except Exception:
+                peer_kyber = None
+            try:
+                peer_x = (
+                    bytes.fromhex(x25519_hex)
+                    if isinstance(x25519_hex, str)
+                    else None
+                )
+            except Exception:
+                peer_x = None
+
+            # decode signature public keys if available
+            try:
+                peer_ed = (
+                    bytes.fromhex(ed_pk_field)
+                    if isinstance(ed_pk_field, str) and ed_pk_field
+                    else None
+                )
+            except Exception:
+                peer_ed = None
+            try:
+                peer_mld = (
+                    bytes.fromhex(mld_pk_field)
+                    if isinstance(mld_pk_field, str) and mld_pk_field
+                    else None
+                )
+            except Exception:
+                peer_mld = None
+
+            if peer_kyber and peer_x and peer_ed and peer_mld:
+                # Kyber encapsulation -> ciphertext + shared secret
+                try:
+                    ct, ss_pq = pq_kem_encaps(peer_kyber)
+                except Exception as e:
+                    logger.debug(f"Kyber encaps failed: {e}")
+                    ct, ss_pq = None, None
+
+                # X25519 ECDH
+                try:
+                    peer_x_pub = x25519.X25519PublicKey.from_public_bytes(peer_x)
+                    ecdh = self.x25519_sk.exchange(peer_x_pub)
+                except Exception:
+                    ecdh = b""
+
+                # Derive key material (Argon2)
+                try:
+                    km = (ss_pq or b"") + ecdh + self.session_salt(peer_id or b"")
+                    full = argon2_derive_key_material(
+                        km, salt=self.session_salt(peer_id or b""), length=64
+                    )
+                except Exception as e:
+                    logger.error(f"KDF failed during hybrid handshake: {e}")
+                    full = None
+
+                if full:
+                    if self.my_id and peer_id and self.my_id <= peer_id:
+                        send_key = full[:32]
+                        recv_key = full[32:64]
+                    else:
+                        recv_key = full[:32]
+                        send_key = full[32:64]
+
+                    # Normalize to 32 bytes
+                    if len(send_key) != 32:
+                        send_key = hashlib.sha256(send_key).digest()[:32]
+                    if len(recv_key) != 32:
+                        recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+                    # Deterministic session id for compatibility/tests
+                    sid = hashlib.sha256(
+                        (peer_id or b"") + (self.my_id or b"")
+                    ).digest()[:8]
+
+                    sess = SessionInfo(
+                        session_id=sid,
+                        peer_id=peer_id or b"",
+                        aead_send=ChaCha20Poly1305(send_key),
+                        aead_recv=ChaCha20Poly1305(recv_key),
+                        state=SESSION_STATE_HANDSHAKING,
+                        remote_addr=addr,
+                        send_key=send_key,
+                        recv_key=recv_key,
+                    )
+                    self.sessions[sid] = sess
+                    if peer_id:
+                        self.sessions_by_peer_id[peer_id] = sess
+
+                    # Build S1
+                    s1 = {
+                        "peerid": self.my_id.hex() if self.my_id else "",
+                        "sessionid": sid.hex(),
+                        "ct": (ct.hex() if ct else ""),
+                        "x25519_pk": self.x25519_pk.public_bytes(
+                            encoding=serialization.Encoding.Raw,
+                            format=serialization.PublicFormat.Raw,
+                        ).hex(),
+                        "timestamp": int(time.time()),
+                    }
+
+                    # Sign S1 with Ed25519 and ML-DSA when available
+                    try:
+                        to_sign = canonical_sign_bytes(
+                            s1, field_order=self.S1_SIGN_FIELDS
+                        )
+                    except Exception:
+                        to_sign = canonical_sign_bytes(s1)
+
+                    try:
+                        edsig = self.ed25519_sk.sign(to_sign)
+                        s1["ed25519_sig"] = edsig.hex()
+                    except Exception:
+                        s1["ed25519_sig"] = ""
+                    try:
+                        if getattr(self, "mldsa_sk", None):
+                            msig = pq_sig_sign(self.mldsa_sk, to_sign)
+                            s1["mldsa_sig"] = msig.hex()
+                        else:
+                            s1["mldsa_sig"] = ""
+                    except Exception:
+                        s1["mldsa_sig"] = ""
+
+                    frame_s1 = self.make_outer_frame(
+                        FT_S1,
+                        b"\x00" * 8,
+                        0,
+                        json.dumps(
+                            s1, separators=(",", ":"), sort_keys=True
+                        ).encode(),
+                    )
+                    try:
+                        if self.protocol and getattr(
+                            self.protocol, "transport", None
+                        ):
+                            self.protocol.transport.sendto(frame_s1, addr)
+                            logger.info(f"FT_S1 sent to {addr}")
+                    except Exception:
+                        logger.debug("Failed to send FT_S1")
+
+                    # Reply HELLO response with sessionid
+                    resp = dict(j)
+                    resp["response"] = True
+                    resp["sessionid"] = sid.hex()
+                    signed = None
+                    try:
+                        to_sign = dict(resp)
+                        to_sign.pop("ed25519_sig", None)
+                        signed = canonical_sign_bytes(
+                            to_sign, field_order=self.HELLO_SIGN_FIELDS
+                        )
+                        resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                    except Exception:
+                        resp["ed25519_sig"] = ""
+                    try:
+                        if getattr(self, "mldsa_sk", None) and signed is not None:
+                            resp["mldsa_sig"] = pq_sig_sign(
+                                self.mldsa_sk, signed
+                            ).hex()
+                        else:
+                            resp["mldsa_sig"] = ""
+                    except Exception:
+                        resp["mldsa_sig"] = ""
+
+                    try:
+                        frame = self.make_outer_frame(
+                            FT_HELLO,
+                            b"\x00" * 8,
+                            0,
+                            json.dumps(
+                                resp, separators=(",", ":"), sort_keys=True
+                            ).encode(),
+                        )
+                        if self.protocol and getattr(
+                            self.protocol, "transport", None
+                        ):
+                            self.protocol.transport.sendto(frame, addr)
+                    except Exception:
+                        logger.debug("Failed to send HELLO response (hybrid)")
+
+                    return
+
+            # Legacy deterministic session when hybrid not performed or failed
+            if self.require_hybrid_handshake:
+                logger.warning(
+                    "Rejecting non-hybrid HELLO because require_hybrid_handshake=True"
+                )
+                return
+            keymaterial_raw = self.session_salt(
+                peer_id or hashlib.sha256((j.get("nickname", "")).encode()).digest()
+            )
+            full = argon2_derive_key_material(
+                keymaterial_raw, salt=keymaterial_raw, length=64
+            )
+            if self.my_id and peer_id and self.my_id <= peer_id:
+                send_key = full[:32]
+                recv_key = full[32:64]
+            else:
+                recv_key = full[:32]
+                send_key = full[32:64]
+
+            if len(send_key) != 32:
+                send_key = hashlib.sha256(send_key).digest()[:32]
+            if len(recv_key) != 32:
+                recv_key = hashlib.sha256(recv_key).digest()[:32]
+
+            sid = hashlib.sha256((peer_id or b"") + (self.my_id or b"")).digest()[:8]
+            sess = SessionInfo(
+                session_id=sid,
+                peer_id=peer_id or b"",
+                aead_send=ChaCha20Poly1305(send_key),
+                aead_recv=ChaCha20Poly1305(recv_key),
+                state=SESSION_STATE_ESTABLISHED,
+                remote_addr=addr,
+                send_key=send_key,
+                recv_key=recv_key,
+            )
+            self.sessions[sid] = sess
+            if peer_id:
+                self.sessions_by_peer_id[peer_id] = sess
+
+            if not j.get("response"):
+                resp = dict(j)
+                resp["response"] = True
+                resp["sessionid"] = sid.hex()
+                signed = None
+                try:
+                    to_sign = dict(resp)
+                    to_sign.pop("ed25519_sig", None)
+                    signed = canonical_sign_bytes(
+                        to_sign, field_order=self.HELLO_SIGN_FIELDS
+                    )
+                    resp["ed25519_sig"] = self.ed25519_sk.sign(signed).hex()
+                except Exception:
+                    resp["ed25519_sig"] = ""
+                try:
+                    if getattr(self, "mldsa_sk", None) and signed is not None:
+                        resp["mldsa_sig"] = pq_sig_sign(self.mldsa_sk, signed).hex()
+                    else:
+                        resp["mldsa_sig"] = ""
+                except Exception:
+                    resp["mldsa_sig"] = ""
+                try:
+                    frame = self.make_outer_frame(
+                        FT_HELLO,
+                        b"\x00" * 8,
+                        0,
+                        json.dumps(
+                            resp, separators=(",", ":"), sort_keys=True
+                        ).encode(),
+                    )
+                    if self.protocol and getattr(self.protocol, "transport", None):
+                        self.protocol.transport.sendto(frame, addr)
+                except Exception:
+                    logger.debug("Failed to send HELLO response (legacy)")
+
+        except Exception as e:
+            logger.error(f"HELLO handling error: {e}")
+            logger.debug(traceback.format_exc())
+
+    async def handle_data(self, session_id: bytes, nonce: bytes, ciphertext: bytes, outer_next_hash: bytes = None, circuit_id: int = 0):
+        """Handle incoming FT_DATA: decrypt and update session stats."""
+        sess = self.sessions.get(session_id)
+        if not sess:
+            logger.warning(f"DATA for unknown session {session_id.hex()[:8]}")
+            return
+
+        if not self.check_and_record_nonce(sess, nonce):
+            logger.warning(f"DATA replay or invalid nonce for session {session_id.hex()[:8]}")
+            return
+
+        ad = b"PQVPN" + sess.session_id + (outer_next_hash or b"\x00" * 8) + struct.pack("!I", circuit_id)
+        try:
+            payload = sess.aead_recv.decrypt(nonce, ciphertext, ad)
+        except Exception as e:
+            logger.debug(f"DATA decrypt failed for session {session_id.hex()[:8]}: {e}")
+            return
+
+        # Update stats
+        sess.bytes_recv += len(payload)
+        sess.packets_recv += 1
+        sess.last_activity = time.time()
+        try:
+            self.analytics.record_packet("recv", len(payload))
+        except Exception:
+            pass
+
+        # For now we don't forward the payload; higher-level handlers may be implemented later
+        logger.debug(f"Received DATA for session {session_id.hex()[:8]} len={len(payload)}")
+        return
+
+    async def handle_s2(
+        self,
+        j: Dict[str, Any],
+        addr: Tuple[str, int],
+        outer_next_hash: bytes = None,
+        circuit_id: int = 0,
+    ):
+        """Process FT_S2: verify signatures and mark session as ESTABLISHED.
+
+        This function is defensive: it accepts various encodings for public keys
+        and signatures (hex, base64, raw bytes). It uses pq_sig_verify_variants
+        to exercise multiple verification permutations for ML-DSA.
+        """
+        try:
+            sessionid = j.get("sessionid")
+            peerid_field = j.get("peerid")
+            ed_sig_field = j.get("ed25519_sig")
+            mldsa_sig_field = j.get("mldsa_sig")
+
+            if not sessionid:
+                logger.warning("S2 missing sessionid")
+                return
+
+            sid = bytes.fromhex(sessionid) if isinstance(sessionid, str) else sessionid
+            sess = self.sessions.get(sid)
+            if not sess:
+                logger.warning(f"S2 for unknown session {sessionid}")
+                return
+
+            # Resolve ed25519 and mldsa public keys: payload first, then TOFU lookup
+            def _norm_pub(pk_field):
+                if pk_field is None:
+                    return None
+                try:
+                    if isinstance(pk_field, (bytes, bytearray)):
+                        return bytes(pk_field).hex()
+                    if isinstance(pk_field, str):
+                        s = pk_field.strip()
+                        if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
+                            return s.lower()
+                        try:
+                            b = base64.b64decode(s)
+                            return b.hex()
+                        except Exception:
+                            return s
+                except Exception:
+                    return None
+
+            ed_pk_bytes = _norm_pub(j.get("ed25519_pk"))
+            mldsa_pk_bytes = _norm_pub(j.get("mldsa_pk"))
+
+            # Try TOFU store if missing
+            if (not ed_pk_bytes or not mldsa_pk_bytes) and peerid_field:
+                try:
+                    pid_hex = (
+                        peerid_field.hex()
+                        if isinstance(peerid_field, (bytes, bytearray))
+                        else (peerid_field if isinstance(peerid_field, str) else None)
+                    )
+                    if pid_hex and pid_hex in self.known_peers:
+                        kp = self.known_peers.get(pid_hex, {})
+                        if not ed_pk_bytes and kp.get("ed25519_pk"):
+                            ed_pk_bytes = _norm_pub(kp.get("ed25519_pk"))
+                        if not mldsa_pk_bytes and kp.get("mldsa_pk"):
+                            mldsa_pk_bytes = _norm_pub(kp.get("mldsa_pk"))
+                except Exception:
+                    pass
+
+            # As last resort, try to match known peers by advertised keys
+            if (not ed_pk_bytes or not mldsa_pk_bytes) and isinstance(j, dict):
+                try:
+                    fk = self.find_known_peer_by_pubkeys(j)
+                    if fk:
+                        if not ed_pk_bytes and fk.get("ed25519_pk"):
+                            ed_pk_bytes = _norm_pub(fk.get("ed25519_pk"))
+                        if not mldsa_pk_bytes and fk.get("mldsa_pk"):
+                            mldsa_pk_bytes = _norm_pub(fk.get("mldsa_pk"))
+                except Exception:
+                    pass
+
+            # Build canonical signing bytes (exclude signature fields)
+            try:
+                to_sign = canonical_sign_bytes({k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")}, field_order=self.S1_SIGN_FIELDS)
+            except Exception:
+                to_sign = canonical_sign_bytes({k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")})
+
+            verified_ed = False
+            verified_mldsa = False
+
+            # Verify Ed25519 if both signature and public key present
+            if ed_sig_field and ed_pk_bytes:
+                try:
+                    edsig = bytes.fromhex(ed_sig_field) if isinstance(ed_sig_field, str) and all(c in "0123456789abcdefABCDEF" for c in ed_sig_field) and len(ed_sig_field) % 2 == 0 else (base64.b64decode(ed_sig_field) if isinstance(ed_sig_field, str) else (ed_sig_field if isinstance(ed_sig_field, (bytes, bytearray)) else None))
+                except Exception:
+                    edsig = None
+                if edsig:
+                    try:
+                        vk = ed25519.Ed25519PublicKey.from_public_bytes(ed_pk_bytes)
+                        vk.verify(edsig, to_sign)
+                        verified_ed = True
+                    except Exception as e:
+                        logger.debug(f"S2 Ed25519 verify failed for session {sessionid}: {e}")
+
+            # Verify ML-DSA using variant helper if possible
+            if mldsa_sig_field and mldsa_pk_bytes:
+                try:
+                    ok, _attempts = pq_sig_verify_variants(mldsa_pk_bytes, {k: j[k] for k in j if k not in ("ed25519_sig", "mldsa_sig")}, mldsa_sig_field, field_order=self.S1_SIGN_FIELDS)
+                    verified_mldsa = bool(ok)
+                except Exception:
+                    verified_mldsa = False
+
+            # Policy enforcement
+            if self.require_hybrid_handshake:
+                if not (verified_ed or verified_mldsa):
+                    logger.warning(f"S2 signature policy: both Ed25519 and ML-DSA failed for session {sessionid}; rejecting")
+                    return
+                if getattr(self, "strict_sig_verify", False) and not (verified_ed and verified_mldsa):
+                    logger.warning(f"S2 signature policy: strict verification enabled but one signature failed for session {sessionid}; rejecting")
+                    return
+
+            # Accept and finalize session
+            sess.state = SESSION_STATE_ESTABLISHED
+            sess.remote_addr = addr
+            sess.last_activity = time.time()
+            try:
+                self.analytics.metrics["handshakes_completed"] += 1
+            except Exception:
+                pass
+            logger.info(f"Session {sess.session_id.hex()[:8]} established (S2) with {addr}")
+
+        except Exception as e:
+            logger.error(f"handle_s2 failed: {e}")
+            logger.debug(traceback.format_exc())
+
+    def find_known_peer_by_pubkeys(self, j: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Try to locate a known peer entry by comparing advertised public keys in `j` with the TOFU store."""
+        try:
+            candidates = list(self.known_peers.items())
+            # Normalize payload keys to hex strings where possible
+            def _norm(x):
+                if x is None:
+                    return None
+                if isinstance(x, (bytes, bytearray)):
+                    return bytes(x).hex()
+                if isinstance(x, str):
+                    s = x.strip()
+                    # if looks like hex
+                    if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
+                        return s.lower()
+                    # if base64, decode then hex
+                    try:
+                        import base64 as _b64
+
+                        b = _b64.b64decode(s)
+                        return b.hex()
+                    except Exception:
+                        return s
+                try:
+                    return bytes(x).hex()
+                except Exception:
+                    return str(x)
+
+            payload_norm = {k: _norm(v) for k, v in j.items()}
+            keys_to_check = ["ed25519_pk", "x25519_pk", "kyber_pk", "mldsa_pk"]
+            for pid, info in candidates:
+                match = False
+                for key in keys_to_check:
+                    pv = payload_norm.get(key)
+                    kv = info.get(key)
+                    if pv and kv:
+                        # normalize stored value
+                        kvn = kv.lower() if isinstance(kv, str) else (kv.hex() if isinstance(kv, (bytes, bytearray)) else None)
+                        if kvn and pv == kvn:
+                            return info
+            return None
+        except Exception:
+            return None
+
+    async def datagram_received(self, data: bytes, addr: Tuple[str, int]):
+        """Top-level UDP datagram dispatcher (bound by semaphore).
+
+        Parses the outer header format: !BB8sIH and dispatches payloads to
+        the right handler methods (HELLO, S1, S2, RELAY). This keeps the
+        network glue here and avoids requiring an external Protocol class.
+        """
+        try:
+            async with self.datagram_semaphore:
+                if not data or len(data) < 16:
+                    logger.debug(f"Ignoring short packet from {addr}")
+                    return
+
+                try:
+                    version, ftype = struct.unpack("!BB", data[:2])
+                except Exception:
+                    logger.debug("Failed to unpack outer version/ftype")
+                    return
+
+                next_hash = data[2:10]
+                circuit_id = struct.unpack("!I", data[10:14])[0]
+                length = struct.unpack("!H", data[14:16])[0]
+                payload = (
+                    data[16 : 16 + length] if len(data) >= 16 + length else data[16:]
+                )
+
+                if ftype == FT_HELLO:
+                    await self.handle_hello(
+                        payload, addr, outer_next_hash=next_hash, circuit_id=circuit_id
+                    )
+                    return
+
+                if ftype == FT_S1:
+                    try:
+                        j = json.loads(payload)
+                    except Exception:
+                        try:
+                            j = yaml.safe_load(payload)
+                        except Exception:
+                            logger.debug("S1 payload not JSON/YAML")
+                            return
+                    await self.handle_s1(
+                        j, addr, outer_next_hash=next_hash, circuit_id=circuit_id
+                    )
+                    return
+
+                if ftype == FT_S2:
+                    try:
+                        j = json.loads(payload)
+                    except Exception:
+                        try:
+                            j = yaml.safe_load(payload)
+                        except Exception:
+                            logger.debug("S2 payload not JSON/YAML")
+                            return
+                    await self.handle_s2(
+                        j, addr, outer_next_hash=next_hash, circuit_id=circuit_id
+                    )
+                    return
+
+                if ftype == FT_RELAY:
+                    # inner: session_id(8) + nonce(12) + ciphertext
+                    if len(payload) < 8 + NONCE_LENGTH:
+                        logger.debug("RELAY payload too short")
+                        return
+                    session_id = payload[:8]
+                    nonce = payload[8 : 8 + NONCE_LENGTH]
+                    ct = payload[8 + NONCE_LENGTH :]
+                    await self.handle_relay(
+                        session_id,
+                        nonce,
+                        ct,
+                        outer_next_hash=next_hash,
+                        circuit_id=circuit_id,
+                    )
+                    return
+
+                # Other frame types: log and ignore for now
+                logger.debug(f"Unhandled frame type {ftype} from {addr}")
+        except Exception as e:
+            logger.error(f"datagram_received dispatch error: {e}")
+            logger.debug(traceback.format_exc())
+

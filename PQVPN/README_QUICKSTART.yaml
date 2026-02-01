@@ -1,0 +1,23 @@
+node_name: alice
+stun_servers:
+  - stun.l.google.com:19302
+listen_host: 0.0.0.0
+listen_port: 40000
+auth:
+  allowlist: []
+limits:
+  token_bucket:
+    capacity: 100
+    refill: 50
+  rekey:
+    max_packets: 10000
+padding:
+  mtu: 1200
+adapters:
+  socks5:
+    enabled: true
+    port: 1080
+    users:
+      demo: demo
+  tun:
+    enabled: false  # Set true + sudo for IP routing

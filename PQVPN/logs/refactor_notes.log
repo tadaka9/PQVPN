@@ -1,0 +1,17 @@
+## Refactoring Log: main.py
+
+### Observations:
+1. **File Structure**: The main.py script is overloaded, handling configuration, logging, DHT discovery, cryptography, and more in one place.
+2. **Inline Modules**: Inline definitions (e.g., config_schema, pqsig) should be standalone modules.
+3. **Documentation**: The lack of clear documentation for top-level classes/methods impacts maintainability.
+
+### Refactor Plan:
+1. **Modularization**:
+    - Split into modules: config, crypto, discovery, and utility.
+    - Ensure reusability across the project.
+
+2. **Documentation Pending**:
+    - All public methods/classes need docstrings.
+    - prepare Config schemas by YAML.
+
+Tools installed like oqs-lint/msg comment this next runs logged path.

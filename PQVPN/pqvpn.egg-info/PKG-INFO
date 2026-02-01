@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pqvpn
+Version: 0.2.0
+Summary: Decentralized P2P VPN with multi-hop pathlets
+Author: Path-Quilt VPN
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: pyyaml>=6.0
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: summary
