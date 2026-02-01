@@ -373,7 +373,11 @@ def setup_logger(name="pqvpn", level=logging.INFO, logfile=None):
 
     # Prevent propagation to root logger which can cause duplicate outputs
     try:
-        logger.propagate = False
+        # During pytest, allow propagation so caplog can capture pqvpn logger records.
+        if os.environ.get("PYTEST_CURRENT_TEST") or ("pytest" in sys.modules):
+            logger.propagate = True
+        else:
+            logger.propagate = False
     except Exception:
         pass
 
