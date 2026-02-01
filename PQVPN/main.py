@@ -4774,18 +4774,19 @@ class PQVPNNode:
                 except Exception as e:
                     logger.info(f"ipv4_transport.sendto failed: {e}")
 
-            # Try primary transport (could be IPv6 or IPv4 depending on bind)
-            # But avoid calling an IPv6-only transport for IPv4 destinations to prevent EAFNOSUPPORT
-            primary_transport = getattr(self, "transport", None)
-            # Attempt to use primary transport regardless of socket family; if the
-            # send fails (e.g., EAFNOSUPPORT), we'll catch that and try other
-            # branches. This is less conservative and avoids falling back to
-            # temporary sockets when the primary IPv6 socket is dual-stack and
-            # can handle IPv4 destinations.
+            # Prefer using protocol.transport if available (tests may set protocol.transport)
+            primary_transport = None
             try:
-                primary_transport = getattr(self, "transport", None)
+                proto = getattr(self, "protocol", None)
+                if proto is not None:
+                    primary_transport = getattr(proto, "transport", None)
             except Exception:
                 primary_transport = None
+            if primary_transport is None:
+                try:
+                    primary_transport = getattr(self, "transport", None)
+                except Exception:
+                    primary_transport = None
 
             if primary_transport:
                 try:
