@@ -1,27 +1,51 @@
 # PQVPN
 
-Path Quilt VPN (PQVPN) is a work-in-progress P2P VPN concept project.
+PQVPN (Path Quilt VPN) is a work-in-progress P2P VPN concept project.
 
-## Status
+## Project status
 
-Early-stage scaffolding: repository structure, CI, and documentation are in place. The VPN protocol and networking implementation are not finalized.
+This repository currently provides a **scaffold**: a CLI entrypoint, packaging metadata, and documentation.
+The VPN protocol, cryptographic design, and networking/tunneling implementation are not finalized and should not be considered production-ready.
 
-## Quick start
+## Quick start (from source)
 
-Requires Python >=3.10 and <4.
+Requirements: Python >=3.10 and <4.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
+
+# Run the CLI directly
 python main.py --help
+
+# Example commands
+python main.py version
+python main.py doctor
+python main.py run --bind 127.0.0.1 --port 51820
+```
+
+## Install (editable, for development)
+
+```bash
+python -m pip install -e .
+
+# After install you can use the console script:
+pqvpn --help
+pqvpn version
 ```
 
 ## Repository layout
 
-- `main.py`: primary entrypoint.
-- `docs/`: design notes, threat model, roadmap.
-- `.github/`: CI, CodeQL, Dependabot.
+- `main.py`: full program + CLI entrypoint.
+- `src/pqvpn/`: importable package namespace for future modules.
+- `docs/`: design notes and project documentation.
+- `tests/`: basic smoke tests for the CLI scaffolding.
+
+## Security notice
+
+PQVPN is a research/prototype codebase.
+Do not use it to protect real traffic until the protocol, implementation, and threat model are complete and independently reviewed.
 
 ## Legal
 
