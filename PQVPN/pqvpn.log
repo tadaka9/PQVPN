@@ -314,3 +314,585 @@
 2026-02-01 01:11:07 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session 3b5858c0
 2026-02-01 01:11:07 [WARNING ] - S2 signature verification failed for session 3b5858c027decffe
 2026-02-01 01:11:07 [WARNING ] - S2 signature policy: hybrid verification failed for session 3b5858c027decffe
+2026-02-01 13:03:23 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 13:03:23 [WARNING ] - oqs-python present but required hybrid algorithms not both enabled; enabled_kems=['Kyber1024'], enabled_sigs=['ML-DSA-65']
+2026-02-01 13:03:33 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 13:03:33 [WARNING ] - oqs-python present but required hybrid algorithms not both enabled; enabled_kems=['Kyber1024'], enabled_sigs=['ML-DSA-65']
+2026-02-01 13:03:48 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 13:03:48 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: test
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-2v0efxf9 (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-2v0efxf9/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: 6b886ccbb6592952...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 4b7a70bcce3af88f...
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: covtest
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-covtest-keys-6ho__k7y (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-covtest-keys-6ho__k7y/covtest-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: 67108681f1c21f0f...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 687c6ef57806a3e0...
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: test
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-3yl4pa_p (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-3yl4pa_p/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: 7cd1fa5791e33332...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 64af0a1cae60d85d...
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: test
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-cb9_glb5 (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-cb9_glb5/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: c8e9e730ee725da2...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 38093ab35df31573...
+2026-02-01 13:03:48 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9999)
+2026-02-01 13:03:48 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9999) for session d85a0453
+2026-02-01 13:03:48 [INFO    ] - Session d85a0453 established (initiator) with ('127.0.0.1', 9999)
+2026-02-01 13:03:48 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9999)
+2026-02-01 13:03:48 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9999) for session d85a0453
+2026-02-01 13:03:48 [INFO    ] - Session d85a0453 established (responder) with ('127.0.0.1', 9999)
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: test2
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-23krtky_ (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-23krtky_/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: df4cb680858c9dfe...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 16a1834dddc2f8e9...
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: test2
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-hludwzjc (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-hludwzjc/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: 044a5c1b02614ddf...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: c03544e871eec961...
+2026-02-01 13:03:48 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 13:03:48 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9998) for session 4319219a
+2026-02-01 13:03:48 [INFO    ] - Session 4319219a established (initiator) with ('127.0.0.1', 9998)
+2026-02-01 13:03:48 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 13:03:48 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session 4319219a
+2026-02-01 13:03:48 [WARNING ] - S2 signature policy: hybrid verification failed for session 4319219a18d48390
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-h7_2bgrv (will be removed on shutdown)
+2026-02-01 13:03:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-h7_2bgrv/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:48 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:48 [INFO    ] - Signature keys generated
+2026-02-01 13:03:48 [INFO    ] - Ed25519 PK: aadeed069ebba9ac...
+2026-02-01 13:03:48 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:48 [INFO    ] - ML-FAKE-TEST PK: 6ecaea0fe62f97b9...
+2026-02-01 13:03:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 13:03:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 13:03:48 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 13:03:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 13:03:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-9imku6bq (will be removed on shutdown)
+2026-02-01 13:03:49 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-9imku6bq/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 13:03:49 [INFO    ] - Generating Kyber keys...
+2026-02-01 13:03:49 [INFO    ] - Kyber keys generated
+2026-02-01 13:03:49 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 13:03:49 [INFO    ] - Signature keys generated
+2026-02-01 13:03:49 [INFO    ] - Ed25519 PK: 25893a637b2c69b5...
+2026-02-01 13:03:49 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 13:03:49 [INFO    ] - ML-FAKE-TEST PK: b7e05639fdcafc46...
+2026-02-01 13:03:49 [INFO    ] - send_to used branch=temporary_socket target=('127.0.0.1', 9006)
+2026-02-01 13:03:49 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session b9ea6444
+2026-02-01 20:47:55 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:47:55 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:47:55 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:47:55 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:47:55 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:47:55 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:47:55 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-33rwiafg (will be removed on shutdown)
+2026-02-01 20:47:55 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-33rwiafg/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:47:55 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:47:55 [INFO    ] - Kyber keys generated
+2026-02-01 20:47:55 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:47:55 [INFO    ] - Signature keys generated
+2026-02-01 20:47:55 [INFO    ] - Ed25519 PK: 057b16f80e92e336...
+2026-02-01 20:47:55 [INFO    ] - Kyber PK: e57b1d70b70b4e32...
+2026-02-01 20:47:55 [INFO    ] - ML-FAKE-TEST PK: af0bc22305a987cb...
+2026-02-01 20:47:55 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:47:55 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:47:55 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:47:55 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:47:55 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-8927tik_ (will be removed on shutdown)
+2026-02-01 20:47:55 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-8927tik_/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:47:55 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:47:55 [INFO    ] - Kyber keys generated
+2026-02-01 20:47:55 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:47:55 [INFO    ] - Signature keys generated
+2026-02-01 20:47:55 [INFO    ] - Ed25519 PK: 42c16d032429d96e...
+2026-02-01 20:47:55 [INFO    ] - Kyber PK: 9db63424900085c2...
+2026-02-01 20:47:55 [INFO    ] - ML-FAKE-TEST PK: 47c9e1505fa24e99...
+2026-02-01 20:47:55 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:47:55 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9998) for session 37894f00
+2026-02-01 20:47:55 [INFO    ] - Session 37894f00 established (initiator) with ('127.0.0.1', 9998)
+2026-02-01 20:47:55 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:47:55 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session 37894f00
+2026-02-01 20:47:55 [WARNING ] - S2 signature policy: hybrid verification failed for session 37894f00365c3014
+2026-02-01 20:48:45 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:48:45 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:48:45 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:48:45 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:48:45 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 20:48:45 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:48:45 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-mfsh2v12 (will be removed on shutdown)
+2026-02-01 20:48:45 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-mfsh2v12/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:48:45 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:48:45 [INFO    ] - Kyber keys generated
+2026-02-01 20:48:45 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:48:45 [INFO    ] - Signature keys generated
+2026-02-01 20:48:45 [INFO    ] - Ed25519 PK: fd6ab5a27610e547...
+2026-02-01 20:48:45 [INFO    ] - Kyber PK: 11800bdf4942ddea...
+2026-02-01 20:48:45 [INFO    ] - ML-FAKE-TEST PK: 7105b494cb86a878...
+2026-02-01 20:48:45 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:48:45 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:48:45 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 20:48:45 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:48:45 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-4rtqlw2r (will be removed on shutdown)
+2026-02-01 20:48:45 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-4rtqlw2r/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:48:45 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:48:45 [INFO    ] - Kyber keys generated
+2026-02-01 20:48:45 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:48:45 [INFO    ] - Signature keys generated
+2026-02-01 20:48:45 [INFO    ] - Ed25519 PK: 2c1624629d11e840...
+2026-02-01 20:48:45 [INFO    ] - Kyber PK: 53a9718df89583e6...
+2026-02-01 20:48:45 [INFO    ] - ML-FAKE-TEST PK: f043147aad177181...
+2026-02-01 20:48:45 [INFO    ] - send_to used branch=temporary_socket target=('127.0.0.1', 9006)
+2026-02-01 20:48:45 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session afec1ce5
+2026-02-01 20:49:48 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:49:48 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:49:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:49:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:49:48 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 20:49:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:49:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-ye9e63iv (will be removed on shutdown)
+2026-02-01 20:49:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-ye9e63iv/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:49:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:49:48 [INFO    ] - Kyber keys generated
+2026-02-01 20:49:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:49:48 [INFO    ] - Signature keys generated
+2026-02-01 20:49:48 [INFO    ] - Ed25519 PK: 772850ca9707b4b7...
+2026-02-01 20:49:48 [INFO    ] - Kyber PK: f57c1e3a671f93c5...
+2026-02-01 20:49:48 [INFO    ] - ML-FAKE-TEST PK: 8c12b5b8b9f32097...
+2026-02-01 20:49:48 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:49:48 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:49:48 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 20:49:48 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:49:48 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-wjm63pz5 (will be removed on shutdown)
+2026-02-01 20:49:48 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-wjm63pz5/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:49:48 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:49:48 [INFO    ] - Kyber keys generated
+2026-02-01 20:49:48 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:49:48 [INFO    ] - Signature keys generated
+2026-02-01 20:49:48 [INFO    ] - Ed25519 PK: 80d228217d52c4cb...
+2026-02-01 20:49:48 [INFO    ] - Kyber PK: c4b105ffc66bd44c...
+2026-02-01 20:49:48 [INFO    ] - ML-FAKE-TEST PK: a107c55aca26662e...
+2026-02-01 20:49:48 [INFO    ] - send_to used branch=temporary_socket target=('127.0.0.1', 9006)
+2026-02-01 20:49:48 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session 473dc25b
+2026-02-01 20:50:06 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:50:06 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:50:06 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:50:06 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:50:06 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:50:06 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 20:50:06 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:50:06 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-zqvug48u (will be removed on shutdown)
+2026-02-01 20:50:06 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeA-keys-zqvug48u/nodeA-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:50:06 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-zqvug48u/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:50:06 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:50:06 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:50:06 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:50:06 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:50:06 [INFO    ] - Kyber keys generated
+2026-02-01 20:50:06 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:50:06 [INFO    ] - Signature keys generated
+2026-02-01 20:50:06 [INFO    ] - Ed25519 PK: 0b566f6a27b0616e...
+2026-02-01 20:50:06 [INFO    ] - Kyber PK: 45b2702dc1667cf2...
+2026-02-01 20:50:06 [INFO    ] - ML-FAKE-TEST PK: f134483684e13193...
+2026-02-01 20:50:06 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:50:06 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:50:06 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:50:06 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:50:06 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 20:50:06 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:50:06 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-vnfx3rkj (will be removed on shutdown)
+2026-02-01 20:50:06 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeB-keys-vnfx3rkj/nodeB-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:50:06 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-vnfx3rkj/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:50:06 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:50:06 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:50:06 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:50:06 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:50:06 [INFO    ] - Kyber keys generated
+2026-02-01 20:50:06 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:50:06 [INFO    ] - Signature keys generated
+2026-02-01 20:50:06 [INFO    ] - Ed25519 PK: 9634ae164abec8d7...
+2026-02-01 20:50:06 [INFO    ] - Kyber PK: 5700c50639bbb0d2...
+2026-02-01 20:50:06 [INFO    ] - ML-FAKE-TEST PK: ad3a01abfd40530e...
+2026-02-01 20:50:06 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:50:06 [INFO    ] - send_to used branch=temporary_socket target=('127.0.0.1', 9006)
+2026-02-01 20:50:06 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session 60827865
+2026-02-01 20:52:04 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:52:04 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:52:04 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:04 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:04 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:04 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 20:52:04 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:04 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-jnfjo17w (will be removed on shutdown)
+2026-02-01 20:52:04 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeA-keys-jnfjo17w/nodeA-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:04 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-jnfjo17w/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:04 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:04 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:04 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:04 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:04 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:04 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:04 [INFO    ] - Signature keys generated
+2026-02-01 20:52:04 [INFO    ] - Ed25519 PK: a98686b242146739...
+2026-02-01 20:52:04 [INFO    ] - Kyber PK: 907366dad8783968...
+2026-02-01 20:52:04 [INFO    ] - ML-FAKE-TEST PK: 84ebeb584630dc27...
+2026-02-01 20:52:04 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:04 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:04 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:04 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:04 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 20:52:04 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:04 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-23nri8l3 (will be removed on shutdown)
+2026-02-01 20:52:04 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeB-keys-23nri8l3/nodeB-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:04 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-23nri8l3/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:04 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:04 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:04 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:04 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:04 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:04 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:04 [INFO    ] - Signature keys generated
+2026-02-01 20:52:04 [INFO    ] - Ed25519 PK: 1199799e9241a1d8...
+2026-02-01 20:52:04 [INFO    ] - Kyber PK: 9d031792d748b536...
+2026-02-01 20:52:04 [INFO    ] - ML-FAKE-TEST PK: 0fc29fdab5116e28...
+2026-02-01 20:52:04 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:04 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9006)
+2026-02-01 20:52:04 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session 2b76339c
+2026-02-01 20:52:04 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=de1bf471648688f4cf250135ec71bc8a48836dfc7cb077808b40a8ff2fed4285 sid=2b76339ca398b45e
+2026-02-01 20:52:04 [INFO    ] - Session 2b76339c established (initiator) with ('127.0.0.1', 9005)
+2026-02-01 20:52:04 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9005)
+2026-02-01 20:52:04 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9005) for session 2b76339c
+2026-02-01 20:52:04 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=True sid=2b76339ca398b45e
+2026-02-01 20:52:04 [INFO    ] - Session 2b76339c established (responder) with ('127.0.0.1', 9006)
+2026-02-01 20:52:04 [DEBUG   ] - handle_s2: processed incoming S2; no reply will be sent (responder already sent S2)
+2026-02-01 20:52:14 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:52:14 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:52:14 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:14 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:14 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:14 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:14 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:14 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-3j1mfd40 (will be removed on shutdown)
+2026-02-01 20:52:14 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-3j1mfd40/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:14 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-3j1mfd40/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:14 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:14 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:14 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:14 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:14 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:14 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:14 [INFO    ] - Signature keys generated
+2026-02-01 20:52:14 [INFO    ] - Ed25519 PK: c61f197f535c08f0...
+2026-02-01 20:52:14 [INFO    ] - Kyber PK: 58666cdca64388ca...
+2026-02-01 20:52:14 [INFO    ] - ML-FAKE-TEST PK: edbcd676cd99f2b3...
+2026-02-01 20:52:14 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:14 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:14 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:14 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:14 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:14 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:14 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-8rh9cg5d (will be removed on shutdown)
+2026-02-01 20:52:14 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-8rh9cg5d/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:14 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-8rh9cg5d/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:14 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:14 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:14 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:14 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:14 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:14 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:14 [INFO    ] - Signature keys generated
+2026-02-01 20:52:14 [INFO    ] - Ed25519 PK: 641bd78ec6a946b2...
+2026-02-01 20:52:14 [INFO    ] - Kyber PK: 3fa839c7e76329e0...
+2026-02-01 20:52:14 [INFO    ] - ML-FAKE-TEST PK: be56815800017af8...
+2026-02-01 20:52:14 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:14 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:14 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9998) for session 362d9710
+2026-02-01 20:52:14 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=342b7d3ab18b462848ef810be0d15f002d359f831133d8c27b3a24f226668393 sid=362d9710013c8d71
+2026-02-01 20:52:14 [INFO    ] - Session 362d9710 established (initiator) with ('127.0.0.1', 9998)
+2026-02-01 20:52:14 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:14 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session 362d9710
+2026-02-01 20:52:14 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=False sid=362d9710013c8d71
+2026-02-01 20:52:14 [WARNING ] - S2 signature policy: hybrid verification failed for session 362d9710013c8d71
+2026-02-01 20:52:40 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:52:40 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:52:40 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:40 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:40 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:40 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:40 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:40 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-jyjhw5s4 (will be removed on shutdown)
+2026-02-01 20:52:40 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-jyjhw5s4/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:40 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-jyjhw5s4/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:40 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:40 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:40 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:40 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:40 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:40 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:40 [INFO    ] - Signature keys generated
+2026-02-01 20:52:40 [INFO    ] - Ed25519 PK: 75c42550536114cd...
+2026-02-01 20:52:40 [INFO    ] - Kyber PK: d8aca1634acf0fcb...
+2026-02-01 20:52:40 [INFO    ] - ML-FAKE-TEST PK: 8a424ede8ccd29cf...
+2026-02-01 20:52:40 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:40 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:40 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:40 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:40 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:40 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:40 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-k3manh2r (will be removed on shutdown)
+2026-02-01 20:52:40 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-k3manh2r/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:40 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-k3manh2r/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:40 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:40 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:40 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:40 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:40 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:40 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:40 [INFO    ] - Signature keys generated
+2026-02-01 20:52:40 [INFO    ] - Ed25519 PK: 1f8d06369a2a81c9...
+2026-02-01 20:52:40 [INFO    ] - Kyber PK: d5b0afe56631b350...
+2026-02-01 20:52:40 [INFO    ] - ML-FAKE-TEST PK: cc74e3a6f8b9f74b...
+2026-02-01 20:52:40 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:40 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:40 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9998) for session bf2538ce
+2026-02-01 20:52:40 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=eca8da9aa542d4e42e2d50858558f1c84d739f0a32a4d62e5b5261db67cf8bf0 sid=bf2538cebdaf5cdf
+2026-02-01 20:52:40 [INFO    ] - Session bf2538ce established (initiator) with ('127.0.0.1', 9998)
+2026-02-01 20:52:40 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:40 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session bf2538ce
+2026-02-01 20:52:40 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=False sid=bf2538cebdaf5cdf
+2026-02-01 20:52:40 [WARNING ] - S2 signature policy: hybrid verification failed for session bf2538cebdaf5cdf
+2026-02-01 20:52:46 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-01 20:52:46 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-01 20:52:46 [DEBUG   ] - Kyber keypair generated via liboqs-python - pk_len=1568 sk_len=3168
+2026-02-01 20:52:46 [DEBUG   ] - Kyber1024 encaps via liboqs-python
+2026-02-01 20:52:46 [DEBUG   ] - Kyber1024 decaps via liboqs-python
+2026-02-01 20:52:46 [DEBUG   ] - Signature key pair generated via liboqs-python ML-DSA-87: pk len=2592, sk len=4896
+2026-02-01 20:52:46 [DEBUG   ] - Signed (with_ctx) with oqs-python ML-DSA-87, sig len=4627
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: test
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-43jgukb1 (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test-keys-43jgukb1/test-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-43jgukb1/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 248ce1aec39e9cdc...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 11bf161677c6c92d...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: covtest
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-covtest-keys-blizwsqg (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-covtest-keys-blizwsqg/covtest-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-covtest-keys-blizwsqg/covtest-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: e9a23c081e5f2e24...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 1ed38059ffd408cf...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: test
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-lghf2zt2 (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test-keys-lghf2zt2/test-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-lghf2zt2/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 299b3da51c652067...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 31cad3df8362b58e...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: test
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test-keys-07qd4839 (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test-keys-07qd4839/test-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test-keys-07qd4839/test-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: fc596c85dfdab1c8...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 80c090059a4b8445...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9999)
+2026-02-01 20:52:46 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9999) for session 5680c713
+2026-02-01 20:52:46 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=1a423964d8dbe926de5034a3f54fda02bbd5c3d8b8de46a095e4be2810056579 sid=5680c7137d71c191
+2026-02-01 20:52:46 [INFO    ] - Session 5680c713 established (initiator) with ('127.0.0.1', 9999)
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9999)
+2026-02-01 20:52:46 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9999) for session 5680c713
+2026-02-01 20:52:46 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=True sid=5680c7137d71c191
+2026-02-01 20:52:46 [INFO    ] - Session 5680c713 established (responder) with ('127.0.0.1', 9999)
+2026-02-01 20:52:46 [DEBUG   ] - handle_s2: processed incoming S2; no reply will be sent (responder already sent S2)
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-oqy3p657 (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-oqy3p657/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-oqy3p657/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 642eeba2675b33e9...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 57853322b7742811...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: test2
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-test2-keys-0ggg_sqd (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-test2-keys-0ggg_sqd/test2-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-test2-keys-0ggg_sqd/test2-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 4ce06a3e9403ecee...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: 609818a677b8702a...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:46 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9998) for session 631c4213
+2026-02-01 20:52:46 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=162430d36017f90a79a92bc21149a727d63dcf073f4aa1cba9246ad6f006cc17 sid=631c42130014f3b8
+2026-02-01 20:52:46 [INFO    ] - Session 631c4213 established (initiator) with ('127.0.0.1', 9998)
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9998)
+2026-02-01 20:52:46 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9998) for session 631c4213
+2026-02-01 20:52:46 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=False sid=631c42130014f3b8
+2026-02-01 20:52:46 [WARNING ] - S2 signature policy: hybrid verification failed for session 631c42130014f3b8
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: nodeA
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeA-keys-ubn_rr0u (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeA-keys-ubn_rr0u/nodeA-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeA-keys-ubn_rr0u/nodeA-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 0c6209ed252c516b...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: e41664a1c19e22e9...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [DEBUG   ] - Pydantic not available: skipping config schema validation
+2026-02-01 20:52:46 [INFO    ] - Hybrid handshake mode is mandatory: Kyber + BrainpoolP512r1 + Ed25519 + ML-DSA (no fallbacks allowed)
+2026-02-01 20:52:46 [INFO    ] - Loaded 4 known peers from known_peers.yaml
+2026-02-01 20:52:46 [INFO    ] - PQVPN initializing: nodeB
+2026-02-01 20:52:46 [INFO    ] - Mode: HYBRID: Kyber1024 + ML-DSA-87, ED25519/BrainpoolP512r1
+2026-02-01 20:52:46 [INFO    ] - Using temporary keys directory: /tmp/pqvpn-nodeB-keys-nw3w1scd (will be removed on shutdown)
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 load: x_path=/tmp/pqvpn-nodeB-keys-nw3w1scd/nodeB-brainpoolP512r1.key, exists=False, has_attr_brainpoolP512r1_sk=True
+2026-02-01 20:52:46 [INFO    ] - brainpoolP512r1_sk missing or invalid for '/tmp/pqvpn-nodeB-keys-nw3w1scd/nodeB-brainpoolP512r1.key'; generating new key as fallback
+2026-02-01 20:52:46 [DEBUG   ] - brainpoolP512r1 key parse error: 'NoneType' object has no attribute 'public_key'
+2026-02-01 20:52:46 [DEBUG   ] - Created brainpoolP512r1 PubKey proxy for object <class 'cryptography.hazmat.bindings._rust.openssl.ec.ECPublicKey'>
+2026-02-01 20:52:46 [INFO    ] - Generating Kyber keys...
+2026-02-01 20:52:46 [INFO    ] - Kyber keys generated
+2026-02-01 20:52:46 [INFO    ] - Generating signature keys (ML-FAKE-TEST)...
+2026-02-01 20:52:46 [INFO    ] - Signature keys generated
+2026-02-01 20:52:46 [INFO    ] - Ed25519 PK: 4f4e85997ab434dd...
+2026-02-01 20:52:46 [INFO    ] - Kyber PK: 1111111111111111...
+2026-02-01 20:52:46 [INFO    ] - ML-FAKE-TEST PK: ecf7ef804f8972b3...
+2026-02-01 20:52:46 [DEBUG   ] - Configured bootstrap peers: []
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9006)
+2026-02-01 20:52:46 [INFO    ] - FT_S1 sent to ('127.0.0.1', 9006) for session 9287a0d0
+2026-02-01 20:52:46 [DEBUG   ] - S1 verification results: verified_ed=True verified_mldsa=True peerid_field=e37c0a5261fa7b749990abc8d63d0c3f5331a5cecdefb9637502e9d6139ffc70 sid=9287a0d08c36435a
+2026-02-01 20:52:46 [INFO    ] - Session 9287a0d0 established (initiator) with ('127.0.0.1', 9005)
+2026-02-01 20:52:46 [INFO    ] - send_to used branch=primary_transport target=('127.0.0.1', 9005)
+2026-02-01 20:52:46 [INFO    ] - FT_S2 sent to ('127.0.0.1', 9005) for session 9287a0d0
+2026-02-01 20:52:46 [DEBUG   ] - S2 verification results: verified_ed=True verified_mldsa=True sid=9287a0d08c36435a
+2026-02-01 20:52:46 [INFO    ] - Session 9287a0d0 established (responder) with ('127.0.0.1', 9006)
+2026-02-01 20:52:46 [DEBUG   ] - handle_s2: processed incoming S2; no reply will be sent (responder already sent S2)
