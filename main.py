@@ -115,7 +115,6 @@ except Exception:
 # Inlined pqsig.py helpers (register as module 'pqsig')
 try:
     import base64 as _base64
-    import hashlib as _hashlib
     import json as _json
     import logging as _logging
 
@@ -4847,7 +4846,7 @@ def _safe_serialize_private_key(key_obj) -> bytes:
                 format=_ser.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=_ser.NoEncryption(),
             )
-        except (TypeError, ValueError, AttributeError) as e_trad:
+        except (TypeError, ValueError, AttributeError):
             # Last resort: try Raw private bytes if supported
             try:
                 return key_obj.private_bytes(
@@ -4989,7 +4988,6 @@ async def main_loop(
             _on_signal(signame)
         return handler
 
-    import functools
     loop = asyncio.get_running_loop()
     for s in (signal.SIGINT, signal.SIGTERM):
         try:
