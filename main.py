@@ -5165,3 +5165,40 @@ async def _delayed_bootstrap(node: 'PQVPNNode'):
     except Exception:
         pass
 
+def _build_cli_parser() -> "argparse.ArgumentParser":
+    import argparse
+
+    p = argparse.ArgumentParser(
+        prog="pqvpn",
+        description="PQVPN - Path-Quilt VPN Node (WIP)",
+    )
+
+    p.add_argument("--config", default="config.yaml", help="Path to config YAML.")
+    p.add_argument("--loglevel", default="INFO", help="Logging level (DEBUG/INFO/WARNING/ERROR).")
+    p.add_argument("--logfile", default=None, help="Optional log file path.")
+    p.add_argument("--pidfile", default=None, help="Optional pidfile path.")
+    p.add_argument("--disable-discovery", action="store_true", help="Disable DHT-based discovery.")
+    p.add_argument("--enable-relay", action="store_true", help="Enable relay behavior (if supported by config).")
+
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = _build_cli_parser()
+    args = p.parse_args(argv)
+
+    asyncio.run(
+        main_loop(
+            configfile=args.config,
+            logfile=args.logfile,
+            loglevel=args.loglevel,
+            pidfile=args.pidfile,
+            disable_discovery=bool(args.disable_discovery),
+            enable_relay=bool(args.enable_relay),
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
