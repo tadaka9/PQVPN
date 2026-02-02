@@ -1431,6 +1431,29 @@ class SessionInfo:
     handshake_retries: int = 0  # Count handshake retries
 
 
+    def rotate_keys(self, reason: str = 'rekey') -> None:
+        """Rotate AEAD keys for this session using Argon2-derived material.
+
+        This method derives two new 32-byte keys from fresh entropy and the
+        existing session_id as salt, then atomically replaces the aead_send/aead_recv
+        objects on the SessionInfo.
+        """
+        try:
+            fresh = os.urandom(32)
+            new_km = argon2_derive_key_material(fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64)
+            new_send = new_km[:32]
+            new_recv = new_km[32:64]
+            self.aead_send = ChaCha20Poly1305(new_send)
+            self.aead_recv = ChaCha20Poly1305(new_recv)
+            self.send_key = new_send
+            self.recv_key = new_recv
+            self.handshake_retries = 0
+            logger.info(f"Session {self.session_id.hex()[:8]} keys rotated ({reason})")
+        except Exception as e:
+            logger.error(f"Session key rotation failed: {e}")
+
+
+
 @dataclass
 class PeerInfo:
     peer_id: bytes
