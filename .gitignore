@@ -16,6 +16,30 @@ venv/
 .pytest_cache/
 .mypy_cache/
 
+# Logs and reports
+*.log
+*_report.*
+benchmark_results.log
+pattern_analysis_results.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.tmp
+
 # OS
 .DS_Store
 Thumbs.db
+*.stackdump
+
+# Coverage
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints
+
+# PyInstaller
+*.manifest
+*.spec

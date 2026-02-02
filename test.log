@@ -1,8 +1,0 @@
-{"timestamp": "2026-02-02 17:12:55,275", "level": "ERROR", "component": "pqvpn", "message": "PQVPN Error: test error", "context": ""\"\\\"\\\\\\\"{}\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:12:55,275", "level": "ERROR", "component": "pqvpn", "message": "Unhandled error: generic error", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:04,778", "level": "ERROR", "component": "pqvpn", "message": "PQVPN Error: test error", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:04,778", "level": "ERROR", "component": "pqvpn", "message": "Unhandled error: generic error", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:06,783", "level": "INFO", "component": "pqvpn", "message": "Starting test", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:06,784", "level": "INFO", "component": "pqvpn", "message": "Starting test", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:06,784", "level": "WARNING", "component": "pqvpn", "message": "test exited with code 1, restarting", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
-{"timestamp": "2026-02-02 17:13:06,784", "level": "ERROR", "component": "pqvpn", "message": "Max restarts reached for test", "context": ""\"\\\"\\\\\\\"\\\\\\\\\\\\\\\"{}\\\\\\\\\\\\\\\"\\\\\\\"\\\"\"""}
