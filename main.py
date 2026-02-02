@@ -4158,21 +4158,26 @@ class PQVPNNode:
             except Exception:
                 ecdh_local = b""
 
-            # Compose KDF material and derive keys
+            # Compose KDF material (length-prefixed) and derive keys using Argon2id
             try:
-                km = (
-                    (ss_pq or b"")
-                    + (ecdh_local or b"")
-                    + self.session_salt(
-                        peer_id
-                        or (bytes.fromhex(j.get("peerid")) if j.get("peerid") else b"")
-                    )
-                )
+                parts = []
+                def _lp(b: bytes) -> bytes:
+                    return len(b).to_bytes(2, 'big') + (b or b"")
+
+                parts.append(_lp(ss_pq or b""))
+                parts.append(_lp(ecdh_local or b""))
+                # include peer id canonical salt material
+                piden = peer_id or (bytes.fromhex(j.get("peerid")) if j.get("peerid") else b"")
+                parts.append(_lp(self.session_salt(piden)))
+                concat = b"".join(parts)
+                # use sid (session id) as salt if available
+                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
+                km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
             except Exception as e:
-                logger.error(f"S1 KDF assembly failed: {e}")
+                logger.error(f"S1 Argon2 KDF failed: {e}")
                 return
 
-            # Split keys deterministically
+            # Split keys deterministically from Argon2 output
             try:
                 if self.my_id and peer_id:
                     if self.my_id <= peer_id:
