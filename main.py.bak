@@ -783,63 +783,6 @@ def _normalize_sig_config_name(alg_name: str | None) -> str:
 
 # OQSPY probe variables (populated later if oqs-python detected)
 OQSPY_AVAILABLE = False
-
-# Argon2 KDF parameters (enforced)
-ARGON2_TIME_COST = 2
-ARGON2_MEMORY_COST = 65536  # in KiB
-ARGON2_PARALLELISM = 4
-ARGON2_HASH_LEN = 64  # bytes
-
-# Hybrid algorithm enforcement
-HYBRID_KEM = 'Kyber1024'
-HYBRID_SIG = 'ML-DSA-87'
-HYBRID_ECDH_ALGS = ['x25519', 'BrainpoolP512R1']
-
-# --- Startup enforcement for hybrid-only mode ---
-def _enforce_hybrid_requirements():
-    missing = []
-    # oqs presence
-    if oqs_module is None or not OQSPY_AVAILABLE:
-        missing.append('liboqs-python (oqs) with required KEM/SIG')
-    else:
-        # check required algorithms
-        try:
-            kem_ok = any('kyber1024' in k.lower() for k in enabled_kems)
-            sig_ok = any('ml-dsa-87' in s.lower() for s in enabled_sigs)
-            if not kem_ok:
-                missing.append('Kyber1024 KEM')
-            if not sig_ok:
-                missing.append('ML-DSA-87 signature')
-        except Exception:
-            missing.append('oqs algorithm detection')
-    # cryptography ECDH support
-    try:
-        from cryptography.hazmat.primitives.asymmetric import x25519 as _x25519
-    except Exception:
-        missing.append('x25519 (cryptography)')
-    try:
-        # Brainpool curve availability
-        _ = ec.BrainpoolP512R1()
-    except Exception:
-        missing.append('BrainpoolP512R1 (cryptography EC)')
-
-    if missing:
-        logger.critical('Hybrid mode requirements missing: %s', ', '.join(missing))
-        logger.critical('Please install liboqs (see PQVPN/scripts/install_liboqs.sh) and ensure required algorithms are enabled. Aborting startup.')
-        raise RuntimeError('Hybrid mode requirements not satisfied: ' + ', '.join(missing))
-
-# Defer enforcement until runtime import
-try:
-    _enforce_hybrid_requirements()
-except Exception:
-    # Allow tests or static analysis to import the module without failing immediately
-    # but re-raise when running as main
-    if __name__ == '__main__':
-        raise
-    else:
-        logger.warning('Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.')
-
-# --- end startup enforcement ---
 OQSPY_KEMALG = None
 OQSPY_SIGALG = None
 OQSPY_KEM_PUBLEN = None
@@ -1429,29 +1372,6 @@ class SessionInfo:
         bytes
     ] = None  # Store the raw S1 frame for possible retransmission
     handshake_retries: int = 0  # Count handshake retries
-
-
-    def rotate_keys(self, reason: str = 'rekey') -> None:
-        """Rotate AEAD keys for this session using Argon2-derived material.
-
-        This method derives two new 32-byte keys from fresh entropy and the
-        existing session_id as salt, then atomically replaces the aead_send/aead_recv
-        objects on the SessionInfo.
-        """
-        try:
-            fresh = os.urandom(32)
-            new_km = argon2_derive_key_material(fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64)
-            new_send = new_km[:32]
-            new_recv = new_km[32:64]
-            self.aead_send = ChaCha20Poly1305(new_send)
-            self.aead_recv = ChaCha20Poly1305(new_recv)
-            self.send_key = new_send
-            self.recv_key = new_recv
-            self.handshake_retries = 0
-            logger.info(f"Session {self.session_id.hex()[:8]} keys rotated ({reason})")
-        except Exception as e:
-            logger.error(f"Session key rotation failed: {e}")
-
 
 
 @dataclass
@@ -4180,26 +4100,21 @@ class PQVPNNode:
             except Exception:
                 ecdh_local = b""
 
-            # Compose KDF material (length-prefixed) and derive keys using Argon2id
+            # Compose KDF material and derive keys
             try:
-                parts = []
-                def _lp(b: bytes) -> bytes:
-                    return len(b).to_bytes(2, 'big') + (b or b"")
-
-                parts.append(_lp(ss_pq or b""))
-                parts.append(_lp(ecdh_local or b""))
-                # include peer id canonical salt material
-                piden = peer_id or (bytes.fromhex(j.get("peerid")) if j.get("peerid") else b"")
-                parts.append(_lp(self.session_salt(piden)))
-                concat = b"".join(parts)
-                # use sid (session id) as salt if available
-                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
-                km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
+                km = (
+                    (ss_pq or b"")
+                    + (ecdh_local or b"")
+                    + self.session_salt(
+                        peer_id
+                        or (bytes.fromhex(j.get("peerid")) if j.get("peerid") else b"")
+                    )
+                )
             except Exception as e:
-                logger.error(f"S1 Argon2 KDF failed: {e}")
+                logger.error(f"S1 KDF assembly failed: {e}")
                 return
 
-            # Split keys deterministically from Argon2 output
+            # Split keys deterministically
             try:
                 if self.my_id and peer_id:
                     if self.my_id <= peer_id:
@@ -4483,23 +4398,18 @@ class PQVPNNode:
             ss_pq = pending.get("ss_pq") or b""
             ecdh_local = pending.get("ecdh") or b""
 
-            # Compose KDF material (length-prefixed) and derive keys using Argon2id
+            # Compose KDF material
             try:
-                parts = []
-                def _lp(b: bytes) -> bytes:
-                    return len(b).to_bytes(2, 'big') + (b or b"")
-
-                parts.append(_lp(ss_pq or b""))
-                parts.append(_lp(ecdh_local or b""))
-                parts.append(_lp(self.session_salt(peer_id or b"")))
-                concat = b"".join(parts)
-                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
-                km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
+                km = (
+                    (ss_pq or b"")
+                    + (ecdh_local or b"")
+                    + self.session_salt(peer_id or b"")
+                )
             except Exception as e:
-                logger.error(f"S2 Argon2 KDF failed: {e}")
+                logger.error(f"S2 KDF assembly failed: {e}")
                 return
 
-            # Split keys deterministically from Argon2 output
+            # Split keys deterministically
             try:
                 if self.my_id and peer_id:
                     if self.my_id <= peer_id:
@@ -5296,8 +5206,6 @@ async def _delayed_bootstrap(node: 'PQVPNNode'):
         pass
 
 def _build_cli_parser() -> "argparse.ArgumentParser":
-    # kept private; provide public alias below
-
     import argparse
 
     p = argparse.ArgumentParser(
@@ -5312,33 +5220,11 @@ def _build_cli_parser() -> "argparse.ArgumentParser":
     p.add_argument("--disable-discovery", action="store_true", help="Disable DHT-based discovery.")
     p.add_argument("--enable-relay", action="store_true", help="Enable relay behavior (if supported by config).")
 
-    # add subparsers (e.g., version) to satisfy test expectations
-    sub = p.add_subparsers(dest='command')
-    sub.add_parser('version', help='Print version and exit')
-
     return p
 
 
-# Public alias expected by tests
-build_parser = _build_cli_parser
-
 def main(argv: list[str] | None = None) -> int:
-    # Support legacy test hook: main(["version"]) -> print version and exit
-    if argv and isinstance(argv, (list, tuple)) and len(argv) == 1 and argv[0] == "version":
-        try:
-            print(__version__)
-        except Exception:
-            print("unknown")
-        return 0
-
     p = _build_cli_parser()
-    # Provide backward-compatible public alias expected by tests
-    try:
-        build_parser  # type: ignore
-    except NameError:
-        # expose a public name for tests that import build_parser
-        globals()["build_parser"] = _build_cli_parser
-
     args = p.parse_args(argv)
 
     asyncio.run(
@@ -5353,38 +5239,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     return 0
 
-
-# Prefer implementations from pqvpn.crypto if available (non-destructive).
-# This allows the crypto helpers to live in a separate module while keeping
-# the original main.py implementations as a fallback.
-try:
-    from pqvpn import crypto as _pqcrypto  # type: ignore
-    # Names to prefer from the crypto module when present
-    for _name in (
-        "OQSPY_AVAILABLE",
-        "OQSPY_KEMALG",
-        "OQSPY_SIGALG",
-        "OQSPY_KEM_PUBLEN",
-        "OQSPY_KEM_SKLEN",
-        "OQSPY_KEM_CTLEN",
-        "OQSPY_KEM_SSLEN",
-        "OQSPY_SIG_PUBLEN",
-        "OQSPY_SIG_SKLEN",
-        "OQSPY_SIG_SIGLEN",
-        "pq_kem_keygen",
-        "pq_kem_encaps",
-        "pq_kem_decaps",
-        "pq_sig_keygen",
-        "pq_sig_sign",
-        "pq_sig_verify_debug",
-        "pq_sig_verify",
-    ):
-        if hasattr(_pqcrypto, _name):
-            globals()[_name] = getattr(_pqcrypto, _name)
-except Exception:
-    # Best-effort: if the crypto module fails to import or initialize,
-    # keep the in-file implementations intact.
-    pass
 
 if __name__ == "__main__":
     raise SystemExit(main())
