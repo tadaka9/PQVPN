@@ -3,6 +3,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/tadaka9/PQVPN/ci.yml)](https://github.com/tadaka9/PQVPN/actions)
+[![codecov](https://codecov.io/gh/tadaka9/PQVPN/branch/main/graph/badge.svg)](https://codecov.io/gh/tadaka9/PQVPN)
 [![GitHub Stars](https://img.shields.io/github/stars/tadaka9/PQVPN.svg)](https://github.com/tadaka9/PQVPN/stargazers)
 
 PQVPN (Path Quilt VPN) is a work-in-progress P2P VPN concept project implementing a novel approach to secure, decentralized networking using post-quantum cryptography and traffic analysis resistance.
