@@ -4461,18 +4461,23 @@ class PQVPNNode:
             ss_pq = pending.get("ss_pq") or b""
             ecdh_local = pending.get("ecdh") or b""
 
-            # Compose KDF material
+            # Compose KDF material (length-prefixed) and derive keys using Argon2id
             try:
-                km = (
-                    (ss_pq or b"")
-                    + (ecdh_local or b"")
-                    + self.session_salt(peer_id or b"")
-                )
+                parts = []
+                def _lp(b: bytes) -> bytes:
+                    return len(b).to_bytes(2, 'big') + (b or b"")
+
+                parts.append(_lp(ss_pq or b""))
+                parts.append(_lp(ecdh_local or b""))
+                parts.append(_lp(self.session_salt(peer_id or b"")))
+                concat = b"".join(parts)
+                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
+                km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
             except Exception as e:
-                logger.error(f"S2 KDF assembly failed: {e}")
+                logger.error(f"S2 Argon2 KDF failed: {e}")
                 return
 
-            # Split keys deterministically
+            # Split keys deterministically from Argon2 output
             try:
                 if self.my_id and peer_id:
                     if self.my_id <= peer_id:
