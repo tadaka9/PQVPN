@@ -5292,6 +5292,9 @@ def _build_cli_parser() -> "argparse.ArgumentParser":
     return p
 
 
+# Public alias expected by tests
+build_parser = _build_cli_parser
+
 def main(argv: list[str] | None = None) -> int:
     # Support legacy test hook: main(["version"]) -> print version and exit
     if argv and isinstance(argv, (list, tuple)) and len(argv) == 1 and argv[0] == "version":
