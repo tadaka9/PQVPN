@@ -1,0 +1,12 @@
+peer:
+  nickname: "testnet-node-0"
+network:
+  bind_host: "127.0.0.1"
+  listen_port: 9000
+security:
+  strict_sig_verify: false
+  tofu: true
+  allowlist: []
+keys:
+  persist: false
+bootstrap: []
