@@ -794,6 +794,53 @@ ARGON2_HASH_LEN = 64  # bytes
 HYBRID_KEM = 'Kyber1024'
 HYBRID_SIG = 'ML-DSA-87'
 HYBRID_ECDH_ALGS = ['x25519', 'BrainpoolP512R1']
+
+# --- Startup enforcement for hybrid-only mode ---
+def _enforce_hybrid_requirements():
+    missing = []
+    # oqs presence
+    if oqs_module is None or not OQSPY_AVAILABLE:
+        missing.append('liboqs-python (oqs) with required KEM/SIG')
+    else:
+        # check required algorithms
+        try:
+            kem_ok = any('kyber1024' in k.lower() for k in enabled_kems)
+            sig_ok = any('ml-dsa-87' in s.lower() for s in enabled_sigs)
+            if not kem_ok:
+                missing.append('Kyber1024 KEM')
+            if not sig_ok:
+                missing.append('ML-DSA-87 signature')
+        except Exception:
+            missing.append('oqs algorithm detection')
+    # cryptography ECDH support
+    try:
+        from cryptography.hazmat.primitives.asymmetric import x25519 as _x25519
+    except Exception:
+        missing.append('x25519 (cryptography)')
+    try:
+        # Brainpool curve availability
+        _ = ec.BrainpoolP512R1()
+    except Exception:
+        missing.append('BrainpoolP512R1 (cryptography EC)')
+
+    if missing:
+        logger.critical('Hybrid mode requirements missing: %s', ', '.join(missing))
+        logger.critical('Please install liboqs (see PQVPN/scripts/install_liboqs.sh) and ensure required algorithms are enabled.
+Aborting startup.')
+        raise RuntimeError('Hybrid mode requirements not satisfied: ' + ', '.join(missing))
+
+# Defer enforcement until runtime import
+try:
+    _enforce_hybrid_requirements()
+except Exception:
+    # Allow tests or static analysis to import the module without failing immediately
+    # but re-raise when running as main
+    if __name__ == '__main__':
+        raise
+    else:
+        logger.warning('Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.')
+
+# --- end startup enforcement ---
 OQSPY_KEMALG = None
 OQSPY_SIGALG = None
 OQSPY_KEM_PUBLEN = None
