@@ -24,6 +24,7 @@ dev = [
   "ruff>=0.1.0",
   "bandit>=1.7",
   "safety>=2.3",
+  "pylint>=3.0",
 ]
 tun = [
   "pytun>=1.0",
