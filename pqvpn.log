@@ -28,3 +28,130 @@
 2026-02-02 15:08:27 [WARNING ] - Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.
 2026-02-02 15:08:27 [INFO    ] - oqs-python nested implementation module loaded
 2026-02-02 15:08:27 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-02 16:53:27 [WARNING ] - Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.
+2026-02-02 16:53:27 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-02 16:53:27 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-02 16:53:27 [INFO    ] - oqs-python nested implementation module loaded
+2026-02-02 16:53:27 [INFO    ] - oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87
+2026-02-02 16:53:27 [ERROR   ] - Decryption failed: 
+{"timestamp": "2026-02-02 17:09:57,849", "level": "ERROR", "component": "pqvpn", "message": "Unhandled exception", "context": "{'exc_type': "<class 'NameError'>", 'exc_value': "name 'logging' is not defined", 'traceback': '<traceback object at 0x7fe9643288c0>'}"}
+{"timestamp": "2026-02-02 17:10:31,221", "level": "ERROR", "component": "pqvpn", "message": "Unhandled exception", "context": "{'exc_type': "<class 'NameError'>", 'exc_value': "name 'logging' is not defined", 'traceback': '<traceback object at 0x7f9d923fc8c0>'}"}
+{"timestamp": "2026-02-02 17:12:55,167", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:12:55,168", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:12:55,275", "level": "ERROR", "component": "pqvpn", "message": "PQVPN Error: test error", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:12:55,275", "level": "ERROR", "component": "pqvpn", "message": "Unhandled error: generic error", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:02,545", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:02,545", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:04,679", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:04,679", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:04,778", "level": "ERROR", "component": "pqvpn", "message": "PQVPN Error: test error", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:04,778", "level": "ERROR", "component": "pqvpn", "message": "Unhandled error: generic error", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:06,783", "level": "INFO", "component": "pqvpn", "message": "Starting test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:06,784", "level": "INFO", "component": "pqvpn", "message": "Starting test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:06,784", "level": "WARNING", "component": "pqvpn", "message": "test exited with code 1, restarting", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:06,784", "level": "ERROR", "component": "pqvpn", "message": "Max restarts reached for test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,418", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,418", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,531", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,531", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,531", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,532", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,532", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,533", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,534", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,534", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:18,535", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:33,851", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:33,851", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:44,768", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:44,768", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:51,649", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:51,649", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:53,682", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:13:53,682", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:06,482", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:06,482", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:24,125", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:24,125", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:29,804", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:29,805", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:32,481", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:32,481", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:32,573", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:32,576", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,719", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,719", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,815", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,815", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,815", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,816", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,816", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,817", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,818", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,818", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:34,819", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:35,827", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:35,830", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:42,169", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:42,169", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,115", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,115", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,212", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,213", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,213", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,214", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,214", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,215", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,216", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,216", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:54,216", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:55,224", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:14:55,227", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:15:46,487", "level": "ERROR", "component": "pqvpn", "message": "Unhandled exception", "context": ""\"{\\\"exc_type\\\": \\\"<class 'RuntimeError'>\\\", \\\"exc_value\\\": \\\"liboqs not available for PQ crypto\\\", \\\"traceback\\\": \\\"<traceback object at 0x7ffbaf4e79c0>\\\"}\"""}
+{"timestamp": "2026-02-02 17:15:52,038", "level": "ERROR", "component": "pqvpn", "message": "Unhandled exception", "context": ""\"{\\\"exc_type\\\": \\\"<class 'RuntimeError'>\\\", \\\"exc_value\\\": \\\"liboqs not available for PQ crypto\\\", \\\"traceback\\\": \\\"<traceback object at 0x7f6c589dc680>\\\"}\"""}
+{"timestamp": "2026-02-02 17:16:00,519", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,520", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,652", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,652", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,652", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,653", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,653", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,654", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,655", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,655", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:00,656", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:01,688", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:01,691", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,234", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,234", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,355", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,355", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,355", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,356", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,356", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,357", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,358", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,358", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:08,359", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:09,386", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:09,389", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,714", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,714", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,816", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,817", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,817", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Removed policy: test", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,817", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: allow_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,818", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: deny_all", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,818", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Added policy: challenge_admin", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,819", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,819", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Stopped monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:25,820", "level": "INFO", "component": "pqvpn.zero_trust", "message": "Started monitoring for session 73657373", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:26,834", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:26,837", "level": "INFO", "component": "pqvpn.ratchet", "message": "Ratchet forward secrecy test passed", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:46,471", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python nested implementation module loaded", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:16:46,472", "level": "INFO", "component": "pqvpn.crypto", "message": "oqs-python available - KEM: Kyber1024, SIG: ML-DSA-87", "context": ""\"{}\"""}
+{"timestamp": "2026-02-02 17:26:44,257", "level": "ERROR", "component": "pqvpn", "message": "Unhandled exception", "context": ""\"{\\\"exc_type\\\": \\\"<class 'NameError'>\\\", \\\"exc_value\\\": \\\"name 'logger' is not defined\\\", \\\"traceback\\\": \\\"<traceback object at 0x7f35148a6c40>\\\"}\"""}
+2026-02-02 17:26:49 [WARNING ] - Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.
+2026-02-02 17:26:49 [WARNING ] - liboqs-python nested import 'from oqs import oqs' failed; hybrid features will be unavailable at runtime
+2026-02-02 17:26:49 [WARNING ] - liboqs-python implementation missing KeyEncapsulation/Signature APIs; hybrid crypto will be disabled until runtime re-check
+2026-02-02 17:26:49 [INFO    ] - oqs-python not available: running in non-hybrid/emulation mode; PQ ops will error if invoked

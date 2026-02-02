@@ -15,12 +15,9 @@ hybrid-only mode. This mirrors the behaviour in main.py: callers can
 catch the error or run in emulated/test mode.
 """
 
-from __future__ import annotations
-
-import base64
-import json
 import logging
-from typing import Any, Iterable, List, Optional, Tuple
+
+from .robustness import circuit_breaker, log_with_context, ErrorType
 
 logger = logging.getLogger("pqvpn.crypto")
 # Let the main logger configure handlers; avoid adding extra ones here
@@ -303,28 +300,57 @@ def pq_kem_keygen() -> Tuple[bytes, bytes]:
 def pq_kem_encaps(pk: bytes, alg: Optional[str] = None) -> Tuple[bytes, bytes]:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
+        log_with_context("pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})
         raise RuntimeError(
             "pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs"
         )
+    try:
+        ct, ss = circuit_breaker.call(_pq_kem_encaps_internal, pk, use_alg)
+        logger.debug(f"{use_alg} encaps via liboqs-python")
+        return ct, ss
+    except Exception as e:
+        log_with_context(f"pq_kem_encaps failed: {e}", "error", {"alg": use_alg})
+        raise
+
+def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> Tuple[bytes, bytes]:
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
     with kenc(use_alg) as kem:
         ct, ss = kem.encap_secret(pk)
-        logger.debug(f"{use_alg} encaps via liboqs-python")
         return ct, ss
 
 
 def pq_kem_decaps(ct: bytes, sk: bytes, alg: Optional[str] = None) -> bytes:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
+        log_with_context("pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})
         raise RuntimeError(
             "pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs"
         )
+    try:
+        ss = circuit_breaker.call(_pq_kem_decaps_internal, ct, sk, use_alg)
+        logger.debug(f"{use_alg} decaps via liboqs-python")
+        return ss
+    except Exception as e:
+        log_with_context(f"pq_kem_decaps failed: {e}", "error", {"alg": use_alg})
+        raise
+
+def _pq_kem_decaps_internal(ct: bytes, sk: bytes, use_alg: str) -> bytes:
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
     with kenc(use_alg, secret_key=sk) as kem:
         ss = kem.decap_secret(ct)
-        logger.debug(f"{use_alg} decaps via liboqs-python")
         return ss
+
+def check_crypto_health() -> bool:
+    """Health check for crypto operations."""
+    try:
+        # Simple keygen test
+        pk, sk = pq_kem_keygen()
+        ct, ss1 = pq_kem_encaps(pk)
+        ss2 = pq_kem_decaps(ct, sk)
+        return ss1 == ss2
+    except Exception:
+        return False

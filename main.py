@@ -29,8 +29,8 @@ import shutil
 import atexit
 import signal
 
-# Inlined DHTClient and Discovery implementations are provided later in this file
-# to make main.py self-contained and avoid external project imports.
+# Import modular components
+from src.pqvpn import config, crypto, network, session, discovery, plugins
 
 # Inlined config_schema.py (register as module 'config_schema')
 import types as _types
@@ -74,7 +74,7 @@ try:
         handshake_backoff_factor = Field(2.0)
 
     class NetworkConfig(BaseModel):
-        bind_host = Field("0.0.0.0")
+        bind_host = Field("127.0.0.1")
         listen_port = Field(9000)
         max_concurrent_datagrams = Field(200)
 
@@ -107,9 +107,8 @@ try:
     import sys as _sys
 
     _sys.modules["config_schema"] = _config_module
-except Exception:
-    # swallow failures - PQVPN will continue without schema validation
-    _HAS_PYDANTIC = False
+except Exception as e:
+    print(f"Warning: Config schema setup failed: {e}")
 
 
 # Inlined pqsig.py helpers (register as module 'pqsig')
@@ -285,8 +284,8 @@ try:
     import sys as _sys
 
     _sys.modules["pqsig"] = _pqsig_module
-except Exception:
-    pass
+except Exception as e:
+    print(f"Warning: PQsig inlined setup failed: {e}")
 
 __version__ = "0.0.1-alpha01112026"
 
@@ -2381,6 +2380,14 @@ class PQVPNNode:
         )
         self.audit_trail = AuditTrail()
 
+        # TUN interface and VPN router
+        if TUN_AVAILABLE:
+            self.tun_interface = create_tun_interface()
+            self.vpn_router = VpnRouter(self.tun_interface, self)
+        else:
+            self.tun_interface = None
+            self.vpn_router = None
+
         # Instantiate discovery subsystem (can be disabled via config)
         try:
             self.discovery = Discovery(self)
@@ -2388,7 +2395,7 @@ class PQVPNNode:
             self.discovery = None
 
         # Network config
-        self.host = self.config.get("network", {}).get("bind_host", "0.0.0.0")
+        self.host = self.config.get("network", {}).get("bind_host", "127.0.0.1")
         self.port = int(self.config.get("network", {}).get("listen_port", 9000))
         self.transport: Optional[asyncio.DatagramTransport] = None
         self.ipv4_transport: Optional[asyncio.DatagramTransport] = None

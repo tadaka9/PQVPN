@@ -21,6 +21,11 @@ pqvpn = "pqvpn.cli:main"
 dev = [
   "pytest>=7",
   "ruff>=0.1.0",
+  "bandit>=1.7",
+  "safety>=2.3",
+]
+tun = [
+  "pytun>=1.0",
 ]
 
 [tool.setuptools]

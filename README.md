@@ -25,15 +25,17 @@ python main.py doctor
 python main.py run --bind 127.0.0.1 --port 51820
 ```
 
-## Install (editable, for development)
+## Development
 
-```bash
-python -m pip install -e .
+Follow the structured development loop documented in `docs/DEV_LOOP.md`.
 
-# After install you can use the console script:
-pqvpn --help
-pqvpn version
-```
+Run the full loop: `./scripts/dev_loop.sh` or `make dev-loop`.
+
+Individual phases:
+- `make think` - Brainstorm ideas
+- `make new` - Design changes
+- `make security-checks` - Run security audits
+- `make tests` - Run automated tests
 
 ## Repository layout
 
