@@ -5289,6 +5289,10 @@ def _build_cli_parser() -> "argparse.ArgumentParser":
     p.add_argument("--disable-discovery", action="store_true", help="Disable DHT-based discovery.")
     p.add_argument("--enable-relay", action="store_true", help="Enable relay behavior (if supported by config).")
 
+    # add subparsers (e.g., version) to satisfy test expectations
+    sub = p.add_subparsers(dest='command')
+    sub.add_parser('version', help='Print version and exit')
+
     return p
 
 
