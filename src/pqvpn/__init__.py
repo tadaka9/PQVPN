@@ -12,6 +12,6 @@ from . import crypto
 from . import network
 from . import session
 from . import discovery
-from . import plugins
+from . import iot
 
-__all__ = ["__version__", "config", "crypto", "network", "session", "discovery", "plugins"]
+__all__ = ["__version__", "config", "crypto", "network", "session", "discovery", "plugins", "iot"]

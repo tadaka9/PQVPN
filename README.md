@@ -13,6 +13,7 @@ PQVPN (Path Quilt VPN) is a work-in-progress P2P VPN concept project implementin
 - **Post-Quantum Security**: Utilizes quantum-resistant cryptographic primitives
 - **P2P Architecture**: Decentralized peer-to-peer connections without central servers
 - **Traffic Obfuscation**: Advanced techniques to resist DPI and traffic analysis
+- **IoT Support**: Lightweight client for low-power IoT devices with battery optimization
 - **Modular Design**: Plugin-based architecture for extensibility
 - **Research-Oriented**: Prototype for exploring VPN security paradigms
 
@@ -66,6 +67,9 @@ pqvpn doctor
 
 # Start VPN server (example)
 pqvpn run --bind 127.0.0.1 --port 51820
+
+# Start IoT client
+pqvpn --iot
 ```
 
 ## Usage

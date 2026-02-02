@@ -30,7 +30,7 @@ import atexit
 import signal
 
 # Import modular components
-from src.pqvpn import config, crypto, network, session, discovery, plugins
+from src.pqvpn import config, crypto, network, session, discovery, plugins, iot
 
 # Inlined config_schema.py (register as module 'config_schema')
 import types as _types
@@ -5070,6 +5070,7 @@ async def main_loop(
     socks_mode: bool = False,
     tunnel_mode: bool = False,
     enable_relay: bool = False,
+    iot: bool = False,
 ):
     """Main async runtime for PQVPN.
 
@@ -5093,6 +5094,20 @@ async def main_loop(
         pass
 
     logger.info(f"Starting PQVPN main loop (config={configfile})")
+
+    if iot:
+        # IoT mode: run lightweight client
+        from src.pqvpn.iot import IoTDeviceConfig, IoTClient
+        config = IoTDeviceConfig(device_id=os.urandom(16))
+        iot_client = IoTClient(config)
+        await iot_client.start()
+        await iot_client.join_network()
+        # Keep running
+        try:
+            await asyncio.Future()  # Run forever
+        except KeyboardInterrupt:
+            await iot_client.stop()
+        return
 
     # Instantiate node
     try:

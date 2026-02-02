@@ -28,9 +28,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Disable DHT-based discovery",
     )
     p.add_argument(
-        "--enable-relay",
+        "--iot",
         action="store_true",
-        help="Enable relay behaviour (best-effort)",
+        help="Run in IoT mode for low-power devices",
     )
     return p
 
@@ -51,6 +51,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 pidfile=args.pidfile,
                 disable_discovery=bool(args.disable_discovery),
                 enable_relay=bool(args.enable_relay),
+                iot=bool(args.iot),
             )
         )
         return 0
