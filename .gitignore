@@ -10,36 +10,73 @@ build/
 # Virtualenv
 .venv/
 venv/
+env/
+ENV/
 
 # Tooling
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
+.pylint.d/
 
 # Logs and reports
 *.log
 *_report.*
+*_RESULTS.md
 benchmark_results.log
 pattern_analysis_results.log
+TEST_RESULTS.md
+PATTERN_ANALYSIS_RESULTS.md
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
 *.tmp
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 *.stackdump
+ehthumbs.db
 
 # Coverage
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
+*.cover
 
 # Jupyter
 .ipynb_checkpoints
+*.ipynb
 
 # PyInstaller
 *.manifest
 *.spec
+
+# Testing
+.tox/
+.nox/
+
+# Docs
+docs/_build/
+
+# Secrets and configs
+*.pem
+*.key
+*.crt
+config.local.yml
+secrets.yml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# liboqs build artifacts
+liboqs-*/
+*.tar.gz
