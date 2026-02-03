@@ -19,7 +19,9 @@ from .robustness import log_with_context
 logger = logging.getLogger(__name__)
 
 
-def derive_layer_keys(master_key: bytes, route: list[bytes], info: bytes = b"relay_key") -> list[bytes]:
+def derive_layer_keys(
+    master_key: bytes, route: list[bytes], info: bytes = b"relay_key"
+) -> list[bytes]:
     """
     Derive per-hop keys from master_key using HKDF.
 
@@ -34,7 +36,7 @@ def derive_layer_keys(master_key: bytes, route: list[bytes], info: bytes = b"rel
     keys = []
     for i, relay_id in enumerate(route):
         # Use relay_id and hop index as salt
-        salt = relay_id + i.to_bytes(4, 'big')
+        salt = relay_id + i.to_bytes(4, "big")
         hkdf = HKDF(
             algorithm=hashes.SHA256(),
             length=32,  # ChaCha20Poly1305 key length
@@ -81,7 +83,9 @@ def encrypt_layered_packet(payload: bytes, route: list[bytes], master_key: bytes
         raise
 
 
-def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes) -> tuple[bytes, bytes | None]:
+def decrypt_layered_packet(
+    packet: bytes, my_relay_id: bytes, master_key: bytes
+) -> tuple[bytes, bytes | None]:
     """
     Decrypt the outermost layer of a layered packet.
 
@@ -108,7 +112,7 @@ def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes)
     # Since route is not passed, we'll need to modify the API.
     # For this implementation, assume the key is derived from master_key and my_relay_id.
 
-    salt = my_relay_id + (0).to_bytes(4, 'big')  # Assuming first hop
+    salt = my_relay_id + (0).to_bytes(4, "big")  # Assuming first hop
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
@@ -125,13 +129,18 @@ def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes)
         logger.debug("Decrypted layered packet layer")
         return decrypted, None  # None means this is the final layer or no next hop specified
     except Exception as e:
-        log_with_context(f"Layered decryption failed: {e}", "error", {"relay_id": my_relay_id.hex()})
+        log_with_context(
+            f"Layered decryption failed: {e}", "error", {"relay_id": my_relay_id.hex()}
+        )
         return packet, None
 
 
 # For multi-hop, we need to pass the route to the decryption function or embed next hop in payload.
 
-def encrypt_layered_packet_with_route(payload: bytes, route: list[bytes], master_key: bytes) -> bytes:
+
+def encrypt_layered_packet_with_route(
+    payload: bytes, route: list[bytes], master_key: bytes
+) -> bytes:
     """
     Encrypt with route embedded in layers.
     """
@@ -141,7 +150,9 @@ def encrypt_layered_packet_with_route(payload: bytes, route: list[bytes], master
     for i in range(len(route) - 1, -1, -1):
         key = keys[i]
         next_hop = route[i + 1] if i + 1 < len(route) else None
-        routing_info = b"NEXT_HOP:" + next_hop + b"\n" + current_payload if next_hop else current_payload
+        routing_info = (
+            b"NEXT_HOP:" + next_hop + b"\n" + current_payload if next_hop else current_payload
+        )
         nonce = os.urandom(12)
         aead = ChaCha20Poly1305(key)
         encrypted = aead.encrypt(nonce, routing_info, b"")
@@ -150,7 +161,9 @@ def encrypt_layered_packet_with_route(payload: bytes, route: list[bytes], master
     return current_payload
 
 
-def decrypt_layered_packet_with_route(packet: bytes, my_relay_id: bytes, master_key: bytes, hop_index: int = 0) -> tuple[bytes, bytes | None]:
+def decrypt_layered_packet_with_route(
+    packet: bytes, my_relay_id: bytes, master_key: bytes, hop_index: int = 0
+) -> tuple[bytes, bytes | None]:
     """
     Decrypt outermost layer and extract next hop.
     """
@@ -163,7 +176,7 @@ def decrypt_layered_packet_with_route(packet: bytes, my_relay_id: bytes, master_
     # Find my position in route. For simplicity, assume known or try keys.
     # In practice, need better way. For now, assume first relay.
 
-    salt = my_relay_id + hop_index.to_bytes(4, 'big')
+    salt = my_relay_id + hop_index.to_bytes(4, "big")
     hkdf = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
@@ -180,7 +193,7 @@ def decrypt_layered_packet_with_route(packet: bytes, my_relay_id: bytes, master_
             newline_pos = decrypted.find(b"\n")
             if newline_pos != -1:
                 next_hop = decrypted[9:newline_pos]
-                inner_payload = decrypted[newline_pos + 1:]
+                inner_payload = decrypted[newline_pos + 1 :]
                 return inner_payload, next_hop
             else:
                 return decrypted, None

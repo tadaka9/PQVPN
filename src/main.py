@@ -16,9 +16,9 @@ import os
 import re
 import shutil
 import signal
-import struct
 import tempfile
 import time
+import argparse
 
 # Inlined config_schema.py (register as module 'config_schema')
 import types as _types
@@ -153,23 +153,17 @@ try:
     def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: str | None = None):
         attempts = []
         try:
-            sigcls = (
-                getattr(_oqs_pkg, "Signature", None) if _oqs_pkg is not None else None
-            )
+            sigcls = getattr(_oqs_pkg, "Signature", None) if _oqs_pkg is not None else None
             if sigcls is None:
                 return False, [("oqs-missing", "Signature API not available")]
 
             pkb = _pqsig_to_bytes(pk)
             if pkb is None:
-                return False, [
-                    ("pk-normalize-failed", "public key could not be normalized")
-                ]
+                return False, [("pk-normalize-failed", "public key could not be normalized")]
 
             sigb = _pqsig_to_bytes(sig)
             if sigb is None:
-                return False, [
-                    ("sig-normalize-failed", "signature could not be normalized")
-                ]
+                return False, [("sig-normalize-failed", "signature could not be normalized")]
 
             if isinstance(data, (bytes, bytearray)):
                 original = bytes(data)
@@ -208,9 +202,7 @@ try:
                         _json.dumps(obj, separators=(",", ":"), sort_keys=True).encode()
                     )
                     variants.append(
-                        _json.dumps(
-                            obj, separators=(",", ":"), sort_keys=False
-                        ).encode()
+                        _json.dumps(obj, separators=(",", ":"), sort_keys=False).encode()
                     )
                 except Exception:
                     pass
@@ -243,9 +235,7 @@ try:
                                         if r:
                                             return True, attempts
                                     except Exception as e:
-                                        attempts.append(
-                                            ("bound.verify(var)->exc", str(e))
-                                        )
+                                        attempts.append(("bound.verify(var)->exc", str(e)))
                         except Exception:
                             pass
                 except Exception as e:
@@ -255,9 +245,7 @@ try:
         except Exception as e:
             return False, [("exception", str(e))]
 
-    def pq_sig_verify(
-        pk: Any, data: bytes, sig: Any, alg: str | None = None
-    ) -> bool:
+    def pq_sig_verify(pk: Any, data: bytes, sig: Any, alg: str | None = None) -> bool:
         ok, _ = pq_sig_verify_debug(pk, data, sig, alg=alg)
         return ok
 
@@ -375,6 +363,7 @@ def setup_logger(name="pqvpn", level=logging.INFO, logfile=None):
 logger = setup_logger("pqvpn", logging.INFO)
 print("[DIAG] main.py loaded, logger configured")
 
+
 # In-file DHT client and Discovery definitions (self-contained)
 class DHTUnavailableError(RuntimeError):
     pass
@@ -385,6 +374,7 @@ try:
 except Exception:
     _KademliaServer = None
 
+
 # Factory to create a Kademlia server instance (avoids static analysis warning
 # about calling a possibly-None object). Returns None if kademlia is unavailable.
 def _create_kademlia_server():
@@ -394,6 +384,7 @@ def _create_kademlia_server():
             # Try a late import as fallback (some environments set _KademliaServer=None earlier)
             try:
                 from kademlia.network import Server as _KServer  # type: ignore
+
                 if callable(_KServer):
                     return _KServer()
             except Exception:
@@ -475,6 +466,7 @@ class DHTClient:
             logger.error(msg)
             if self.strict:
                 raise DHTUnavailableError(msg)
+
             # fallback to in-memory server if strict is False
             class _InMemoryServerFallback:
                 def __init__(self):
@@ -537,9 +529,7 @@ class DHTClient:
         if self.strict and self.allowed_prefixes:
             ok = any(key.startswith(p) for p in self.allowed_prefixes)
             if not ok:
-                raise RuntimeError(
-                    f"DHTClient.set: key '{key}' not allowed by allowed_prefixes"
-                )
+                raise RuntimeError(f"DHTClient.set: key '{key}' not allowed by allowed_prefixes")
         async with self._set_sem:
             try:
                 payload = (
@@ -581,9 +571,7 @@ class Discovery:
     def __init__(self, node):
         self.node = node
         self.config = (
-            node.config.get("discovery", {})
-            if node and getattr(node, "config", None)
-            else {}
+            node.config.get("discovery", {}) if node and getattr(node, "config", None) else {}
         )
         self.enabled = bool(self.config.get("enabled", True))
         self.dht_port = int(self.config.get("dht_port", 8468))
@@ -601,12 +589,8 @@ class Discovery:
             ),
         )
         self.publish_addr = bool(self.config.get("publish_addr", False))
-        self.cache_encrypt = bool(
-            self.config.get("cache_encryption", {}).get("enabled", False)
-        )
-        self.cache_passphrase = self.config.get("cache_encryption", {}).get(
-            "passphrase", ""
-        )
+        self.cache_encrypt = bool(self.config.get("cache_encryption", {}).get("enabled", False))
+        self.cache_passphrase = self.config.get("cache_encryption", {}).get("passphrase", "")
         self._server = None
         self._publish_task = None
         self._stopping = asyncio.Event()
@@ -678,9 +662,7 @@ class Discovery:
                 logger.debug(f"Discovery: initial publish failed: {e}")
             while not self._stopping.is_set():
                 try:
-                    await asyncio.wait_for(
-                        self._stopping.wait(), timeout=self.publish_interval
-                    )
+                    await asyncio.wait_for(self._stopping.wait(), timeout=self.publish_interval)
                     break
                 except asyncio.TimeoutError:
                     try:
@@ -716,12 +698,10 @@ class Discovery:
             "ed25519_pk": (getattr(self.node, "ed25519_pk", b"") or b"").hex(),
             "brainpoolP512r1_pk": (
                 getattr(self.node, "brainpoolP512r1_pk", b"")
-                and self.node.brainpoolP512r1_pk
-                .public_bytes(
+                and self.node.brainpoolP512r1_pk.public_bytes(
                     encoding=self.node.brainpoolP512r1_pk.encoding,
                     format=self.node.brainpoolP512r1_pk.format,
-                )
-                .hex()
+                ).hex()
                 if getattr(self.node, "brainpoolP512r1_pk", None)
                 else ""
             ),
@@ -791,42 +771,46 @@ ARGON2_PARALLELISM = 4
 ARGON2_HASH_LEN = 64  # bytes
 
 # Hybrid algorithm enforcement
-HYBRID_KEM = 'Kyber1024'
-HYBRID_SIG = 'ML-DSA-87'
-HYBRID_ECDH_ALGS = ['x25519', 'BrainpoolP512R1']
+HYBRID_KEM = "Kyber1024"
+HYBRID_SIG = "ML-DSA-87"
+HYBRID_ECDH_ALGS = ["x25519", "BrainpoolP512R1"]
+
 
 # --- Startup enforcement for hybrid-only mode ---
 def _enforce_hybrid_requirements():
     missing = []
     # oqs presence
     if oqs_module is None or not OQSPY_AVAILABLE:
-        missing.append('liboqs-python (oqs) with required KEM/SIG')
+        missing.append("liboqs-python (oqs) with required KEM/SIG")
     else:
         # check required algorithms
         try:
-            kem_ok = any('kyber1024' in k.lower() for k in enabled_kems)
-            sig_ok = any('ml-dsa-87' in s.lower() for s in enabled_sigs)
+            kem_ok = any("kyber1024" in k.lower() for k in enabled_kems)
+            sig_ok = any("ml-dsa-87" in s.lower() for s in enabled_sigs)
             if not kem_ok:
-                missing.append('Kyber1024 KEM')
+                missing.append("Kyber1024 KEM")
             if not sig_ok:
-                missing.append('ML-DSA-87 signature')
+                missing.append("ML-DSA-87 signature")
         except Exception:
-            missing.append('oqs algorithm detection')
+            missing.append("oqs algorithm detection")
     # cryptography ECDH support
     try:
         pass
     except Exception:
-        missing.append('x25519 (cryptography)')
+        missing.append("x25519 (cryptography)")
     try:
         # Brainpool curve availability
         _ = ec.BrainpoolP512R1()
     except Exception:
-        missing.append('BrainpoolP512R1 (cryptography EC)')
+        missing.append("BrainpoolP512R1 (cryptography EC)")
 
     if missing:
-        logger.critical('Hybrid mode requirements missing: %s', ', '.join(missing))
-        logger.critical('Please install liboqs (see PQVPN/scripts/install_liboqs.sh) and ensure required algorithms are enabled. Aborting startup.')
-        raise RuntimeError('Hybrid mode requirements not satisfied: ' + ', '.join(missing))
+        logger.critical("Hybrid mode requirements missing: %s", ", ".join(missing))
+        logger.critical(
+            "Please install liboqs (see PQVPN/scripts/install_liboqs.sh) and ensure required algorithms are enabled. Aborting startup."
+        )
+        raise RuntimeError("Hybrid mode requirements not satisfied: " + ", ".join(missing))
+
 
 # Defer enforcement until runtime import
 try:
@@ -834,10 +818,12 @@ try:
 except Exception:
     # Allow tests or static analysis to import the module without failing immediately
     # but re-raise when running as main
-    if __name__ == '__main__':
+    if __name__ == "__main__":
         raise
     else:
-        logger.warning('Hybrid requirements not fully satisfied at import time; enforcement will run at node startup.')
+        logger.warning(
+            "Hybrid requirements not fully satisfied at import time; enforcement will run at node startup."
+        )
 
 # --- end startup enforcement ---
 OQSPY_KEMALG = None
@@ -926,9 +912,7 @@ if oqs_module is not None:
             required_kem = candidate
             break
     for candidate in enabled_sigs:
-        if "ml-dsa-87" in candidate.lower() or candidate.lower().startswith(
-            "ml-dsa-87"
-        ):
+        if "ml-dsa-87" in candidate.lower() or candidate.lower().startswith("ml-dsa-87"):
             required_sig = candidate
             break
 
@@ -962,9 +946,7 @@ def pq_kem_keygen():
     """
     # Hybrid-only: require oqs availability
     if not OQSPY_AVAILABLE:
-        raise RuntimeError(
-            "pq_kem_keygen: liboqs not available; hybrid-only mode requires liboqs"
-        )
+        raise RuntimeError("pq_kem_keygen: liboqs not available; hybrid-only mode requires liboqs")
 
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
@@ -1027,9 +1009,7 @@ def pq_kem_encaps(pk, alg=None):
     """
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
-        raise RuntimeError(
-            "pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs"
-        )
+        raise RuntimeError("pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs")
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
@@ -1047,9 +1027,7 @@ def pq_kem_decaps(ct, sk, alg=None):
     """
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
-        raise RuntimeError(
-            "pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs"
-        )
+        raise RuntimeError("pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs")
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
@@ -1092,26 +1070,16 @@ def pq_sig_keygen(alg=None):
 
             # Convert hex strings to bytes if needed
             if isinstance(pk, str):
-                pk = (
-                    bytes.fromhex(pk)
-                    if all(c in "0123456789abcdef" for c in pk)
-                    else pk.encode()
-                )
+                pk = bytes.fromhex(pk) if all(c in "0123456789abcdef" for c in pk) else pk.encode()
             if isinstance(sk, str):
-                sk = (
-                    bytes.fromhex(sk)
-                    if all(c in "0123456789abcdef" for c in sk)
-                    else sk.encode()
-                )
+                sk = bytes.fromhex(sk) if all(c in "0123456789abcdef" for c in sk) else sk.encode()
 
             logger.debug(
                 f"Signature key pair generated via liboqs-python {OQSPY_SIGALG}: pk len={len(pk) if pk else None}, sk len={len(sk) if sk else None}"
             )
             return pk, sk
     except Exception as e:
-        logger.error(
-            f"Signature key generation failed (oqs-python, alg={OQSPY_SIGALG}): {e}"
-        )
+        logger.error(f"Signature key generation failed (oqs-python, alg={OQSPY_SIGALG}): {e}")
         raise
 
 
@@ -1252,9 +1220,7 @@ def pq_sig_verify(pk, data, sig, alg=None) -> bool:
         return False
 
 
-def canonical_sign_bytes(
-    obj: dict[str, Any], field_order: list[str] | None = None
-) -> bytes:
+def canonical_sign_bytes(obj: dict[str, Any], field_order: list[str] | None = None) -> bytes:
     """Return canonical bytes for signing/verifying.
 
     If field_order is provided, only those fields (in that order) are included.
@@ -1428,8 +1394,7 @@ class SessionInfo:
     s1_frame: bytes | None = None  # Store the raw S1 frame for possible retransmission
     handshake_retries: int = 0  # Count handshake retries
 
-
-    def rotate_keys(self, reason: str = 'rekey') -> None:
+    def rotate_keys(self, reason: str = "rekey") -> None:
         """Rotate AEAD keys for this session using Argon2-derived material.
 
         This method derives two new 32-byte keys from fresh entropy and the
@@ -1438,7 +1403,9 @@ class SessionInfo:
         """
         try:
             fresh = os.urandom(32)
-            new_km = argon2_derive_key_material(fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64)
+            new_km = argon2_derive_key_material(
+                fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64
+            )
             new_send = new_km[:32]
             new_recv = new_km[32:64]
             self.aead_send = ChaCha20Poly1305(new_send)
@@ -1449,7 +1416,6 @@ class SessionInfo:
             logger.info(f"Session {self.session_id.hex()[:8]} keys rotated ({reason})")
         except Exception as e:
             logger.error(f"Session key rotation failed: {e}")
-
 
 
 @dataclass
@@ -1499,17 +1465,13 @@ class MeshTopology:
         self.adjacency[peer_info.peer_id] = set()
         logger.debug(f"Added peer to topology: {peer_info.nickname}")
 
-    def update_peer_quality(
-        self, peer_id: bytes, latency_ms: float, packet_loss: float
-    ):
+    def update_peer_quality(self, peer_id: bytes, latency_ms: float, packet_loss: float):
         """Update peer quality metrics."""
         if peer_id in self.peers:
             self.peers[peer_id].latency_ms = latency_ms
             self.peers[peer_id].route_quality = max(0.1, 1.0 - (packet_loss / 100))
 
-    def compute_best_path(
-        self, source: bytes, destination: bytes
-    ) -> list[bytes] | None:
+    def compute_best_path(self, source: bytes, destination: bytes) -> list[bytes] | None:
         """Simple path computation (Dijkstra-like stub)."""
         if destination not in self.peers or source not in self.peers:
             return None
@@ -1643,14 +1605,10 @@ class KeyRotationManager:
             return True
         return False
 
-    def perform_rekey(
-        self, session_id: bytes
-    ) -> tuple[bytes, ChaCha20Poly1305, ChaCha20Poly1305]:
+    def perform_rekey(self, session_id: bytes) -> tuple[bytes, ChaCha20Poly1305, ChaCha20Poly1305]:
         """Perform quantum-resistant key rotation via Argon2."""
         fresh_entropy = os.urandom(32)
-        send_key = argon2_derive_key_material(
-            fresh_entropy, salt=session_id[:16], length=32
-        )
+        send_key = argon2_derive_key_material(fresh_entropy, salt=session_id[:16], length=32)
         recv_key = argon2_derive_key_material(
             fresh_entropy + b"recv", salt=session_id[:16], length=32
         )
@@ -2043,9 +2001,7 @@ class PQVPNNode:
                     logger.critical(f"Configuration validation failed: {e}")
                     raise
             else:
-                logger.debug(
-                    "Pydantic not available: skipping config schema validation"
-                )
+                logger.debug("Pydantic not available: skipping config schema validation")
         except Exception:
             # If config_schema import fails, continue with unvalidated config
             pass
@@ -2075,15 +2031,11 @@ class PQVPNNode:
         # Configure Argon2 params (apply to module-level defaults)
         try:
             global ARGON2_TIME_COST, ARGON2_MEMORY_COST, ARGON2_PARALLELISM
-            ARGON2_TIME_COST = int(
-                sec_cfg.get("kdf", {}).get("time_cost", ARGON2_TIME_COST)
-            )
+            ARGON2_TIME_COST = int(sec_cfg.get("kdf", {}).get("time_cost", ARGON2_TIME_COST))
             ARGON2_MEMORY_COST = int(
                 sec_cfg.get("kdf", {}).get("memory_cost_kib", ARGON2_MEMORY_COST)
             )
-            ARGON2_PARALLELISM = int(
-                sec_cfg.get("kdf", {}).get("parallelism", ARGON2_PARALLELISM)
-            )
+            ARGON2_PARALLELISM = int(sec_cfg.get("kdf", {}).get("parallelism", ARGON2_PARALLELISM))
         except Exception:
             pass
         self.tofu_enabled = sec_cfg.get("tofu", True)
@@ -2095,9 +2047,7 @@ class PQVPNNode:
         from collections import deque
 
         self.handshake_attempts: dict[str, deque] = defaultdict(lambda: deque())
-        self.handshake_rate_limit_per_minute = int(
-            sec_cfg.get("handshake_per_minute_per_ip", 10)
-        )
+        self.handshake_rate_limit_per_minute = int(sec_cfg.get("handshake_per_minute_per_ip", 10))
 
         try:
             self.load_known_peers()
@@ -2135,9 +2085,7 @@ class PQVPNNode:
                     else "pqvpn-keys-"
                 )
                 self.keys_dir = tempfile.mkdtemp(prefix=prefix)
-                atexit.register(
-                    lambda d=self.keys_dir: shutil.rmtree(d, ignore_errors=True)
-                )
+                atexit.register(lambda d=self.keys_dir: shutil.rmtree(d, ignore_errors=True))
                 logger.info(
                     f"Using temporary keys directory: {self.keys_dir} (will be removed on shutdown)"
                 )
@@ -2204,9 +2152,7 @@ class PQVPNNode:
                             self.mldsa_pk = data[:SIG_PKSIZE]
                             # set secret if full length
                             if len(data) >= SIG_PKSIZE + SIG_SKSIZE:
-                                self.mldsa_sk = data[
-                                    SIG_PKSIZE : SIG_PKSIZE + SIG_SKSIZE
-                                ]
+                                self.mldsa_sk = data[SIG_PKSIZE : SIG_PKSIZE + SIG_SKSIZE]
                             else:
                                 self.mldsa_sk = None
                             found = True
@@ -2321,9 +2267,7 @@ class PQVPNNode:
                 self, "brainpoolP512r1_pk", None
             ):
                 missing.append("brainpoolP512r1 keypair")
-            if not getattr(self, "ed25519_sk", None) or not getattr(
-                self, "ed25519_pk", None
-            ):
+            if not getattr(self, "ed25519_sk", None) or not getattr(self, "ed25519_pk", None):
                 missing.append("ed25519 keypair")
 
             if missing:
@@ -2374,9 +2318,7 @@ class PQVPNNode:
         self.rekey_manager = KeyRotationManager()
         self.zk_auth = ZeroKnowledgeAuth()
         self.load_balancer = LoadBalancer()
-        self.obfuscation = TrafficObfuscation(
-            self.config.get("traffic_obfuscation", {})
-        )
+        self.obfuscation = TrafficObfuscation(self.config.get("traffic_obfuscation", {}))
         self.audit_trail = AuditTrail()
 
         # TUN interface and VPN router
@@ -2400,9 +2342,7 @@ class PQVPNNode:
         self.ipv4_transport: asyncio.DatagramTransport | None = None
         # Datagram concurrency limiter - prevents unbounded task creation
         try:
-            limit = int(
-                self.config.get("network", {}).get("max_concurrent_datagrams", 200)
-            )
+            limit = int(self.config.get("network", {}).get("max_concurrent_datagrams", 200))
         except Exception:
             limit = 200
         # asyncio.Semaphore is safe to create outside of running loop
@@ -2425,11 +2365,13 @@ class PQVPNNode:
                             raise ValueError("Invalid bracketed IPv6 bootstrap entry")
                         host = bs[1:end]
                         port = int(bs[end + 2 :])
-                        self.bootstrap_peers.append({
-                            "nickname": f"peer-{host}:{port}",
-                            "host": host,
-                            "port": int(port),
-                        })
+                        self.bootstrap_peers.append(
+                            {
+                                "nickname": f"peer-{host}:{port}",
+                                "host": host,
+                                "port": int(port),
+                            }
+                        )
                 except Exception:
                     logger.debug(f"Invalid bootstrap entry: {bs}")
             elif isinstance(bs, dict):
@@ -2474,7 +2416,7 @@ class PQVPNNode:
 
             payload_norm = {k: _norm(v) for k, v in j.items()}
             keys_to_check = ["ed25519_pk", "brainpoolP512r1_pk", "kyber_pk", "mldsa_pk"]
-            for pid, info in candidates:
+            for _pid, info in candidates:
                 for key in keys_to_check:
                     pv = payload_norm.get(key)
                     kv = info.get(key)
@@ -2483,9 +2425,7 @@ class PQVPNNode:
                         kvn = (
                             kv.lower()
                             if isinstance(kv, str)
-                            else (
-                                kv.hex() if isinstance(kv, (bytes, bytearray)) else None
-                            )
+                            else (kv.hex() if isinstance(kv, (bytes, bytearray)) else None)
                         )
                         if kvn and pv == kvn:
                             return info
@@ -2493,9 +2433,7 @@ class PQVPNNode:
         except Exception:
             return None
 
-    def register_peer_from_hello(
-        self, j: dict[str, Any], addr: tuple[str, int]
-    ) -> PeerInfo | None:
+    def register_peer_from_hello(self, j: dict[str, Any], addr: tuple[str, int]) -> PeerInfo | None:
         """Create/update a PeerInfo in mesh from a received HELLO payload.
 
         This ensures that relay-capable peers are tracked and that forwarding
@@ -2628,9 +2566,7 @@ class PQVPNNode:
                                 )
                                 loaded = True
                             except Exception as e:
-                                logger.warning(
-                                    "Failed to load Ed25519 PEM key %s: %s", ed_path, e
-                                )
+                                logger.warning("Failed to load Ed25519 PEM key %s: %s", ed_path, e)
                     except Exception:
                         # continue to other attempts
                         pass
@@ -2638,9 +2574,7 @@ class PQVPNNode:
                     # Try DER
                     if not loaded:
                         try:
-                            self.ed25519_sk = serialization.load_der_private_key(
-                                raw, password=None
-                            )
+                            self.ed25519_sk = serialization.load_der_private_key(raw, password=None)
                             loaded = True
                         except Exception:
                             pass
@@ -2653,16 +2587,15 @@ class PQVPNNode:
                                 64,
                             ):
                                 priv = bytes(raw[:32])
-                                self.ed25519_sk = ed25519.Ed25519PrivateKey.from_private_bytes(
-                                    priv
-                                )
+                                self.ed25519_sk = ed25519.Ed25519PrivateKey.from_private_bytes(priv)
                                 loaded = True
                         except Exception:
                             pass
 
                     if not loaded:
                         logger.warning(
-                            "Ed25519 keyfile %s unreadable or malformed — generating new key", ed_path
+                            "Ed25519 keyfile %s unreadable or malformed — generating new key",
+                            ed_path,
                         )
                         self.ed25519_sk = ed25519.Ed25519PrivateKey.generate()
                         # Attempt to persist regenerated key (best-effort)
@@ -2721,10 +2654,7 @@ class PQVPNNode:
                 if parsed is None:
                     try:
                         s = raw.decode().strip()
-                        if (
-                            all(c in "0123456789abcdefABCDEF" for c in s)
-                            and len(s) % 2 == 0
-                        ):
+                        if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
                             val = int(s, 16)
                         else:
                             try:
@@ -2750,13 +2680,9 @@ class PQVPNNode:
                         self.brainpoolP512r1_sk = None
 
                 if self.brainpoolP512r1_sk is None:
-                    logger.warning(
-                        f"Brainpool keyfile {x_path} unreadable — regenerating key"
-                    )
+                    logger.warning(f"Brainpool keyfile {x_path} unreadable — regenerating key")
                     try:
-                        self.brainpoolP512r1_sk = ec.generate_private_key(
-                            ec.BrainpoolP512R1()
-                        )
+                        self.brainpoolP512r1_sk = ec.generate_private_key(ec.BrainpoolP512R1())
                         os.makedirs(os.path.dirname(x_path) or ".", exist_ok=True)
                         try:
                             with open(x_path, "wb") as f:
@@ -2768,9 +2694,7 @@ class PQVPNNode:
                                     )
                                 )
                         except Exception:
-                            logger.debug(
-                                "Failed to write regenerated brainpool key to disk"
-                            )
+                            logger.debug("Failed to write regenerated brainpool key to disk")
                     except Exception:
                         logger.debug("Failed to generate brainpool private key")
 
@@ -2820,9 +2744,7 @@ class PQVPNNode:
                             )
                         )
                 except Exception:
-                    logger.debug(
-                        "Failed to persist fallback brainpoolP512r1 key to disk"
-                    )
+                    logger.debug("Failed to persist fallback brainpoolP512r1 key to disk")
                 real_xpk = self.brainpoolP512r1_sk.public_key()
 
             # Wrap the real public key in a tiny proxy to expose attributes that some
@@ -2836,9 +2758,7 @@ class PQVPNNode:
                     self.encoding = serialization.Encoding.X962
                     self.format = serialization.PublicFormat.UncompressedPoint
                     try:
-                        logger.debug(
-                            f"Created brainpoolP512r1 PubKey proxy for object {type(obj)}"
-                        )
+                        logger.debug(f"Created brainpoolP512r1 PubKey proxy for object {type(obj)}")
                     except Exception:
                         pass
 
@@ -2872,10 +2792,7 @@ class PQVPNNode:
                 if isinstance(x, str):
                     s = x.strip()
                     # try hex
-                    if (
-                        all(c in "0123456789abcdefABCDEF" for c in s)
-                        and len(s) % 2 == 0
-                    ):
+                    if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
                         try:
                             return bytes.fromhex(s)
                         except Exception:
@@ -2936,9 +2853,7 @@ class PQVPNNode:
                         logger.critical(
                             f"Kyber key regeneration failed and fallback is disallowed. Please fix {kyber_path} or reinstall liboqs."
                         )
-                        raise RuntimeError(
-                            f"Kyber key regeneration failed for {kyber_path}"
-                        )
+                        raise RuntimeError(f"Kyber key regeneration failed for {kyber_path}")
                 else:
                     # Expected size matches exactly
                     self.kyber_pk = data[:expected_pub]
@@ -2978,9 +2893,7 @@ class PQVPNNode:
                 mldsa_path = mldsa_cfg_value
             else:
                 # default filename uses the normalized algorithm name
-                mldsa_path = os.path.join(
-                    self.keys_dir, f"{self.nickname}-{sig_basename}.key"
-                )
+                mldsa_path = os.path.join(self.keys_dir, f"{self.nickname}-{sig_basename}.key")
 
             if os.path.exists(mldsa_path):
                 with open(mldsa_path, "rb") as f:
@@ -2999,9 +2912,7 @@ class PQVPNNode:
 
                     if total_len >= publen:
                         self.mldsa_pk = _to_bytes(data[:publen])
-                        if (
-                            total_len >= publen + 16
-                        ):  # anything beyond pk likely contains sk data
+                        if total_len >= publen + 16:  # anything beyond pk likely contains sk data
                             self.mldsa_sk = _to_bytes(data[publen:])
                         else:
                             self.mldsa_sk = None
@@ -3029,17 +2940,12 @@ class PQVPNNode:
                             expected_total = None
                             if pval is not None and sval is not None:
                                 expected_total = pval + sval
-                            if (
-                                expected_total is not None
-                                and total_len != expected_total
-                            ):
+                            if expected_total is not None and total_len != expected_total:
                                 logger.debug(
                                     f"SIG keyfile {mldsa_path} size {total_len} does not match oqs probe expected ({OQSPY_SIG_PUBLEN}+{OQSPY_SIG_SKLEN}), using available bytes"
                                 )
                 except Exception as e:
-                    logger.warning(
-                        f"Error parsing ML-DSA keyfile {mldsa_path}: {e}; regenerating"
-                    )
+                    logger.warning(f"Error parsing ML-DSA keyfile {mldsa_path}: {e}; regenerating")
                     self.mldsa_pk, self.mldsa_sk = pq_sig_keygen()
                     self.mldsa_pk = _to_bytes(self.mldsa_pk)
                     self.mldsa_sk = _to_bytes(self.mldsa_sk) if self.mldsa_sk is not None else None
@@ -3053,9 +2959,7 @@ class PQVPNNode:
                     except Exception:
                         logger.debug("Failed to persist regenerated ML-DSA keyfile")
             else:
-                logger.info(
-                    f"Generating signature keys ({OQSPY_SIGALG or 'ml-dsa'})..."
-                )
+                logger.info(f"Generating signature keys ({OQSPY_SIGALG or 'ml-dsa'})...")
                 self.mldsa_pk, self.mldsa_sk = pq_sig_keygen()
                 # normalize
 
@@ -3092,9 +2996,7 @@ class PQVPNNode:
                                 f.write(self.mldsa_pk)
                         logger.info("Regenerated and saved signature public key")
                     except Exception as e:
-                        logger.warning(
-                            f"Failed to persist regenerated ML-DSA keyfile: {e}"
-                        )
+                        logger.warning(f"Failed to persist regenerated ML-DSA keyfile: {e}")
                 except Exception as e:
                     logger.error(f"Failed to regenerate ML-DSA keys: {e}")
 
@@ -3114,9 +3016,7 @@ class PQVPNNode:
 
             # Check for encryption
             if raw.startswith(b"ENCv1:"):
-                passphrase = self.config.get("security", {}).get(
-                    "known_peers_passphrase"
-                )
+                passphrase = self.config.get("security", {}).get("known_peers_passphrase")
                 if not passphrase:
                     logger.error(
                         f"known_peers file is encrypted but no passphrase configured - cannot load {self.known_peers_file}"
@@ -3148,9 +3048,7 @@ class PQVPNNode:
                     self.known_peers = {}
             else:
                 data = yaml.safe_load(raw.decode()) or {}
-                self.known_peers = (
-                    data.get("peers", {}) if isinstance(data, dict) else data
-                )
+                self.known_peers = data.get("peers", {}) if isinstance(data, dict) else data
                 logger.info(
                     f"Loaded {len(self.known_peers)} known peers from {self.known_peers_file}"
                 )
@@ -3193,9 +3091,7 @@ class PQVPNNode:
             except Exception:
                 logger.debug("chmod known_peers file failed or unsupported")
 
-            logger.debug(
-                f"Saved {len(self.known_peers)} known peers to {self.known_peers_file}"
-            )
+            logger.debug(f"Saved {len(self.known_peers)} known peers to {self.known_peers_file}")
 
         except Exception as e:
             logger.error(f"Failed to save known peers: {e}")
@@ -3228,9 +3124,7 @@ class PQVPNNode:
                     logger.warning(f"Known peer {pid_hex[:8]} key '{k}' changed")
 
             if changed and self.strict_tofu:
-                logger.error(
-                    f"Strict TOFU: rejecting peer {pid_hex[:8]} due to key change"
-                )
+                logger.error(f"Strict TOFU: rejecting peer {pid_hex[:8]} due to key change")
                 return False
 
             existing.update(info)
@@ -3240,9 +3134,7 @@ class PQVPNNode:
 
         self.known_peers[pid_hex] = info
         self.save_known_peers()
-        logger.info(
-            f"TOFU: stored new peer {pid_hex[:8]}, nickname={info.get('nickname')}"
-        )
+        logger.info(f"TOFU: stored new peer {pid_hex[:8]}, nickname={info.get('nickname')}")
         return True
 
     def session_salt(self, peer_id: bytes) -> bytes:
@@ -3333,14 +3225,10 @@ class PQVPNNode:
         """Construct outer header: version(1), frame_type(1), next_hop_hash(8), circuit_id(4), length(2), payload."""
         version = 1
         length = len(payload)
-        header = struct.pack(
-            "!BB8sIH", version, frame_type, next_hop_hash, circuit_id, length
-        )
+        header = struct.pack("!BB8sIH", version, frame_type, next_hop_hash, circuit_id, length)
         return header + payload
 
-    def build_onion_frame(
-        self, path: list[bytes], inner_frame: bytes
-    ) -> bytes | None:
+    def build_onion_frame(self, path: list[bytes], inner_frame: bytes) -> bytes | None:
         """Build a full onion RELAY frame for path."""
         if not path or len(path) < 1:
             return None
@@ -3354,9 +3242,7 @@ class PQVPNNode:
             sess = self.sessions_by_peer_id.get(hop)
 
             if not sess:
-                logger.warning(
-                    f"build_onion_frame: missing session to hop {hop.hex()[:8]}"
-                )
+                logger.warning(f"build_onion_frame: missing session to hop {hop.hex()[:8]}")
                 return None
 
             next_hash = self.peer_hash8(target)
@@ -3369,9 +3255,7 @@ class PQVPNNode:
             try:
                 ct = sess.aead_send.encrypt(nonce, plaintext, ad)
             except Exception as e:
-                logger.error(
-                    f"build_onion_frame AEAD encrypt failed for hop {hop.hex()[:8]}: {e}"
-                )
+                logger.error(f"build_onion_frame AEAD encrypt failed for hop {hop.hex()[:8]}: {e}")
                 return None
 
             current_inner = sess.session_id + nonce + ct
@@ -3427,9 +3311,7 @@ class PQVPNNode:
 
         first_hop = path[0]
         outer_next_hash = self.peer_hash8(first_hop)
-        outer_frame = self.make_outer_frame(
-            FT_RELAY, outer_next_hash, circuit_id, current_inner
-        )
+        outer_frame = self.make_outer_frame(FT_RELAY, outer_next_hash, circuit_id, current_inner)
 
         return outer_frame
 
@@ -3442,9 +3324,7 @@ class PQVPNNode:
         sess = self.sessions_by_peer_id.get(first_hop)
 
         if not sess or not sess.remote_addr:
-            logger.warning(
-                f"send_onion: no session/addr for first hop {first_hop.hex()[:8]}"
-            )
+            logger.warning(f"send_onion: no session/addr for first hop {first_hop.hex()[:8]}")
             return False
 
         outer = self.build_onion_frame(path, inner_frame)
@@ -3480,9 +3360,7 @@ class PQVPNNode:
             return
 
         if not self.check_and_record_nonce(sess, nonce):
-            logger.warning(
-                f"RELAY replay or invalid nonce for session {session_id.hex()[:8]}"
-            )
+            logger.warning(f"RELAY replay or invalid nonce for session {session_id.hex()[:8]}")
             return
 
         next_hash = outer_next_hash or b"\x00" * 8
@@ -3506,9 +3384,7 @@ class PQVPNNode:
         if self.my_id is not None and nexth == self.peer_hash8(self.my_id):
             try:
                 if len(inner_frame) >= 16 and inner_frame[0] == 1:
-                    version, ftype, nh, cid, length = struct.unpack(
-                        "!BB8sIH", inner_frame[:16]
-                    )
+                    version, ftype, nh, cid, length = struct.unpack("!BB8sIH", inner_frame[:16])
                     payload = inner_frame[16 : 16 + length]
                 else:
                     ftype = inner_frame[0]
@@ -3520,9 +3396,7 @@ class PQVPNNode:
                     sid = payload[:8]
                     nn = payload[8:20]
                     ct = payload[20:]
-                    await self.handle_data(
-                        sid, nn, ct, outer_next_hash=nh, circuit_id=cid
-                    )
+                    await self.handle_data(sid, nn, ct, outer_next_hash=nh, circuit_id=cid)
                 elif ftype == FT_HELLO:
                     await self.handle_hello(
                         payload, ("127.0.0.1", 0), outer_next_hash=nh, circuit_id=cid
@@ -3590,9 +3464,7 @@ class PQVPNNode:
                 to_sign = b""
                 try:
                     # Use canonical signing bytes for HELLO
-                    to_sign = canonical_sign_bytes(
-                        hello, field_order=self.HELLO_SIGN_FIELDS
-                    )
+                    to_sign = canonical_sign_bytes(hello, field_order=self.HELLO_SIGN_FIELDS)
                     sig = self.ed25519_sk.sign(to_sign)
                 except Exception:
                     sig = b""
@@ -3611,9 +3483,7 @@ class PQVPNNode:
                     hello["mldsa_sig"] = ""
 
                 hello["ed25519_sig"] = sig.hex() if sig else ""
-                final = json.dumps(
-                    hello, separators=(",", ":"), sort_keys=True
-                ).encode()
+                final = json.dumps(hello, separators=(",", ":"), sort_keys=True).encode()
 
                 frame = self.make_outer_frame(FT_HELLO, b"\x00" * 8, 0, final)
 
@@ -3627,9 +3497,7 @@ class PQVPNNode:
                     logger.info(f"HELLO sent to bootstrap {host}:{port}")
 
                 if self.my_id:
-                    self.audit_trail.log_event(
-                        "HELLO_SENT", self.my_id, f"to {host}:{port}"
-                    )
+                    self.audit_trail.log_event("HELLO_SENT", self.my_id, f"to {host}:{port}")
 
                 await asyncio.sleep(0.1)
             except Exception as e:
@@ -3667,11 +3535,7 @@ class PQVPNNode:
                 ed_pk_hex = j.get("ed25519_pk")
                 ed_sig_hex = j.get("ed25519_sig")
                 if ed_pk_hex and ed_sig_hex:
-                    ed_pk = (
-                        bytes.fromhex(ed_pk_hex)
-                        if isinstance(ed_pk_hex, str)
-                        else ed_pk_hex
-                    )
+                    ed_pk = bytes.fromhex(ed_pk_hex) if isinstance(ed_pk_hex, str) else ed_pk_hex
                     ed_sig = (
                         bytes.fromhex(ed_sig_hex)
                         if isinstance(ed_sig_hex, str)
@@ -3776,9 +3640,7 @@ class PQVPNNode:
                         "sessionid": "",
                     }
 
-                    to_sign_reply = canonical_sign_bytes(
-                        reply, field_order=self.HELLO_SIGN_FIELDS
-                    )
+                    to_sign_reply = canonical_sign_bytes(reply, field_order=self.HELLO_SIGN_FIELDS)
                     try:
                         edsig = self.ed25519_sk.sign(to_sign_reply)
                         reply["ed25519_sig"] = edsig.hex()
@@ -3794,9 +3656,7 @@ class PQVPNNode:
                     except Exception:
                         reply["mldsa_sig"] = ""
 
-                    final = json.dumps(
-                        reply, separators=(",", ":"), sort_keys=True
-                    ).encode()
+                    final = json.dumps(reply, separators=(",", ":"), sort_keys=True).encode()
                     frame = self.make_outer_frame(
                         FT_HELLO, outer_next_hash or b"\x00" * 8, circuit_id, final
                     )
@@ -3858,10 +3718,7 @@ class PQVPNNode:
                     kyb = bytes(ky)
                 elif isinstance(ky, str):
                     s = ky.strip()
-                    if (
-                        all(c in "0123456789abcdefABCDEF" for c in s)
-                        and len(s) % 2 == 0
-                    ):
+                    if all(c in "0123456789abcdefABCDEF" for c in s) and len(s) % 2 == 0:
                         kyb = bytes.fromhex(s)
                     else:
                         try:
@@ -3905,9 +3762,7 @@ class PQVPNNode:
                             peer_x_pub = ec.EllipticCurvePublicKey.from_encoded_point(
                                 ec.BrainpoolP512R1(), peer_xb
                             )
-                            ecdh = self.brainpoolP512r1_sk.exchange(
-                                ec.ECDH(), peer_x_pub
-                            )
+                            ecdh = self.brainpoolP512r1_sk.exchange(ec.ECDH(), peer_x_pub)
                         except Exception:
                             ecdh = b""
                 except Exception:
@@ -4085,9 +3940,7 @@ class PQVPNNode:
                 ed_sig_field = j.get("ed25519_sig")
                 if ed_sig_field and ed_pk_field:
                     ed_pk = (
-                        bytes.fromhex(ed_pk_field)
-                        if isinstance(ed_pk_field, str)
-                        else ed_pk_field
+                        bytes.fromhex(ed_pk_field) if isinstance(ed_pk_field, str) else ed_pk_field
                     )
                     edsig = (
                         bytes.fromhex(ed_sig_field)
@@ -4154,9 +4007,7 @@ class PQVPNNode:
                 try:
                     ss_pq = pq_kem_decaps(ct, self.kyber_sk)
                 except Exception as e:
-                    logger.warning(
-                        f"Kyber decapsulation failed for S1 from {addr}: {e}"
-                    )
+                    logger.warning(f"Kyber decapsulation failed for S1 from {addr}: {e}")
                     return
             except Exception as e:
                 logger.exception(f"S1 decapsulation fatal: {e}")
@@ -4187,8 +4038,9 @@ class PQVPNNode:
             # Compose KDF material (length-prefixed) and derive keys using Argon2id
             try:
                 parts = []
+
                 def _lp(b: bytes) -> bytes:
-                    return len(b).to_bytes(2, 'big') + (b or b"")
+                    return len(b).to_bytes(2, "big") + (b or b"")
 
                 parts.append(_lp(ss_pq or b""))
                 parts.append(_lp(ecdh_local or b""))
@@ -4197,7 +4049,11 @@ class PQVPNNode:
                 parts.append(_lp(self.session_salt(piden)))
                 concat = b"".join(parts)
                 # use sid (session id) as salt if available
-                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
+                salt = (
+                    sid
+                    if "sid" in locals() and isinstance(sid, (bytes, bytearray))
+                    else os.urandom(16)
+                )
                 km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
             except Exception as e:
                 logger.error(f"S1 Argon2 KDF failed: {e}")
@@ -4227,11 +4083,7 @@ class PQVPNNode:
             try:
                 sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
             except Exception:
-                sid = (
-                    sid_hex
-                    if isinstance(sid_hex, (bytes, bytearray))
-                    else os.urandom(8)
-                )
+                sid = sid_hex if isinstance(sid_hex, (bytes, bytearray)) else os.urandom(8)
 
             sess = SessionInfo(
                 session_id=sid,
@@ -4279,9 +4131,7 @@ class PQVPNNode:
 
                 s2 = {
                     "peerid": self.my_id.hex() if self.my_id else "",
-                    "sessionid": sid.hex()
-                    if isinstance(sid, (bytes, bytearray))
-                    else str(sid),
+                    "sessionid": sid.hex() if isinstance(sid, (bytes, bytearray)) else str(sid),
                     "brainpoolP512r1_pk": xpub_hex,
                     "ed25519_pk": self.ed25519_pk.hex() if self.ed25519_pk else "",
                     "mldsa_pk": self.mldsa_pk.hex() if self.mldsa_pk else "",
@@ -4307,9 +4157,7 @@ class PQVPNNode:
                 except Exception:
                     s2["mldsa_sig"] = ""
 
-                s2_bytes = json.dumps(
-                    s2, separators=(",", ":"), sort_keys=True
-                ).encode()
+                s2_bytes = json.dumps(s2, separators=(",", ":"), sort_keys=True).encode()
                 frame2 = self.make_outer_frame(
                     FT_S2, outer_next_hash or b"\x00" * 8, circuit_id, s2_bytes
                 )
@@ -4323,9 +4171,7 @@ class PQVPNNode:
                             f"Failed to send FT_S2 to {addr} for session {sid.hex()[:8]}"
                         )
                 except Exception:
-                    logger.warning(
-                        f"Failed to send FT_S2 to {addr} for session {sid.hex()[:8]}"
-                    )
+                    logger.warning(f"Failed to send FT_S2 to {addr} for session {sid.hex()[:8]}")
             except Exception:
                 logger.debug("Failed to construct/send S2 reply")
 
@@ -4398,9 +4244,7 @@ class PQVPNNode:
                     j2 = dict(j)
                     j2.pop("ed25519_sig", None)
                     j2.pop("mldsa_sig", None)
-                    to_sign = json.dumps(
-                        j2, separators=(",", ":"), sort_keys=True
-                    ).encode()
+                    to_sign = json.dumps(j2, separators=(",", ":"), sort_keys=True).encode()
                 except Exception:
                     to_sign = json.dumps(j, separators=(",", ":")).encode()
 
@@ -4411,9 +4255,7 @@ class PQVPNNode:
                 ed_sig_field = j.get("ed25519_sig")
                 if ed_pk_field and ed_sig_field:
                     ed_pk = (
-                        bytes.fromhex(ed_pk_field)
-                        if isinstance(ed_pk_field, str)
-                        else ed_pk_field
+                        bytes.fromhex(ed_pk_field) if isinstance(ed_pk_field, str) else ed_pk_field
                     )
                     edsig = (
                         bytes.fromhex(ed_sig_field)
@@ -4472,9 +4314,9 @@ class PQVPNNode:
                 return
 
             # Find pending handshake
-            pending = self.pending_handshakes.get(
-                sid_hex
-            ) or self.pending_handshakes.get(sid_hex.lower())
+            pending = self.pending_handshakes.get(sid_hex) or self.pending_handshakes.get(
+                sid_hex.lower()
+            )
             if not pending:
                 # It's common in network tests to receive duplicate or out-of-order S2
                 # frames (for example if both sides attempt symmetric replies). Treat
@@ -4490,14 +4332,19 @@ class PQVPNNode:
             # Compose KDF material (length-prefixed) and derive keys using Argon2id
             try:
                 parts = []
+
                 def _lp(b: bytes) -> bytes:
-                    return len(b).to_bytes(2, 'big') + (b or b"")
+                    return len(b).to_bytes(2, "big") + (b or b"")
 
                 parts.append(_lp(ss_pq or b""))
                 parts.append(_lp(ecdh_local or b""))
                 parts.append(_lp(self.session_salt(peer_id or b"")))
                 concat = b"".join(parts)
-                salt = sid if 'sid' in locals() and isinstance(sid, (bytes, bytearray)) else os.urandom(16)
+                salt = (
+                    sid
+                    if "sid" in locals() and isinstance(sid, (bytes, bytearray))
+                    else os.urandom(16)
+                )
                 km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
             except Exception as e:
                 logger.error(f"S2 Argon2 KDF failed: {e}")
@@ -4527,11 +4374,7 @@ class PQVPNNode:
             try:
                 sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
             except Exception:
-                sid = (
-                    sid_hex
-                    if isinstance(sid_hex, (bytes, bytearray))
-                    else os.urandom(8)
-                )
+                sid = sid_hex if isinstance(sid_hex, (bytes, bytearray)) else os.urandom(8)
 
             sess = SessionInfo(
                 session_id=sid,
@@ -4586,9 +4429,7 @@ class PQVPNNode:
                 return
 
             try:
-                version, ftype, next_hash, circuit_id, length = struct.unpack(
-                    "!BB8sIH", data[:16]
-                )
+                version, ftype, next_hash, circuit_id, length = struct.unpack("!BB8sIH", data[:16])
             except Exception:
                 logger.debug("Outer header unpack failed")
                 return
@@ -4634,7 +4475,7 @@ class PQVPNNode:
             except Exception:
                 pass
 
-             # Dispatch based on frame type
+            # Dispatch based on frame type
             if ftype == FT_HELLO:
                 await self.handle_hello(
                     payload, addr, outer_next_hash=next_hash, circuit_id=circuit_id
@@ -4711,9 +4552,7 @@ class PQVPNNode:
                 return
 
             if not self.check_and_record_nonce(sess, nonce):
-                logger.warning(
-                    f"DATA replay or invalid nonce for session {session_id.hex()[:8]}"
-                )
+                logger.warning(f"DATA replay or invalid nonce for session {session_id.hex()[:8]}")
                 return
 
             try:
@@ -4738,7 +4577,11 @@ class PQVPNNode:
             # plaintext would contain encapsulated IP packets to be injected into the network stack.
             # Here, we just acknowledge receipt.
             if self.my_id:
-                self.audit_trail.log_event("DATA_RECV", self.my_id, f"session={session_id.hex()[:8]}, size={len(plaintext)}")
+                self.audit_trail.log_event(
+                    "DATA_RECV",
+                    self.my_id,
+                    f"session={session_id.hex()[:8]}, size={len(plaintext)}",
+                )
 
         except Exception:
             logger.exception(f"handle_data unexpected error for session {session_id.hex()[:8]}")
@@ -4761,10 +4604,7 @@ class PQVPNNode:
                                 pass
                             # remove peer mapping
                             try:
-                                if (
-                                    sess.peer_id
-                                    and sess.peer_id in self.sessions_by_peer_id
-                                ):
+                                if sess.peer_id and sess.peer_id in self.sessions_by_peer_id:
                                     del self.sessions_by_peer_id[sess.peer_id]
                             except Exception:
                                 pass
@@ -4779,18 +4619,14 @@ class PQVPNNode:
                                         "type": "heartbeat",
                                         "sessionid": sess.session_id.hex(),
                                         "timestamp": int(time.time()),
-                                        "peerid": self.my_id.hex()
-                                        if self.my_id
-                                        else "",
+                                        "peerid": self.my_id.hex() if self.my_id else "",
                                         "uptime": int(time.time() - self.start_time),
                                     },
                                     separators=(",", ":"),
                                 ).encode()
                                 frame = self.make_outer_frame(
                                     FT_KEEPALIVE,
-                                    self.peer_hash8(sess.peer_id)
-                                    if sess.peer_id
-                                    else b"\x00" * 8,
+                                    self.peer_hash8(sess.peer_id) if sess.peer_id else b"\x00" * 8,
                                     0,
                                     hb,
                                 )
@@ -4800,9 +4636,7 @@ class PQVPNNode:
                                     and sess.remote_addr
                                 ):
                                     try:
-                                        self.protocol.transport.sendto(
-                                            frame, sess.remote_addr
-                                        )
+                                        self.protocol.transport.sendto(frame, sess.remote_addr)
                                     except Exception:
                                         pass
                             except Exception:
@@ -4823,14 +4657,10 @@ class PQVPNNode:
                                             sid,
                                             aead_send,
                                             aead_recv,
-                                        ) = self.rekey_manager.perform_rekey(
-                                            sess.session_id
-                                        )
+                                        ) = self.rekey_manager.perform_rekey(sess.session_id)
                                         sess.aead_send = aead_send
                                         sess.aead_recv = aead_recv
-                                        sess.send_key = (
-                                            b""  # not storing full raw keys here
-                                        )
+                                        sess.send_key = b""  # not storing full raw keys here
                                         sess.recv_key = b""
                                         sess.last_activity = time.time()
                                         logger.info(
@@ -4992,11 +4822,11 @@ def _safe_serialize_private_key(key_obj) -> bytes:
                 )
             except Exception:
                 # Re-raise first error to preserve helpful message
-                raise e_pkcs8
-
+                raise e_pkcs8 from None
 
 
 # Appended CLI and main loop
+
 
 def _make_udp_protocol(node: PQVPNNode):
     class _UDPProtocol(asyncio.DatagramProtocol):
@@ -5016,10 +4846,10 @@ def _make_udp_protocol(node: PQVPNNode):
                         import socket as _socket
 
                         if fam == _socket.AF_INET:
-                          self.node.ipv4_transport = transport
+                            self.node.ipv4_transport = transport
                         else:
-                          # treat all non-AF_INET as primary transport (AF_INET6)
-                          self.node.transport = transport
+                            # treat all non-AF_INET as primary transport (AF_INET6)
+                            self.node.transport = transport
                 except OSError:
                     pass
 
@@ -5035,9 +4865,13 @@ def _make_udp_protocol(node: PQVPNNode):
                     if sockname:
                         logger.info(f"UDP transport bound for node: {sockname}")
                     else:
-                        logger.info(f"UDP transport bound for node: {getattr(self.node, 'host', '')}:{getattr(self.node, 'port', '')}")
+                        logger.info(
+                            f"UDP transport bound for node: {getattr(self.node, 'host', '')}:{getattr(self.node, 'port', '')}"
+                        )
                 except Exception:
-                    logger.info(f"UDP transport bound for node: {getattr(self.node, 'host', '')}:{getattr(self.node, 'port', '')}")
+                    logger.info(
+                        f"UDP transport bound for node: {getattr(self.node, 'host', '')}:{getattr(self.node, 'port', '')}"
+                    )
             except Exception:
                 pass
 
@@ -5096,6 +4930,7 @@ async def main_loop(
     if iot:
         # IoT mode: run lightweight client
         from src.pqvpn.iot import IoTClient, IoTDeviceConfig
+
         config = IoTDeviceConfig(device_id=os.urandom(16))
         iot_client = IoTClient(config)
         await iot_client.start()
@@ -5138,6 +4973,7 @@ async def main_loop(
     def _signal_handler_factory(signame):
         def handler():
             _on_signal(signame)
+
         return handler
 
     loop = asyncio.get_running_loop()
@@ -5156,7 +4992,6 @@ async def main_loop(
                 pass
 
     # Start discovery if present and not disabled
-    discovery_task = None
     if not disable_discovery and getattr(node, "discovery", None):
         try:
             await node.discovery.start()
@@ -5180,28 +5015,28 @@ async def main_loop(
         pass
 
     # Get protocol from config
-    protocol = node.config.get('network', {}).get('protocol', 'pqvpn')
-    if protocol not in ('pqvpn', 'wireguard', 'openvpn'):
+    protocol = node.config.get("network", {}).get("protocol", "pqvpn")
+    if protocol not in ("pqvpn", "wireguard", "openvpn"):
         logger.error(f"Unknown protocol {protocol}")
         raise ValueError(f"Unknown protocol {protocol}")
 
     # Bind socket based on protocol
     transport = None
-    protocol_obj = None
     try:
         bind_host = getattr(node, "host", "0.0.0.0")
-        if protocol == 'pqvpn':
+        if protocol == "pqvpn":
             bind_port = int(getattr(node, "port", 9000))
-        elif protocol == 'wireguard':
+        elif protocol == "wireguard":
             bind_port = int(getattr(node, "port", 51820))  # WG default
             logger.info("Starting in WireGuard compatibility mode (placeholder)")
-        elif protocol == 'openvpn':
+        elif protocol == "openvpn":
             bind_port = int(getattr(node, "port", 1194))  # OVPN default
             logger.info("Starting in OpenVPN compatibility mode (placeholder)")
         else:
             bind_port = 9000
 
-        proto_factory = lambda: _make_udp_protocol(node)
+        def proto_factory():
+            return _make_udp_protocol(node)
 
         # Bind explicit IPv4 transport first to ensure we have an AF_INET socket
         # available for IPv4 destinations (bootstrap peers on IPv4). If that
@@ -5229,7 +5064,7 @@ async def main_loop(
             protocol = protocol or None
 
     except Exception as e:
-        logger.critical(f"Failed to bind socket on {getattr(node,'host','')}:{bind_port}: {e}")
+        logger.critical(f"Failed to bind socket on {getattr(node, 'host', '')}:{bind_port}: {e}")
         # Clean up and exit
         try:
             if maintenance_task:
@@ -5247,7 +5082,7 @@ async def main_loop(
             logger.warning(f"Failed to write pidfile {pidfile}")
 
     # Load and initialize plugins
-    plugin_manager = PluginManager(node, config=getattr(node, 'config', {}).get('plugins', {}))
+    plugin_manager = PluginManager(node, config=getattr(node, "config", {}).get("plugins", {}))
     # expose on node for runtime use
     try:
         node.plugins = plugin_manager
@@ -5317,7 +5152,7 @@ async def main_loop(
             logger.debug("Plugin unload failed during shutdown")
 
 
-async def _delayed_bootstrap(node: 'PQVPNNode'):
+async def _delayed_bootstrap(node: "PQVPNNode"):
     """Helper to delay sending bootstrap HELLOs shortly after startup."""
     try:
         await asyncio.sleep(0.5)
@@ -5330,6 +5165,7 @@ async def _delayed_bootstrap(node: 'PQVPNNode'):
                 pass
     except Exception:
         pass
+
 
 def _build_cli_parser() -> "argparse.ArgumentParser":
     # kept private; provide public alias below
@@ -5346,17 +5182,22 @@ def _build_cli_parser() -> "argparse.ArgumentParser":
     p.add_argument("--logfile", default=None, help="Optional log file path.")
     p.add_argument("--pidfile", default=None, help="Optional pidfile path.")
     p.add_argument("--disable-discovery", action="store_true", help="Disable DHT-based discovery.")
-    p.add_argument("--enable-relay", action="store_true", help="Enable relay behavior (if supported by config).")
+    p.add_argument(
+        "--enable-relay",
+        action="store_true",
+        help="Enable relay behavior (if supported by config).",
+    )
 
     # add subparsers (e.g., version) to satisfy test expectations
-    sub = p.add_subparsers(dest='command')
-    sub.add_parser('version', help='Print version and exit')
+    sub = p.add_subparsers(dest="command")
+    sub.add_parser("version", help="Print version and exit")
 
     return p
 
 
 # Public alias expected by tests
 build_parser = _build_cli_parser
+
 
 def main(argv: list[str] | None = None) -> int:
     # Support legacy test hook: main(["version"]) -> print version and exit
@@ -5395,6 +5236,7 @@ def main(argv: list[str] | None = None) -> int:
 # the original main.py implementations as a fallback.
 try:
     from pqvpn import crypto as _pqcrypto  # type: ignore
+
     # Names to prefer from the crypto module when present
     for _name in (
         "OQSPY_AVAILABLE",

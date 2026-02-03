@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
+
 class TunInterface(ABC):
     """Abstract base class for TUN interface operations."""
 
@@ -35,6 +36,7 @@ class TunInterface(ABC):
         """Close the TUN interface."""
         pass
 
+
 class LinuxTun(TunInterface):
     """Linux-specific TUN interface implementation using pytun."""
 
@@ -45,8 +47,8 @@ class LinuxTun(TunInterface):
     async def create(self, name: str, ip: str, netmask: str) -> None:
         try:
             import pytun
-        except ImportError:
-            raise RuntimeError("pytun not installed. Install with: pip install pytun")
+        except ImportError as ie:
+            raise RuntimeError("pytun not installed. Install with: pip install pytun") from ie
 
         self._tun = pytun.TunTapDevice(name=name)
         self._tun.addr = ip
@@ -79,6 +81,7 @@ class LinuxTun(TunInterface):
             self._tun = None
             logger.info("Closed TUN interface")
 
+
 class WindowsTun(TunInterface):
     """Windows-specific TUN interface implementation."""
 
@@ -98,6 +101,7 @@ class WindowsTun(TunInterface):
 
     async def close(self) -> None:
         raise NotImplementedError()
+
 
 class MacTun(TunInterface):
     """macOS-specific TUN interface implementation."""
@@ -119,6 +123,7 @@ class MacTun(TunInterface):
     async def close(self) -> None:
         raise NotImplementedError()
 
+
 def create_tun_interface() -> TunInterface:
     """Factory function to create platform-specific TUN interface."""
     system = platform.system().lower()
@@ -130,6 +135,7 @@ def create_tun_interface() -> TunInterface:
         return MacTun()
     else:
         raise RuntimeError(f"Unsupported platform: {system}")
+
 
 # VPN Traffic Routing Integration
 class VpnRouter:
@@ -182,12 +188,14 @@ class VpnRouter:
             except Exception as e:
                 logger.error(f"Error in VPN to TUN routing: {e}")
 
+
 def check_tun_health() -> bool:
     """Health check for TUN interface."""
     try:
         system = platform.system().lower()
         if system == "linux":
             import pytun
+
             # Try to create a test TUN interface
             tun = pytun.TunTapDevice()
             tun.close()

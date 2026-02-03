@@ -23,6 +23,7 @@ class TestTokenBucket:
         bucket = TokenBucket(100, 100)
         bucket.consume(50)
         import time
+
         time.sleep(0.1)  # 10 tokens refill
         assert bucket.consume(60)  # 50 + 10 = 60 < 100
 
@@ -32,19 +33,19 @@ class TestTrafficShaper:
     async def test_enqueue_and_get(self):
         shaper = TrafficShaper(1000, 3)
         await shaper.start()
-        await shaper.enqueue_packet(b'data', ('127.0.0.1', 9000), 0)
+        await shaper.enqueue_packet(b"data", ("127.0.0.1", 9000), 0)
         packet = await shaper.get_next_packet()
-        assert packet == (b'data', ('127.0.0.1', 9000))
+        assert packet == (b"data", ("127.0.0.1", 9000))
         await shaper.stop()
 
     @pytest.mark.asyncio
     async def test_priority(self):
         shaper = TrafficShaper(1000, 3)
         await shaper.start()
-        await shaper.enqueue_packet(b'low', ('127.0.0.1', 9000), 2)
-        await shaper.enqueue_packet(b'high', ('127.0.0.1', 9000), 0)
+        await shaper.enqueue_packet(b"low", ("127.0.0.1", 9000), 2)
+        await shaper.enqueue_packet(b"high", ("127.0.0.1", 9000), 0)
         packet = await shaper.get_next_packet()
-        assert packet[0] == b'high'
+        assert packet[0] == b"high"
         packet = await shaper.get_next_packet()
-        assert packet[0] == b'low'
+        assert packet[0] == b"low"
         await shaper.stop()

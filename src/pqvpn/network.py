@@ -12,9 +12,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from .anti_dpi import AntiDPI
+
 logger = logging.getLogger(__name__)
 
-from .anti_dpi import AntiDPI
 from .robustness import circuit_breaker, log_with_context
 from .traffic_shaper import TrafficShaper
 
@@ -106,7 +107,9 @@ class NetworkTransport:
 class UDPTransport(NetworkTransport):
     """UDP-based transport implementation."""
 
-    def __init__(self, bind_host: str = "127.0.0.1", listen_port: int = 9000, max_concurrent: int = 200):
+    def __init__(
+        self, bind_host: str = "127.0.0.1", listen_port: int = 9000, max_concurrent: int = 200
+    ):
         self.bind_host = bind_host
         self.listen_port = listen_port
         self.max_concurrent = max_concurrent
@@ -161,8 +164,8 @@ class NetworkManager:
         self.my_relay_id: bytes | None = None
         self._running = False
         self._tasks = []
-        self.traffic_shaper = TrafficShaper(config.get('rate_limit', 1000000.0))
-        self.anti_dpi = AntiDPI(config.get('max_padding', 255), config.get('max_jitter_ms', 10.0))
+        self.traffic_shaper = TrafficShaper(config.get("rate_limit", 1000000.0))
+        self.anti_dpi = AntiDPI(config.get("max_padding", 255), config.get("max_jitter_ms", 10.0))
 
     async def start(self):
         await self.transport.start()
@@ -185,13 +188,17 @@ class NetworkManager:
     async def _receive_loop(self):
         while self._running:
             try:
-                data, addr = await asyncio.wait_for(self.transport.receive_datagram(), timeout=HANDSHAKE_TIMEOUT)
+                data, addr = await asyncio.wait_for(
+                    self.transport.receive_datagram(), timeout=HANDSHAKE_TIMEOUT
+                )
                 await self._handle_packet(data, addr)
             except asyncio.TimeoutError:
                 log_with_context("Receive timeout", "warning", {"timeout": HANDSHAKE_TIMEOUT})
                 continue
             except Exception as e:
-                log_with_context(f"Packet handling error: {e}", "error", {"error_type": type(e).__name__})
+                log_with_context(
+                    f"Packet handling error: {e}", "error", {"error_type": type(e).__name__}
+                )
                 await asyncio.sleep(1)  # Auto-recovery: backoff on error
 
     async def _handle_packet(self, data: bytes, addr: tuple[str, int]):
@@ -218,7 +225,11 @@ class NetworkManager:
             try:
                 await handler(payload, addr)
             except Exception as e:
-                log_with_context(f"Handler error for frame {frame_type}: {e}", "error", {"addr": addr, "frame_type": frame_type})
+                log_with_context(
+                    f"Handler error for frame {frame_type}: {e}",
+                    "error",
+                    {"addr": addr, "frame_type": frame_type},
+                )
         else:
             log_with_context(f"Unknown frame type: {frame_type}", "debug", {"addr": addr})
 
@@ -238,12 +249,16 @@ class NetworkManager:
         # Handle relay packet with layered crypto
         if self.relay_manager and self.my_relay_id:
             try:
-                await circuit_breaker.call(self.relay_manager.handle_relay_packet, payload, addr, self.my_relay_id)
+                await circuit_breaker.call(
+                    self.relay_manager.handle_relay_packet, payload, addr, self.my_relay_id
+                )
             except Exception as e:
                 log_with_context(f"Relay handling failed: {e}", "error", {"addr": addr})
                 # Auto-recovery: could switch relays
         else:
-            log_with_context("Relay packet received but no relay manager configured", "warning", {"addr": addr})
+            log_with_context(
+                "Relay packet received but no relay manager configured", "warning", {"addr": addr}
+            )
 
     async def _sending_loop(self):
         while self._running:

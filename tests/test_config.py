@@ -29,7 +29,7 @@ def test_config_load_env():
 
 def test_config_save():
     """Test config saving."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write("peer:\n  nickname: test\n")
         temp_file = f.name
 

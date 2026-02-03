@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 logger = logging.getLogger(__name__)
 
+
 class ZKPProtocol:
     """Base class for Zero Knowledge Proof protocols."""
 
@@ -23,6 +24,7 @@ class ZKPProtocol:
     def verify_proof(self, proof: bytes, public_info: bytes, challenge: bytes) -> bool:
         """Verify a proof without learning the secret."""
         raise NotImplementedError
+
 
 class SchnorrZKP(ZKPProtocol):
     """Schnorr Zero Knowledge Proof for discrete log knowledge."""
@@ -68,6 +70,7 @@ class SchnorrZKP(ZKPProtocol):
 
         return hmac.compare_digest(s, expected)
 
+
 class FiatShamirZKP(ZKPProtocol):
     """Fiat-Shamir heuristic for interactive ZKP to non-interactive."""
 
@@ -93,17 +96,20 @@ class FiatShamirZKP(ZKPProtocol):
 
         return self.base_zkp.verify_proof(base_proof, public_info, fs_challenge)
 
-def create_zkp_prover(protocol: str = 'schnorr') -> ZKPProtocol:
+
+def create_zkp_prover(protocol: str = "schnorr") -> ZKPProtocol:
     """Factory for ZKP protocols."""
-    if protocol == 'schnorr':
+    if protocol == "schnorr":
         return SchnorrZKP()
-    elif protocol == 'fiat-shamir':
+    elif protocol == "fiat-shamir":
         return FiatShamirZKP(SchnorrZKP())
     else:
         raise ValueError(f"Unknown protocol: {protocol}")
 
-def authenticate_with_zkp(prover_secret: bytes, verifier_public: bytes,
-                         challenge: bytes, protocol: str = 'schnorr') -> bool:
+
+def authenticate_with_zkp(
+    prover_secret: bytes, verifier_public: bytes, challenge: bytes, protocol: str = "schnorr"
+) -> bool:
     """Complete ZKP authentication flow."""
     prover = create_zkp_prover(protocol)
     proof = prover.prove_knowledge(prover_secret, challenge)
@@ -111,17 +117,19 @@ def authenticate_with_zkp(prover_secret: bytes, verifier_public: bytes,
     verifier = create_zkp_prover(protocol)
     return verifier.verify_proof(proof, verifier_public, challenge)
 
+
 # Range Proofs for Bandwidth Verification
 
-from typing import NamedTuple
 
 
 class RangeProof(NamedTuple):
     """Simple range proof structure."""
+
     commitment: bytes
     proof: bytes
     range_min: int
     range_max: int
+
 
 class BandwidthRangeZKP:
     """Zero Knowledge Range Proof for bandwidth usage verification."""
@@ -155,10 +163,12 @@ class BandwidthRangeZKP:
         # In a real ZKP system, this would verify the cryptographic proof
         return True
 
+
 def prove_bandwidth_range(usage: int, limit: int, randomness: bytes) -> RangeProof:
     """Prove that bandwidth usage is within [0, limit]."""
     range_zkp = BandwidthRangeZKP()
     return range_zkp.prove_range(usage, 0, limit, randomness)
+
 
 def verify_bandwidth_range(range_proof: RangeProof, commitment: bytes) -> bool:
     """Verify bandwidth range proof."""

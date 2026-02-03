@@ -5,7 +5,7 @@ Manual test for layered crypto onion routing.
 
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 from pqvpn.layered_crypto import (
     decrypt_layered_packet_with_route,
@@ -31,7 +31,9 @@ def main():
     hop_index = 0
     for relay in route:
         print(f"Decrypting at {relay} (hop {hop_index})")
-        decrypted, next_hop = decrypt_layered_packet_with_route(current_packet, relay, master_key, hop_index)
+        decrypted, next_hop = decrypt_layered_packet_with_route(
+            current_packet, relay, master_key, hop_index
+        )
         if next_hop:
             print(f"Next hop: {next_hop}")
             current_packet = decrypted
@@ -45,12 +47,14 @@ def main():
 
     # Performance test
     import time
+
     start = time.time()
     for _ in range(1000):
         enc = encrypt_layered_packet_with_route(payload, route, master_key)
         dec, _ = decrypt_layered_packet_with_route(enc, route[-1], master_key, 2)
     end = time.time()
     print(f"Performance: 1000 enc/dec cycles took {end - start:.2f} seconds")
+
 
 if __name__ == "__main__":
     main()

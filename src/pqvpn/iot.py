@@ -20,17 +20,20 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 # Optional: for MQTT/CoAP if available
 try:
     import paho.mqtt.client as mqtt  # type: ignore
+
     MQTT_AVAILABLE = True
 except ImportError:
     MQTT_AVAILABLE = False
 
 try:
     import aiocoap  # type: ignore
+
     COAP_AVAILABLE = True
 except ImportError:
     COAP_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class IoTDeviceConfig:
@@ -41,6 +44,7 @@ class IoTDeviceConfig:
     sleep_interval: int = 300  # Seconds between wakeups
     max_payload: int = 512  # Max message size in bytes
     gateway_address: tuple[str, int] | None = None  # For proxy mode
+
 
 class IoTClient:
     """
@@ -129,63 +133,64 @@ class IoTClient:
 
     async def _send_heartbeat(self):
         message = {
-            'type': 'heartbeat',
-            'device_id': self.config.device_id.hex(),
-            'timestamp': time.time()
+            "type": "heartbeat",
+            "device_id": self.config.device_id.hex(),
+            "timestamp": time.time(),
         }
         encrypted = self._encrypt_message(json.dumps(message).encode())
         # Send via protocol
         if self.config.protocol == "mqtt":
-            self.mqtt_client.publish("pqvpn/heartbeat", json.dumps({'encrypted': encrypted.hex()}))
+            self.mqtt_client.publish("pqvpn/heartbeat", json.dumps({"encrypted": encrypted.hex()}))
 
     async def _handle_message(self, payload: dict):
         # Decrypt and handle
-        if 'encrypted' in payload:
-            plaintext = self._decrypt_message(bytes.fromhex(payload['encrypted']))
+        if "encrypted" in payload:
+            plaintext = self._decrypt_message(bytes.fromhex(payload["encrypted"]))
             msg = json.loads(plaintext.decode())
-            if msg['type'] == 'peer_update':
-                self._update_peers(msg['peers'])
+            if msg["type"] == "peer_update":
+                self._update_peers(msg["peers"])
 
     def _update_peers(self, peers: list[dict]):
         for peer in peers:
-            self.peers[bytes.fromhex(peer['id'])] = peer
+            self.peers[bytes.fromhex(peer["id"])] = peer
 
     def _encrypt_message(self, plaintext: bytes) -> bytes:
         if not self.session_key:
             self.session_key = secrets.token_bytes(32)
         nonce = secrets.token_bytes(12)
         cipher = ChaCha20Poly1305(self.session_key)
-        ciphertext = cipher.encrypt(nonce, plaintext, b'')
+        ciphertext = cipher.encrypt(nonce, plaintext, b"")
         return nonce + ciphertext
 
     def _decrypt_message(self, ciphertext: bytes) -> bytes:
         nonce = ciphertext[:12]
         ct = ciphertext[12:]
         cipher = ChaCha20Poly1305(self.session_key)
-        return cipher.decrypt(nonce, ct, b'')
+        return cipher.decrypt(nonce, ct, b"")
 
     async def join_network(self):
         # Announce presence
         from cryptography.hazmat.primitives import serialization
+
         announce = {
-            'type': 'join',
-            'device_id': self.config.device_id.hex(),
-            'public_key': self.public_key.public_key_bytes(
+            "type": "join",
+            "device_id": self.config.device_id.hex(),
+            "public_key": self.public_key.public_key_bytes(
                 encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
+                format=serialization.PublicFormat.SubjectPublicKeyInfo,
             ).decode(),
-            'capabilities': ['low_power', 'constrained']
+            "capabilities": ["low_power", "constrained"],
         }
         encrypted = self._encrypt_message(json.dumps(announce).encode())
         # Send to gateway or broadcast
         if self.config.protocol == "mqtt":
-            self.mqtt_client.publish("pqvpn/join", json.dumps({'encrypted': encrypted.hex()}))
+            self.mqtt_client.publish("pqvpn/join", json.dumps({"encrypted": encrypted.hex()}))
 
     async def send_data(self, data: bytes):
         # Send data through VPN, with size limits
         if len(data) > self.config.max_payload:
             logger.warning("Data exceeds max payload, truncating")
-            data = data[:self.config.max_payload]
-        encrypted = self._encrypt_message(data)
+            data = data[: self.config.max_payload]
+        self._encrypt_message(data)
         # Tunnel through gateway or direct
         pass

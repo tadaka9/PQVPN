@@ -47,16 +47,16 @@ async def test_compute_usage():
     shaper = TrafficShaper(1000000, 3)
     await shaper.start()
 
-    for i in range(1000):
+    for _i in range(1000):
         data = b"x" * 100
         padded = anti_dpi.apply_padding(data)
         stripped = anti_dpi.strip_padding(padded)
         assert stripped == data
         await shaper.enqueue_packet(data, ("127.0.0.1", 9000))
-        packet = await shaper.get_next_packet()
+        await shaper.get_next_packet()
 
     elapsed = time.time() - start
-    print(f"Processed 1000 packets in {elapsed:.2f}s, {1000/elapsed:.1f} packets/s")
+    print(f"Processed 1000 packets in {elapsed:.2f}s, {1000 / elapsed:.1f} packets/s")
 
     await shaper.stop()
 

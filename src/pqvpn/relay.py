@@ -19,11 +19,15 @@ class RelayManager:
         self.master_key = master_key
         self.routes: dict[bytes, list[bytes]] = {}  # session_id -> route
 
-    async def handle_relay_packet(self, packet: bytes, from_addr: tuple[str, int], my_relay_id: bytes) -> None:
+    async def handle_relay_packet(
+        self, packet: bytes, from_addr: tuple[str, int], my_relay_id: bytes
+    ) -> None:
         """
         Handle an incoming relay packet: decrypt outer layer and forward.
         """
-        inner_packet, next_hop = layered_crypto.decrypt_layered_packet_with_route(packet, my_relay_id, self.master_key)
+        inner_packet, next_hop = layered_crypto.decrypt_layered_packet_with_route(
+            packet, my_relay_id, self.master_key
+        )
         if next_hop:
             # Forward to next hop
             next_peer = self.network_manager.get_peer(next_hop)

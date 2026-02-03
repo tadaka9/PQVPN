@@ -49,5 +49,5 @@ def test_plugin_load():
     manager = PluginManager()
 
     # Since we can't easily create a real plugin file, test the structure
-    assert manager.load_plugin("nonexistent") == False
+    assert not manager.load_plugin("nonexistent")
     assert "nonexistent" not in manager.loaded_plugins

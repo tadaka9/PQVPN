@@ -26,7 +26,7 @@ def test_session_info():
         aead_send=aead,
         aead_recv=aead,
         send_key=key,
-        recv_key=key
+        recv_key=key,
     )
     assert session.session_id == b"session_id"
     assert session.state == "PENDING"

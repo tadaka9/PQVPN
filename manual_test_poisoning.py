@@ -15,6 +15,7 @@ from pqvpn.discovery import DHTConfig, NodeInfo, SecureDHT
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 async def simulate_poisoning_attack():
     logger.info("Starting poisoning simulation test")
 
@@ -25,6 +26,7 @@ async def simulate_poisoning_attack():
 
     # Patch oqs to avoid import error
     import pqvpn.discovery as disc
+
     disc.oqs = None  # Disable PQ for test
 
     dht = SecureDHT(node_id, private_key, config)
@@ -43,31 +45,31 @@ async def simulate_poisoning_attack():
 
     # Store valid data first
     valid_data = {
-        'key': key.hex(),
-        'value': 'legitimate_value',
-        'ttl': 3600,
-        'timestamp': time.time(),
-        'owner': node_id.hex(),
-        'signature': 'valid_sig'  # Mock
+        "key": key.hex(),
+        "value": "legitimate_value",
+        "ttl": 3600,
+        "timestamp": time.time(),
+        "owner": node_id.hex(),
+        "signature": "valid_sig",  # Mock
     }
     dht.data_store[key] = valid_data
 
     # Now simulate get with poisoned responses
     poisoned_responses = [
         {  # Invalid format
-            'key': key.hex(),
-            'value': invalid_value,
+            "key": key.hex(),
+            "value": invalid_value,
             # Missing fields
         },
         {  # Valid format but invalid sig
-            'key': key.hex(),
-            'value': invalid_value,
-            'ttl': 3600,
-            'timestamp': time.time(),
-            'owner': secrets.token_bytes(32).hex(),
-            'signature': 'invalid_sig'
+            "key": key.hex(),
+            "value": invalid_value,
+            "ttl": 3600,
+            "timestamp": time.time(),
+            "owner": secrets.token_bytes(32).hex(),
+            "signature": "invalid_sig",
         },
-        valid_data  # One valid
+        valid_data,  # One valid
     ]
 
     def mock_send_get(node):
@@ -75,26 +77,27 @@ async def simulate_poisoning_attack():
         return poisoned_responses[idx]
 
     # Patch find_node and _send_get
-    original_find = dht.find_node
     async def mock_find_node(target):
         return legit_nodes[:3]  # Return 3 nodes
+
     dht.find_node = mock_find_node
 
-    original_send_get = dht._send_get
     dht._send_get = mock_send_get
 
     # Patch validation
     def mock_validate(data):
-        return 'signature' in data and data.get('signature') == 'valid_sig'
-    original_validate = dht._validate_data
+        return "signature" in data and data.get("signature") == "valid_sig"
+
     dht._validate_data = mock_validate
 
     # Test get
     result = await dht.get(key)
     logger.info(f"Get result: {result}")
 
-    if result == 'legitimate_value':
-        logger.info("✓ Poisoning defense successful: Valid value retrieved despite poisoned responses")
+    if result == "legitimate_value":
+        logger.info(
+            "✓ Poisoning defense successful: Valid value retrieved despite poisoned responses"
+        )
     else:
         logger.error("✗ Poisoning defense failed")
 
@@ -121,6 +124,7 @@ async def simulate_poisoning_attack():
         logger.info("✓ Reputation decreased on failure")
 
     logger.info("Poisoning simulation test completed")
+
 
 if __name__ == "__main__":
     asyncio.run(simulate_poisoning_attack())

@@ -7,15 +7,18 @@ import sys
 
 sys.path.insert(0, ".")
 
+
 def test_config_modularity():
     """Test config module."""
     from src.pqvpn.config import Config
+
     print("✓ Config module imported successfully")
 
     config = Config()
     config.set_nested("test", "key", value="value")
     assert config.get("test", "key") == "value"
     print("✓ Config module basic functionality works")
+
 
 def test_plugins_modularity():
     """Test plugins module."""
@@ -37,6 +40,7 @@ def test_plugins_modularity():
     else:
         print("✗ Failed to load sample plugin")
 
+
 def test_network_modularity():
     """Test network module."""
     from src.pqvpn.network import NetworkManager, UDPTransport
@@ -47,8 +51,9 @@ def test_network_modularity():
     print(f"✓ UDP transport created: {transport.bind_host}:{transport.listen_port}")
 
     config = {"network": {"bind_host": "127.0.0.1"}}
-    manager = NetworkManager(transport, config)
+    NetworkManager(transport, config)
     print("✓ Network manager created")
+
 
 def test_session_modularity():
     """Test session module."""
@@ -57,8 +62,9 @@ def test_session_modularity():
     print("✓ Session module imported successfully")
 
     config = {"session_timeout": 1800}
-    manager = SessionManager(config)
+    SessionManager(config)
     print("✓ Session manager created")
+
 
 def test_discovery_modularity():
     """Test discovery module."""
@@ -75,6 +81,7 @@ def test_discovery_modularity():
     discovery = Discovery(node)
     print(f"✓ Discovery created, enabled: {discovery.enabled}")
 
+
 if __name__ == "__main__":
     print("=== PQVPN Modularity Manual Testing ===")
     try:
@@ -87,4 +94,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n✗ Modularity test failed: {e}")
         import traceback
+
         traceback.print_exc()

@@ -80,7 +80,7 @@ try:
         node = Field(default_factory=dict)
 
     # register shim module so `from config_schema import ...` works
-    _config_module = 'config_schema'
+    _config_module = "config_schema"
     _config_module.ConfigModel = ConfigModel
     _config_module._HAS_PYDANTIC = _HAS_PYDANTIC
     _config_module.Field = Field
@@ -106,7 +106,7 @@ class Config:
             "pqvpn.yaml",
             "pqvpn.yml",
             os.path.expanduser("~/.pqvpn/config.yaml"),
-            "/etc/pqvpn/config.yaml"
+            "/etc/pqvpn/config.yaml",
         ]
         for candidate in candidates:
             if os.path.isfile(candidate):
@@ -134,11 +134,11 @@ class Config:
     def _load_from_env(self):
         """Load configuration from environment variables."""
         env_mappings = {
-            'PQVPN_BIND_HOST': ('network', 'bind_host'),
-            'PQVPN_LISTEN_PORT': ('network', 'listen_port'),
-            'PQVPN_NICKNAME': ('peer', 'nickname'),
-            'PQVPN_KEYS_DIR': ('keys', 'dir'),
-            'PQVPN_DISCOVERY_ENABLED': ('discovery', 'enabled'),
+            "PQVPN_BIND_HOST": ("network", "bind_host"),
+            "PQVPN_LISTEN_PORT": ("network", "listen_port"),
+            "PQVPN_NICKNAME": ("peer", "nickname"),
+            "PQVPN_KEYS_DIR": ("keys", "dir"),
+            "PQVPN_DISCOVERY_ENABLED": ("discovery", "enabled"),
         }
 
         for env_var, config_path in env_mappings.items():
@@ -182,7 +182,7 @@ class Config:
         """Save configuration to file."""
         try:
             os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-            with open(self.config_file, 'w') as f:
+            with open(self.config_file, "w") as f:
                 yaml.dump(self.data, f, default_flow_style=False)
             logger.info(f"Saved config to {self.config_file}")
         except Exception as e:

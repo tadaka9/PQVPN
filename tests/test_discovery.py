@@ -20,7 +20,7 @@ def mock_node():
 def test_discovery_init(mock_node):
     """Test discovery initialization."""
     discovery = Discovery(mock_node)
-    assert discovery.enabled == True
+    assert discovery.enabled
 
 
 def test_discovery_disabled():
@@ -29,7 +29,7 @@ def test_discovery_disabled():
     node.config = {"discovery": {"enabled": False}}
 
     discovery = Discovery(node)
-    assert discovery.enabled == False
+    assert not discovery.enabled
 
 
 @pytest.fixture
@@ -92,9 +92,7 @@ async def test_add_node(node_id, private_key):
     """Test adding a node to routing table."""
     dht = SecureDHT(node_id, private_key)
     node_info = NodeInfo(
-        node_id=b"peer_id" * 8,
-        public_key=b"pub_key" * 8,
-        address=("127.0.0.1", 8468)
+        node_id=b"peer_id" * 8, public_key=b"pub_key" * 8, address=("127.0.0.1", 8468)
     )
     await dht._add_node(node_info)
     assert node_info.node_id in dht.peers
@@ -106,7 +104,7 @@ async def test_find_node(node_id, private_key):
     dht = SecureDHT(node_id, private_key)
     # Add some nodes
     for i in range(3):
-        peer_id = bytes((node_id[0] ^ (i+1),) + node_id[1:])
+        peer_id = bytes((node_id[0] ^ (i + 1),) + node_id[1:])
         node_info = NodeInfo(peer_id, b"pub", ("127.0.0.1", 8468 + i))
         await dht._add_node(node_info)
 

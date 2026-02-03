@@ -10,7 +10,7 @@ import os
 import sys
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from pqvpn.bootstrap import get_bootstrap_peers
 
@@ -27,6 +27,7 @@ async def main():
         print("Bootstrap system code path executed successfully.")
 
     print("Manual test completed.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -24,7 +24,7 @@ def benchmark_crypto():
 
     # KEM operations
     kem_times = []
-    for i in range(10):
+    for _i in range(10):
         start = time.time()
         pk, sk = pq_kem_keygen()
         ct, ss = pq_kem_encaps(pk)
@@ -34,7 +34,7 @@ def benchmark_crypto():
         kem_times.append(end - start)
 
     avg_kem = sum(kem_times) / len(kem_times)
-    print(f"Kyber1024 KEM round-trip: {avg_kem*1000:.2f} ms per operation")
+    print(f"Kyber1024 KEM round-trip: {avg_kem * 1000:.2f} ms per operation")
 
 
 def benchmark_layered_crypto():
@@ -48,10 +48,10 @@ def benchmark_layered_crypto():
     # Encrypt
     start = time.time()
     for _ in range(100):
-        encrypted = encrypt_layered_packet(payload, route, master_key)
+        encrypt_layered_packet(payload, route, master_key)
     encrypt_time = time.time() - start
 
-    print(f"Layered encryption (3 hops): {(encrypt_time/100)*1000:.2f} ms per packet")
+    print(f"Layered encryption (3 hops): {(encrypt_time / 100) * 1000:.2f} ms per packet")
 
 
 def benchmark_traffic_shaping():
@@ -60,7 +60,7 @@ def benchmark_traffic_shaping():
 
     shaper = TrafficShaper(rate_limit=1000000.0)  # 1 MB/s
     packets = [os.urandom(1400) for _ in range(1000)]
-    addr = ('127.0.0.1', 9000)
+    addr = ("127.0.0.1", 9000)
 
     start = time.time()
     # Enqueue packets
@@ -87,7 +87,7 @@ def benchmark_anti_dpi():
     print("Benchmarking anti-DPI padding...")
 
     anti_dpi = AntiDPI(max_padding=255)
-    packets = [os.urandom(100 + i*10) for i in range(100)]  # Varying sizes
+    packets = [os.urandom(100 + i * 10) for i in range(100)]  # Varying sizes
 
     start = time.time()
     padded_packets = [anti_dpi.apply_padding(pkt) for pkt in packets]

@@ -24,7 +24,7 @@ class TestSchnorrZKP:
         assert len(proof) == 64  # 32 + 32
 
         result = zkp.verify_proof(proof, secret, challenge)
-        assert result == True
+        assert result
 
     def test_verify_wrong_secret(self):
         zkp = SchnorrZKP()
@@ -34,7 +34,7 @@ class TestSchnorrZKP:
 
         proof = zkp.prove_knowledge(secret, challenge)
         result = zkp.verify_proof(proof, wrong_secret, challenge)
-        assert result == False
+        assert not result
 
     def test_verify_wrong_challenge(self):
         zkp = SchnorrZKP()
@@ -44,7 +44,7 @@ class TestSchnorrZKP:
 
         proof = zkp.prove_knowledge(secret, challenge)
         result = zkp.verify_proof(proof, secret, wrong_challenge)
-        assert result == False
+        assert not result
 
 
 class TestFiatShamirZKP:
@@ -58,7 +58,7 @@ class TestFiatShamirZKP:
         assert len(proof) > 32  # commitment + base proof
 
         result = zkp.verify_proof(proof, secret, challenge)
-        assert result == True
+        assert result
 
     def test_verify_wrong_secret(self):
         base_zkp = SchnorrZKP()
@@ -69,7 +69,7 @@ class TestFiatShamirZKP:
 
         proof = zkp.prove_knowledge(secret, challenge)
         result = zkp.verify_proof(proof, wrong_secret, challenge)
-        assert result == False
+        assert not result
 
 
 class TestCreateZKPProver:
@@ -93,7 +93,7 @@ class TestAuthenticateWithZKP:
         challenge = b"challenge_data"
 
         result = authenticate_with_zkp(secret, public, challenge, "schnorr")
-        assert result == True
+        assert result
 
     def test_authenticate_failure(self):
         secret = b"my_secret_key_32_bytes!!!!!!!"
@@ -101,12 +101,13 @@ class TestAuthenticateWithZKP:
         challenge = b"challenge_data"
 
         result = authenticate_with_zkp(secret, wrong_public, challenge, "schnorr")
-        assert result == False
+        assert not result
 
 
 class TestBandwidthRangeZKP:
     def test_commit_and_prove_range(self):
         from pqvpn.zkp import BandwidthRangeZKP
+
         zkp = BandwidthRangeZKP()
         value = 500  # bandwidth usage
         limit = 1000
@@ -125,6 +126,7 @@ class TestBandwidthRangeZKP:
 
     def test_verify_invalid_range(self):
         from pqvpn.zkp import BandwidthRangeZKP
+
         zkp = BandwidthRangeZKP()
         value = 1500  # Over limit
         limit = 1000
@@ -136,6 +138,7 @@ class TestBandwidthRangeZKP:
 
     def test_verify_wrong_commitment(self):
         from pqvpn.zkp import BandwidthRangeZKP
+
         zkp = BandwidthRangeZKP()
         value = 500
         limit = 1000
@@ -150,6 +153,7 @@ class TestBandwidthRangeZKP:
 class TestBandwidthFunctions:
     def test_prove_and_verify_bandwidth(self):
         from pqvpn.zkp import prove_bandwidth_range, verify_bandwidth_range
+
         usage = 750
         limit = 1000
         randomness = os.urandom(32)
@@ -159,6 +163,7 @@ class TestBandwidthFunctions:
 
     def test_verify_invalid_bandwidth(self):
         from pqvpn.zkp import prove_bandwidth_range
+
         usage = 1200  # Over limit
         limit = 1000
         randomness = os.urandom(32)

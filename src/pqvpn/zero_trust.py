@@ -13,11 +13,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Policy:
     name: str
     condition: Callable[[dict[str, Any]], bool]
     action: str  # 'allow', 'deny', 'challenge'
+
 
 @dataclass
 class RequestContext:
@@ -30,6 +32,7 @@ class RequestContext:
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = time.time()
+
 
 class ZeroTrustEngine:
     """Zero Trust Policy Engine for continuous verification."""
@@ -54,14 +57,16 @@ class ZeroTrustEngine:
         """Verify a request against policies. Returns 'allow', 'deny', or 'challenge'."""
         for policy in self.policies.values():
             if policy.condition(vars(request)):
-                logger.debug(f"Policy {policy.name} matched for request {request.session_id.hex()[:8]}")
+                logger.debug(
+                    f"Policy {policy.name} matched for request {request.session_id.hex()[:8]}"
+                )
                 return policy.action
-        return 'allow'  # Default allow if no policies match
+        return "allow"  # Default allow if no policies match
 
     def authorize_action(self, action: str, identity: bytes, policies: dict[str, Any]) -> bool:
         """Check if an action is authorized for an identity."""
         # Simple implementation - can be extended
-        allowed_actions = policies.get('allowed_actions', [])
+        allowed_actions = policies.get("allowed_actions", [])
         return action in allowed_actions
 
     def enforce_least_privilege(self, identity: bytes, resource: str, action: str) -> bool:
@@ -71,20 +76,26 @@ class ZeroTrustEngine:
         user_permissions = self._get_user_permissions(identity)
         return all(perm in user_permissions for perm in required_permissions)
 
-    def check_micro_segmentation(self, source_component: str, target_component: str, action: str) -> bool:
+    def check_micro_segmentation(
+        self, source_component: str, target_component: str, action: str
+    ) -> bool:
         """Check micro-segmentation policies between components."""
         # Define allowed interactions between components
         allowed_interactions = {
-            'network': ['crypto', 'session'],
-            'crypto': ['session', 'tun'],
-            'session': ['network', 'crypto', 'tun'],
-            'tun': ['network', 'session']
+            "network": ["crypto", "session"],
+            "crypto": ["session", "tun"],
+            "session": ["network", "crypto", "tun"],
+            "tun": ["network", "session"],
         }
 
         if source_component not in allowed_interactions:
             return False
 
-        return target_component in allowed_interactions[source_component] and action in ['read', 'write', 'encrypt']
+        return target_component in allowed_interactions[source_component] and action in [
+            "read",
+            "write",
+            "encrypt",
+        ]
 
     def continuous_authenticate(self, session_id: bytes, challenge: bytes) -> bool:
         """Perform continuous authentication check."""
@@ -95,10 +106,10 @@ class ZeroTrustEngine:
     def _get_required_permissions(self, resource: str, action: str) -> list[str]:
         """Get required permissions for a resource-action pair."""
         permission_map = {
-            ('session', 'create'): ['session.manage'],
-            ('session', 'encrypt'): ['crypto.encrypt'],
-            ('network', 'send'): ['network.send'],
-            ('tun', 'write'): ['tun.write']
+            ("session", "create"): ["session.manage"],
+            ("session", "encrypt"): ["crypto.encrypt"],
+            ("network", "send"): ["network.send"],
+            ("tun", "write"): ["tun.write"],
         }
         return permission_map.get((resource, action), [f"{resource}.{action}"])
 
@@ -106,11 +117,13 @@ class ZeroTrustEngine:
         """Get permissions for a user identity."""
         # In real implementation, this would query a permission store
         # For demo, return basic permissions
-        return ['session.manage', 'crypto.encrypt', 'network.send', 'tun.write']
+        return ["session.manage", "crypto.encrypt", "network.send", "tun.write"]
 
     def audit_access(self, identity: bytes, resource: str, action: str, allowed: bool):
         """Audit access attempts."""
-        logger.info(f"Access {'allowed' if allowed else 'denied'}: {identity.hex()[:8]} -> {resource}.{action}")
+        logger.info(
+            f"Access {'allowed' if allowed else 'denied'}: {identity.hex()[:8]} -> {resource}.{action}"
+        )
 
     def start_continuous_monitor(self, session_id: bytes, check_interval: int = 60):
         """Start continuous monitoring for a session."""
@@ -143,6 +156,7 @@ class ZeroTrustEngine:
             thread.join(timeout=1)
         self.monitoring_threads.clear()
 
+
 # Default policies
 def create_default_policies() -> dict[str, Policy]:
     """Create some default zero trust policies."""
@@ -151,51 +165,43 @@ def create_default_policies() -> dict[str, Policy]:
     # Policy to deny requests from unknown peers
     def unknown_peer_condition(ctx_dict):
         # This would check against a known peers list
-        return ctx_dict.get('peer_id') not in []  # Placeholder
+        return ctx_dict.get("peer_id") not in []  # Placeholder
 
-    policies['unknown_peer'] = Policy(
-        name='unknown_peer',
-        condition=unknown_peer_condition,
-        action='deny'
+    policies["unknown_peer"] = Policy(
+        name="unknown_peer", condition=unknown_peer_condition, action="deny"
     )
 
     # Policy to challenge high-risk actions
     def high_risk_action_condition(ctx_dict):
-        high_risk = ['admin', 'config_change']
-        return ctx_dict.get('action') in high_risk
+        high_risk = ["admin", "config_change"]
+        return ctx_dict.get("action") in high_risk
 
-    policies['high_risk'] = Policy(
-        name='high_risk',
-        condition=high_risk_action_condition,
-        action='challenge'
+    policies["high_risk"] = Policy(
+        name="high_risk", condition=high_risk_action_condition, action="challenge"
     )
 
     # Policy for least privilege enforcement
     def least_privilege_condition(ctx_dict):
-        identity = ctx_dict.get('peer_id', b'')
-        resource = ctx_dict.get('resource', 'unknown')
-        action = ctx_dict.get('action', 'unknown')
+        identity = ctx_dict.get("peer_id", b"")
+        resource = ctx_dict.get("resource", "unknown")
+        action = ctx_dict.get("action", "unknown")
         engine = ZeroTrustEngine()
         return not engine.enforce_least_privilege(identity, resource, action)
 
-    policies['least_privilege'] = Policy(
-        name='least_privilege',
-        condition=least_privilege_condition,
-        action='deny'
+    policies["least_privilege"] = Policy(
+        name="least_privilege", condition=least_privilege_condition, action="deny"
     )
 
     # Policy for micro-segmentation
     def micro_segmentation_condition(ctx_dict):
-        source = ctx_dict.get('source_component', 'unknown')
-        target = ctx_dict.get('target_component', 'unknown')
-        action = ctx_dict.get('action', 'unknown')
+        source = ctx_dict.get("source_component", "unknown")
+        target = ctx_dict.get("target_component", "unknown")
+        action = ctx_dict.get("action", "unknown")
         engine = ZeroTrustEngine()
         return not engine.check_micro_segmentation(source, target, action)
 
-    policies['micro_segmentation'] = Policy(
-        name='micro_segmentation',
-        condition=micro_segmentation_condition,
-        action='deny'
+    policies["micro_segmentation"] = Policy(
+        name="micro_segmentation", condition=micro_segmentation_condition, action="deny"
     )
 
     return policies

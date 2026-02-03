@@ -105,7 +105,7 @@ class TestRatchetForwardSecrecy:
         assert decrypted2 == plaintext2
 
         # Old messages should not be decryptable with new keys
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             bob_ratchet.decrypt_with_ratchet(ciphertext, header)
 
 
@@ -134,6 +134,7 @@ class TestRatchetIntegration:
 class TestHashRatchet:
     def test_hash_ratchet_advance(self):
         from pqvpn.ratchet import HashRatchet
+
         seed = b"initial_seed_32_bytes!!!!!!!!"
         ratchet = HashRatchet(seed)
 
@@ -146,6 +147,7 @@ class TestHashRatchet:
 
     def test_get_key_at_step(self):
         from pqvpn.ratchet import HashRatchet
+
         seed = b"initial_seed_32_bytes!!!!!!!!"
         ratchet = HashRatchet(seed)
 
@@ -160,6 +162,7 @@ class TestHashRatchet:
 
     def test_verify_key(self):
         from pqvpn.ratchet import HashRatchet
+
         seed = b"initial_seed_32_bytes!!!!!!!!"
         ratchet = HashRatchet(seed)
 
@@ -174,6 +177,7 @@ class TestHashRatchet:
 class TestSymmetricRatchet:
     def test_symmetric_ratchet_forward(self):
         from pqvpn.ratchet import SymmetricRatchet
+
         initial_key = b"initial_key_32_bytes!!!!!!!!"
         ratchet = SymmetricRatchet(initial_key)
 
@@ -185,6 +189,7 @@ class TestSymmetricRatchet:
 
     def test_symmetric_ratchet_backward(self):
         from pqvpn.ratchet import SymmetricRatchet
+
         initial_key = b"initial_key_32_bytes!!!!!!!!"
         ratchet = SymmetricRatchet(initial_key)
 

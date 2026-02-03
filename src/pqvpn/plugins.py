@@ -80,7 +80,7 @@ class PluginManager:
         self.plugin_dirs = plugin_dirs or [
             os.path.join(os.getcwd(), "plugins"),
             os.path.expanduser("~/.pqvpn/plugins"),
-            "/usr/lib/pqvpn/plugins"
+            "/usr/lib/pqvpn/plugins",
         ]
         self.loaded_plugins: dict[str, PluginInterface] = {}
         self.hooks: dict[str, list[Callable]] = {}
@@ -93,7 +93,9 @@ class PluginManager:
                 continue
             for item in os.listdir(plugin_dir):
                 plugin_path = os.path.join(plugin_dir, item)
-                if os.path.isdir(plugin_path) and os.path.isfile(os.path.join(plugin_path, "__init__.py")):
+                if os.path.isdir(plugin_path) and os.path.isfile(
+                    os.path.join(plugin_path, "__init__.py")
+                ):
                     plugins.append(item)
                 elif item.endswith(".py") and item != "__init__.py":
                     plugins.append(item[:-3])  # Remove .py
@@ -128,9 +130,11 @@ class PluginManager:
         plugin_class = None
         for attr_name in dir(plugin_module):
             attr = getattr(plugin_module, attr_name)
-            if (isinstance(attr, type) and
-                issubclass(attr, PluginInterface) and
-                attr != PluginInterface):
+            if (
+                isinstance(attr, type)
+                and issubclass(attr, PluginInterface)
+                and attr != PluginInterface
+            ):
                 plugin_class = attr
                 break
 

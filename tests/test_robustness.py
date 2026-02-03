@@ -70,8 +70,10 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_failure(self):
         cb = CircuitBreaker(failure_threshold=2)
+
         def failing_func():
             raise ValueError("fail")
+
         with pytest.raises(ValueError):
             cb.call(failing_func)
         with pytest.raises(ValueError):
@@ -82,8 +84,10 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_half_open(self):
         cb = CircuitBreaker(failure_threshold=1, recovery_timeout=1)
+
         def failing_func():
             raise ValueError("fail")
+
         with pytest.raises(ValueError):
             cb.call(failing_func)
         assert cb.state == "open"
@@ -110,7 +114,7 @@ class TestHealthChecker:
 
 
 class TestAutoRestart:
-    @patch('subprocess.Popen')
+    @patch("subprocess.Popen")
     def test_auto_restart_success(self, mock_popen):
         mock_proc = MagicMock()
         mock_proc.returncode = 0
@@ -120,14 +124,14 @@ class TestAutoRestart:
         auto_restart("test", ["echo", "ok"], max_restarts=1)
         mock_popen.assert_called_once_with(["echo", "ok"])
 
-    @patch('subprocess.Popen')
+    @patch("subprocess.Popen")
     def test_auto_restart_failure(self, mock_popen):
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = None
         mock_popen.return_value = mock_proc
 
-        with patch('time.sleep'):
+        with patch("time.sleep"):
             auto_restart("test", ["fail"], max_restarts=1)
         assert mock_popen.call_count == 1  # Only one try since max_restarts=1
 
@@ -135,7 +139,7 @@ class TestAutoRestart:
 class TestLogWithContext:
     def test_log_with_context(self):
         logger = setup_logging()
-        with patch.object(logger, 'info') as mock_log:
+        with patch.object(logger, "info") as mock_log:
             log_with_context("test message", "info", {"key": "value"})
             mock_log.assert_called_once()
             args, kwargs = mock_log.call_args
@@ -147,12 +151,12 @@ class TestLogWithContext:
 class TestGlobalExceptionHandler:
     def test_global_exception_handler_keyboard_interrupt(self):
         # Should not log KeyboardInterrupt
-        with patch('sys.__excepthook__') as mock_hook:
+        with patch("sys.__excepthook__") as mock_hook:
             global_exception_handler(KeyboardInterrupt, KeyboardInterrupt("test"), None)
             mock_hook.assert_called_once()
 
     def test_global_exception_handler_other(self):
-        with patch('pqvpn.robustness.logger') as mock_logger:
+        with patch("pqvpn.robustness.logger") as mock_logger:
             global_exception_handler(ValueError, ValueError("test"), None)
             mock_logger.error.assert_called_once()
 

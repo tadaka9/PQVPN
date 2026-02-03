@@ -52,7 +52,7 @@ class SessionInfo:
     handshake_retries: int = 0  # Count handshake retries
     ratchet: RatchetKey | None = None  # Cryptographic ratchet for forward secrecy
 
-    def rotate_keys(self, reason: str = 'rekey') -> None:
+    def rotate_keys(self, reason: str = "rekey") -> None:
         """Rotate AEAD keys for this session using ratchet-based forward secrecy.
 
         This method advances the ratchet to generate new keys with perfect forward secrecy.
@@ -61,6 +61,7 @@ class SessionInfo:
             if self.ratchet is None:
                 # Initialize ratchet if not present
                 from .ratchet import create_ratchet
+
                 initial_key = self.send_key + self.recv_key  # Combine for initial ratchet key
                 if len(initial_key) != 64:
                     initial_key = hashlib.sha256(initial_key).digest()
@@ -72,7 +73,10 @@ class SessionInfo:
             # Generate new AEAD keys (simplified - in practice would use ratchet encryption keys)
             fresh = os.urandom(32)
             from .crypto import argon2_derive_key_material
-            new_km = argon2_derive_key_material(fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64)
+
+            new_km = argon2_derive_key_material(
+                fresh + self.send_key + self.recv_key, salt=self.session_id[:16], length=64
+            )
             new_send = new_km[:32]
             new_recv = new_km[32:64]
             self.aead_send = ChaCha20Poly1305(new_send)
@@ -91,21 +95,24 @@ class SessionManager:
     def __init__(self, config: dict):
         self.config = config
         self.sessions: dict[bytes, SessionInfo] = {}
-        self.session_timeout = config.get('session_timeout', 3600)
-        self.handshake_timeout = config.get('handshake_timeout', 30)
+        self.session_timeout = config.get("session_timeout", 3600)
+        self.handshake_timeout = config.get("handshake_timeout", 30)
 
-    def create_session(self, session_id: bytes, peer_id: bytes, send_key: bytes, recv_key: bytes) -> SessionInfo:
+    def create_session(
+        self, session_id: bytes, peer_id: bytes, send_key: bytes, recv_key: bytes
+    ) -> SessionInfo:
         """Create a new session."""
         aead_send = ChaCha20Poly1305(send_key)
         aead_recv = ChaCha20Poly1305(recv_key)
-        
+
         # Initialize ratchet for forward secrecy
         from .ratchet import create_ratchet
+
         initial_ratchet_key = send_key + recv_key
         if len(initial_ratchet_key) != 64:
             initial_ratchet_key = hashlib.sha256(initial_ratchet_key).digest()
         ratchet = create_ratchet(initial_ratchet_key)
-        
+
         session = SessionInfo(
             session_id=session_id,
             peer_id=peer_id,
@@ -113,10 +120,12 @@ class SessionManager:
             aead_recv=aead_recv,
             send_key=send_key,
             recv_key=recv_key,
-            ratchet=ratchet
+            ratchet=ratchet,
         )
         self.sessions[session_id] = session
-        logger.info(f"Created session {session_id.hex()[:8]} with peer {peer_id.hex()[:8]} (with ratchet)")
+        logger.info(
+            f"Created session {session_id.hex()[:8]} with peer {peer_id.hex()[:8]} (with ratchet)"
+        )
         return session
 
     def get_session(self, session_id: bytes) -> SessionInfo | None:
@@ -134,7 +143,8 @@ class SessionManager:
         """Remove expired sessions."""
         now = time.time()
         expired = [
-            sid for sid, session in self.sessions.items()
+            sid
+            for sid, session in self.sessions.items()
             if now - session.last_activity > self.session_timeout
         ]
         for sid in expired:

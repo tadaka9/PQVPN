@@ -33,7 +33,7 @@ class PaddingAlgorithm:
         if len(data) < 1 + padding_len:
             logger.warning("Invalid padding length")
             return data
-        return data[1 + padding_len:]
+        return data[1 + padding_len :]
 
 
 class TimingObfuscator:

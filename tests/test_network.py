@@ -33,7 +33,7 @@ def test_peer_info():
         ed25519_pk=b"ed25519_key",
         brainpoolP512r1_pk=b"brainpool_key",
         kyber_pk=b"kyber_key",
-        mldsa_pk=b"mldsa_key"
+        mldsa_pk=b"mldsa_key",
     )
     assert peer.peer_id == b"test_id"
     assert peer.nickname == "test_peer"
@@ -48,7 +48,7 @@ async def test_send_packet_integration():
     await manager.start()
 
     # Send a packet
-    await manager.send_packet(b'data', ('127.0.0.1', 9000))
+    await manager.send_packet(b"data", ("127.0.0.1", 9000))
 
     # Wait a bit for processing
     await asyncio.sleep(0.1)

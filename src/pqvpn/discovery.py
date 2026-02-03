@@ -27,6 +27,7 @@ from .bootstrap import get_bootstrap_peers
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class NodeInfo:
     node_id: bytes
@@ -38,12 +39,14 @@ class NodeInfo:
     quarantined: bool = False
     pow_nonce: bytes = field(default_factory=lambda: secrets.token_bytes(32))  # PoW nonce
 
+
 @dataclass
 class DHTConfig:
     k: int = 20  # k-bucket size
     alpha: int = 3  # concurrency parameter
     id_bits: int = 256  # node ID bits
     pow_difficulty: int = 16  # PoW difficulty for Sybil resistance
+
 
 class SecureDHT:
     """
@@ -83,7 +86,7 @@ class SecureDHT:
         self.running = False
 
     def _distance(self, a: bytes, b: bytes) -> int:
-        return int.from_bytes(a, 'big') ^ int.from_bytes(b, 'big')
+        return int.from_bytes(a, "big") ^ int.from_bytes(b, "big")
 
     def _bucket_index(self, node_id: bytes) -> int:
         dist = self._distance(self.node_id, node_id)
@@ -91,7 +94,7 @@ class SecureDHT:
 
     async def _add_node(self, node: NodeInfo):
         # Validate node: check PoW for Sybil resistance
-        if not hasattr(node, 'pow_nonce') or not self._verify_pow(node.node_id, node.pow_nonce):
+        if not hasattr(node, "pow_nonce") or not self._verify_pow(node.node_id, node.pow_nonce):
             logger.warning(f"Node {node.node_id.hex()[:8]} failed PoW validation, rejecting")
             return
 
@@ -131,7 +134,7 @@ class SecureDHT:
                 # Send secure find_node query
                 response = await self._send_find_node(node, target_id)
                 if response:
-                    for new_node in response.get('nodes', []):
+                    for new_node in response.get("nodes", []):
                         await self._add_node(new_node)
             closest = self._get_closest_nodes(target_id, self.config.alpha)
 
@@ -149,19 +152,19 @@ class SecureDHT:
     async def _send_find_node(self, node: NodeInfo, target_id: bytes) -> dict:
         # Secure message sending
         message = {
-            'type': 'find_node',
-            'target': target_id.hex(),
-            'sender_id': self.node_id.hex(),
-            'timestamp': time.time()
+            "type": "find_node",
+            "target": target_id.hex(),
+            "sender_id": self.node_id.hex(),
+            "timestamp": time.time(),
         }
         # Sign message
         msg_bytes = json.dumps(message, sort_keys=True).encode()
         signature = self.sig_alg.sign(msg_bytes)
-        message['signature'] = signature.hex()
+        message["signature"] = signature.hex()
 
         # Encrypt with shared secret (simplified, use KEM)
         shared_secret = await self._establish_shared_secret(node)
-        encrypted = self._encrypt_message(msg_bytes, shared_secret)
+        self._encrypt_message(msg_bytes, shared_secret)
 
         # Send via network (placeholder)
         # Assume response is received
@@ -177,20 +180,20 @@ class SecureDHT:
     def _encrypt_message(self, plaintext: bytes, key: bytes) -> bytes:
         nonce = secrets.token_bytes(12)
         cipher = ChaCha20Poly1305(key)
-        ciphertext = cipher.encrypt(nonce, plaintext, b'')
+        ciphertext = cipher.encrypt(nonce, plaintext, b"")
         return nonce + ciphertext
 
     def _decrypt_message(self, ciphertext: bytes, key: bytes) -> bytes:
         nonce = ciphertext[:12]
         ct = ciphertext[12:]
         cipher = ChaCha20Poly1305(key)
-        return cipher.decrypt(nonce, ct, b'')
+        return cipher.decrypt(nonce, ct, b"")
 
     def _verify_pow(self, node_id: bytes, nonce: bytes) -> bool:
         # Check PoW: hash(node_id + nonce) has leading zeros
         data = node_id + nonce
         h = hashlib.sha256(data).digest()
-        return h[:self.config.pow_difficulty // 8].count(0) == self.config.pow_difficulty // 8
+        return h[: self.config.pow_difficulty // 8].count(0) == self.config.pow_difficulty // 8
 
     def generate_pow(self, node_id: bytes) -> bytes:
         nonce = secrets.token_bytes(32)
@@ -201,15 +204,15 @@ class SecureDHT:
     async def store(self, key: bytes, value: Any, ttl: int = 3600):
         # Store with signature
         data = {
-            'key': key.hex(),
-            'value': value,
-            'ttl': ttl,
-            'timestamp': time.time(),
-            'owner': self.node_id.hex()
+            "key": key.hex(),
+            "value": value,
+            "ttl": ttl,
+            "timestamp": time.time(),
+            "owner": self.node_id.hex(),
         }
         msg_bytes = json.dumps(data, sort_keys=True).encode()
         signature = self.sig_alg.sign(msg_bytes)
-        data['signature'] = signature.hex()
+        data["signature"] = signature.hex()
 
         # Validate own data
         if not self._validate_data(data):
@@ -262,7 +265,8 @@ class SecureDHT:
         values = list(responses.values())
         # Simple majority: most common value
         from collections import Counter
-        value_counts = Counter(json.dumps(v['value'], sort_keys=True) for v in values)
+
+        value_counts = Counter(json.dumps(v["value"], sort_keys=True) for v in values)
         most_common = value_counts.most_common(1)[0]
         if most_common[1] > len(values) // 2:
             return json.loads(most_common[0])
@@ -282,18 +286,18 @@ class SecureDHT:
 
     def _validate_data(self, data: dict) -> bool:
         # Validate format and signature
-        required = ['key', 'value', 'ttl', 'timestamp', 'owner', 'signature']
+        required = ["key", "value", "ttl", "timestamp", "owner", "signature"]
         if not all(k in data for k in required):
             return False
         try:
-            key = bytes.fromhex(data['key'])
-            owner = bytes.fromhex(data['owner'])
-            sig = bytes.fromhex(data['signature'])
+            bytes.fromhex(data["key"])
+            owner = bytes.fromhex(data["owner"])
+            sig = bytes.fromhex(data["signature"])
             msg = json.dumps({k: data[k] for k in required[:-1]}, sort_keys=True).encode()
 
             # Freshness check: ensure timestamp is recent and TTL not expired
             now = time.time()
-            if data['timestamp'] > now + 60 or data['timestamp'] < now - data['ttl']:
+            if data["timestamp"] > now + 60 or data["timestamp"] < now - data["ttl"]:
                 logger.warning("Data is stale or future-dated")
                 return False
 
@@ -334,6 +338,7 @@ class SecureDHT:
             node.quarantined = True
             logger.warning(f"Quarantined node {node_id.hex()[:8]} for suspected poisoning")
 
+
 class Discovery:
     """Discovery subsystem using DHT 2.0."""
 
@@ -352,7 +357,7 @@ class Discovery:
         # Generate node ID and keys
         node_id = hashlib.sha256(self.node.my_id).digest()
         # Assume private key from node
-        private_key = getattr(self.node, 'pq_private_key', secrets.token_bytes(32))
+        private_key = getattr(self.node, "pq_private_key", secrets.token_bytes(32))
 
         bootstrap_nodes = await self._get_bootstrap_nodes()
 
@@ -374,7 +379,7 @@ class Discovery:
             node_info = NodeInfo(
                 node_id=hashlib.sha256(peer.encode()).digest(),  # Placeholder
                 public_key=secrets.token_bytes(32),  # Placeholder
-                address=(peer.split(':')[0], int(peer.split(':')[1]))
+                address=(peer.split(":")[0], int(peer.split(":")[1])),
             )
             nodes.append(node_info)
         return nodes
@@ -387,9 +392,9 @@ class Discovery:
 
     def _build_record(self):
         return {
-            'peerid': self.node.my_id.hex(),
-            'nickname': getattr(self.node, 'nickname', ''),
-            'addr': getattr(self.node, 'address', ''),
-            'public_key': self.dht.public_key.hex() if self.dht else '',
-            'ts': time.time()
+            "peerid": self.node.my_id.hex(),
+            "nickname": getattr(self.node, "nickname", ""),
+            "addr": getattr(self.node, "address", ""),
+            "public_key": self.dht.public_key.hex() if self.dht else "",
+            "ts": time.time(),
         }

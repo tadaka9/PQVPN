@@ -27,27 +27,18 @@ BIND_HOST = "127.0.0.1"
 # Working directory
 WORK_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def create_node_config(node_id, port, bootstrap_peers):
     """Create a temporary config for the node."""
     config = {
-        "peer": {
-            "nickname": f"testnet-node-{node_id}"
-        },
-        "network": {
-            "bind_host": BIND_HOST,
-            "listen_port": port
-        },
-        "security": {
-            "strict_sig_verify": False,
-            "tofu": True,
-            "allowlist": []
-        },
-        "keys": {
-            "persist": False
-        },
-        "bootstrap": bootstrap_peers
+        "peer": {"nickname": f"testnet-node-{node_id}"},
+        "network": {"bind_host": BIND_HOST, "listen_port": port},
+        "security": {"strict_sig_verify": False, "tofu": True, "allowlist": []},
+        "keys": {"persist": False},
+        "bootstrap": bootstrap_peers,
     }
     return config
+
 
 def main():
     print(f"Deploying PQVPN testnet with {NUM_NODES} nodes...")
@@ -56,10 +47,7 @@ def main():
     all_peers = []
     for i in range(NUM_NODES):
         port = BASE_PORT + i
-        all_peers.append({
-            "host": BIND_HOST,
-            "port": port
-        })
+        all_peers.append({"host": BIND_HOST, "port": port})
 
     processes = []
     configs = []
@@ -73,17 +61,14 @@ def main():
             config = create_node_config(i, port, bootstrap)
 
             # Create temp config file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
                 yaml.safe_dump(config, f)
                 config_file = f.name
 
             configs.append(config_file)
 
             # Launch node
-            cmd = [
-                sys.executable, os.path.join(WORK_DIR, "main.py"),
-                "--config", config_file
-            ]
+            cmd = [sys.executable, os.path.join(WORK_DIR, "main.py"), "--config", config_file]
 
             print(f"Starting node {i} on port {port}...")
             proc = subprocess.Popen(
@@ -91,7 +76,7 @@ def main():
                 cwd=WORK_DIR,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                preexec_fn=os.setsid  # Create new process group
+                preexec_fn=os.setsid,  # Create new process group
             )
             processes.append(proc)
 
@@ -123,20 +108,21 @@ def main():
             try:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 proc.wait(timeout=5)
-            except:
+            except Exception:
                 try:
                     proc.kill()
-                except:
+                except Exception:
                     pass
 
         # Remove temp configs
         for config_file in configs:
             try:
                 os.unlink(config_file)
-            except:
+            except Exception:
                 pass
 
         print("Testnet stopped.")
+
 
 if __name__ == "__main__":
     main()

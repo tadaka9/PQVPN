@@ -43,6 +43,7 @@ oqs_module = None
 try:
     # `from oqs import oqs as oqs_module` is the pattern used in main.py
     from oqs import oqs as oqs_module  # type: ignore
+
     logger.info("oqs-python nested implementation module loaded")
 except Exception:
     oqs_module = None
@@ -56,7 +57,9 @@ if oqs_module is not None:
         getattr(oqs_module, "get_enabled_kems", lambda: []),
     )
     try:
-        enabled_kems = list(enabled_kems_iter()) if callable(enabled_kems_iter) else list(enabled_kems_iter)
+        enabled_kems = (
+            list(enabled_kems_iter()) if callable(enabled_kems_iter) else list(enabled_kems_iter)
+        )
     except Exception:
         enabled_kems = []
 
@@ -66,7 +69,9 @@ if oqs_module is not None:
         getattr(oqs_module, "get_enabled_sigs", lambda: []),
     )
     try:
-        enabled_sigs = list(enabled_sigs_iter()) if callable(enabled_sigs_iter) else list(enabled_sigs_iter)
+        enabled_sigs = (
+            list(enabled_sigs_iter()) if callable(enabled_sigs_iter) else list(enabled_sigs_iter)
+        )
     except Exception:
         enabled_sigs = []
 
@@ -99,6 +104,7 @@ else:
 
 # ----- small helpers -----
 
+
 def _pqsig_to_bytes(x: Any) -> bytes | None:
     if x is None:
         return None
@@ -125,6 +131,7 @@ def _pqsig_to_bytes(x: Any) -> bytes | None:
 
 
 # ----- signature helpers -----
+
 
 def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: str | None = None):
     """Return (ok: bool, attempts: List[Tuple[str,Any]]) similar to original main.py helper."""
@@ -243,15 +250,14 @@ def pq_sig_sign(sk: Any, data: bytes, alg: str | None = None) -> bytes:
 
 # ----- KEM helpers -----
 
+
 def pq_kem_keygen() -> tuple[bytes, bytes]:
     """Generate Kyber KEM key pair using oqs if present; otherwise raise.
 
     Returns (pk, sk) bytes.
     """
     if not OQSPY_AVAILABLE:
-        raise RuntimeError(
-            "pq_kem_keygen: liboqs not available; hybrid-only mode requires liboqs"
-        )
+        raise RuntimeError("pq_kem_keygen: liboqs not available; hybrid-only mode requires liboqs")
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
@@ -303,10 +309,12 @@ def pq_kem_keygen() -> tuple[bytes, bytes]:
 def pq_kem_encaps(pk: bytes, alg: str | None = None) -> tuple[bytes, bytes]:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
-        log_with_context("pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})
-        raise RuntimeError(
-            "pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs"
+        log_with_context(
+            "pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs",
+            "error",
+            {"alg": use_alg},
         )
+        raise RuntimeError("pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs")
     try:
         ct, ss = circuit_breaker.call(_pq_kem_encaps_internal, pk, use_alg)
         logger.debug(f"{use_alg} encaps via liboqs-python")
@@ -314,6 +322,7 @@ def pq_kem_encaps(pk: bytes, alg: str | None = None) -> tuple[bytes, bytes]:
     except Exception as e:
         log_with_context(f"pq_kem_encaps failed: {e}", "error", {"alg": use_alg})
         raise
+
 
 def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> tuple[bytes, bytes]:
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
@@ -327,10 +336,12 @@ def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> tuple[bytes, bytes]:
 def pq_kem_decaps(ct: bytes, sk: bytes, alg: str | None = None) -> bytes:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
-        log_with_context("pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})
-        raise RuntimeError(
-            "pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs"
+        log_with_context(
+            "pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs",
+            "error",
+            {"alg": use_alg},
         )
+        raise RuntimeError("pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs")
     try:
         ss = circuit_breaker.call(_pq_kem_decaps_internal, ct, sk, use_alg)
         logger.debug(f"{use_alg} decaps via liboqs-python")
@@ -339,6 +350,7 @@ def pq_kem_decaps(ct: bytes, sk: bytes, alg: str | None = None) -> bytes:
         log_with_context(f"pq_kem_decaps failed: {e}", "error", {"alg": use_alg})
         raise
 
+
 def _pq_kem_decaps_internal(ct: bytes, sk: bytes, use_alg: str) -> bytes:
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
@@ -346,6 +358,7 @@ def _pq_kem_decaps_internal(ct: bytes, sk: bytes, use_alg: str) -> bytes:
     with kenc(use_alg, secret_key=sk) as kem:
         ss = kem.decap_secret(ct)
         return ss
+
 
 def check_crypto_health() -> bool:
     """Health check for crypto operations."""

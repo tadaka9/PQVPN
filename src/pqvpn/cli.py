@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
 
     raise RuntimeError(
         "PQVPN CLI could not find main_loop() in main.py. "
-        "Either add main_loop() or update pqvpn/cli.py to match the new runtime entry." 
+        "Either add main_loop() or update pqvpn/cli.py to match the new runtime entry."
     )
 
 

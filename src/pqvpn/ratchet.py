@@ -16,8 +16,10 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 logger = logging.getLogger(__name__)
 
+
 class RatchetState(NamedTuple):
     """State of the ratchet."""
+
     root_key: bytes
     chain_key_send: bytes
     chain_key_recv: bytes
@@ -26,18 +28,19 @@ class RatchetState(NamedTuple):
     previous_send_chain_length: int
     skipped_keys: dict  # message_number -> key
 
+
 class RatchetKey:
     """A ratchet for generating keys with forward secrecy."""
 
     def __init__(self, initial_key: bytes):
         self.state = RatchetState(
             root_key=initial_key,
-            chain_key_send=b'',
-            chain_key_recv=b'',
+            chain_key_send=b"",
+            chain_key_recv=b"",
             send_message_number=0,
             recv_message_number=0,
             previous_send_chain_length=0,
-            skipped_keys={}
+            skipped_keys={},
         )
 
     def advance_ratchet(self) -> None:
@@ -47,7 +50,7 @@ class RatchetKey:
             algorithm=hashes.SHA256(),
             length=96,  # 32 root + 32 send + 32 recv
             salt=None,
-            info=b'ratchet_advance'
+            info=b"ratchet_advance",
         )
         new_material = hkdf.derive(self.state.root_key)
 
@@ -57,15 +60,15 @@ class RatchetKey:
             chain_key_recv=new_material[32:64],  # Same as send for this simplified version
             send_message_number=0,
             recv_message_number=0,
-            skipped_keys={}
+            skipped_keys={},
         )
         logger.debug("Ratchet advanced")
 
     def _derive_message_key(self, chain_key: bytes) -> tuple[bytes, bytes]:
         """Derive message key and next chain key."""
         # KDF chain: HMAC-SHA256
-        message_key = hmac.new(chain_key, b'message_key', hashlib.sha256).digest()
-        next_chain_key = hmac.new(chain_key, b'next_chain', hashlib.sha256).digest()
+        message_key = hmac.new(chain_key, b"message_key", hashlib.sha256).digest()
+        next_chain_key = hmac.new(chain_key, b"next_chain", hashlib.sha256).digest()
         return message_key, next_chain_key
 
     def encrypt_with_ratchet(self, plaintext: bytes) -> tuple[bytes, bytes]:
@@ -73,12 +76,7 @@ class RatchetKey:
         # Derive message key from current chain
         if not self.state.chain_key_send:
             # Initialize chain key from root
-            hkdf = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=None,
-                info=b'chain_init'
-            )
+            hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"chain_init")
             self.state = self.state._replace(chain_key_send=hkdf.derive(self.state.root_key))
 
         message_key, next_chain_key = self._derive_message_key(self.state.chain_key_send)
@@ -87,24 +85,23 @@ class RatchetKey:
         cipher = ChaCha20Poly1305(message_key)
 
         # Use message number as nonce
-        nonce = self.state.send_message_number.to_bytes(12, 'big')
+        nonce = self.state.send_message_number.to_bytes(12, "big")
 
         # Encrypt
-        ciphertext = cipher.encrypt(nonce, plaintext, b'')
+        ciphertext = cipher.encrypt(nonce, plaintext, b"")
 
         # Update state
         self.state = self.state._replace(
-            chain_key_send=next_chain_key,
-            send_message_number=self.state.send_message_number + 1
+            chain_key_send=next_chain_key, send_message_number=self.state.send_message_number + 1
         )
 
         # Header contains message number used for encryption
-        header = (self.state.send_message_number - 1).to_bytes(4, 'big')
+        header = (self.state.send_message_number - 1).to_bytes(4, "big")
         return ciphertext, header
 
     def decrypt_with_ratchet(self, ciphertext: bytes, header: bytes) -> bytes:
         """Decrypt data and advance ratchet if needed."""
-        message_number = int.from_bytes(header, 'big')
+        message_number = int.from_bytes(header, "big")
 
         # Check if we need to skip ahead
         if message_number < self.state.recv_message_number:
@@ -113,12 +110,7 @@ class RatchetKey:
 
         # Initialize receive chain if needed
         if not self.state.chain_key_recv:
-            hkdf = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=None,
-                info=b'chain_init'
-            )
+            hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"chain_init")
             self.state = self.state._replace(chain_key_recv=hkdf.derive(self.state.root_key))
 
         # Skip to the correct message number
@@ -145,17 +137,19 @@ class RatchetKey:
 
         # Decrypt
         cipher = ChaCha20Poly1305(message_key)
-        nonce = message_number.to_bytes(12, 'big')
-        plaintext = cipher.decrypt(nonce, ciphertext, b'')
+        nonce = message_number.to_bytes(12, "big")
+        plaintext = cipher.decrypt(nonce, ciphertext, b"")
 
         # Advance message number
         self.state = self.state._replace(recv_message_number=self.state.recv_message_number + 1)
 
         return plaintext
 
+
 def create_ratchet(initial_key: bytes) -> RatchetKey:
     """Create a new ratchet with initial key."""
     return RatchetKey(initial_key)
+
 
 class HashRatchet:
     """Hash-based ratchet for forward secrecy using hash chains."""
@@ -197,6 +191,7 @@ class HashRatchet:
         expected = self.get_key_at_step(step)
         return hmac.compare_digest(key, expected)
 
+
 class SymmetricRatchet:
     """Symmetric ratchet for key evolution."""
 
@@ -219,6 +214,7 @@ class SymmetricRatchet:
     def get_current_key(self) -> bytes:
         """Get current key."""
         return self.current_key
+
 
 def test_ratchet_forward_secrecy():
     """Test that ratchet provides forward secrecy."""
@@ -247,7 +243,7 @@ def test_ratchet_forward_secrecy():
     # Old messages should not be decryptable with new keys
     try:
         bob_ratchet.decrypt_with_ratchet(ciphertext, header)
-        assert False, "Should not be able to decrypt old message"
+        raise AssertionError("Should not be able to decrypt old message")
     except Exception:
         pass  # Expected
 

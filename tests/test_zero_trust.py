@@ -10,7 +10,7 @@ class TestZeroTrustEngine:
         engine = ZeroTrustEngine()
         assert engine.policies == {}
         assert engine.monitoring_threads == {}
-        assert engine.monitoring_active == True
+        assert engine.monitoring_active
 
     def test_add_policy(self):
         engine = ZeroTrustEngine()
@@ -56,10 +56,10 @@ class TestZeroTrustEngine:
         engine = ZeroTrustEngine()
         policies = {"allowed_actions": ["read", "write"]}
         result = engine.authorize_action("read", b"user1", policies)
-        assert result == True
+        assert result
 
         result = engine.authorize_action("delete", b"user1", policies)
-        assert result == False
+        assert not result
 
     def test_start_stop_monitoring(self):
         engine = ZeroTrustEngine()
@@ -75,7 +75,7 @@ class TestZeroTrustEngine:
         session_id = b"session1"
         engine.start_continuous_monitor(session_id)
         engine.shutdown()
-        assert engine.monitoring_active == False
+        assert not engine.monitoring_active
         assert engine.monitoring_threads == {}
 
 
@@ -112,7 +112,7 @@ class TestLeastPrivilege:
         action = "create"
 
         result = engine.enforce_least_privilege(identity, resource, action)
-        assert result == True
+        assert result
 
     def test_enforce_least_privilege_denied(self):
         engine = ZeroTrustEngine()
@@ -121,24 +121,24 @@ class TestLeastPrivilege:
         action = "delete"
 
         result = engine.enforce_least_privilege(identity, resource, action)
-        assert result == False  # No permission for admin.delete
+        assert not result  # No permission for admin.delete
 
 
 class TestMicroSegmentation:
     def test_micro_segmentation_allowed(self):
         engine = ZeroTrustEngine()
         result = engine.check_micro_segmentation("network", "crypto", "read")
-        assert result == True
+        assert result
 
     def test_micro_segmentation_denied(self):
         engine = ZeroTrustEngine()
         result = engine.check_micro_segmentation("network", "tun", "admin")  # Invalid action
-        assert result == False
+        assert not result
 
     def test_micro_segmentation_invalid_source(self):
         engine = ZeroTrustEngine()
         result = engine.check_micro_segmentation("invalid", "crypto", "read")
-        assert result == False
+        assert not result
 
 
 class TestContinuousAuthentication:
@@ -148,7 +148,7 @@ class TestContinuousAuthentication:
         challenge = b"challenge"
 
         result = engine.continuous_authenticate(session_id, challenge)
-        assert result == True  # Placeholder always returns True
+        assert result  # Placeholder always returns True
 
 
 class TestEnhancedDefaultPolicies:
