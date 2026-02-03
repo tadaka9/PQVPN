@@ -143,7 +143,7 @@ class Config:
         for env_var, config_path in env_mappings.items():
             value = os.environ.get(env_var)
             if value is not None:
-                self.set_nested(*config_path, value)
+                self.set_nested(*config_path, value=value)
                 logger.debug(f"Set {'.'.join(config_path)} = {value} from {env_var}")
 
     def set_nested(self, *keys, value):

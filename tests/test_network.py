@@ -10,7 +10,7 @@ from pqvpn.network import NetworkManager, UDPTransport, PeerInfo
 def test_udp_transport():
     """Test UDP transport basic functionality."""
     transport = UDPTransport()
-    assert transport.bind_host == "0.0.0.0"
+    assert transport.bind_host == "127.0.0.1"
     assert transport.listen_port == 9000
 
 

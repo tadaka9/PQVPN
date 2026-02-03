@@ -27,7 +27,7 @@ def test_discovery_disabled():
     node = Mock()
     node.config = {"discovery": {"enabled": False}}
 
-    discovery = Discovery(mock_node)
+    discovery = Discovery(node)
     assert discovery.enabled == False
 
 
