@@ -10,6 +10,12 @@ readme = "README.md"
 requires-python = ">=3.10,<4"
 authors = [{ name = "Davide Di Pino" }]
 license = { text = "Proprietary - All rights reserved" }
+dependencies = [
+  "aiohttp>=3.8",
+  "cryptography>=40.0",
+  "pydantic>=2.0",
+  "ruamel.yaml>=0.17",
+]
 
 [project.urls]
 Repository = "https://github.com/tadaka9/PQVPN"
