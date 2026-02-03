@@ -4,7 +4,7 @@
 import pytest
 import tempfile
 import os
-from src.pqvpn.config import Config
+from pqvpn.config import Config
 
 
 def test_config_init():

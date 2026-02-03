@@ -4,7 +4,7 @@
 import pytest
 import tempfile
 import os
-from src.pqvpn.plugins import PluginManager, PluginInterface
+from pqvpn.plugins import PluginManager, PluginInterface
 
 
 class TestPlugin(PluginInterface):

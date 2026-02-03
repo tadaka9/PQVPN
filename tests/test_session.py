@@ -2,7 +2,7 @@
 """Tests for session module."""
 
 import pytest
-from src.pqvpn.session import SessionManager, SessionInfo
+from pqvpn.session import SessionManager, SessionInfo
 
 
 def test_session_manager():

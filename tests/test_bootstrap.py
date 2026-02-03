@@ -1,7 +1,7 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
-from src.pqvpn.bootstrap import BootstrapClient, get_bootstrap_peers
+from pqvpn.bootstrap import BootstrapClient, get_bootstrap_peers
 
 
 class TestBootstrapClient:

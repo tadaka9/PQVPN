@@ -4,7 +4,7 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock
-from src.pqvpn.network import NetworkManager, UDPTransport, PeerInfo
+from pqvpn.network import NetworkManager, UDPTransport, PeerInfo
 
 
 def test_udp_transport():

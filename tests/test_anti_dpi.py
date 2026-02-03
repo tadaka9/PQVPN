@@ -4,7 +4,7 @@ Unit tests for anti_dpi module.
 """
 
 import pytest
-from src.pqvpn.anti_dpi import PaddingAlgorithm, TimingObfuscator, AntiDPI
+from pqvpn.anti_dpi import PaddingAlgorithm, TimingObfuscator, AntiDPI
 
 
 class TestPaddingAlgorithm:

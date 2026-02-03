@@ -15,7 +15,10 @@ hybrid-only mode. This mirrors the behaviour in main.py: callers can
 catch the error or run in emulated/test mode.
 """
 
+import base64
+import json
 import logging
+from typing import Any, List, Tuple, Optional
 
 from .robustness import circuit_breaker, log_with_context, ErrorType
 

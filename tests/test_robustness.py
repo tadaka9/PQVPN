@@ -7,7 +7,7 @@ import asyncio
 import time
 from unittest.mock import patch, MagicMock
 
-from src.pqvpn.robustness import (
+from pqvpn.robustness import (
     setup_logging,
     handle_exception,
     ErrorType,
@@ -153,7 +153,7 @@ class TestGlobalExceptionHandler:
             mock_hook.assert_called_once()
 
     def test_global_exception_handler_other(self):
-        with patch('src.pqvpn.robustness.logger') as mock_logger:
+        with patch('pqvpn.robustness.logger') as mock_logger:
             global_exception_handler(ValueError, ValueError("test"), None)
             mock_logger.error.assert_called_once()
 
@@ -162,7 +162,7 @@ class TestGlobalExceptionHandler:
 class TestIntegrationCrashRecovery:
     @pytest.mark.asyncio
     async def test_network_error_handling(self):
-        from src.pqvpn.network import NetworkManager
+        from pqvpn.network import NetworkManager
 
         # Mock transport
         mock_transport = MagicMock()
