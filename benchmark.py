@@ -5,12 +5,13 @@ PQVPN Performance Benchmark Script
 Runs performance tests for key PQVPN components.
 """
 
-import time
 import os
-from pqvpn.crypto import pq_kem_keygen, pq_kem_encaps, pq_kem_decaps, OQSPY_AVAILABLE
-from pqvpn.layered_crypto import encrypt_layered_packet, decrypt_layered_packet
-from pqvpn.traffic_shaper import TrafficShaper
+import time
+
 from pqvpn.anti_dpi import AntiDPI
+from pqvpn.crypto import OQSPY_AVAILABLE, pq_kem_decaps, pq_kem_encaps, pq_kem_keygen
+from pqvpn.layered_crypto import encrypt_layered_packet
+from pqvpn.traffic_shaper import TrafficShaper
 
 
 def benchmark_crypto():

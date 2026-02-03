@@ -6,10 +6,9 @@ for VPN traffic routing.
 """
 
 import asyncio
-import platform
 import logging
+import platform
 from abc import ABC, abstractmethod
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

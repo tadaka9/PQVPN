@@ -6,9 +6,8 @@ Provides initial peer discovery for decentralized joining.
 """
 
 import asyncio
-import json
 import logging
-from typing import List, Tuple, Optional
+
 import aiohttp
 
 logger = logging.getLogger(__name__)
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class BootstrapClient:
     """Client for querying bootstrap nodes to get initial peers."""
 
-    def __init__(self, seed_nodes: List[str] = None, relays: List[str] = None):
+    def __init__(self, seed_nodes: list[str] = None, relays: list[str] = None):
         self.seed_nodes = seed_nodes or [
             "seed1.pqvpn.net",
             "seed2.pqvpn.net",
@@ -27,7 +26,7 @@ class BootstrapClient:
             "relay-eu.pqvpn.net",
             "relay-asia.pqvpn.net"
         ]
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -37,7 +36,7 @@ class BootstrapClient:
         if self.session:
             await self.session.close()
 
-    async def get_bootstrap_peers(self) -> List[Tuple[str, int]]:
+    async def get_bootstrap_peers(self) -> list[tuple[str, int]]:
         """Query seed nodes and relays to get initial peer list."""
         peers = []
         tasks = []
@@ -69,7 +68,7 @@ class BootstrapClient:
         logger.info(f"Bootstrap found {len(unique_peers)} unique peers")
         return unique_peers
 
-    async def _query_seed(self, seed: str) -> List[Tuple[str, int]]:
+    async def _query_seed(self, seed: str) -> list[tuple[str, int]]:
         """Query a seed node for peers."""
         url = f"https://{seed}/peers"
         try:
@@ -81,7 +80,7 @@ class BootstrapClient:
             logger.debug(f"Query seed {seed} failed: {e}")
         return []
 
-    async def _query_relay(self, relay: str) -> List[Tuple[str, int]]:
+    async def _query_relay(self, relay: str) -> list[tuple[str, int]]:
         """Query a relay for bootstrap peers."""
         url = f"https://{relay}/bootstrap"
         try:
@@ -93,7 +92,7 @@ class BootstrapClient:
             logger.debug(f"Query relay {relay} failed: {e}")
         return []
 
-async def get_bootstrap_peers(seed_nodes: List[str] = None, relays: List[str] = None) -> List[Tuple[str, int]]:
+async def get_bootstrap_peers(seed_nodes: list[str] = None, relays: list[str] = None) -> list[tuple[str, int]]:
     """Convenience function to get bootstrap peers."""
     async with BootstrapClient(seed_nodes, relays) as client:
         return await client.get_bootstrap_peers()

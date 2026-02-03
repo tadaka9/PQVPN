@@ -4,14 +4,12 @@ pqvpn.zkp - Zero Knowledge Proofs for Authentication
 Implements ZKP protocols for authenticating without revealing secrets.
 """
 
-import os
 import hashlib
 import hmac
-from typing import Tuple, Optional
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 import logging
+import os
+
+from cryptography.hazmat.primitives.asymmetric import ec
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +114,7 @@ def authenticate_with_zkp(prover_secret: bytes, verifier_public: bytes,
 # Range Proofs for Bandwidth Verification
 
 from typing import NamedTuple
+
 
 class RangeProof(NamedTuple):
     """Simple range proof structure."""

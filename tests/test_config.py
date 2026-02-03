@@ -1,9 +1,9 @@
 # tests/test_config.py
 """Tests for config module."""
 
-import pytest
-import tempfile
 import os
+import tempfile
+
 from pqvpn.config import Config
 
 

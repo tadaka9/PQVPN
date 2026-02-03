@@ -4,9 +4,14 @@ Manual test for layered crypto onion routing.
 """
 
 import sys
+
 sys.path.insert(0, 'src')
 
-from pqvpn.layered_crypto import encrypt_layered_packet_with_route, decrypt_layered_packet_with_route
+from pqvpn.layered_crypto import (
+    decrypt_layered_packet_with_route,
+    encrypt_layered_packet_with_route,
+)
+
 
 def main():
     print("Manual Testing: Layered Crypto Onion Routing")

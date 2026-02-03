@@ -4,14 +4,15 @@ pqvpn.ratchet - Cryptographic Ratchets for Perfect Forward Secrecy
 Implements ratchet-based key updates for forward secrecy.
 """
 
-import os
-import hmac
 import hashlib
-from typing import Tuple, Optional, NamedTuple
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+import hmac
 import logging
+import os
+from typing import NamedTuple
+
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +61,14 @@ class RatchetKey:
         )
         logger.debug("Ratchet advanced")
 
-    def _derive_message_key(self, chain_key: bytes) -> Tuple[bytes, bytes]:
+    def _derive_message_key(self, chain_key: bytes) -> tuple[bytes, bytes]:
         """Derive message key and next chain key."""
         # KDF chain: HMAC-SHA256
         message_key = hmac.new(chain_key, b'message_key', hashlib.sha256).digest()
         next_chain_key = hmac.new(chain_key, b'next_chain', hashlib.sha256).digest()
         return message_key, next_chain_key
 
-    def encrypt_with_ratchet(self, plaintext: bytes) -> Tuple[bytes, bytes]:
+    def encrypt_with_ratchet(self, plaintext: bytes) -> tuple[bytes, bytes]:
         """Encrypt data and return (ciphertext, header)."""
         # Derive message key from current chain
         if not self.state.chain_key_send:

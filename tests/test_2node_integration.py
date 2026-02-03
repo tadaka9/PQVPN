@@ -13,22 +13,23 @@ performs handshake, and tests all major features including:
 - Pattern analysis for anti-DPI effectiveness, crypto patterns, and network flows
 """
 
-import asyncio
-import time
-import tempfile
-import os
-import pytest
-import statistics
 import math
+import os
+import statistics
+import tempfile
+import time
 from collections import Counter, defaultdict
 from unittest.mock import Mock
+
+import pytest
+
+from pqvpn.anti_dpi import AntiDPI
+from pqvpn.crypto import pq_kem_decaps, pq_kem_encaps, pq_kem_keygen
+from pqvpn.layered_crypto import derive_layer_keys, encrypt_layered_packet
 from pqvpn.network import NetworkManager, UDPTransport
 from pqvpn.session import SessionManager
-from pqvpn.crypto import pq_kem_keygen, pq_kem_encaps, pq_kem_decaps
-from pqvpn.tun import create_tun_interface
 from pqvpn.traffic_shaper import TrafficShaper
-from pqvpn.anti_dpi import AntiDPI
-from pqvpn.layered_crypto import encrypt_layered_packet, decrypt_layered_packet, derive_layer_keys
+from pqvpn.tun import create_tun_interface
 
 
 class Test2NodeIntegration:
@@ -570,9 +571,9 @@ class Test2NodeIntegration:
     @pytest.mark.asyncio
     async def test_bootstrap_integration(self):
         """Test bootstrap system integration with discovery."""
-        from pqvpn.discovery import Discovery
-        from pqvpn.bootstrap import get_bootstrap_peers
         from unittest.mock import AsyncMock, patch
+
+        from pqvpn.discovery import Discovery
 
         # Mock node
         node = Mock()

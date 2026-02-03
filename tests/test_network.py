@@ -1,10 +1,12 @@
 # tests/test_network.py
 """Tests for network module."""
 
-import pytest
 import asyncio
 from unittest.mock import AsyncMock
-from pqvpn.network import NetworkManager, UDPTransport, PeerInfo
+
+import pytest
+
+from pqvpn.network import NetworkManager, PeerInfo, UDPTransport
 
 
 def test_udp_transport():

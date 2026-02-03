@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
-from typing import Optional
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -35,7 +34,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     m = importlib.import_module("main")

@@ -2,10 +2,11 @@
 Integration tests for relay and multi-hop routing.
 """
 
-import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
-from pqvpn.network import NetworkManager, UDPTransport
+
+import pytest
+
+from pqvpn.network import NetworkManager
 from pqvpn.relay import RelayManager
 
 

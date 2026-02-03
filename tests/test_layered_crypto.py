@@ -2,11 +2,10 @@
 Unit tests for layered_crypto module.
 """
 
-import pytest
 from pqvpn.layered_crypto import (
+    decrypt_layered_packet_with_route,
     derive_layer_keys,
     encrypt_layered_packet_with_route,
-    decrypt_layered_packet_with_route,
 )
 
 

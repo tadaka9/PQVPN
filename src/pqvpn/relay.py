@@ -4,9 +4,8 @@ pqvpn.relay - Relay functionality for onion routing with layered crypto.
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Dict, List, Optional, Tuple
+
 from . import layered_crypto, network
 
 logger = logging.getLogger(__name__)
@@ -18,9 +17,9 @@ class RelayManager:
     def __init__(self, network_manager: network.NetworkManager, master_key: bytes):
         self.network_manager = network_manager
         self.master_key = master_key
-        self.routes: Dict[bytes, List[bytes]] = {}  # session_id -> route
+        self.routes: dict[bytes, list[bytes]] = {}  # session_id -> route
 
-    async def handle_relay_packet(self, packet: bytes, from_addr: Tuple[str, int], my_relay_id: bytes) -> None:
+    async def handle_relay_packet(self, packet: bytes, from_addr: tuple[str, int], my_relay_id: bytes) -> None:
         """
         Handle an incoming relay packet: decrypt outer layer and forward.
         """
@@ -37,7 +36,7 @@ class RelayManager:
             logger.info("Received final payload")
             # TODO: Process the inner_packet as data
 
-    def register_route(self, session_id: bytes, route: List[bytes]) -> None:
+    def register_route(self, session_id: bytes, route: list[bytes]) -> None:
         """Register a route for a session."""
         self.routes[session_id] = route
 

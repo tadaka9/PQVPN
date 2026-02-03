@@ -2,8 +2,7 @@
 Tests for pqvpn.zero_trust module.
 """
 
-import pytest
-from pqvpn.zero_trust import ZeroTrustEngine, Policy, RequestContext, create_default_policies
+from pqvpn.zero_trust import Policy, RequestContext, ZeroTrustEngine, create_default_policies
 
 
 class TestZeroTrustEngine:
@@ -97,7 +96,6 @@ class TestDefaultPolicies:
 
 class TestRequestContext:
     def test_request_context_creation(self):
-        import time
         ctx = RequestContext(b"session1", b"peer1", "connect", {"key": "value"})
         assert ctx.session_id == b"session1"
         assert ctx.peer_id == b"peer1"

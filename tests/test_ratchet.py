@@ -2,8 +2,10 @@
 Tests for pqvpn.ratchet module.
 """
 
-import pytest
 import os
+
+import pytest
+
 from pqvpn.ratchet import RatchetKey, create_ratchet, test_ratchet_forward_secrecy
 
 

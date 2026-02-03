@@ -6,9 +6,8 @@ Provides rate limiting and prioritization for outgoing packets.
 """
 
 import asyncio
-import time
-from typing import Tuple, Optional
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class TrafficShaper:
     async def stop(self):
         self._running = False
 
-    async def enqueue_packet(self, data: bytes, addr: Tuple[str, int], priority: int = 1):
+    async def enqueue_packet(self, data: bytes, addr: tuple[str, int], priority: int = 1):
         """Enqueue a packet with given priority (0 = highest)."""
         if 0 <= priority < len(self.priority_queues):
             await self.priority_queues[priority].put((time.time(), data, addr))
@@ -62,7 +61,7 @@ class TrafficShaper:
             logger.warning(f"Invalid priority {priority}, using default 1")
             await self.priority_queues[1].put((time.time(), data, addr))
 
-    async def get_next_packet(self) -> Optional[Tuple[bytes, Tuple[str, int]]]:
+    async def get_next_packet(self) -> tuple[bytes, tuple[str, int]] | None:
         """Get the next packet to send, respecting rate limits."""
         for queue in self.priority_queues:
             if not queue.empty():

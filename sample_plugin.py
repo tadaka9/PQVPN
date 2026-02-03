@@ -2,6 +2,7 @@
 
 from src.pqvpn.plugins import AuthPlugin
 
+
 class SampleAuthPlugin(AuthPlugin):
     @property
     def name(self):

@@ -18,9 +18,9 @@ catch the error or run in emulated/test mode.
 import base64
 import json
 import logging
-from typing import Any, List, Tuple, Optional
+from typing import Any
 
-from .robustness import circuit_breaker, log_with_context, ErrorType
+from .robustness import circuit_breaker, log_with_context
 
 logger = logging.getLogger("pqvpn.crypto")
 # Let the main logger configure handlers; avoid adding extra ones here
@@ -29,15 +29,15 @@ if not logger.handlers:
 
 # Public flags/values (kept None/False by default, updated if oqs available)
 OQSPY_AVAILABLE = False
-OQSPY_KEMALG: Optional[str] = None
-OQSPY_SIGALG: Optional[str] = None
-OQSPY_KEM_PUBLEN: Optional[int] = None
-OQSPY_KEM_SKLEN: Optional[int] = None
-OQSPY_KEM_CTLEN: Optional[int] = None
-OQSPY_KEM_SSLEN: Optional[int] = None
-OQSPY_SIG_PUBLEN: Optional[int] = None
-OQSPY_SIG_SKLEN: Optional[int] = None
-OQSPY_SIG_SIGLEN: Optional[int] = None
+OQSPY_KEMALG: str | None = None
+OQSPY_SIGALG: str | None = None
+OQSPY_KEM_PUBLEN: int | None = None
+OQSPY_KEM_SKLEN: int | None = None
+OQSPY_KEM_CTLEN: int | None = None
+OQSPY_KEM_SSLEN: int | None = None
+OQSPY_SIG_PUBLEN: int | None = None
+OQSPY_SIG_SKLEN: int | None = None
+OQSPY_SIG_SIGLEN: int | None = None
 
 oqs_module = None
 try:
@@ -99,7 +99,7 @@ else:
 
 # ----- small helpers -----
 
-def _pqsig_to_bytes(x: Any) -> Optional[bytes]:
+def _pqsig_to_bytes(x: Any) -> bytes | None:
     if x is None:
         return None
     if isinstance(x, (bytes, bytearray)):
@@ -126,9 +126,9 @@ def _pqsig_to_bytes(x: Any) -> Optional[bytes]:
 
 # ----- signature helpers -----
 
-def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: Optional[str] = None):
+def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: str | None = None):
     """Return (ok: bool, attempts: List[Tuple[str,Any]]) similar to original main.py helper."""
-    attempts: List[Tuple[str, Any]] = []
+    attempts: list[tuple[str, Any]] = []
     try:
         sigcls = getattr(oqs_module, "Signature", None) if oqs_module is not None else None
         if sigcls is None:
@@ -162,7 +162,7 @@ def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: Optional[str] = Non
         except Exception:
             pass
 
-        variants: List[bytes] = [original, original.strip()]
+        variants: list[bytes] = [original, original.strip()]
         try:
             variants.append(original.hex().encode())
         except Exception:
@@ -181,7 +181,7 @@ def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: Optional[str] = Non
                 pass
 
         seen = set()
-        uniq: List[bytes] = []
+        uniq: list[bytes] = []
         for v in variants:
             if v in seen:
                 continue
@@ -219,12 +219,12 @@ def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: Optional[str] = Non
         return False, [("exception", str(e))]
 
 
-def pq_sig_verify(pk: Any, data: bytes, sig: Any, alg: Optional[str] = None) -> bool:
+def pq_sig_verify(pk: Any, data: bytes, sig: Any, alg: str | None = None) -> bool:
     ok, _ = pq_sig_verify_debug(pk, data, sig, alg=alg)
     return ok
 
 
-def pq_sig_sign(sk: Any, data: bytes, alg: Optional[str] = None) -> bytes:
+def pq_sig_sign(sk: Any, data: bytes, alg: str | None = None) -> bytes:
     sigcls = getattr(oqs_module, "Signature", None) if oqs_module is not None else None
     if sigcls is None:
         raise RuntimeError("oqs Signature API not available for signing")
@@ -243,7 +243,7 @@ def pq_sig_sign(sk: Any, data: bytes, alg: Optional[str] = None) -> bytes:
 
 # ----- KEM helpers -----
 
-def pq_kem_keygen() -> Tuple[bytes, bytes]:
+def pq_kem_keygen() -> tuple[bytes, bytes]:
     """Generate Kyber KEM key pair using oqs if present; otherwise raise.
 
     Returns (pk, sk) bytes.
@@ -300,7 +300,7 @@ def pq_kem_keygen() -> Tuple[bytes, bytes]:
         return pk, sk
 
 
-def pq_kem_encaps(pk: bytes, alg: Optional[str] = None) -> Tuple[bytes, bytes]:
+def pq_kem_encaps(pk: bytes, alg: str | None = None) -> tuple[bytes, bytes]:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
         log_with_context("pq_kem_encaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})
@@ -315,7 +315,7 @@ def pq_kem_encaps(pk: bytes, alg: Optional[str] = None) -> Tuple[bytes, bytes]:
         log_with_context(f"pq_kem_encaps failed: {e}", "error", {"alg": use_alg})
         raise
 
-def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> Tuple[bytes, bytes]:
+def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> tuple[bytes, bytes]:
     kenc = getattr(oqs_module, "KeyEncapsulation", None)
     if kenc is None:
         raise RuntimeError("KeyEncapsulation class not found in oqs module")
@@ -324,7 +324,7 @@ def _pq_kem_encaps_internal(pk: bytes, use_alg: str) -> Tuple[bytes, bytes]:
         return ct, ss
 
 
-def pq_kem_decaps(ct: bytes, sk: bytes, alg: Optional[str] = None) -> bytes:
+def pq_kem_decaps(ct: bytes, sk: bytes, alg: str | None = None) -> bytes:
     use_alg = alg if alg is not None else OQSPY_KEMALG
     if not OQSPY_AVAILABLE:
         log_with_context("pq_kem_decaps: liboqs not available; hybrid-only mode requires liboqs", "error", {"alg": use_alg})

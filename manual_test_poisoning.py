@@ -7,9 +7,10 @@ This script simulates poisoning attacks and verifies that defenses work.
 
 import asyncio
 import logging
-import time
 import secrets
-from pqvpn.discovery import SecureDHT, NodeInfo, DHTConfig
+import time
+
+from pqvpn.discovery import DHTConfig, NodeInfo, SecureDHT
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -7,33 +7,34 @@ import sys
 sys.path.insert(0, ".")
 
 import asyncio
+import atexit
+import base64
 import hashlib
 import json
 import logging
 import os
-import struct
-import time
-import zlib
 import re
-import base64
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519
-from cryptography.hazmat.primitives import serialization
-from collections import deque, defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Dict, Optional, Tuple, List, Any, Set, cast, Iterable
-import yaml
-import tempfile
 import shutil
-import atexit
 import signal
-
-# Import modular components
-from src.pqvpn import config, crypto, network, session, discovery, plugins, iot
+import struct
+import tempfile
+import time
 
 # Inlined config_schema.py (register as module 'config_schema')
 import types as _types
+import zlib
+from collections import defaultdict, deque
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Optional, cast
+
+import yaml
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, ed25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
+
+# Import modular components
 
 try:
     # Start with the original logic from config_schema.py
@@ -41,8 +42,8 @@ try:
         import importlib as _importlib
 
         _pyd = _importlib.import_module("pydantic")
-        BaseModel = getattr(_pyd, "BaseModel")
-        Field = getattr(_pyd, "Field")
+        BaseModel = _pyd.BaseModel
+        Field = _pyd.Field
         _HAS_PYDANTIC = True
     except Exception:
         # Lightweight fallback when pydantic not installed
@@ -125,7 +126,7 @@ try:
     except Exception:
         _oqs_pkg = None
 
-    def _pqsig_to_bytes(x: Any) -> Optional[bytes]:
+    def _pqsig_to_bytes(x: Any) -> bytes | None:
         if x is None:
             return None
         if isinstance(x, (bytes, bytearray)):
@@ -149,7 +150,7 @@ try:
         except Exception:
             return None
 
-    def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: Optional[str] = None):
+    def pq_sig_verify_debug(pk: Any, data: bytes, sig: Any, alg: str | None = None):
         attempts = []
         try:
             sigcls = (
@@ -255,12 +256,12 @@ try:
             return False, [("exception", str(e))]
 
     def pq_sig_verify(
-        pk: Any, data: bytes, sig: Any, alg: Optional[str] = None
+        pk: Any, data: bytes, sig: Any, alg: str | None = None
     ) -> bool:
         ok, _ = pq_sig_verify_debug(pk, data, sig, alg=alg)
         return ok
 
-    def pq_sig_sign(sk: Any, data: bytes, alg: Optional[str] = None) -> bytes:
+    def pq_sig_sign(sk: Any, data: bytes, alg: str | None = None) -> bytes:
         sigcls = getattr(_oqs_pkg, "Signature", None) if _oqs_pkg is not None else None
         if sigcls is None:
             raise RuntimeError("oqs Signature API not available for signing")
@@ -715,7 +716,7 @@ class Discovery:
             "ed25519_pk": (getattr(self.node, "ed25519_pk", b"") or b"").hex(),
             "brainpoolP512r1_pk": (
                 getattr(self.node, "brainpoolP512r1_pk", b"")
-                and getattr(self.node, "brainpoolP512r1_pk")
+                and self.node.brainpoolP512r1_pk
                 .public_bytes(
                     encoding=self.node.brainpoolP512r1_pk.encoding,
                     format=self.node.brainpoolP512r1_pk.format,
@@ -813,7 +814,7 @@ def _enforce_hybrid_requirements():
             missing.append('oqs algorithm detection')
     # cryptography ECDH support
     try:
-        from cryptography.hazmat.primitives.asymmetric import x25519 as _x25519
+        pass
     except Exception:
         missing.append('x25519 (cryptography)')
     try:
@@ -1252,7 +1253,7 @@ def pq_sig_verify(pk, data, sig, alg=None) -> bool:
 
 
 def canonical_sign_bytes(
-    obj: Dict[str, Any], field_order: Optional[List[str]] = None
+    obj: dict[str, Any], field_order: list[str] | None = None
 ) -> bytes:
     """Return canonical bytes for signing/verifying.
 
@@ -1304,13 +1305,13 @@ def argon2_derive_key_material(
 
     try:
         # Try the common module name used by argon2-cffi (preferred)
-        from argon2.low_level import hash_secret_raw
         from argon2 import Type
+        from argon2.low_level import hash_secret_raw
     except ImportError as ie:
         # Attempt alternative import path before failing
         try:
-            from argon2.lowlevel import hash_secret_raw
             from argon2 import Type
+            from argon2.lowlevel import hash_secret_raw
         except Exception:
             msg = (
                 "Argon2 (argon2-cffi) not available in this Python environment. "
@@ -1416,17 +1417,15 @@ class SessionInfo:
     last_activity: float = field(default_factory=time.time)
     nonce_send: int = 0
     nonce_recv: int = 0
-    remote_addr: Optional[Tuple[str, int]] = None
+    remote_addr: tuple[str, int] | None = None
     send_key: bytes = b""
     recv_key: bytes = b""
-    replay_window: Set[int] = field(default_factory=set)
+    replay_window: set[int] = field(default_factory=set)
     replay_window_size: int = 1024
     # 4-byte per-session random prefix used with an 8-byte counter to form 12-byte AEAD nonces
     session_iv: bytes = field(default_factory=lambda: os.urandom(4))
-    remote_session_id: Optional[bytes] = None
-    s1_frame: Optional[
-        bytes
-    ] = None  # Store the raw S1 frame for possible retransmission
+    remote_session_id: bytes | None = None
+    s1_frame: bytes | None = None  # Store the raw S1 frame for possible retransmission
     handshake_retries: int = 0  # Count handshake retries
 
 
@@ -1457,13 +1456,13 @@ class SessionInfo:
 class PeerInfo:
     peer_id: bytes
     nickname: str
-    address: Tuple[str, int]
+    address: tuple[str, int]
     ed25519_pk: bytes
     brainpoolP512r1_pk: bytes
     kyber_pk: bytes
     mldsa_pk: bytes
-    kyber_alg: Optional[str] = None
-    sig_alg: Optional[str] = None
+    kyber_alg: str | None = None
+    sig_alg: str | None = None
     last_seen: float = field(default_factory=time.time)
     latency_ms: float = 0.0
     hops: int = 0
@@ -1489,9 +1488,9 @@ class MeshTopology:
     """Mesh Network Topology Manager."""
 
     def __init__(self):
-        self.peers: Dict[bytes, PeerInfo] = {}
-        self.routes: Dict[bytes, List[bytes]] = {}
-        self.adjacency: Dict[bytes, Set[bytes]] = defaultdict(set)
+        self.peers: dict[bytes, PeerInfo] = {}
+        self.routes: dict[bytes, list[bytes]] = {}
+        self.adjacency: dict[bytes, set[bytes]] = defaultdict(set)
         self.last_update = time.time()
 
     def add_peer(self, peer_info: PeerInfo):
@@ -1510,7 +1509,7 @@ class MeshTopology:
 
     def compute_best_path(
         self, source: bytes, destination: bytes
-    ) -> Optional[List[bytes]]:
+    ) -> list[bytes] | None:
         """Simple path computation (Dijkstra-like stub)."""
         if destination not in self.peers or source not in self.peers:
             return None
@@ -1526,20 +1525,20 @@ class GeographicFailover:
     """Geographic Redundancy and Failover Manager."""
 
     def __init__(self):
-        self.primary_path: Optional[List[bytes]] = None
-        self.backup_paths: List[List[bytes]] = []
-        self.path_health: Dict[int, float] = {}
+        self.primary_path: list[bytes] | None = None
+        self.backup_paths: list[list[bytes]] = []
+        self.path_health: dict[int, float] = {}
         self.current_path_idx: int = 0
         self.last_failover: float = 0.0
 
-    def add_backup_path(self, path: List[bytes]):
+    def add_backup_path(self, path: list[bytes]):
         """Add backup path."""
         idx = len(self.backup_paths)
         self.backup_paths.append(path)
         self.path_health[idx] = 1.0
         logger.info(f"Added backup path: {'-'.join(p.hex()[:4] for p in path)}")
 
-    def get_active_path(self) -> Optional[List[bytes]]:
+    def get_active_path(self) -> list[bytes] | None:
         """Get currently active path."""
         if self.current_path_idx == 0:
             return self.primary_path
@@ -1570,11 +1569,11 @@ class NetworkAnalytics:
             "rekeys_performed": 0,
         }
         # per-peer handshake counters (hex peerid -> attempts)
-        self.per_peer_handshakes: Dict[str, int] = defaultdict(int)
+        self.per_peer_handshakes: dict[str, int] = defaultdict(int)
         # total handshake retries
         self.metrics["handshake_retries_total"] = 0
-        self.timeseries: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1440))
-        self.alerts: List[str] = []
+        self.timeseries: dict[str, deque] = defaultdict(lambda: deque(maxlen=1440))
+        self.alerts: list[str] = []
 
     def record_packet(self, direction: str, size: int):
         """Record packet metric."""
@@ -1629,7 +1628,7 @@ class KeyRotationManager:
     def __init__(self):
         self.rekey_interval_hours = 4
         self.rekey_interval_gb = 100
-        self.last_rekey: Dict[bytes, float] = {}
+        self.last_rekey: dict[bytes, float] = {}
 
     def should_rekey(
         self, session_id: bytes, bytes_transferred: int, last_rekey_time: float
@@ -1646,7 +1645,7 @@ class KeyRotationManager:
 
     def perform_rekey(
         self, session_id: bytes
-    ) -> Tuple[bytes, ChaCha20Poly1305, ChaCha20Poly1305]:
+    ) -> tuple[bytes, ChaCha20Poly1305, ChaCha20Poly1305]:
         """Perform quantum-resistant key rotation via Argon2."""
         fresh_entropy = os.urandom(32)
         send_key = argon2_derive_key_material(
@@ -1673,9 +1672,9 @@ class ZeroKnowledgeAuth:
     """Zero-Knowledge Peer Authentication."""
 
     def __init__(self):
-        self.zk_challenges: Dict[bytes, bytes] = {}
-        self.credential_store: Dict[bytes, bytes] = {}
-        self.revocation_list: Set[bytes] = set()
+        self.zk_challenges: dict[bytes, bytes] = {}
+        self.credential_store: dict[bytes, bytes] = {}
+        self.revocation_list: set[bytes] = set()
 
     def issue_challenge(self, peer_id: bytes) -> bytes:
         """Issue ZK challenge to peer."""
@@ -1717,11 +1716,11 @@ class LoadBalancer:
     """Distributed Load Balancing and Traffic Shaping."""
 
     def __init__(self):
-        self.flow_affinity: Dict[Tuple[str, str, int], bytes] = {}
-        self.token_buckets: Dict[bytes, Tuple[float, float]] = {}
-        self.rate_limits: Dict[bytes, int] = defaultdict(lambda: DEFAULT_PPS_LIMIT)
+        self.flow_affinity: dict[tuple[str, str, int], bytes] = {}
+        self.token_buckets: dict[bytes, tuple[float, float]] = {}
+        self.rate_limits: dict[bytes, int] = defaultdict(lambda: DEFAULT_PPS_LIMIT)
 
-    def select_session(self, sessions: Dict[bytes, SessionInfo]) -> Optional[bytes]:
+    def select_session(self, sessions: dict[bytes, SessionInfo]) -> bytes | None:
         """Select session for flow with load balancing."""
         if not sessions:
             return None
@@ -1749,7 +1748,7 @@ class LoadBalancer:
 class TrafficObfuscation:
     """Advanced Traffic Obfuscation and DPI Evasion."""
 
-    def __init__(self, cfg: Optional[Dict[str, Any]] = None):
+    def __init__(self, cfg: dict[str, Any] | None = None):
         cfg = cfg or {}
         self.decoy_enabled = cfg.get("decoy_enabled", True)
         self.jitter_range = cfg.get("jitter_range", 50)
@@ -1822,7 +1821,7 @@ class AuditTrail:
     """Encrypted Audit Trail and Forensics."""
 
     def __init__(self):
-        self.entries: List[AuditLogEntry] = []
+        self.entries: list[AuditLogEntry] = []
         self.merkle_hashes: deque = deque(maxlen=1440)
         self.last_hash = b"\x00" * 32
 
@@ -1882,12 +1881,12 @@ class PluginManager:
     processing should skip default handling.
     """
 
-    def __init__(self, node, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, node, config: dict[str, Any] | None = None):
         self.node = node
         self.config = config or {}
         self.dir = self.config.get("dir", os.path.join(os.getcwd(), "plugins"))
         self.enabled = set(self.config.get("enabled", []) or [])
-        self.plugins: Dict[str, Any] = {}
+        self.plugins: dict[str, Any] = {}
 
     def load_plugins(self) -> None:
         """Load all plugin modules from the configured directory.
@@ -1990,18 +1989,18 @@ class PQVPNNode:
     # Class-level attribute declarations to satisfy static analyzers. These
     # are initialized in __init__ at runtime; annotations here remove
     # unresolved-attribute warnings in methods defined before __init__.
-    mesh: Optional[MeshTopology] = None
-    sessions: Optional[Dict[bytes, SessionInfo]] = None
-    sessions_by_peer_id: Optional[Dict[bytes, SessionInfo]] = None
-    protocol: Optional[Any] = None
-    transport: Optional[Any] = None
-    bootstrap_peers: Optional[List[Dict[str, Any]]] = None
-    audit_trail: Optional[AuditTrail] = None
-    analytics: Optional[NetworkAnalytics] = None
-    rekey_manager: Optional[KeyRotationManager] = None
-    zk_auth: Optional[ZeroKnowledgeAuth] = None
+    mesh: MeshTopology | None = None
+    sessions: dict[bytes, SessionInfo] | None = None
+    sessions_by_peer_id: dict[bytes, SessionInfo] | None = None
+    protocol: Any | None = None
+    transport: Any | None = None
+    bootstrap_peers: list[dict[str, Any]] | None = None
+    audit_trail: AuditTrail | None = None
+    analytics: NetworkAnalytics | None = None
+    rekey_manager: KeyRotationManager | None = None
+    zk_auth: ZeroKnowledgeAuth | None = None
     load_balancer: Optional["LoadBalancer"] = None
-    obfuscation: Optional[TrafficObfuscation] = None
+    obfuscation: TrafficObfuscation | None = None
     plugins: Optional["PluginManager"] = None
     # Method attributes declared for static analyzers
     handle_hello: Any
@@ -2014,21 +2013,21 @@ class PQVPNNode:
 
     def __init__(self, configfile: str):
         """Initialize node from config file."""
-        with open(configfile, "r") as f:
+        with open(configfile) as f:
             self.config = yaml.safe_load(f)
 
         # Optional runtime config validation via pydantic schema
         try:
-            from config_schema import ConfigModel, _HAS_PYDANTIC
+            from config_schema import _HAS_PYDANTIC, ConfigModel
 
             if _HAS_PYDANTIC:
                 try:
                     cfgm = ConfigModel(**(self.config or {}))
                     # replace config with validated values (as plain dict)
                     try:
-                        if hasattr(cfgm, "dict") and callable(getattr(cfgm, "dict")):
+                        if hasattr(cfgm, "dict") and callable(cfgm.dict):
                             self.config = cfgm.dict()
-                        elif hasattr(cfgm, "json") and callable(getattr(cfgm, "json")):
+                        elif hasattr(cfgm, "json") and callable(cfgm.json):
                             import json as _json
 
                             j = cfgm.json()
@@ -2054,7 +2053,7 @@ class PQVPNNode:
         # Ensure essential runtime registries are present early so
         # tests and error handlers can safely access them even if
         # later initialization steps fail.
-        self.circuits: Dict[int, Dict[str, Any]] = {}
+        self.circuits: dict[int, dict[str, Any]] = {}
         try:
             self.circuit_lock = asyncio.Lock()
         except Exception:
@@ -2091,11 +2090,11 @@ class PQVPNNode:
         self.strict_tofu = sec_cfg.get("strict_tofu", False)
         self.allowlist = set(sec_cfg.get("allowlist", []) or [])
         self.known_peers_file = sec_cfg.get("known_peers_file", "known_peers.yaml")
-        self.known_peers: Dict[str, Dict[str, str]] = {}
+        self.known_peers: dict[str, dict[str, str]] = {}
         # Handshake rate limiting (per-IP recent attempts)
         from collections import deque
 
-        self.handshake_attempts: Dict[str, deque] = defaultdict(lambda: deque())
+        self.handshake_attempts: dict[str, deque] = defaultdict(lambda: deque())
         self.handshake_rate_limit_per_minute = int(
             sec_cfg.get("handshake_per_minute_per_ip", 10)
         )
@@ -2106,7 +2105,7 @@ class PQVPNNode:
             logger.debug("No known peers loaded")
 
         self.nickname = self.config["peer"]["nickname"]
-        self.my_id: Optional[bytes] = None
+        self.my_id: bytes | None = None
         self.start_time = time.time()
 
         logger.info(f"PQVPN initializing: {self.nickname}")
@@ -2337,7 +2336,7 @@ class PQVPNNode:
                 raise RuntimeError(msg)
 
         # Circuit registry for onion/circuit management ( tests expect this)
-        self.circuits: Dict[int, Dict[str, Any]] = {}
+        self.circuits: dict[int, dict[str, Any]] = {}
         # Optional lock to protect circuit operations if running concurrently
         try:
             self.circuit_lock = asyncio.Lock()
@@ -2365,9 +2364,9 @@ class PQVPNNode:
         ]
 
         # Initialize managers and stores (must be present for runtime/tests)
-        self.sessions: Dict[bytes, SessionInfo] = {}
-        self.sessions_by_peer_id: Dict[bytes, SessionInfo] = {}
-        self.pending_handshakes: Dict[bytes, Dict[str, Any]] = {}
+        self.sessions: dict[bytes, SessionInfo] = {}
+        self.sessions_by_peer_id: dict[bytes, SessionInfo] = {}
+        self.pending_handshakes: dict[bytes, dict[str, Any]] = {}
 
         self.mesh = MeshTopology()
         self.failover = GeographicFailover()
@@ -2397,8 +2396,8 @@ class PQVPNNode:
         # Network config
         self.host = self.config.get("network", {}).get("bind_host", "127.0.0.1")
         self.port = int(self.config.get("network", {}).get("listen_port", 9000))
-        self.transport: Optional[asyncio.DatagramTransport] = None
-        self.ipv4_transport: Optional[asyncio.DatagramTransport] = None
+        self.transport: asyncio.DatagramTransport | None = None
+        self.ipv4_transport: asyncio.DatagramTransport | None = None
         # Datagram concurrency limiter - prevents unbounded task creation
         try:
             limit = int(
@@ -2414,7 +2413,7 @@ class PQVPNNode:
         if isinstance(bootstrap_list, dict):
             bootstrap_list = bootstrap_list.get("peers", [])
 
-        self.bootstrap_peers: List[Dict[str, Any]] = []
+        self.bootstrap_peers: list[dict[str, Any]] = []
         for bs in bootstrap_list:
             if isinstance(bs, str):
                 try:
@@ -2445,7 +2444,7 @@ class PQVPNNode:
 
         logger.debug(f"Configured bootstrap peers: {self.bootstrap_peers}")
 
-    def find_known_peer_by_pubkeys(self, j: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def find_known_peer_by_pubkeys(self, j: dict[str, Any]) -> dict[str, Any] | None:
         """Try to locate a known peer entry by comparing advertised public keys in `j` with the TOFU store."""
         try:
             candidates = list(self.known_peers.items())
@@ -2495,8 +2494,8 @@ class PQVPNNode:
             return None
 
     def register_peer_from_hello(
-        self, j: Dict[str, Any], addr: Tuple[str, int]
-    ) -> Optional[PeerInfo]:
+        self, j: dict[str, Any], addr: tuple[str, int]
+    ) -> PeerInfo | None:
         """Create/update a PeerInfo in mesh from a received HELLO payload.
 
         This ensures that relay-capable peers are tracked and that forwarding
@@ -2796,11 +2795,9 @@ class PQVPNNode:
                 try:
                     cls = type(real_xpk)
                     if not hasattr(cls, "encoding"):
-                        setattr(cls, "encoding", serialization.Encoding.X962)
+                        cls.encoding = serialization.Encoding.X962
                     if not hasattr(cls, "format"):
-                        setattr(
-                            cls, "format", serialization.PublicFormat.UncompressedPoint
-                        )
+                        cls.format = serialization.PublicFormat.UncompressedPoint
                 except Exception:
                     pass
             except Exception as e:
@@ -3218,7 +3215,7 @@ class PQVPNNode:
 
         return self.tofu_enabled
 
-    def register_peer_tofu(self, peer_id: bytes, info: Dict[str, str]) -> bool:
+    def register_peer_tofu(self, peer_id: bytes, info: dict[str, str]) -> bool:
         """Register or update a peer in the TOFU known_peers store."""
         pid_hex = peer_id.hex()
         existing = self.known_peers.get(pid_hex)
@@ -3310,7 +3307,7 @@ class PQVPNNode:
         """Return 8-byte hash fingerprint (used in outer headers for next-hop selection)."""
         return hashlib.sha256(peer_id).digest()[:8]
 
-    def choose_relay(self, dest_peer_id: bytes) -> Optional[bytes]:
+    def choose_relay(self, dest_peer_id: bytes) -> bytes | None:
         """Pick a relay peer id different from dest and self."""
         candidates = [
             pid
@@ -3342,8 +3339,8 @@ class PQVPNNode:
         return header + payload
 
     def build_onion_frame(
-        self, path: List[bytes], inner_frame: bytes
-    ) -> Optional[bytes]:
+        self, path: list[bytes], inner_frame: bytes
+    ) -> bytes | None:
         """Build a full onion RELAY frame for path."""
         if not path or len(path) < 1:
             return None
@@ -3388,8 +3385,8 @@ class PQVPNNode:
         return outer_frame
 
     def build_onion_frame_with_circuit(
-        self, path: List[bytes], inner_frame: bytes, circuit_id: int
-    ) -> Optional[bytes]:
+        self, path: list[bytes], inner_frame: bytes, circuit_id: int
+    ) -> bytes | None:
         """Build an onion RELAY frame embedding a circuit id into AEAD additional data and the outer header.
 
         This mirrors build_onion_frame but uses the provided circuit_id in the per-hop AD and in the outer header.
@@ -3436,7 +3433,7 @@ class PQVPNNode:
 
         return outer_frame
 
-    async def send_onion(self, path: List[bytes], inner_frame: bytes) -> bool:
+    async def send_onion(self, path: list[bytes], inner_frame: bytes) -> bool:
         """Build and send an onion RELAY to the first hop in path."""
         if not path:
             return False
@@ -3472,7 +3469,7 @@ class PQVPNNode:
         session_id: bytes,
         nonce: bytes,
         ciphertext: bytes,
-        outer_next_hash: Optional[bytes] = None,
+        outer_next_hash: bytes | None = None,
         circuit_id: int = 0,
     ):
         """Decrypt one onion layer and forward inner_frame to next hop."""
@@ -3641,8 +3638,8 @@ class PQVPNNode:
     async def handle_hello(
         self,
         payload: bytes,
-        addr: Tuple[str, int],
-        outer_next_hash: Optional[bytes] = None,
+        addr: tuple[str, int],
+        outer_next_hash: bytes | None = None,
         circuit_id: int = 0,
     ):
         """Handle incoming HELLO frames.
@@ -3837,7 +3834,7 @@ class PQVPNNode:
         except Exception:
             logger.exception("handle_hello unexpected error")
 
-    def initiate_handshake(self, pinfo: PeerInfo, addr: Tuple[str, int]) -> None:
+    def initiate_handshake(self, pinfo: PeerInfo, addr: tuple[str, int]) -> None:
         """Initiate FT_S1 handshake to a peer: encapsulate Kyber, compute ECDH, sign S1, and send.
 
         Stores 'ss_pq' and 'ecdh' into pending_handshakes so that when S2 is received
@@ -4007,8 +4004,8 @@ class PQVPNNode:
     async def handle_s1(
         self,
         payload: bytes,
-        addr: Tuple[str, int],
-        outer_next_hash: Optional[bytes] = None,
+        addr: tuple[str, int],
+        outer_next_hash: bytes | None = None,
         circuit_id: int = 0,
     ):
         """Responder handling of incoming FT_S1: decapsulate Kyber, compute ECDH,
@@ -4349,8 +4346,8 @@ class PQVPNNode:
     async def handle_s2(
         self,
         payload: bytes,
-        addr: Tuple[str, int],
-        outer_next_hash: Optional[bytes] = None,
+        addr: tuple[str, int],
+        outer_next_hash: bytes | None = None,
         circuit_id: int = 0,
     ):
         """Initiator handling of incoming FT_S2: verify responder signatures, derive
@@ -4700,7 +4697,7 @@ class PQVPNNode:
         session_id: bytes,
         nonce: bytes,
         ciphertext: bytes,
-        outer_next_hash: Optional[bytes] = None,
+        outer_next_hash: bytes | None = None,
         circuit_id: int = 0,
     ):
         """Handle incoming DATA frames: decrypt using session keys and process payload.
@@ -4743,7 +4740,7 @@ class PQVPNNode:
             if self.my_id:
                 self.audit_trail.log_event("DATA_RECV", self.my_id, f"session={session_id.hex()[:8]}, size={len(plaintext)}")
 
-        except Exception as e:
+        except Exception:
             logger.exception(f"handle_data unexpected error for session {session_id.hex()[:8]}")
 
     async def session_maintenance(self):
@@ -4863,7 +4860,7 @@ class PQVPNNode:
         except Exception:
             logger.exception("session_maintenance unexpected error")
 
-    def send_to(self, data: bytes, addr: Tuple[str, int]) -> bool:
+    def send_to(self, data: bytes, addr: tuple[str, int]) -> bool:
         """Send raw UDP data to addr using the best available transport.
 
         Tries: (1) matching family transport (ipv4/ipv6), (2) primary transport,
@@ -5098,7 +5095,7 @@ async def main_loop(
 
     if iot:
         # IoT mode: run lightweight client
-        from src.pqvpn.iot import IoTDeviceConfig, IoTClient
+        from src.pqvpn.iot import IoTClient, IoTDeviceConfig
         config = IoTDeviceConfig(device_id=os.urandom(16))
         iot_client = IoTClient(config)
         await iot_client.start()

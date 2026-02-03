@@ -5,16 +5,16 @@ This module provides utilities for exception handling, health checks, auto-resta
 circuit breakers, and logging enhancements to make PQVPN more robust.
 """
 
+import json
 import logging
 import logging.handlers
-import json
-import time
-import threading
 import subprocess
-import os
 import sys
-from typing import Dict, Any, Callable, Optional
+import time
+from collections.abc import Callable
 from enum import Enum
+from typing import Any
+
 
 # Configure structured logging
 def setup_logging(log_level: str = "INFO", log_file: str = "pqvpn.log"):
@@ -67,12 +67,12 @@ class ErrorType(Enum):
     GENERAL = "general"
 
 class PQVPNError(Exception):
-    def __init__(self, message: str, error_type: ErrorType, context: Dict[str, Any] = None):
+    def __init__(self, message: str, error_type: ErrorType, context: dict[str, Any] = None):
         super().__init__(message)
         self.error_type = error_type
         self.context = context or {}
 
-def handle_exception(error_type: ErrorType = ErrorType.GENERAL, context: Dict[str, Any] = None):
+def handle_exception(error_type: ErrorType = ErrorType.GENERAL, context: dict[str, Any] = None):
     """
     Decorator to handle exceptions in functions.
     """
@@ -123,13 +123,13 @@ circuit_breaker = CircuitBreaker()
 
 class HealthChecker:
     def __init__(self):
-        self.checks: Dict[str, Callable[[], bool]] = {}
-        self.metrics: Dict[str, Any] = {}
+        self.checks: dict[str, Callable[[], bool]] = {}
+        self.metrics: dict[str, Any] = {}
 
     def add_check(self, name: str, check_func: Callable[[], bool]):
         self.checks[name] = check_func
 
-    def run_checks(self) -> Dict[str, bool]:
+    def run_checks(self) -> dict[str, bool]:
         results = {}
         for name, check in self.checks.items():
             try:
@@ -139,7 +139,7 @@ class HealthChecker:
                 results[name] = False
         return results
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         checks = self.run_checks()
         overall = all(checks.values())
         return {
@@ -175,7 +175,7 @@ def auto_restart(process_name: str, command: list, max_restarts: int = 3):
     if restart_count >= max_restarts:
         logger.error(f"Max restarts reached for {process_name}")
 
-def log_with_context(message: str, level: str = "info", context: Dict[str, Any] = None):
+def log_with_context(message: str, level: str = "info", context: dict[str, Any] = None):
     """
     Log with additional context.
     """

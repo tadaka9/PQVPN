@@ -5,13 +5,13 @@ Session management module for PQVPN.
 Handles session creation, key rotation, and session state.
 """
 
-import time
-import os
 import hashlib
-from typing import Optional, Tuple, Set
-from dataclasses import dataclass, field
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 import logging
+import os
+import time
+from dataclasses import dataclass, field
+
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 from .ratchet import RatchetKey
 
@@ -40,17 +40,17 @@ class SessionInfo:
     last_activity: float = field(default_factory=time.time)
     nonce_send: int = 0
     nonce_recv: int = 0
-    remote_addr: Optional[Tuple[str, int]] = None
+    remote_addr: tuple[str, int] | None = None
     send_key: bytes = b""
     recv_key: bytes = b""
-    replay_window: Set[int] = field(default_factory=set)
+    replay_window: set[int] = field(default_factory=set)
     replay_window_size: int = 1024
     # 4-byte per-session random prefix used with an 8-byte counter to form 12-byte AEAD nonces
     session_iv: bytes = field(default_factory=lambda: os.urandom(4))
-    remote_session_id: Optional[bytes] = None
-    s1_frame: Optional[bytes] = None  # Store the raw S1 frame for possible retransmission
+    remote_session_id: bytes | None = None
+    s1_frame: bytes | None = None  # Store the raw S1 frame for possible retransmission
     handshake_retries: int = 0  # Count handshake retries
-    ratchet: Optional[RatchetKey] = None  # Cryptographic ratchet for forward secrecy
+    ratchet: RatchetKey | None = None  # Cryptographic ratchet for forward secrecy
 
     def rotate_keys(self, reason: str = 'rekey') -> None:
         """Rotate AEAD keys for this session using ratchet-based forward secrecy.
@@ -119,7 +119,7 @@ class SessionManager:
         logger.info(f"Created session {session_id.hex()[:8]} with peer {peer_id.hex()[:8]} (with ratchet)")
         return session
 
-    def get_session(self, session_id: bytes) -> Optional[SessionInfo]:
+    def get_session(self, session_id: bytes) -> SessionInfo | None:
         """Get session by ID."""
         return self.sessions.get(session_id)
 

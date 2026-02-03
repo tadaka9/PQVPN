@@ -1,8 +1,7 @@
 # tests/test_session.py
 """Tests for session module."""
 
-import pytest
-from pqvpn.session import SessionManager, SessionInfo
+from pqvpn.session import SessionInfo, SessionManager
 
 
 def test_session_manager():
@@ -15,8 +14,9 @@ def test_session_manager():
 
 def test_session_info():
     """Test SessionInfo dataclass."""
-    from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
     import os
+
+    from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
     key = os.urandom(32)
     aead = ChaCha20Poly1305(key)

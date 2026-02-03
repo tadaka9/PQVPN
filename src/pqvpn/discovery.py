@@ -7,16 +7,13 @@ Implements DHT 2.0: Secure DHT with authentication, encryption, Sybil resistance
 
 import asyncio
 import hashlib
-import hmac
 import json
 import logging
-import os
 import secrets
-import time
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field
-import struct
 import statistics  # For anomaly detection
+import time
+from dataclasses import dataclass, field
+from typing import Any
 
 # Assume liboqs for PQ crypto
 try:
@@ -24,9 +21,6 @@ try:
 except ImportError:
     oqs = None
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 from .bootstrap import get_bootstrap_peers
@@ -37,7 +31,7 @@ logger = logging.getLogger(__name__)
 class NodeInfo:
     node_id: bytes
     public_key: bytes  # PQ signature public key
-    address: Tuple[str, int]
+    address: tuple[str, int]
     last_seen: float = 0.0
     reputation: float = 0.5  # Initial reputation 0.5
     invalid_responses: int = 0  # For poisoning detection
@@ -60,11 +54,11 @@ class SecureDHT:
         self.node_id = node_id
         self.private_key = private_key
         self.config = config or DHTConfig()
-        self.routing_table: Dict[int, List[NodeInfo]] = {}
-        self.data_store: Dict[bytes, Dict] = {}  # Store signed data dicts
-        self.peers: Dict[bytes, NodeInfo] = {}
+        self.routing_table: dict[int, list[NodeInfo]] = {}
+        self.data_store: dict[bytes, dict] = {}  # Store signed data dicts
+        self.peers: dict[bytes, NodeInfo] = {}
         self.running = False
-        self.response_times: Dict[bytes, List[float]] = {}  # For anomaly detection
+        self.response_times: dict[bytes, list[float]] = {}  # For anomaly detection
 
         # PQ crypto setup
         if oqs:
@@ -77,7 +71,7 @@ class SecureDHT:
         self.sig_alg.generate_keypair()
         self.public_key = self.sig_alg.export_public_key()
 
-    async def start(self, bootstrap_nodes: List[NodeInfo]):
+    async def start(self, bootstrap_nodes: list[NodeInfo]):
         self.running = True
         # Bootstrap
         for node in bootstrap_nodes:
@@ -125,7 +119,7 @@ class SecureDHT:
         # For now, assume always true
         return True
 
-    async def find_node(self, target_id: bytes) -> List[NodeInfo]:
+    async def find_node(self, target_id: bytes) -> list[NodeInfo]:
         # Iterative find node with security
         closest = self._get_closest_nodes(target_id, self.config.alpha)
         queried = set()
@@ -143,7 +137,7 @@ class SecureDHT:
 
         return self._get_closest_nodes(target_id, self.config.k)
 
-    def _get_closest_nodes(self, target_id: bytes, count: int) -> List[NodeInfo]:
+    def _get_closest_nodes(self, target_id: bytes, count: int) -> list[NodeInfo]:
         candidates = []
         for bucket in self.routing_table.values():
             candidates.extend(bucket)
@@ -152,7 +146,7 @@ class SecureDHT:
         candidates.sort(key=lambda n: (self._distance(n.node_id, target_id), -n.reputation))
         return candidates[:count]
 
-    async def _send_find_node(self, node: NodeInfo, target_id: bytes) -> Dict:
+    async def _send_find_node(self, node: NodeInfo, target_id: bytes) -> dict:
         # Secure message sending
         message = {
             'type': 'find_node',
@@ -238,7 +232,7 @@ class SecureDHT:
         if confirmations < len(nodes) // 2 + 1:
             logger.warning("Insufficient confirmations for store")
 
-    async def _send_store(self, node: NodeInfo, data: Dict) -> bool:
+    async def _send_store(self, node: NodeInfo, data: dict) -> bool:
         # Send secure store
         # Placeholder: assume success if node not quarantined
         return not node.quarantined
@@ -276,7 +270,7 @@ class SecureDHT:
             logger.warning("No majority consensus for get")
             return None
 
-    async def _send_get(self, node: NodeInfo, key: bytes) -> Dict:
+    async def _send_get(self, node: NodeInfo, key: bytes) -> dict:
         # Secure get
         # Placeholder
         return self.data_store.get(key, {})
@@ -286,7 +280,7 @@ class SecureDHT:
             # Random walks, reshuffling, etc.
             await asyncio.sleep(300)  # Every 5 min
 
-    def _validate_data(self, data: Dict) -> bool:
+    def _validate_data(self, data: dict) -> bool:
         # Validate format and signature
         required = ['key', 'value', 'ttl', 'timestamp', 'owner', 'signature']
         if not all(k in data for k in required):
@@ -372,7 +366,7 @@ class Discovery:
             await self.dht.stop()
         self._started = False
 
-    async def _get_bootstrap_nodes(self) -> List[NodeInfo]:
+    async def _get_bootstrap_nodes(self) -> list[NodeInfo]:
         peers = await get_bootstrap_peers()
         nodes = []
         for peer in peers:

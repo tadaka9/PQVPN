@@ -1,12 +1,9 @@
+from unittest.mock import patch
+
 import pytest
-import asyncio
-from unittest.mock import Mock, patch
-from pqvpn.discovery import SecureDHT, NodeInfo, DHTConfig
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-import os
-import secrets
+
+from pqvpn.discovery import DHTConfig, NodeInfo, SecureDHT
+
 
 class TestPoisoningDefenses:
     def setup_method(self):

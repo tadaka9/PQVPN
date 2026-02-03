@@ -6,13 +6,13 @@ Deploys a testnet with 5-10 nodes running on localhost with different ports.
 Nodes will bootstrap from each other to form a mesh network.
 """
 
-import subprocess
-import time
-import signal
 import os
+import signal
+import subprocess
 import sys
 import tempfile
-import shutil
+import time
+
 import yaml
 
 # Number of nodes

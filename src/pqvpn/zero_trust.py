@@ -5,17 +5,18 @@ Implements continuous verification for all requests and connections.
 """
 
 import logging
-import time
 import threading
-from typing import Dict, Any, Callable, Optional
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class Policy:
     name: str
-    condition: Callable[[Dict[str, Any]], bool]
+    condition: Callable[[dict[str, Any]], bool]
     action: str  # 'allow', 'deny', 'challenge'
 
 @dataclass
@@ -23,7 +24,7 @@ class RequestContext:
     session_id: bytes
     peer_id: bytes
     action: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     timestamp: float = None
 
     def __post_init__(self):
@@ -34,8 +35,8 @@ class ZeroTrustEngine:
     """Zero Trust Policy Engine for continuous verification."""
 
     def __init__(self):
-        self.policies: Dict[str, Policy] = {}
-        self.monitoring_threads: Dict[bytes, threading.Thread] = {}
+        self.policies: dict[str, Policy] = {}
+        self.monitoring_threads: dict[bytes, threading.Thread] = {}
         self.monitoring_active = True
 
     def add_policy(self, policy: Policy):
@@ -57,7 +58,7 @@ class ZeroTrustEngine:
                 return policy.action
         return 'allow'  # Default allow if no policies match
 
-    def authorize_action(self, action: str, identity: bytes, policies: Dict[str, Any]) -> bool:
+    def authorize_action(self, action: str, identity: bytes, policies: dict[str, Any]) -> bool:
         """Check if an action is authorized for an identity."""
         # Simple implementation - can be extended
         allowed_actions = policies.get('allowed_actions', [])
@@ -143,7 +144,7 @@ class ZeroTrustEngine:
         self.monitoring_threads.clear()
 
 # Default policies
-def create_default_policies() -> Dict[str, Policy]:
+def create_default_policies() -> dict[str, Policy]:
     """Create some default zero trust policies."""
     policies = {}
 

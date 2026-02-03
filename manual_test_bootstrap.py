@@ -6,13 +6,14 @@ This script tests the bootstrap system by querying mock endpoints.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from pqvpn.bootstrap import get_bootstrap_peers
+
 
 async def main():
     print("Testing bootstrap system...")

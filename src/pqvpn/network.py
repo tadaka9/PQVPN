@@ -6,17 +6,18 @@ Handles connections, sessions, peers, and low-level network operations.
 """
 
 import asyncio
+import logging
 import socket
 import time
-from typing import Dict, Optional, Tuple, List, Any, Set
 from dataclasses import dataclass, field
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from .traffic_shaper import TrafficShaper
 from .anti_dpi import AntiDPI
-from .robustness import circuit_breaker, log_with_context, ErrorType
+from .robustness import circuit_breaker, log_with_context
+from .traffic_shaper import TrafficShaper
+
 FT_HELLO = 0x00
 FT_S1 = 0x01
 FT_S2 = 0x02
@@ -64,13 +65,13 @@ SESSION_STATE_CLOSED = "CLOSED"
 class PeerInfo:
     peer_id: bytes
     nickname: str
-    address: Tuple[str, int]
+    address: tuple[str, int]
     ed25519_pk: bytes
     brainpoolP512r1_pk: bytes
     kyber_pk: bytes
     mldsa_pk: bytes
-    kyber_alg: Optional[str] = None
-    sig_alg: Optional[str] = None
+    kyber_alg: str | None = None
+    sig_alg: str | None = None
     last_seen: float = field(default_factory=time.time)
     latency_ms: float = 0.0
     hops: int = 0
@@ -95,10 +96,10 @@ class NetworkTransport:
     async def stop(self):
         raise NotImplementedError
 
-    async def send_datagram(self, data: bytes, addr: Tuple[str, int]):
+    async def send_datagram(self, data: bytes, addr: tuple[str, int]):
         raise NotImplementedError
 
-    async def receive_datagram(self) -> Tuple[bytes, Tuple[str, int]]:
+    async def receive_datagram(self) -> tuple[bytes, tuple[str, int]]:
         raise NotImplementedError
 
 
@@ -109,7 +110,7 @@ class UDPTransport(NetworkTransport):
         self.bind_host = bind_host
         self.listen_port = listen_port
         self.max_concurrent = max_concurrent
-        self.sock: Optional[socket.socket] = None
+        self.sock: socket.socket | None = None
         self._running = False
         self._receive_queue = asyncio.Queue()
 
@@ -138,26 +139,26 @@ class UDPTransport(NetworkTransport):
                 if self._running:
                     logger.error(f"UDP receive error: {e}")
 
-    async def send_datagram(self, data: bytes, addr: Tuple[str, int]):
+    async def send_datagram(self, data: bytes, addr: tuple[str, int]):
         if not self.sock:
             raise RuntimeError("Transport not started")
         loop = asyncio.get_running_loop()
         await loop.sock_sendto(self.sock, data, addr)
 
-    async def receive_datagram(self) -> Tuple[bytes, Tuple[str, int]]:
+    async def receive_datagram(self) -> tuple[bytes, tuple[str, int]]:
         return await self._receive_queue.get()
 
 
 class NetworkManager:
     """Manages network operations, peers, and sessions."""
 
-    def __init__(self, transport: NetworkTransport, config: Dict[str, Any]):
+    def __init__(self, transport: NetworkTransport, config: dict[str, Any]):
         self.transport = transport
         self.config = config
-        self.peers: Dict[bytes, PeerInfo] = {}
-        self.sessions: Dict[bytes, Any] = {}  # Will be SessionInfo from session.py
-        self.relay_manager: Optional[Any] = None  # RelayManager if acting as relay
-        self.my_relay_id: Optional[bytes] = None
+        self.peers: dict[bytes, PeerInfo] = {}
+        self.sessions: dict[bytes, Any] = {}  # Will be SessionInfo from session.py
+        self.relay_manager: Any | None = None  # RelayManager if acting as relay
+        self.my_relay_id: bytes | None = None
         self._running = False
         self._tasks = []
         self.traffic_shaper = TrafficShaper(config.get('rate_limit', 1000000.0))
@@ -193,7 +194,7 @@ class NetworkManager:
                 log_with_context(f"Packet handling error: {e}", "error", {"error_type": type(e).__name__})
                 await asyncio.sleep(1)  # Auto-recovery: backoff on error
 
-    async def _handle_packet(self, data: bytes, addr: Tuple[str, int]):
+    async def _handle_packet(self, data: bytes, addr: tuple[str, int]):
         # Strip anti-DPI padding
         data = self.anti_dpi.strip_padding(data)
         # Parse frame type
@@ -221,19 +222,19 @@ class NetworkManager:
         else:
             log_with_context(f"Unknown frame type: {frame_type}", "debug", {"addr": addr})
 
-    async def _handle_hello(self, payload: bytes, addr: Tuple[str, int]):
+    async def _handle_hello(self, payload: bytes, addr: tuple[str, int]):
         # Placeholder for hello handling
         logger.debug(f"Hello from {addr}")
 
-    async def _handle_data(self, payload: bytes, addr: Tuple[str, int]):
+    async def _handle_data(self, payload: bytes, addr: tuple[str, int]):
         # Placeholder for data handling
         logger.debug(f"Data packet from {addr}")
 
-    async def _handle_keepalive(self, payload: bytes, addr: Tuple[str, int]):
+    async def _handle_keepalive(self, payload: bytes, addr: tuple[str, int]):
         # Placeholder for keepalive
         logger.debug(f"Keepalive from {addr}")
 
-    async def _handle_relay(self, payload: bytes, addr: Tuple[str, int]):
+    async def _handle_relay(self, payload: bytes, addr: tuple[str, int]):
         # Handle relay packet with layered crypto
         if self.relay_manager and self.my_relay_id:
             try:
@@ -264,7 +265,7 @@ class NetworkManager:
             else:
                 await asyncio.sleep(0.01)
 
-    async def _send_with_circuit(self, data: bytes, addr: Tuple[str, int]):
+    async def _send_with_circuit(self, data: bytes, addr: tuple[str, int]):
         await self.transport.send_datagram(data, addr)
 
     async def _keepalive_loop(self):
@@ -275,10 +276,10 @@ class NetworkManager:
     def add_peer(self, peer: PeerInfo):
         self.peers[peer.peer_id] = peer
 
-    def get_peer(self, peer_id: bytes) -> Optional[PeerInfo]:
+    def get_peer(self, peer_id: bytes) -> PeerInfo | None:
         return self.peers.get(peer_id)
 
-    async def send_packet(self, data: bytes, addr: Tuple[str, int], priority: int = 1):
+    async def send_packet(self, data: bytes, addr: tuple[str, int], priority: int = 1):
         """Send a packet through the shaper and anti-DPI."""
         await self.traffic_shaper.enqueue_packet(data, addr, priority)
 

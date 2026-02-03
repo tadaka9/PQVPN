@@ -5,10 +5,11 @@ Configuration module for PQVPN.
 Handles loading and validation of configuration from files and environment.
 """
 
-import os
-import yaml
-from typing import Dict, Any, Optional
 import logging
+import os
+from typing import Any
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ try:
         import importlib as _importlib
 
         _pyd = _importlib.import_module("pydantic")
-        BaseModel = getattr(_pyd, "BaseModel")
-        Field = getattr(_pyd, "Field")
+        BaseModel = _pyd.BaseModel
+        Field = _pyd.Field
         _HAS_PYDANTIC = True
     except Exception:
         # Lightweight fallback when pydantic not installed
@@ -79,7 +80,7 @@ try:
         node = Field(default_factory=dict)
 
     # register shim module so `from config_schema import ...` works
-    _config_module = type('module')('config_schema')
+    _config_module = 'config_schema'
     _config_module.ConfigModel = ConfigModel
     _config_module._HAS_PYDANTIC = _HAS_PYDANTIC
     _config_module.Field = Field
@@ -94,9 +95,9 @@ except Exception:
 class Config:
     """Configuration manager for PQVPN."""
 
-    def __init__(self, config_file: Optional[str] = None):
+    def __init__(self, config_file: str | None = None):
         self.config_file = config_file or self._find_config_file()
-        self.data: Dict[str, Any] = {}
+        self.data: dict[str, Any] = {}
         self.load()
 
     def _find_config_file(self) -> str:
@@ -117,7 +118,7 @@ class Config:
         # Load from file
         if os.path.isfile(self.config_file):
             try:
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file) as f:
                     file_config = yaml.safe_load(f) or {}
                 self.data.update(file_config)
                 logger.info(f"Loaded config from {self.config_file}")

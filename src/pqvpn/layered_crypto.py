@@ -7,21 +7,19 @@ for enhanced onion-like routing security.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
+import logging
 import os
-from typing import List, Tuple, Optional
+
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
 
-from .robustness import circuit_breaker, log_with_context, ErrorType
+from .robustness import log_with_context
 
-import logging
 logger = logging.getLogger(__name__)
 
 
-def derive_layer_keys(master_key: bytes, route: List[bytes], info: bytes = b"relay_key") -> List[bytes]:
+def derive_layer_keys(master_key: bytes, route: list[bytes], info: bytes = b"relay_key") -> list[bytes]:
     """
     Derive per-hop keys from master_key using HKDF.
 
@@ -48,7 +46,7 @@ def derive_layer_keys(master_key: bytes, route: List[bytes], info: bytes = b"rel
     return keys
 
 
-def encrypt_layered_packet(payload: bytes, route: List[bytes], master_key: bytes) -> bytes:
+def encrypt_layered_packet(payload: bytes, route: list[bytes], master_key: bytes) -> bytes:
     """
     Encrypt a packet in layered fashion for onion routing.
 
@@ -83,7 +81,7 @@ def encrypt_layered_packet(payload: bytes, route: List[bytes], master_key: bytes
         raise
 
 
-def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes) -> Tuple[bytes, Optional[bytes]]:
+def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes) -> tuple[bytes, bytes | None]:
     """
     Decrypt the outermost layer of a layered packet.
 
@@ -133,7 +131,7 @@ def decrypt_layered_packet(packet: bytes, my_relay_id: bytes, master_key: bytes)
 
 # For multi-hop, we need to pass the route to the decryption function or embed next hop in payload.
 
-def encrypt_layered_packet_with_route(payload: bytes, route: List[bytes], master_key: bytes) -> bytes:
+def encrypt_layered_packet_with_route(payload: bytes, route: list[bytes], master_key: bytes) -> bytes:
     """
     Encrypt with route embedded in layers.
     """
@@ -152,7 +150,7 @@ def encrypt_layered_packet_with_route(payload: bytes, route: List[bytes], master
     return current_payload
 
 
-def decrypt_layered_packet_with_route(packet: bytes, my_relay_id: bytes, master_key: bytes, hop_index: int = 0) -> Tuple[bytes, Optional[bytes]]:
+def decrypt_layered_packet_with_route(packet: bytes, my_relay_id: bytes, master_key: bytes, hop_index: int = 0) -> tuple[bytes, bytes | None]:
     """
     Decrypt outermost layer and extract next hop.
     """

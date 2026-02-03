@@ -2,9 +2,16 @@
 Tests for pqvpn.zkp module.
 """
 
-import pytest
 import os
-from pqvpn.zkp import ZKPProtocol, SchnorrZKP, FiatShamirZKP, create_zkp_prover, authenticate_with_zkp
+
+import pytest
+
+from pqvpn.zkp import (
+    FiatShamirZKP,
+    SchnorrZKP,
+    authenticate_with_zkp,
+    create_zkp_prover,
+)
 
 
 class TestSchnorrZKP:

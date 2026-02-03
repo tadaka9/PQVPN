@@ -5,11 +5,9 @@ Anti-DPI module for PQVPN.
 Provides low-overhead techniques to evade Deep Packet Inspection.
 """
 
+import logging
 import os
 import random
-import time
-from typing import Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 

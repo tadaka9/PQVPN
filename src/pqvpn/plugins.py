@@ -6,11 +6,11 @@ Allows loading and managing plugins for extensibility.
 """
 
 import importlib.util
-import os
-import sys
 import logging
-from typing import Dict, List, Any, Optional, Callable
+import os
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class PluginInterface(ABC):
         pass
 
     @abstractmethod
-    def initialize(self, context: Dict[str, Any]) -> None:
+    def initialize(self, context: dict[str, Any]) -> None:
         """Initialize the plugin with context."""
         pass
 
@@ -45,7 +45,7 @@ class AuthPlugin(PluginInterface):
     """Authentication plugin interface."""
 
     @abstractmethod
-    def authenticate(self, credentials: Dict[str, Any]) -> bool:
+    def authenticate(self, credentials: dict[str, Any]) -> bool:
         """Authenticate user/peer."""
         pass
 
@@ -54,7 +54,7 @@ class RoutingPlugin(PluginInterface):
     """Routing plugin interface."""
 
     @abstractmethod
-    def route_packet(self, packet: bytes, source: str, destination: str) -> Optional[str]:
+    def route_packet(self, packet: bytes, source: str, destination: str) -> str | None:
         """Route a packet, return next hop or None."""
         pass
 
@@ -76,16 +76,16 @@ class EncryptionPlugin(PluginInterface):
 class PluginManager:
     """Manages loading and execution of plugins."""
 
-    def __init__(self, plugin_dirs: Optional[List[str]] = None):
+    def __init__(self, plugin_dirs: list[str] | None = None):
         self.plugin_dirs = plugin_dirs or [
             os.path.join(os.getcwd(), "plugins"),
             os.path.expanduser("~/.pqvpn/plugins"),
             "/usr/lib/pqvpn/plugins"
         ]
-        self.loaded_plugins: Dict[str, PluginInterface] = {}
-        self.hooks: Dict[str, List[Callable]] = {}
+        self.loaded_plugins: dict[str, PluginInterface] = {}
+        self.hooks: dict[str, list[Callable]] = {}
 
-    def discover_plugins(self) -> List[str]:
+    def discover_plugins(self) -> list[str]:
         """Discover available plugins."""
         plugins = []
         for plugin_dir in self.plugin_dirs:
@@ -99,7 +99,7 @@ class PluginManager:
                     plugins.append(item[:-3])  # Remove .py
         return plugins
 
-    def load_plugin(self, plugin_name: str, context: Optional[Dict[str, Any]] = None) -> bool:
+    def load_plugin(self, plugin_name: str, context: dict[str, Any] | None = None) -> bool:
         """Load a plugin by name."""
         if plugin_name in self.loaded_plugins:
             logger.warning(f"Plugin {plugin_name} already loaded")
@@ -164,7 +164,7 @@ class PluginManager:
             logger.error(f"Error unloading plugin {plugin_name}: {e}")
             return False
 
-    def get_plugin(self, plugin_name: str) -> Optional[PluginInterface]:
+    def get_plugin(self, plugin_name: str) -> PluginInterface | None:
         """Get a loaded plugin instance."""
         return self.loaded_plugins.get(plugin_name)
 
@@ -183,7 +183,7 @@ class PluginManager:
                 except Exception as e:
                     logger.error(f"Hook {hook_name} callback failed: {e}")
 
-    def list_plugins(self) -> List[str]:
+    def list_plugins(self) -> list[str]:
         """List loaded plugins."""
         return list(self.loaded_plugins.keys())
 

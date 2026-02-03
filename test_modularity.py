@@ -4,7 +4,7 @@ Manual testing script for PQVPN modularity.
 """
 
 import sys
-import os
+
 sys.path.insert(0, ".")
 
 def test_config_modularity():

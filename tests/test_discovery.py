@@ -1,10 +1,11 @@
 # tests/test_discovery.py
 """Tests for discovery module."""
 
-import asyncio
+from unittest.mock import AsyncMock, Mock
+
 import pytest
-from unittest.mock import Mock, AsyncMock
-from pqvpn.discovery import Discovery, SecureDHT, NodeInfo, DHTConfig
+
+from pqvpn.discovery import DHTConfig, Discovery, NodeInfo, SecureDHT
 
 
 @pytest.fixture

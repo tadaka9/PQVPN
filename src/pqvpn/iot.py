@@ -7,19 +7,14 @@ with optimizations for constrained resources, battery efficiency, and IoT protoc
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 import secrets
 import time
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
-import struct
 
 # For lightweight crypto, use ECC instead of PQ for IoT (faster, smaller)
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 # Optional: for MQTT/CoAP if available
@@ -45,7 +40,7 @@ class IoTDeviceConfig:
     protocol: str = "dht"  # "dht", "mqtt", "coap"
     sleep_interval: int = 300  # Seconds between wakeups
     max_payload: int = 512  # Max message size in bytes
-    gateway_address: Optional[Tuple[str, int]] = None  # For proxy mode
+    gateway_address: tuple[str, int] | None = None  # For proxy mode
 
 class IoTClient:
     """
@@ -55,8 +50,8 @@ class IoTClient:
     def __init__(self, config: IoTDeviceConfig):
         self.config = config
         self.running = False
-        self.session_key: Optional[bytes] = None
-        self.peers: Dict[bytes, Dict] = {}
+        self.session_key: bytes | None = None
+        self.peers: dict[bytes, dict] = {}
         self.gateway = None
 
         # Generate ECC keys
@@ -143,7 +138,7 @@ class IoTClient:
         if self.config.protocol == "mqtt":
             self.mqtt_client.publish("pqvpn/heartbeat", json.dumps({'encrypted': encrypted.hex()}))
 
-    async def _handle_message(self, payload: Dict):
+    async def _handle_message(self, payload: dict):
         # Decrypt and handle
         if 'encrypted' in payload:
             plaintext = self._decrypt_message(bytes.fromhex(payload['encrypted']))
@@ -151,7 +146,7 @@ class IoTClient:
             if msg['type'] == 'peer_update':
                 self._update_peers(msg['peers'])
 
-    def _update_peers(self, peers: List[Dict]):
+    def _update_peers(self, peers: list[dict]):
         for peer in peers:
             self.peers[bytes.fromhex(peer['id'])] = peer
 

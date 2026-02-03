@@ -1,10 +1,10 @@
 # tests/test_plugins.py
 """Tests for plugins module."""
 
-import pytest
-import tempfile
 import os
-from pqvpn.plugins import PluginManager, PluginInterface
+import tempfile
+
+from pqvpn.plugins import PluginInterface, PluginManager
 
 
 class TestPlugin(PluginInterface):

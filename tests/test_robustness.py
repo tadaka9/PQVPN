@@ -2,23 +2,22 @@
 Unit tests for robustness module.
 """
 
-import pytest
 import asyncio
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from pqvpn.robustness import (
-    setup_logging,
-    handle_exception,
-    ErrorType,
-    PQVPNError,
     CircuitBreaker,
+    ErrorType,
     HealthChecker,
+    PQVPNError,
     auto_restart,
+    global_exception_handler,
+    handle_exception,
     log_with_context,
-    circuit_breaker,
-    health_checker,
-    global_exception_handler
+    setup_logging,
 )
 
 

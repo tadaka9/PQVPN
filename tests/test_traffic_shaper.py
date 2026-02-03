@@ -3,8 +3,8 @@
 Unit tests for traffic_shaper module.
 """
 
-import asyncio
 import pytest
+
 from pqvpn.traffic_shaper import TokenBucket, TrafficShaper
 
 

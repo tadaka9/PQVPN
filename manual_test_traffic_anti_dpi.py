@@ -5,8 +5,9 @@ Manual test for traffic shaping and anti-DPI.
 
 import asyncio
 import time
-from src.pqvpn.traffic_shaper import TrafficShaper
+
 from src.pqvpn.anti_dpi import AntiDPI
+from src.pqvpn.traffic_shaper import TrafficShaper
 
 
 async def test_shaping():
