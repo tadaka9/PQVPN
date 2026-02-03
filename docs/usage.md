@@ -21,10 +21,9 @@ pqvpn --help
 pqvpn --config config.yaml --loglevel DEBUG
 pqvpn --config config.yaml --logfile pqvpn.log
 
-# Optional
-pqvpn --config config.yaml --pidfile pqvpn.pid
-pqvpn --config config.yaml --disable-discovery
-pqvpn --config config.yaml --enable-relay
+# Change protocol
+pqvpn --config config.yaml --protocol wireguard
+pqvpn --config config.yaml --protocol openvpn
 ```
 
 ## Notes

@@ -70,6 +70,9 @@ pqvpn run --bind 127.0.0.1 --port 51820
 
 # Start IoT client
 pqvpn --iot
+
+# Use WireGuard compatibility mode
+pqvpn --protocol wireguard --bind 0.0.0.0 --port 51820
 ```
 
 ## Usage

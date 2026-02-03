@@ -28,11 +28,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Disable DHT-based discovery",
     )
     p.add_argument(
-        "--iot",
-        action="store_true",
-        help="Run in IoT mode for low-power devices",
+        "--protocol",
+        default="pqvpn",
+        choices=["pqvpn", "wireguard", "openvpn"],
+        help="VPN protocol to use (pqvpn, wireguard, openvpn)",
     )
-    return p
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -52,6 +52,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 disable_discovery=bool(args.disable_discovery),
                 enable_relay=bool(args.enable_relay),
                 iot=bool(args.iot),
+                protocol=args.protocol,
             )
         )
         return 0

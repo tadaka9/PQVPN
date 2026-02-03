@@ -55,6 +55,7 @@ try:
         bind_host = Field("127.0.0.1")
         listen_port = Field(9000)
         max_concurrent_datagrams = Field(200)
+        protocol = Field("pqvpn")  # Options: pqvpn, wireguard, openvpn
 
     class KeysConfig(BaseModel):
         persist = Field(False)

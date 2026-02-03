@@ -5071,6 +5071,7 @@ async def main_loop(
     tunnel_mode: bool = False,
     enable_relay: bool = False,
     iot: bool = False,
+    protocol: str = "pqvpn",
 ):
     """Main async runtime for PQVPN.
 
@@ -5181,12 +5182,28 @@ async def main_loop(
     except Exception:
         pass
 
-    # Bind UDP socket
+    # Get protocol from config
+    protocol = node.config.get('network', {}).get('protocol', 'pqvpn')
+    if protocol not in ('pqvpn', 'wireguard', 'openvpn'):
+        logger.error(f"Unknown protocol {protocol}")
+        raise ValueError(f"Unknown protocol {protocol}")
+
+    # Bind socket based on protocol
     transport = None
-    protocol = None
+    protocol_obj = None
     try:
         bind_host = getattr(node, "host", "0.0.0.0")
-        bind_port = int(getattr(node, "port", 9000))
+        if protocol == 'pqvpn':
+            bind_port = int(getattr(node, "port", 9000))
+        elif protocol == 'wireguard':
+            bind_port = int(getattr(node, "port", 51820))  # WG default
+            logger.info("Starting in WireGuard compatibility mode (placeholder)")
+        elif protocol == 'openvpn':
+            bind_port = int(getattr(node, "port", 1194))  # OVPN default
+            logger.info("Starting in OpenVPN compatibility mode (placeholder)")
+        else:
+            bind_port = 9000
+
         proto_factory = lambda: _make_udp_protocol(node)
 
         # Bind explicit IPv4 transport first to ensure we have an AF_INET socket
@@ -5215,7 +5232,7 @@ async def main_loop(
             protocol = protocol or None
 
     except Exception as e:
-        logger.critical(f"Failed to bind UDP socket on {getattr(node,'host','')}:{getattr(node,'port','')}: {e}")
+        logger.critical(f"Failed to bind socket on {getattr(node,'host','')}:{bind_port}: {e}")
         # Clean up and exit
         try:
             if maintenance_task:
