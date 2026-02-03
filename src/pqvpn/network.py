@@ -12,6 +12,8 @@ from typing import Dict, Optional, Tuple, List, Any, Set
 from dataclasses import dataclass, field
 import logging
 
+logger = logging.getLogger(__name__)
+
 from .traffic_shaper import TrafficShaper
 from .anti_dpi import AntiDPI
 from .robustness import circuit_breaker, log_with_context, ErrorType

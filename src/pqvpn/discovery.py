@@ -74,7 +74,7 @@ class SecureDHT:
             raise RuntimeError("liboqs not available for PQ crypto")
 
         # Generate keypair if not provided
-        self.sig_alg.keypair()
+        self.sig_alg.generate_keypair()
         self.public_key = self.sig_alg.export_public_key()
 
     async def start(self, bootstrap_nodes: List[NodeInfo]):
