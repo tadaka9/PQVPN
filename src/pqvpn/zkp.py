@@ -8,9 +8,9 @@ import hashlib
 import hmac
 import logging
 import os
+from typing import NamedTuple
 
 from cryptography.hazmat.primitives.asymmetric import ec
-from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,6 @@ def authenticate_with_zkp(
 
 
 # Range Proofs for Bandwidth Verification
-
 
 
 class RangeProof(NamedTuple):
