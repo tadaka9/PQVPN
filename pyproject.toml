@@ -15,7 +15,7 @@ dependencies = [
   "cryptography>=40.0",
   "pydantic>=2.0",
   "ruamel.yaml>=0.17",
-  "oqs @ git+https://github.com/open-quantum-safe/liboqs-python.git",
+  "liboqs-python @ git+https://github.com/open-quantum-safe/liboqs-python.git",
 ]
 
 [project.urls]
