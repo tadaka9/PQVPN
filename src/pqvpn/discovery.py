@@ -349,6 +349,7 @@ class Discovery:
         self.enabled = self.config.get("enabled", True)
         self.dht = None
         self._started = False
+        self._server = None
 
     async def start(self):
         if not self.enabled:
