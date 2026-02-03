@@ -149,13 +149,7 @@ class Test2NodeIntegration:
                 if len(packet) > 10:
                     entropy = self.calculate_entropy(packet)
                     if entropy < 3.0:  # Low entropy might indicate patterns
-        freq = Counter(data)
-        length = len(data)
-        entropy = 0
-        for count in freq.values():
-            p = count / length
-            entropy -= p * (p.bit_length() - 1)  # Approximation
-        return entropy
+                        detected.append(f"low_entropy_{entropy:.1f}")
 
     @pytest.fixture
     def node_configs(self):

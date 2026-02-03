@@ -10,6 +10,7 @@ import logging
 import os
 
 from cryptography.hazmat.primitives.asymmetric import ec
+from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
 
