@@ -6,6 +6,7 @@ import sys
 
 sys.path.insert(0, ".")
 
+import argparse
 import asyncio
 import atexit
 import base64
@@ -16,100 +17,13 @@ import os
 import re
 import shutil
 import signal
+import struct
 import tempfile
 import time
-import argparse
-
-# Inlined config_schema.py (register as module 'config_schema')
-import types as _types
-import zlib
-from collections import defaultdict, deque
-from collections.abc import Iterable
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Optional, cast
-
-import yaml
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec, ed25519
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
 
 # Import modular components
+from pqvpn.config import ConfigModel, _HAS_PYDANTIC
 
-try:
-    # Start with the original logic from config_schema.py
-    try:
-        import importlib as _importlib
-
-        _pyd = _importlib.import_module("pydantic")
-        BaseModel = _pyd.BaseModel
-        Field = _pyd.Field
-        _HAS_PYDANTIC = True
-    except Exception:
-        # Lightweight fallback when pydantic not installed
-        class BaseModel:  # type: ignore
-            def __init__(self, **kwargs):
-                for k, v in kwargs.items():
-                    setattr(self, k, v)
-
-        def Field(default=None, **kwargs):  # type: ignore
-            return default
-
-        _HAS_PYDANTIC = False
-
-    class KDFConfig(BaseModel):
-        time_cost = Field(2)
-        memory_cost_kib = Field(65536)
-        parallelism = Field(4)
-
-    class SecurityConfig(BaseModel):
-        strict_sig_verify = Field(False)
-        tofu = Field(True)
-        strict_tofu = Field(False)
-        allowlist = Field(default_factory=list)
-        known_peers_file = Field("known_peers.yaml")
-        kdf = Field(default_factory=KDFConfig)
-        handshake_per_minute_per_ip = Field(10)
-        handshake_retries = Field(1)
-        handshake_backoff_base = Field(2.0)
-        handshake_backoff_factor = Field(2.0)
-
-    class NetworkConfig(BaseModel):
-        bind_host = Field("127.0.0.1")
-        listen_port = Field(9000)
-        max_concurrent_datagrams = Field(200)
-
-    class KeysConfig(BaseModel):
-        persist = Field(False)
-        dir = Field("keys")
-
-    class MetricsConfig(BaseModel):
-        enabled = Field(False)
-        host = Field("127.0.0.1")
-        port = Field(9100)
-
-    class PeerConfig(BaseModel):
-        nickname = Field("")
-
-    class ConfigModel(BaseModel):
-        peer = Field(PeerConfig())
-        network = Field(default_factory=NetworkConfig)
-        security = Field(default_factory=SecurityConfig)
-        keys = Field(default_factory=KeysConfig)
-        metrics = Field(default_factory=MetricsConfig)
-        bootstrap = Field(default_factory=list)
-        node = Field(default_factory=dict)
-
-    # register shim module so `from config_schema import ...` works
-    _config_module = _types.ModuleType("config_schema")
-    _config_module.ConfigModel = ConfigModel
-    _config_module._HAS_PYDANTIC = _HAS_PYDANTIC
-    _config_module.Field = Field
-    import sys as _sys
-
-    _sys.modules["config_schema"] = _config_module
-except Exception as e:
-    print(f"Warning: Config schema setup failed: {e}")
 
 
 # Inlined pqsig.py helpers (register as module 'pqsig')
@@ -1975,37 +1889,6 @@ class PQVPNNode:
             self.config = yaml.safe_load(f)
 
         # Optional runtime config validation via pydantic schema
-        try:
-            from config_schema import _HAS_PYDANTIC, ConfigModel
-
-            if _HAS_PYDANTIC:
-                try:
-                    cfgm = ConfigModel(**(self.config or {}))
-                    # replace config with validated values (as plain dict)
-                    try:
-                        if hasattr(cfgm, "dict") and callable(cfgm.dict):
-                            self.config = cfgm.dict()
-                        elif hasattr(cfgm, "json") and callable(cfgm.json):
-                            import json as _json
-
-                            j = cfgm.json()
-                            if isinstance(j, str):
-                                try:
-                                    self.config = _json.loads(j)
-                                except Exception:
-                                    pass
-                    except Exception:
-                        # If attribute shapes don't match, skip replacing config
-                        pass
-                except Exception as e:
-                    logger.critical(f"Configuration validation failed: {e}")
-                    raise
-            else:
-                logger.debug("Pydantic not available: skipping config schema validation")
-        except Exception:
-            # If config_schema import fails, continue with unvalidated config
-            pass
-
         # Ensure essential runtime registries are present early so
         # tests and error handlers can safely access them even if
         # later initialization steps fail.
@@ -3657,9 +3540,7 @@ class PQVPNNode:
                         reply["mldsa_sig"] = ""
 
                     final = json.dumps(reply, separators=(",", ":"), sort_keys=True).encode()
-                    frame = self.make_outer_frame(
-                        FT_HELLO, outer_next_hash or b"\x00" * 8, circuit_id, final
-                    )
+                    frame = self.make_outer_frame(FT_HELLO, outer_next_hash or b"\x00" * 8, circuit_id, final)
 
                     sent = False
                     try:
@@ -3994,7 +3875,7 @@ class PQVPNNode:
 
             if self.require_hybrid_handshake and not (verified_ed and verified_mldsa):
                 logger.warning(
-                    f"S1 signature policy: hybrid verification failed for session {sid_hex}"
+                    f"Rejecting non-hybrid S1 because require_hybrid_handshake={self.require_hybrid_handshake}"
                 )
                 return
 
@@ -4044,16 +3925,10 @@ class PQVPNNode:
 
                 parts.append(_lp(ss_pq or b""))
                 parts.append(_lp(ecdh_local or b""))
-                # include peer id canonical salt material
-                piden = peer_id or (bytes.fromhex(j.get("peerid")) if j.get("peerid") else b"")
-                parts.append(_lp(self.session_salt(piden)))
+                parts.append(_lp(self.session_salt(peer_id or b"")))
                 concat = b"".join(parts)
-                # use sid (session id) as salt if available
-                salt = (
-                    sid
-                    if "sid" in locals() and isinstance(sid, (bytes, bytearray))
-                    else os.urandom(16)
-                )
+                # use random salt (sid may be undefined here)
+                salt = os.urandom(16)
                 km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
             except Exception as e:
                 logger.error(f"S1 Argon2 KDF failed: {e}")
@@ -4078,297 +3953,6 @@ class PQVPNNode:
                     recv_key = hashlib.sha256(recv_key).digest()[:32]
             except Exception as e:
                 logger.error(f"S1 key split failed: {e}")
-                return
-
-            try:
-                sid = bytes.fromhex(sid_hex) if isinstance(sid_hex, str) else sid_hex
-            except Exception:
-                sid = sid_hex if isinstance(sid_hex, (bytes, bytearray)) else os.urandom(8)
-
-            sess = SessionInfo(
-                session_id=sid,
-                peer_id=peer_id or b"",
-                aead_send=ChaCha20Poly1305(send_key),
-                aead_recv=ChaCha20Poly1305(recv_key),
-                state=SESSION_STATE_ESTABLISHED,
-                remote_addr=addr,
-                send_key=send_key,
-                recv_key=recv_key,
-            )
-
-            self.sessions[sess.session_id] = sess
-            if sess.peer_id:
-                self.sessions_by_peer_id[sess.peer_id] = sess
-
-            logger.info(
-                f"Session {sess.session_id.hex()[:8]} established (initiator) with {sess.remote_addr}"
-            )
-
-            # cleanup pending
-            try:
-                del self.pending_handshakes[sid_hex]
-            except Exception:
-                pass
-
-            try:
-                self.analytics.metrics["handshakes_completed"] += 1
-            except Exception:
-                pass
-
-            # Send S2 reply to initiator to complete handshake
-            try:
-                try:
-                    xpub_hex = (
-                        cast(Any, self.brainpoolP512r1_pk)
-                        .public_bytes(
-                            encoding=serialization.Encoding.X962,
-                            format=serialization.PublicFormat.UncompressedPoint,
-                        )
-                        .hex()
-                    )
-                except Exception:
-                    xpub_hex = ""
-
-                s2 = {
-                    "peerid": self.my_id.hex() if self.my_id else "",
-                    "sessionid": sid.hex() if isinstance(sid, (bytes, bytearray)) else str(sid),
-                    "brainpoolP512r1_pk": xpub_hex,
-                    "ed25519_pk": self.ed25519_pk.hex() if self.ed25519_pk else "",
-                    "mldsa_pk": self.mldsa_pk.hex() if self.mldsa_pk else "",
-                    "timestamp": int(time.time()),
-                }
-                try:
-                    to_sign_s2 = canonical_sign_bytes(s2)
-                except Exception:
-                    to_sign_s2 = json.dumps(s2, separators=(",", ":")).encode()
-
-                try:
-                    edsig = self.ed25519_sk.sign(to_sign_s2)
-                    s2["ed25519_sig"] = edsig.hex()
-                except Exception:
-                    s2["ed25519_sig"] = ""
-
-                try:
-                    if getattr(self, "mldsa_sk", None):
-                        msig = pq_sig_sign(self.mldsa_sk, to_sign_s2)
-                        s2["mldsa_sig"] = msig.hex()
-                    else:
-                        s2["mldsa_sig"] = ""
-                except Exception:
-                    s2["mldsa_sig"] = ""
-
-                s2_bytes = json.dumps(s2, separators=(",", ":"), sort_keys=True).encode()
-                frame2 = self.make_outer_frame(
-                    FT_S2, outer_next_hash or b"\x00" * 8, circuit_id, s2_bytes
-                )
-
-                try:
-                    sent = self.send_to(frame2, addr)
-                    if sent:
-                        logger.info(f"FT_S2 sent to {addr} for session {sid.hex()[:8]}")
-                    else:
-                        logger.warning(
-                            f"Failed to send FT_S2 to {addr} for session {sid.hex()[:8]}"
-                        )
-                except Exception:
-                    logger.warning(f"Failed to send FT_S2 to {addr} for session {sid.hex()[:8]}")
-            except Exception:
-                logger.debug("Failed to construct/send S2 reply")
-
-            # cleanup pending
-            try:
-                del self.pending_handshakes[sid_hex]
-            except Exception:
-                pass
-
-            try:
-                self.analytics.metrics["handshakes_completed"] += 1
-            except Exception:
-                pass
-
-        except Exception:
-            logger.exception("handle_s1 unexpected error")
-
-    async def handle_s2(
-        self,
-        payload: bytes,
-        addr: tuple[str, int],
-        outer_next_hash: bytes | None = None,
-        circuit_id: int = 0,
-    ):
-        """Initiator handling of incoming FT_S2: verify responder signatures, derive
-        session keys from stored PQ shared secret and ECDH saved in pending_handshakes,
-        and create an established SessionInfo.
-        """
-        try:
-            try:
-                j = json.loads(payload)
-            except Exception:
-                try:
-                    j = yaml.safe_load(payload)
-                except Exception:
-                    logger.debug("S2 payload not JSON/YAML")
-                    return
-
-            sid_hex = j.get("sessionid")
-            if not sid_hex:
-                logger.warning("S2 missing sessionid")
-                return
-
-            # normalize peer id
-            peer_id = None
-            try:
-                pid_field = j.get("peerid")
-                if pid_field:
-                    if isinstance(pid_field, str) and all(
-                        c in "0123456789abcdefABCDEF" for c in pid_field
-                    ):
-                        peer_id = bytes.fromhex(pid_field)
-                    elif isinstance(pid_field, (bytes, bytearray)):
-                        peer_id = bytes(pid_field)
-                    else:
-                        peer_id = str(pid_field).encode()
-            except Exception:
-                peer_id = None
-
-            # Build canonical bytes for verification
-            try:
-                # Exclude signature fields when computing the bytes to verify so
-                # the verifier reproduces the exact pre-signing canonical bytes.
-                j_for_sig = dict(j)
-                j_for_sig.pop("ed25519_sig", None)
-                j_for_sig.pop("mldsa_sig", None)
-                to_sign = canonical_sign_bytes(j_for_sig)
-            except Exception:
-                try:
-                    j2 = dict(j)
-                    j2.pop("ed25519_sig", None)
-                    j2.pop("mldsa_sig", None)
-                    to_sign = json.dumps(j2, separators=(",", ":"), sort_keys=True).encode()
-                except Exception:
-                    to_sign = json.dumps(j, separators=(",", ":")).encode()
-
-            # Verify Ed25519
-            verified_ed = False
-            try:
-                ed_pk_field = j.get("ed25519_pk")
-                ed_sig_field = j.get("ed25519_sig")
-                if ed_pk_field and ed_sig_field:
-                    ed_pk = (
-                        bytes.fromhex(ed_pk_field) if isinstance(ed_pk_field, str) else ed_pk_field
-                    )
-                    edsig = (
-                        bytes.fromhex(ed_sig_field)
-                        if isinstance(ed_sig_field, str)
-                        and all(c in "0123456789abcdefABCDEF" for c in ed_sig_field)
-                        else (
-                            base64.b64decode(ed_sig_field)
-                            if isinstance(ed_sig_field, str)
-                            else ed_sig_field
-                        )
-                    )
-                    pub = ed25519.Ed25519PublicKey.from_public_bytes(ed_pk)
-                    pub.verify(edsig, to_sign)
-                    verified_ed = True
-            except Exception:
-                verified_ed = False
-
-            # Verify ML-DSA via pq_sig_verify (normalize mldsa pk)
-            verified_mldsa = False
-            try:
-                mld_pk_field = j.get("mldsa_pk")
-                mld_sig_field = j.get("mldsa_sig")
-                if mld_pk_field and mld_sig_field:
-                    try:
-                        if isinstance(mld_pk_field, (bytes, bytearray)):
-                            mld_pk = bytes(mld_pk_field)
-                        elif (
-                            isinstance(mld_pk_field, str)
-                            and all(c in "0123456789abcdefABCDEF" for c in mld_pk_field)
-                            and len(mld_pk_field) % 2 == 0
-                        ):
-                            mld_pk = bytes.fromhex(mld_pk_field)
-                        elif isinstance(mld_pk_field, str):
-                            try:
-                                mld_pk = base64.b64decode(mld_pk_field)
-                            except Exception:
-                                mld_pk = mld_pk_field.encode()
-                        else:
-                            mld_pk = None
-                    except Exception:
-                        mld_pk = None
-
-                    if mld_pk:
-                        verified_mldsa = pq_sig_verify(mld_pk, to_sign, mld_sig_field)
-                    else:
-                        verified_mldsa = False
-                else:
-                    verified_mldsa = False
-            except Exception:
-                verified_mldsa = False
-
-            if self.require_hybrid_handshake and not (verified_ed and verified_mldsa):
-                logger.warning(
-                    f"S2 signature policy: hybrid verification failed for session {sid_hex}"
-                )
-                return
-
-            # Find pending handshake
-            pending = self.pending_handshakes.get(sid_hex) or self.pending_handshakes.get(
-                sid_hex.lower()
-            )
-            if not pending:
-                # It's common in network tests to receive duplicate or out-of-order S2
-                # frames (for example if both sides attempt symmetric replies). Treat
-                # missing pending entry as non-fatal and log at DEBUG level to avoid
-                # alarming operators; return silently.
-                logger.debug(f"S2 for unknown pending handshake {sid_hex} - ignoring")
-                return
-
-            # Extract stored shared secrets
-            ss_pq = pending.get("ss_pq") or b""
-            ecdh_local = pending.get("ecdh") or b""
-
-            # Compose KDF material (length-prefixed) and derive keys using Argon2id
-            try:
-                parts = []
-
-                def _lp(b: bytes) -> bytes:
-                    return len(b).to_bytes(2, "big") + (b or b"")
-
-                parts.append(_lp(ss_pq or b""))
-                parts.append(_lp(ecdh_local or b""))
-                parts.append(_lp(self.session_salt(peer_id or b"")))
-                concat = b"".join(parts)
-                salt = (
-                    sid
-                    if "sid" in locals() and isinstance(sid, (bytes, bytearray))
-                    else os.urandom(16)
-                )
-                km = argon2_derive_key_material(concat, salt=salt, length=ARGON2_HASH_LEN)
-            except Exception as e:
-                logger.error(f"S2 Argon2 KDF failed: {e}")
-                return
-
-            # Split keys deterministically from Argon2 output
-            try:
-                if self.my_id and peer_id:
-                    if self.my_id <= peer_id:
-                        send_key = km[:32]
-                        recv_key = km[32:64]
-                    else:
-                        recv_key = km[:32]
-                        send_key = km[32:64]
-                else:
-                    send_key = km[:32]
-                    recv_key = km[32:64]
-
-                if len(send_key) != 32:
-                    send_key = hashlib.sha256(send_key).digest()[:32]
-                if len(recv_key) != 32:
-                    recv_key = hashlib.sha256(recv_key).digest()[:32]
-            except Exception as e:
-                logger.error(f"S2 key split failed: {e}")
                 return
 
             try:
@@ -4632,7 +4216,7 @@ class PQVPNNode:
                                 )
                                 if (
                                     self.protocol
-                                    and getattr(self.protocol, "transport", None)
+                                    and self.protocol.transport
                                     and sess.remote_addr
                                 ):
                                     try:
@@ -4823,6 +4407,19 @@ def _safe_serialize_private_key(key_obj) -> bytes:
             except Exception:
                 # Re-raise first error to preserve helpful message
                 raise e_pkcs8 from None
+
+
+# ============================================================================
+# TUN INTERFACE SETUP
+# ============================================================================
+
+try:
+    from pqvpn.tun import create_tun_interface, VpnRouter, check_tun_health
+    TUN_AVAILABLE = check_tun_health()
+except Exception:
+    TUN_AVAILABLE = False
+    create_tun_interface = None
+    VpnRouter = None
 
 
 # Appended CLI and main loop
@@ -5024,6 +4621,7 @@ async def main_loop(
     transport = None
     try:
         bind_host = getattr(node, "host", "0.0.0.0")
+        bind_port = 9000  # default
         if protocol == "pqvpn":
             bind_port = int(getattr(node, "port", 9000))
         elif protocol == "wireguard":
