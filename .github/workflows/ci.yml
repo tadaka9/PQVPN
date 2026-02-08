@@ -26,7 +26,7 @@ jobs:
 
       - name: Cache liboqs
         id: cache-liboqs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /usr/lib/liboqs*
           key: liboqs-0.15.0-${{ runner.os }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Cache liboqs
         id: cache-liboqs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /usr/lib/liboqs*
           key: liboqs-0.15.0-${{ runner.os }}-${{ matrix.python-version }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Cache liboqs
         id: cache-liboqs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /usr/lib/liboqs*
           key: liboqs-0.15.0-${{ runner.os }}
