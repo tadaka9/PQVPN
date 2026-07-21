@@ -169,7 +169,7 @@ PQVPN is released under the [MIT License](LICENSE).
 If PQVPN's open security research is useful to you, you can support continued
 development with Bitcoin.
 
-[**`bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`**](bitcoin:bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll)
+**`bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`**
 
 Verify the address in this repository before sending funds. Donations do not
 purchase support, guarantees, influence, or security assurances.
