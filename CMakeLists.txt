@@ -48,8 +48,14 @@ else()
   add_library(pqvpn_oqs_static STATIC IMPORTED GLOBAL)
   set_target_properties(pqvpn_oqs_static PROPERTIES
     IMPORTED_LOCATION "${LIBOQS_LIBRARY_DIRS}/liboqs.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${LIBOQS_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ssl;dl;pthread;crypto")
+    INTERFACE_INCLUDE_DIRECTORIES "${LIBOQS_INCLUDE_DIRS}")
+  if(APPLE)
+    set_property(TARGET pqvpn_oqs_static PROPERTY
+      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto")
+  else()
+    set_property(TARGET pqvpn_oqs_static PROPERTY
+      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ssl;dl;pthread;crypto")
+  endif()
 endif()
 
 set(CMAKE_CXX_STANDARD 23)
@@ -136,7 +142,13 @@ target_link_libraries(node_module_lib PUBLIC crypto_utils_lib ${PQVPN_COMMON_LIB
 
 set(PQVPN_NODE_SOURCES src/main.cpp)
 if(WIN32)
-  list(APPEND PQVPN_NODE_SOURCES src/platform/windows_tap.cpp)
+  list(APPEND PQVPN_NODE_SOURCES
+    src/platform/windows_tap.cpp
+    src/platform/windows_wintun.cpp)
+elseif(APPLE)
+  list(APPEND PQVPN_NODE_SOURCES src/platform/macos/network_extension_bridge.cpp)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  list(APPEND PQVPN_NODE_SOURCES src/platform/linux_tun.cpp)
 endif()
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
@@ -180,6 +192,7 @@ set(CATCH_TESTS
   test_node_peer_hash8
   test_node_session_salt
   test_node_check_and_record_nonce
+  test_tunnel_dataplane
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization

@@ -16,8 +16,10 @@
 #include <map>
 #include <fstream>
 #include <filesystem>
+#include <functional>
 #include <algorithm>
 #include <cctype>
+#include <span>
 #include <openssl/sha.h>
 #include "udp_protocol.hpp"
 #include "rekey_manager.hpp"
@@ -46,6 +48,8 @@ public:
  */
 class PQVPNNode : public std::enable_shared_from_this<PQVPNNode> {
 public:
+    using TunnelPacketHandler = std::function<void(std::vector<uint8_t>)>;
+    static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
     struct PeerInfo {
         std::vector<uint8_t> peer_id;
         bool is_relay = false;
@@ -146,6 +150,15 @@ public:
         const std::vector<uint8_t>& ml_kem_secret,
         const std::vector<uint8_t>& handshake_transcript,
         bool initiator);
+    void set_tunnel_packet_handler(TunnelPacketHandler handler) {
+        tunnel_packet_handler_ = std::move(handler);
+    }
+    std::optional<std::vector<uint8_t>> build_tunnel_datagram(
+        const std::vector<uint8_t>& peer_id,
+        std::span<const uint8_t> packet);
+    bool send_tunnel_packet(
+        const std::vector<uint8_t>& peer_id,
+        std::span<const uint8_t> packet);
 
     const std::string& config_path() const { return config_path_; }
 
@@ -200,6 +213,7 @@ public:
 
 private:
     std::string config_path_;
+    TunnelPacketHandler tunnel_packet_handler_;
 };
 
 } // namespace pqvpn
