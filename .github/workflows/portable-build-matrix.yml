@@ -1,0 +1,173 @@
+name: Portable compile matrix
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unix:
+    name: Compile ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            os: ubuntu-24.04
+            family: linux
+            expected_machine: x86-64
+          - target: linux-arm64
+            os: ubuntu-24.04-arm
+            family: linux
+            expected_machine: aarch64
+          - target: macos-x86_64
+            os: macos-15-intel
+            family: macos
+            expected_machine: x86_64
+          - target: macos-arm64
+            os: macos-15
+            family: macos
+            expected_machine: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Linux dependencies
+        if: matrix.family == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ninja-build pkg-config libssl-dev libargon2-dev
+          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
+          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
+          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+
+      - name: Install macOS dependencies
+        if: matrix.family == 'macos'
+        run: brew install ninja pkg-config openssl@3 argon2 liboqs
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [[ "${{ matrix.family }}" == macos ]]; then
+            export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix argon2)/lib/pkgconfig:$(brew --prefix liboqs)/lib/pkgconfig"
+            export CMAKE_PREFIX_PATH="$(brew --prefix openssl@3);$(brew --prefix argon2);$(brew --prefix liboqs)"
+          fi
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DPQVPN_BUILD_MONITOR=OFF
+
+      - name: Compile node
+        run: cmake --build build --target pqvpn_node --parallel 2
+
+      - name: Verify architecture and CLI startup
+        shell: bash
+        run: |
+          file build/pqvpn_node | tee binary-type.txt
+          grep -F "${{ matrix.expected_machine }}" binary-type.txt
+          build/pqvpn_node --help
+          if [[ "${{ matrix.family }}" == macos ]]; then
+            otool -L build/pqvpn_node | tee runtime-dependencies.txt
+          else
+            ldd build/pqvpn_node | tee runtime-dependencies.txt
+          fi
+
+      - name: Upload compile-only artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: compile-only-${{ matrix.target }}
+          path: |
+            build/pqvpn_node
+            binary-type.txt
+            runtime-dependencies.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Compile ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x86_64
+            os: windows-2025
+            triplet: x64-windows-static-md
+            expected_arch: x64
+          - target: windows-arm64
+            os: windows-11-arm
+            triplet: arm64-windows-static-md
+            expected_arch: ARM64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies with vcpkg
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install `
+            "openssl:${{ matrix.triplet }}" `
+            "argon2:${{ matrix.triplet }}" `
+            "liboqs:${{ matrix.triplet }}"
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_TESTING=OFF `
+            -DPQVPN_BUILD_MONITOR=OFF `
+            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_MANIFEST_MODE=OFF `
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
+
+      - name: Compile node
+        run: cmake --build build --target pqvpn_node --parallel 2
+
+      - name: Verify architecture and CLI startup
+        shell: pwsh
+        run: |
+          $headers = & dumpbin /headers build/pqvpn_node.exe | Out-String
+          $headers | Set-Content binary-headers.txt
+          if ($headers -notmatch '${{ matrix.expected_arch }}') {
+            throw 'Unexpected executable architecture'
+          }
+          build/pqvpn_node.exe --help
+          & dumpbin /dependents build/pqvpn_node.exe | Set-Content runtime-dependencies.txt
+
+      - name: Upload compile-only artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: compile-only-${{ matrix.target }}
+          path: |
+            build/pqvpn_node.exe
+            binary-headers.txt
+            runtime-dependencies.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  compile-matrix-complete:
+    name: Compile matrix complete (not release-qualified)
+    if: always()
+    needs: [unix, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every native compile
+        env:
+          UNIX_RESULT: ${{ needs.unix.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+        run: |
+          test "$UNIX_RESULT" = success
+          test "$WINDOWS_RESULT" = success
+          echo 'Compile-only artifacts are not functional VPN releases.'

@@ -1,0 +1,155 @@
+name: Publish qualified prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
+      evidence_run_id:
+        description: Successful Native functional release gates run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  attestations: read
+  contents: write
+
+concurrency:
+  group: publish-qualified-release
+  cancel-in-progress: false
+
+jobs:
+  validate-and-publish:
+    name: Validate all evidence and publish prerelease
+    runs-on: ubuntu-24.04
+    environment: release-publication
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Validate tag and trusted evidence run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.evidence_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          tag_sha="$(git rev-list -n 1 "$TAG")"
+          test -n "$tag_sha"
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          test "$(jq -r .path <<<"$run_json")" = ".github/workflows/functional-release-gates.yml"
+          test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
+          test "$(jq -r .status <<<"$run_json")" = completed
+          test "$(jq -r .conclusion <<<"$run_json")" = success
+          test "$(jq -r .head_repository.full_name <<<"$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r .head_sha <<<"$run_json")" = "$tag_sha"
+          echo "PQVPN_RELEASE_SHA=$tag_sha" >> "$GITHUB_ENV"
+
+      - name: Download every evidence and candidate artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.evidence_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence candidates release
+          targets=(
+            macos-arm64 macos-x86_64 windows-arm64 windows-x86_64
+            linux-arm64 linux-x86_64 appimage-arm64 appimage-x86_64
+            deb-arm64 deb-x86_64
+          )
+          for target in "${targets[@]}"; do
+            mkdir -p "evidence/$target" "candidates/$target"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name "functional-evidence-$target" --dir "evidence/$target"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name "release-candidate-$target" --dir "candidates/$target"
+          done
+
+      - name: Fail closed on incomplete functional evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          for directory in evidence/*; do
+            target="${directory##*/}"
+            test -s "$directory/evidence.json"
+            test -s "$directory/verification.log"
+            jq -e --arg target "$target" --arg sha "$PQVPN_RELEASE_SHA" '
+              .schema == 1 and .target == $target and .commit_sha == $sha and
+              .passed == true and .native_runner == true and
+              .privileged_tunnel_e2e == true and
+              .bidirectional_traffic == true and .route_dns_rollback == true and
+              .clean_install_upgrade_remove == true and
+              .architecture_verified == true and
+              .runtime_dependencies_verified == true and
+              .platform_signature_verified == true and
+              .provenance_verified == true
+            ' "$directory/evidence.json"
+          done
+
+      - name: Verify candidate count, type, and provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A pattern=(
+            [macos-arm64]='\.(pkg|dmg|tar\.gz)$'
+            [macos-x86_64]='\.(pkg|dmg|tar\.gz)$'
+            [windows-arm64]='\.(zip|msi)$'
+            [windows-x86_64]='\.(zip|msi)$'
+            [linux-arm64]='\.tar\.gz$'
+            [linux-x86_64]='\.tar\.gz$'
+            [appimage-arm64]='\.AppImage$'
+            [appimage-x86_64]='\.AppImage$'
+            [deb-arm64]='\.deb$'
+            [deb-x86_64]='\.deb$'
+          )
+          for target in "${!pattern[@]}"; do
+            mapfile -t files < <(find "candidates/$target" -maxdepth 1 -type f)
+            test "${#files[@]}" = 1
+            package="${files[0]}"
+            [[ "${package##*/}" =~ ${pattern[$target]} ]]
+            test -s "$package"
+            gh attestation verify "$package" --repo "$GITHUB_REPOSITORY"
+            cp "$package" "release/${package##*/}"
+          done
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" = 10
+
+      - name: Generate checksums
+        working-directory: release
+        run: sha256sum * | sort -k2 > SHA256SUMS
+
+      - name: Upload verified publication bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: verified-release-${{ inputs.tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create GitHub prerelease from verified bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to mutate it." >&2
+            exit 1
+          fi
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --generate-notes \
+            --title "PQVPN $TAG (experimental prerelease)"

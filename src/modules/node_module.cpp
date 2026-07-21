@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <limits>
 #include <optional>
 #include <openssl/evp.h>
 #include <sstream>
@@ -133,6 +134,77 @@ std::vector<uint8_t> encrypt_layer(
     }
     output.resize(written + final_written + 16);
     return output;
+}
+
+std::vector<uint8_t> tunnel_nonce(const std::vector<uint8_t>& iv, const uint64_t counter) {
+    if (iv.size() != 12 || counter == 0) {
+        throw std::invalid_argument("tunnel session has invalid nonce state");
+    }
+    std::vector<uint8_t> nonce(12);
+    std::copy_n(iv.begin(), 4, nonce.begin());
+    for (std::size_t index = 0; index < 8; ++index) {
+        nonce[4 + index] = static_cast<uint8_t>(counter >> (56 - index * 8));
+    }
+    return nonce;
+}
+
+std::vector<uint8_t> tunnel_encrypt(
+    const std::span<const uint8_t> plaintext,
+    const std::vector<uint8_t>& key,
+    const std::vector<uint8_t>& nonce,
+    const std::span<const uint8_t> aad) {
+    const EVP_CIPHER* cipher = key.size() == 16 ? EVP_aes_128_gcm() :
+        key.size() == 32 ? EVP_aes_256_gcm() : nullptr;
+    if (!cipher || nonce.size() != 12) throw std::invalid_argument("invalid tunnel AEAD material");
+    std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_free)> context(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+    if (!context) throw std::runtime_error("tunnel AEAD context allocation failed");
+
+    std::vector<uint8_t> output(plaintext.size() + 16);
+    int ignored = 0;
+    int written = 0;
+    int final_written = 0;
+    if (EVP_EncryptInit_ex(context.get(), cipher, nullptr, nullptr, nullptr) != 1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(nonce.size()), nullptr) != 1 ||
+        EVP_EncryptInit_ex(context.get(), nullptr, nullptr, key.data(), nonce.data()) != 1 ||
+        EVP_EncryptUpdate(context.get(), nullptr, &ignored, aad.data(), static_cast<int>(aad.size())) != 1 ||
+        EVP_EncryptUpdate(context.get(), output.data(), &written, plaintext.data(), static_cast<int>(plaintext.size())) != 1 ||
+        EVP_EncryptFinal_ex(context.get(), output.data() + written, &final_written) != 1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_GCM_GET_TAG, 16, output.data() + written + final_written) != 1) {
+        throw std::runtime_error("tunnel AEAD encryption failed");
+    }
+    output.resize(static_cast<std::size_t>(written + final_written) + 16);
+    return output;
+}
+
+std::optional<std::vector<uint8_t>> tunnel_decrypt(
+    const std::span<const uint8_t> ciphertext_and_tag,
+    const std::vector<uint8_t>& key,
+    const std::vector<uint8_t>& nonce,
+    const std::span<const uint8_t> aad) {
+    if (ciphertext_and_tag.size() < 16) return std::nullopt;
+    const EVP_CIPHER* cipher = key.size() == 16 ? EVP_aes_128_gcm() :
+        key.size() == 32 ? EVP_aes_256_gcm() : nullptr;
+    if (!cipher || nonce.size() != 12) return std::nullopt;
+    std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_free)> context(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+    if (!context) return std::nullopt;
+
+    const auto ciphertext_size = ciphertext_and_tag.size() - 16;
+    std::vector<uint8_t> plaintext(ciphertext_size);
+    int ignored = 0;
+    int written = 0;
+    int final_written = 0;
+    if (EVP_DecryptInit_ex(context.get(), cipher, nullptr, nullptr, nullptr) != 1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_GCM_SET_IVLEN, static_cast<int>(nonce.size()), nullptr) != 1 ||
+        EVP_DecryptInit_ex(context.get(), nullptr, nullptr, key.data(), nonce.data()) != 1 ||
+        EVP_DecryptUpdate(context.get(), nullptr, &ignored, aad.data(), static_cast<int>(aad.size())) != 1 ||
+        EVP_DecryptUpdate(context.get(), plaintext.data(), &written, ciphertext_and_tag.data(), static_cast<int>(ciphertext_size)) != 1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_GCM_SET_TAG, 16,
+            const_cast<uint8_t*>(ciphertext_and_tag.data() + ciphertext_size)) != 1 ||
+        EVP_DecryptFinal_ex(context.get(), plaintext.data() + written, &final_written) != 1) {
+        return std::nullopt;
+    }
+    plaintext.resize(static_cast<std::size_t>(written + final_written));
+    return plaintext;
 }
 
 } // namespace
@@ -294,7 +366,6 @@ asio::awaitable<void> PQVPNNode::session_maintenance() {
 asio::awaitable<void> PQVPNNode::datagram_received(
     std::vector<uint8_t> data,
     asio::ip::udp::endpoint endpoint) {
-    (void)endpoint;
     if (data.size() < 16 || data[0] != 1) {
         co_return;
     }
@@ -304,7 +375,87 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     if (payload_size != data.size() - 16) {
         co_return;
     }
+    if (data[1] != TUNNEL_DATA_FRAME || payload_size < 28) {
+        co_return;
+    }
+
+    const std::vector<uint8_t> session_hint(data.begin() + 2, data.begin() + 10);
+    std::shared_ptr<Session> session;
+    for (const auto& [peer_id, candidate] : sessions_by_peer_id) {
+        (void)peer_id;
+        if (!candidate || candidate->state != SessionState::ESTABLISHED ||
+            candidate->remote_addr != endpoint || candidate->session_id.size() < session_hint.size()) {
+            continue;
+        }
+        if (std::equal(session_hint.begin(), session_hint.end(), candidate->session_id.begin())) {
+            if (session) co_return; // Ambiguous truncated session identifier.
+            session = candidate;
+        }
+    }
+    if (!session || session->aead_recv_key.empty() || session->session_iv.size() != 12) {
+        co_return;
+    }
+
+    const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
+    const auto plaintext = tunnel_decrypt(
+        std::span<const uint8_t>(data).subspan(28),
+        session->aead_recv_key,
+        nonce,
+        std::span<const uint8_t>(data).first(16));
+    if (!plaintext || plaintext->empty() || !check_and_record_nonce(*session, nonce)) {
+        co_return;
+    }
+
+    session->bytes_recv += plaintext->size();
+    session->last_activity = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if (tunnel_packet_handler_) tunnel_packet_handler_(*plaintext);
     co_return;
+}
+
+std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_datagram(
+    const std::vector<uint8_t>& peer_id,
+    const std::span<const uint8_t> packet) {
+    if (packet.empty() || packet.size() > UINT16_MAX - 28) return std::nullopt;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->state != SessionState::ESTABLISHED ||
+        found->second->session_id.size() < 8 ||
+        found->second->aead_send_key.empty() ||
+        found->second->session_iv.size() != 12 ||
+        found->second->nonce_send == std::numeric_limits<uint64_t>::max()) {
+        return std::nullopt;
+    }
+
+    auto& session = *found->second;
+    const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
+    const std::vector<uint8_t> session_hint(session.session_id.begin(), session.session_id.begin() + 8);
+    const auto encrypted_size = packet.size() + 16;
+    const auto payload_size = nonce.size() + encrypted_size;
+    std::vector<uint8_t> reserved_payload(payload_size);
+    auto frame = encode_outer_frame(TUNNEL_DATA_FRAME, session_hint, 0, reserved_payload);
+    frame.resize(16);
+    const auto encrypted = tunnel_encrypt(packet, session.aead_send_key, nonce,
+        std::span<const uint8_t>(frame));
+    frame.insert(frame.end(), nonce.begin(), nonce.end());
+    frame.insert(frame.end(), encrypted.begin(), encrypted.end());
+    session.bytes_sent += packet.size();
+    session.last_activity = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    return frame;
+}
+
+bool PQVPNNode::send_tunnel_packet(
+    const std::vector<uint8_t>& peer_id,
+    const std::span<const uint8_t> packet) {
+    const auto datagram = build_tunnel_datagram(peer_id, packet);
+    if (!datagram || !transport) return false;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified()) return false;
+    asio::error_code error;
+    transport->send_to(asio::buffer(*datagram), found->second->remote_addr, 0, error);
+    return !error;
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::choose_relay(
