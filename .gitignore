@@ -1,0 +1,60 @@
+# CMake build trees and generated files
+/build/
+/build-*/
+/_deps/
+/CMakeFiles/
+/CMakeCache.txt
+/CTestTestfile.cmake
+/cmake_install.cmake
+/Makefile
+/Testing/
+/compile_commands.json
+
+# Compiled artifacts and release packages
+/bin/
+/dist/
+*.a
+*.dll
+*.dylib
+*.exe
+*.lib
+*.o
+*.obj
+*.pdb
+*.so
+*.zip
+
+# Runtime state and cryptographic material
+/keys/
+/keys.json
+/known_peers.json
+*.key
+*.p12
+*.pem
+*.pfx
+
+# Local configuration overrides
+/config.ini
+/config.yaml
+/test_config.ini
+.env
+.env.*
+!.env.example
+
+# Editor, operating-system, and cache files
+.DS_Store
+.idea/
+.qt/
+.vscode/
+*~
+*.swp
+*:Zone.Identifier
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local automation and agent state
+/.loop-engineering/
+/loop_engineering/
+/memory/
