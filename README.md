@@ -11,7 +11,7 @@ hybrid cryptography, resilient peer routing, and observable network defense.
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
-[![Tests: 60](https://img.shields.io/badge/tests-60%20passing-00d084?style=for-the-badge)](#verification-grid)
+[![Test suite](https://img.shields.io/badge/test%20suite-verified-00d084?style=for-the-badge)](#verification-grid)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#project-status)
 
 </div>
@@ -126,10 +126,9 @@ cmake --build build-test -j2
 ctest --test-dir build-test --output-on-failure -j2
 ```
 
-The canonical suite contains 60 tests, including loopback UDP dispatch,
-X25519 agreement, hybrid authentication, hybrid session installation,
-HKDF-SHA3-512 combination, ML-DSA-87 round trips, and the strict
-`pqvpn_hard_kernel` security gate.
+The canonical suite covers loopback UDP dispatch, X25519 agreement, hybrid
+authentication, hybrid session installation, HKDF-SHA3-512 combination,
+ML-DSA-87 round trips, and the strict `pqvpn_hard_kernel` security gate.
 
 A normal build or smoke-test does not imply that the hardening gate passes.
 Treat every future gate finding as a release blocker.
