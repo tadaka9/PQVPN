@@ -143,13 +143,20 @@ jobs:
         shell: pwsh
         run: |
           $binary = 'build/Release/pqvpn_node.exe'
-          $headers = & dumpbin /headers $binary | Out-String
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $visualStudio = & $vswhere -latest -products * -property installationPath
+          $dumpbin = Get-ChildItem "$visualStudio\VC\Tools\MSVC\*\bin\Host*\*\dumpbin.exe" |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $dumpbin) {
+            throw 'Could not locate dumpbin in the Visual Studio installation'
+          }
+          $headers = & $dumpbin /headers $binary | Out-String
           $headers | Set-Content binary-headers.txt
           if ($headers -notmatch '${{ matrix.expected_arch }}') {
             throw 'Unexpected executable architecture'
           }
           & $binary --help
-          & dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
+          & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
       - name: Upload compile-only artifact
         uses: actions/upload-artifact@v6
