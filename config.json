@@ -1,0 +1,17 @@
+{
+  "security": {
+    "strict_sig_verify": true,
+    "tofu": false,
+    "known_peers_file": "known_peers.json",
+    "allowlist": ["127.0.0.1"],
+    "kdf": {
+      "time_cost": 5,
+      "memory_cost_kib": 131072,
+      "parallelism": 8
+    }
+  },
+  "network": {
+    "port": 9090,
+    "bind_address": "127.0.0.1"
+  }
+}
