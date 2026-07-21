@@ -145,12 +145,14 @@ PQVPN/
 ├── external/               Required vendored single-header dependency
 ├── main.py                 Immutable behavioral reference
 ├── CMakeLists.txt          Build and test graph
-└── MIGRATION_MANIFEST.md   Source-derived parity ledger
+├── MIGRATION_MANIFEST.md   Source-derived parity ledger
+└── ROADMAP.md              Post-migration release work
 ```
 
-Read [`MIGRATE.md`](MIGRATE.md) for the roadmap,
-[`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence, and
-[`UPDATE.md`](UPDATE.md) for the verified engineering history.
+Read [`MIGRATE.md`](MIGRATE.md) for the completed migration summary,
+[`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence,
+[`ROADMAP.md`](ROADMAP.md) for remaining release work, and [`UPDATE.md`](UPDATE.md)
+for the verified engineering history.
 
 ## Contributing and security
 
