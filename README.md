@@ -1,73 +1,178 @@
+<div align="center">
+
+![PQVPN abstract post-quantum network topology](docs/assets/pqvpn-cyberpunk-banner.png)
+
 # PQVPN
 
-PQVPN is an experimental C++23 migration of the reference implementation in
-`main.py`. The command-line node can load and validate a configuration, run a
-smoke check, and start its signal-aware runtime loop.
+### PATHS CHANGE. KEYS ROTATE. THE GRID DOES NOT GET A VOTE.
+
+An experimental C++23, post-quantum VPN node built to explore fail-closed
+hybrid cryptography, resilient peer routing, and observable network defense.
+
+[![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
+[![Tests: 60](https://img.shields.io/badge/tests-60%20passing-00d084?style=for-the-badge)](#verification-grid)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#project-status)
+
+</div>
 
 > [!WARNING]
-> This project now passes its automated hardening gate, but it has not received
-> an independent security audit. Keep new deployments bound to localhost until
-> the protocol and implementation have been externally reviewed.
+> **PQVPN is experimental security software.** It passes the repository's
+> automated hardening gate, but it has not received an independent security
+> audit. Keep deployments bound to localhost until the protocol and
+> implementation have been externally reviewed.
+
+## Enter the tunnel
+
+The network outside is noisy, observable, and hostile by default. PQVPN is a
+migration of the immutable Python reference implementation in [`main.py`](main.py)
+to a modular C++23 node. It focuses on explicit trust boundaries, bounded
+network input, hybrid cryptography, replay resistance, key rotation, and a
+runtime that shuts down cleanly instead of failing open.
+
+This is an engineering project—not a claim of anonymity, production readiness,
+or immunity from traffic analysis.
+
+## Signal path
+
+```mermaid
+flowchart LR
+    A["Application traffic"] --> B["PQVPN node"]
+    B --> C["Hybrid handshake"]
+    C --> D["X25519 + ML-KEM-1024"]
+    C --> E["Ed25519 + ML-DSA-87"]
+    D --> F["HKDF-SHA3-512 session material"]
+    E --> F
+    F --> G["Encrypted UDP transport"]
+    G --> H["Peer / relay path"]
+    I["Replay, malformed input, or partial auth"] -. "fail closed" .-> X["Rejected"]
+    B -. "bounded parsing" .-> X
+
+    classDef node fill:#071522,stroke:#00e5ff,color:#dffcff,stroke-width:2px;
+    classDef crypto fill:#160b2e,stroke:#9b5cff,color:#f4eaff,stroke-width:2px;
+    classDef threat fill:#260711,stroke:#ff335f,color:#ffe5eb,stroke-width:2px;
+    class A,B,G,H node;
+    class C,D,E,F crypto;
+    class I,X threat;
+```
+
+## Cryptographic perimeter
+
+| Layer | Policy | Purpose |
+|---|---|---|
+| Authentication | Ed25519 **and** ML-DSA-87 | Both signatures cover the same SHA3-512 transcript digest. Partial authentication is rejected. |
+| Key establishment | X25519 **and** ML-KEM-1024 | Classical and post-quantum shared secrets are combined rather than selected as fallbacks. |
+| Derivation | HKDF-SHA3-512 | Produces role-separated send/receive keys, IV material, and a bound session identifier. |
+| Password KDF | Argon2id | Enforces salt requirements and fails closed on provider errors. |
+| Replay defense | Monotonic counters and bounded windows | Rejects malformed, duplicated, or stale nonce state. |
+
+## Project status
+
+The command-line node can load and validate configuration, run a smoke test,
+dispatch bounded UDP datagrams, establish hybrid sessions, and enter a
+signal-aware runtime loop. The optional Qt monitor and Windows TAP integration
+are present.
+
+The Windows TAP layer currently manages the adapter and media state. Automatic
+peer selection, route installation, full bidirectional frame forwarding, an
+independent audit, and broader deployment testing remain release blockers.
 
 ## Build on Ubuntu / WSL
 
-Required system packages include CMake 3.28+, Ninja, a C++23 compiler,
-OpenSSL, Argon2, pkg-config, and liboqs. The bundled CMake build downloads
-Asio and spdlog during its first configure.
+Install CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, pkg-config, and
+liboqs. CMake downloads pinned Asio and spdlog sources during the first
+configure.
 
 ```bash
-cd /home/dvx3/Workspace/Projects/PQVPN
+git clone https://github.com/tadaka9/PQVPN.git
+cd PQVPN
+
 cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=OFF
 cmake --build build --target pqvpn_node
 ```
 
-The Qt monitor is optional. Enable it with `-DPQVPN_BUILD_MONITOR=ON` and
-install the Qt 6 Core, Gui, Widgets, and Network development packages.
+Enable the optional monitor with `-DPQVPN_BUILD_MONITOR=ON` after installing
+the Qt 6 Core, Gui, Widgets, and Network development packages.
 
-## Windows x64 and TAP
+## Run the node
 
-The release bundle is produced with MinGW and keeps the C/C++ runtime static.
-Install a TAP-Windows6 adapter, then start the bundled `run-pqvpn.cmd` as an
-Administrator. The node auto-detects the first TAP adapter; pass
-`--tap-guid {GUID}` to select one or `--no-tap` for UDP-only operation.
-
-The current TAP integration manages the device and media state. Automatic
-peer selection, Windows route installation, and full bidirectional frame
-forwarding remain release blockers before this can be described as a complete
-end-user VPN.
-
-## Validate and run
-
-The checked-in `config.json` binds only to `127.0.0.1:9090`.
+The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
 
 ```bash
 ./build/pqvpn_node --smoke-test --config config.json
 ./build/pqvpn_node --config config.json
 ```
 
-Stop the runtime with Ctrl+C. Use `./build/pqvpn_node --help` for all command
-line options.
+Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
+available command-line options.
 
-## Tests and hardening
+## Windows x64 and TAP
+
+Build with the supplied [`mingw-toolchain.cmake`](mingw-toolchain.cmake),
+install a TAP-Windows6 adapter, and use
+[`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1) from an
+elevated PowerShell session. Pass `--tap-guid {GUID}` to select an adapter or
+`--no-tap` for UDP-only operation.
+
+## Verification grid
 
 ```bash
-cmake -S . -B build-test -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake -S . -B build-test -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_TESTING=ON
 cmake --build build-test -j2
 ctest --test-dir build-test --output-on-failure -j2
 ```
 
-`pqvpn_hard_kernel` is intentionally strict. A normal build or smoke-test pass
-does not imply the security gate passes; treat any future findings as release blockers.
-The cryptographic policy is hybrid and fail-closed:
-
-- Authentication: Ed25519 **and** ML-DSA-87 over the same SHA3-512 transcript digest.
-- Key establishment: X25519 **and** ML-KEM-1024 combined by HKDF-SHA3-512.
-- Session material: role-separated send/receive keys, IV, and session ID derived from the bound transcript.
-
-The current canonical suite contains 60 tests, including loopback UDP dispatch,
+The canonical suite contains 60 tests, including loopback UDP dispatch,
 X25519 agreement, hybrid authentication, hybrid session installation,
-the HKDF-SHA3-512 combiner, ML-DSA-87 round trips, and the hardening gate.
-The migration ledger and verified history live in `MIGRATION_MANIFEST.md`,
-`MIGRATE.md`, and `UPDATE.md`.
+HKDF-SHA3-512 combination, ML-DSA-87 round trips, and the strict
+`pqvpn_hard_kernel` security gate.
+
+A normal build or smoke-test does not imply that the hardening gate passes.
+Treat every future gate finding as a release blocker.
+
+## Repository map
+
+```text
+PQVPN/
+├── src/                    C++23 node, modules, monitor, and platform code
+├── include/                Public project headers
+├── tests/                  Unit, integration, and parity tests
+├── tools/                  Hardening and security validation
+├── scripts/windows/        Windows TAP setup
+├── external/               Required vendored single-header dependency
+├── main.py                 Immutable behavioral reference
+├── CMakeLists.txt          Build and test graph
+└── MIGRATION_MANIFEST.md   Source-derived parity ledger
+```
+
+Read [`MIGRATE.md`](MIGRATE.md) for the roadmap,
+[`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence, and
+[`UPDATE.md`](UPDATE.md) for the verified engineering history.
+
+## Contributing and security
+
+Contributions are welcome through focused pull requests. Start with
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Report suspected vulnerabilities privately
+according to [`SECURITY.md`](SECURITY.md)—never in a public issue.
+
+PQVPN is released under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+## Fuel the resistance with Bitcoin
+
+If PQVPN's open security research is useful to you, you can support continued
+development with Bitcoin.
+
+[**`bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`**](bitcoin:bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll)
+
+Verify the address in this repository before sending funds. Donations do not
+purchase support, guarantees, influence, or security assurances.
+
+</div>
