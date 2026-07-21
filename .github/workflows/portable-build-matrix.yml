@@ -104,11 +104,13 @@ jobs:
             os: windows-2025
             triplet: x64-windows
             architecture: x64
+            generator: Visual Studio 18 2026
             expected_arch: x64
           - target: windows-arm64
             os: windows-11-arm
             triplet: arm64-windows
             architecture: ARM64
+            generator: Visual Studio 17 2022
             expected_arch: ARM64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -126,7 +128,7 @@ jobs:
       - name: Configure
         shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 18 2026" `
+          cmake -S . -B build -G "${{ matrix.generator }}" `
             -A ${{ matrix.architecture }} `
             -DBUILD_TESTING=OFF `
             -DPQVPN_BUILD_MONITOR=OFF `
