@@ -48,8 +48,14 @@ else()
   add_library(pqvpn_oqs_static STATIC IMPORTED GLOBAL)
   set_target_properties(pqvpn_oqs_static PROPERTIES
     IMPORTED_LOCATION "${LIBOQS_LIBRARY_DIRS}/liboqs.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${LIBOQS_INCLUDE_DIRS}"
-    INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ssl;dl;pthread;crypto")
+    INTERFACE_INCLUDE_DIRECTORIES "${LIBOQS_INCLUDE_DIRS}")
+  if(APPLE)
+    set_property(TARGET pqvpn_oqs_static PROPERTY
+      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto")
+  else()
+    set_property(TARGET pqvpn_oqs_static PROPERTY
+      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ssl;dl;pthread;crypto")
+  endif()
 endif()
 
 set(CMAKE_CXX_STANDARD 23)

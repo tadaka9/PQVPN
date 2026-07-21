@@ -102,11 +102,11 @@ jobs:
         include:
           - target: windows-x86_64
             os: windows-2025
-            triplet: x64-windows-static-md
+            triplet: x64-windows
             expected_arch: x64
           - target: windows-arm64
             os: windows-11-arm
-            triplet: arm64-windows-static-md
+            triplet: arm64-windows
             expected_arch: ARM64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
