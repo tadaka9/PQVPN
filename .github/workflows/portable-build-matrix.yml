@@ -103,10 +103,12 @@ jobs:
           - target: windows-x86_64
             os: windows-2025
             triplet: x64-windows
+            architecture: x64
             expected_arch: x64
           - target: windows-arm64
             os: windows-11-arm
             triplet: arm64-windows
+            architecture: ARM64
             expected_arch: ARM64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -124,8 +126,8 @@ jobs:
       - name: Configure
         shell: pwsh
         run: |
-          cmake -S . -B build -G Ninja `
-            -DCMAKE_BUILD_TYPE=Release `
+          cmake -S . -B build -G "Visual Studio 18 2026" `
+            -A ${{ matrix.architecture }} `
             -DBUILD_TESTING=OFF `
             -DPQVPN_BUILD_MONITOR=OFF `
             "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
@@ -133,25 +135,27 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
 
       - name: Compile node
-        run: cmake --build build --target pqvpn_node --parallel 2
+        run: cmake --build build --config Release --target pqvpn_node --parallel 2
 
       - name: Verify architecture and CLI startup
         shell: pwsh
         run: |
-          $headers = & dumpbin /headers build/pqvpn_node.exe | Out-String
+          $binary = 'build/Release/pqvpn_node.exe'
+          $headers = & dumpbin /headers $binary | Out-String
           $headers | Set-Content binary-headers.txt
           if ($headers -notmatch '${{ matrix.expected_arch }}') {
             throw 'Unexpected executable architecture'
           }
-          build/pqvpn_node.exe --help
-          & dumpbin /dependents build/pqvpn_node.exe | Set-Content runtime-dependencies.txt
+          & $binary --help
+          & dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
       - name: Upload compile-only artifact
         uses: actions/upload-artifact@v6
         with:
           name: compile-only-${{ matrix.target }}
           path: |
-            build/pqvpn_node.exe
+            build/Release/pqvpn_node.exe
+            build/Release/*.dll
             binary-headers.txt
             runtime-dependencies.txt
           if-no-files-found: error
