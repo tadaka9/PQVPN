@@ -113,7 +113,9 @@ target_link_libraries(crypto_utils_lib PRIVATE pqvpn_oqs_static OpenSSL::Crypto 
 # Build crypto signature library
 add_library(crypto_signature_lib src/crypto_signature.cpp)
 target_include_directories(crypto_signature_lib PRIVATE ${PQVPN_INCLUDE_DIRS})
-target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib OpenSSL::Crypto spdlog::spdlog)
+# crypto_signature.cpp includes oqs/oqs.h directly; link the OQS interface so
+# its include directories propagate (crypto_utils_lib links it privately).
+target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib pqvpn_oqs_static OpenSSL::Crypto spdlog::spdlog)
 
 # Build KEM module
 add_library(crypto_kem_lib src/modules/crypto_kem.cpp)
@@ -153,6 +155,22 @@ endif()
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
+
+# MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
+# the binaries so the loader finds them without a modified PATH (every target
+# in this project is placed in CMAKE_BINARY_DIR).
+if(WIN32 AND TARGET OQS::oqs)
+  get_target_property(PQVPN_OQS_DLL OQS::oqs IMPORTED_LOCATION_RELEASE)
+  if(NOT PQVPN_OQS_DLL OR NOT EXISTS "${PQVPN_OQS_DLL}")
+    get_target_property(PQVPN_OQS_DLL OQS::oqs IMPORTED_LOCATION)
+  endif()
+  if(PQVPN_OQS_DLL AND EXISTS "${PQVPN_OQS_DLL}")
+    add_custom_command(TARGET pqvpn_node POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${PQVPN_OQS_DLL}" "$<TARGET_FILE_DIR:pqvpn_node>"
+      COMMENT "Placing oqs.dll next to the PQVPN binaries")
+  endif()
+endif()
 
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)

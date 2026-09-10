@@ -49,7 +49,10 @@ public:
 class PQVPNNode : public std::enable_shared_from_this<PQVPNNode> {
 public:
     using TunnelPacketHandler = std::function<void(std::vector<uint8_t>)>;
+    // Frame types (main.py FT_* constants).
+    static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
+    static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
     struct PeerInfo {
         std::vector<uint8_t> peer_id;
         bool is_relay = false;
@@ -203,6 +206,19 @@ public:
     bool register_peer_tofu(const std::vector<uint8_t>& peer_id, const std::map<std::string, std::string>& info);
     std::optional<std::vector<uint8_t>> choose_relay(const std::vector<uint8_t>& dest_peer_id);
     asio::awaitable<bool> send_onion(const std::vector<std::vector<uint8_t>>& path, const std::vector<uint8_t>& inner_frame);
+
+    // Decrypts one onion RELAY layer and either forwards the peeled content to
+    // the next hop or delivers it locally. Wire format per layer (main.py):
+    //   outer frame [1][RELAY_FRAME][next_hash(8)][circuit_id(4 BE)][len(2 BE)]
+    //   payload     = session_hint(8) + nonce(12) + ciphertext+tag
+    // The AEAD AAD is "PQVPN" + full session id + the 8-byte identity hash of
+    // the node that peels this layer + circuit_id (4 BE).
+    asio::awaitable<bool> handle_relay(
+        const std::vector<uint8_t>& session_hint,
+        const std::vector<uint8_t>& nonce,
+        const std::vector<uint8_t>& ciphertext_and_tag,
+        const std::vector<uint8_t>& outer_next_hash,
+        uint32_t circuit_id);
 
     // New Gossip Update Handler
     void handle_gossip_update(const std::vector<uint8_t>& peer_id, const std::string& nickname, bool is_relay);
