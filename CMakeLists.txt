@@ -211,6 +211,7 @@ set(CATCH_TESTS
   test_node_session_salt
   test_node_check_and_record_nonce
   test_tunnel_dataplane
+  test_tunnel_forward
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization

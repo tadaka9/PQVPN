@@ -480,6 +480,42 @@ bool PQVPNNode::send_tunnel_packet(
     return !error;
 }
 
+std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
+    const std::vector<uint8_t>* best = nullptr;
+    double best_activity = 0.0;
+    for (const auto& [peer_id, session] : sessions_by_peer_id) {
+        if (!session || session->state != SessionState::ESTABLISHED) continue;
+        if (session->remote_addr.address().is_unspecified()) continue;
+        const bool better = best == nullptr
+            ? true
+            : session->last_activity > best_activity
+              || (session->last_activity == best_activity && peer_id < *best);
+        if (better) {
+            best = &peer_id;
+            best_activity = session->last_activity;
+        }
+    }
+    return best ? std::optional<std::vector<uint8_t>>(*best) : std::nullopt;
+}
+
+asio::awaitable<bool> PQVPNNode::forward_adapter_packet(std::vector<uint8_t> packet) {
+    if (packet.empty() || !transport) co_return false;
+    const auto peer = select_tunnel_peer();
+    if (!peer) co_return false;
+    const auto datagram = build_tunnel_datagram(*peer, std::span<const uint8_t>(packet));
+    if (!datagram) co_return false;
+    const auto found = sessions_by_peer_id.find(*peer);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified()) {
+        co_return false;
+    }
+    // Posted send on the io_context: the adapter reader thread must not touch
+    // the Asio socket directly (see post_udp_send).
+    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*datagram));
+    const auto endpoint = found->second->remote_addr;
+    co_return co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
+}
+
 std::optional<std::vector<uint8_t>> PQVPNNode::choose_relay(
     const std::vector<uint8_t>& destination) {
     std::vector<const PeerInfo*> candidates;

@@ -169,8 +169,18 @@ int main(int argc, char** argv) {
     if (!args.no_tap) {
         try {
             tap = std::make_unique<pqvpn::platform::WindowsTap>();
-            tap->open(args.tap_guid, [](std::vector<uint8_t>) {
-                // Frames are accepted once peer routing selects a negotiated session.
+            tap->open(args.tap_guid, [node](std::vector<uint8_t> frame) {
+                // Adapter -> tunnel: forward to the selected established session.
+                asio::co_spawn(node->get_io_context(),
+                    node->forward_adapter_packet(std::move(frame)), asio::detached);
+            });
+            node->set_tunnel_packet_handler([tap = tap.get()](std::vector<uint8_t> frame) {
+                // Tunnel -> adapter. The adapter may already be closed during
+                // shutdown; drop the frame instead of unwinding the coroutine.
+                try {
+                    tap->write(frame);
+                } catch (const std::exception&) {
+                }
             });
             std::cout << "TAP-Windows adapter active: " << tap->guid() << "\n";
         } catch (const std::exception& error) {

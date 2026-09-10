@@ -163,6 +163,18 @@ public:
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);
 
+    // Automatic peer selection for adapter-originated traffic (TAP data path):
+    // among ESTABLISHED sessions with a routable remote address, the most
+    // recently active session carries the packet; ties resolve to the
+    // lexicographically smallest peer id so the choice is deterministic.
+    std::optional<std::vector<uint8_t>> select_tunnel_peer() const;
+
+    // Forwards one adapter-originated packet through the selected tunnel
+    // session. Runs on the io_context with a posted send, so it is safe to
+    // invoke from the adapter reader thread (see post_udp_send). Returns false
+    // when no established session can carry the packet.
+    asio::awaitable<bool> forward_adapter_packet(std::vector<uint8_t> packet);
+
     const std::string& config_path() const { return config_path_; }
 
     std::string my_id_str;
