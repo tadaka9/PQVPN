@@ -159,18 +159,28 @@ target_link_libraries(pqvpn_node PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
 # MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
 # the binaries so the loader finds them without a modified PATH (every target
 # in this project is placed in CMAKE_BINARY_DIR).
+set(PQVPN_OQS_DLL_PATH "")
 if(WIN32 AND TARGET OQS::oqs)
-  get_target_property(PQVPN_OQS_DLL OQS::oqs IMPORTED_LOCATION_RELEASE)
-  if(NOT PQVPN_OQS_DLL OR NOT EXISTS "${PQVPN_OQS_DLL}")
-    get_target_property(PQVPN_OQS_DLL OQS::oqs IMPORTED_LOCATION)
+  get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION_RELEASE)
+  if(NOT _pqvpn_oqs_dll OR NOT EXISTS "${_pqvpn_oqs_dll}")
+    get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION)
   endif()
-  if(PQVPN_OQS_DLL AND EXISTS "${PQVPN_OQS_DLL}")
-    add_custom_command(TARGET pqvpn_node POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${PQVPN_OQS_DLL}" "$<TARGET_FILE_DIR:pqvpn_node>"
-      COMMENT "Placing oqs.dll next to the PQVPN binaries")
+  if(_pqvpn_oqs_dll AND EXISTS "${_pqvpn_oqs_dll}")
+    set(PQVPN_OQS_DLL_PATH "${_pqvpn_oqs_dll}")
   endif()
 endif()
+
+function(pqvpn_attach_oqs_runtime target)
+  if(NOT PQVPN_OQS_DLL_PATH)
+    return()
+  endif()
+  add_custom_command(TARGET ${target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PQVPN_OQS_DLL_PATH}" "$<TARGET_FILE_DIR:${target}>"
+    COMMENT "Placing oqs.dll next to the PQVPN binaries")
+endfunction()
+
+pqvpn_attach_oqs_runtime(pqvpn_node)
 
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -259,6 +269,7 @@ foreach(target IN LISTS CATCH_TESTS)
   elseif(target STREQUAL "test_crypto_signature_verify")
     target_link_libraries(${target} PRIVATE crypto_signature_lib)
   endif()
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
@@ -266,6 +277,7 @@ foreach(target IN LISTS GTEST_TESTS)
   add_executable(${target} tests/${target}.cpp)
   target_include_directories(${target} PRIVATE ${PQVPN_INCLUDE_DIRS})
   target_link_libraries(${target} PRIVATE GTest::gtest_main node_module_lib ${PQVPN_COMMON_LIBS})
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
@@ -284,6 +296,7 @@ if(PQVPN_BUILD_LEGACY_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_s
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
   )
   target_link_libraries(test_send_to PRIVATE node_module_lib crypto_signature_lib GTest::gtest_main ${PQVPN_COMMON_LIBS})
+  pqvpn_attach_oqs_runtime(test_send_to)
   add_test(NAME test_send_to COMMAND test_send_to)
 endif()
 

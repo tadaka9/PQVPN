@@ -821,14 +821,17 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     // it peels; the builder binds the same value into the AAD.
     if (outer_next_hash != self_hash) co_return false;
 
-    // Replay defense: monotonic counter with bounded window (main.py parity).
-    if (!check_and_record_nonce(sess, nonce)) co_return false;
-
     const auto aad = relay_aad(sess.session_id, self_hash, circuit_id);
     const auto plaintext = tunnel_decrypt(
         std::span<const uint8_t>(ciphertext_and_tag), sess.aead_recv_key, nonce,
         std::span<const uint8_t>(aad));
     if (!plaintext || plaintext->size() < 9) co_return false; // nexth(8) + >=1 content byte
+
+    // Replay defense: monotonic counter with bounded window (main.py parity).
+    // Recorded only after authentication succeeds, so an invalid-tag packet
+    // cannot advance the replay window and evict a legitimate nonce (same
+    // order as the tunnel data path in datagram_received).
+    if (!check_and_record_nonce(sess, nonce)) co_return false;
 
     const auto next_hash = std::vector<uint8_t>(plaintext->begin(), plaintext->begin() + 8);
     const auto inner_frame = std::vector<uint8_t>(plaintext->begin() + 8, plaintext->end());
@@ -845,22 +848,31 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         // closed, as the reference leaves that dispatch unfinished.
         uint8_t frame_type = 0;
         std::vector<uint8_t> body;
+        bool headered = false;
         if (inner_frame.size() >= 16 && inner_frame[0] == 1) {
             frame_type = inner_frame[1];
             const auto length = static_cast<std::size_t>(
                 (static_cast<uint16_t>(inner_frame[14]) << 8) | inner_frame[15]);
             if (16 + length > inner_frame.size()) co_return false;
             body.assign(inner_frame.begin() + 16, inner_frame.begin() + 16 + length);
+            headered = true;
         } else {
-            // main.py fallback shape: type byte followed by raw payload.
+            // main.py fallback shape: type byte followed by raw payload. The
+            // tunnel data layout requires the 16-byte header, so this branch
+            // can never be delivered below.
             if (inner_frame.empty()) co_return false;
             frame_type = inner_frame[0];
             body.assign(inner_frame.begin() + 1, inner_frame.end());
         }
 
+        // Only the tunnel data layout built by build_tunnel_datagram is
+        // accepted: headered TUNNEL_DATA_FRAME with nonce(12) + ciphertext+tag.
+        // main.py's FT_DATA body carries its own session id first and this
+        // codebase has no builder for that shape, so it fails closed. The body
+        // length (not the frame size) bounds every slice taken below.
         const bool deliverable_data =
-            (frame_type == DATA_FRAME || frame_type == TUNNEL_DATA_FRAME) &&
-            tunnel_packet_handler_ && inner_frame.size() >= 16 + 12 + 16;
+            headered && frame_type == TUNNEL_DATA_FRAME && tunnel_packet_handler_ &&
+            body.size() >= 12 + 16;
         if (!deliverable_data) co_return false;
 
         // The inner data frame carries its own session hint in the header

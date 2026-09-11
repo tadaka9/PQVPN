@@ -91,6 +91,9 @@ struct RelayChain {
                 }
             });
         io.run();
+        // Restart the context: asio stops it once the work queue drains, and a
+        // later co_spawn + run() on a stopped context would never execute.
+        io.restart();
         EXPECT_FALSE(failure);
         return accepted;
     }
@@ -282,4 +285,58 @@ TEST(HandleRelay, LocalDeliveryFailsClosedWithoutAPacketSink) {
     bool delivered = false;
     EXPECT_FALSE(chain.run_relay(chain.relay, layer));
     EXPECT_FALSE(delivered);
+}
+
+TEST(HandleRelay, LocalDeliveryRejectsShortDeclaredBody) {
+    RelayChain chain;
+    // Inner frame with a valid 16-byte header that declares only a 4-byte body,
+    // followed by trailing bytes so the whole frame looks large enough to hold
+    // nonce(12) + tag(16). The declared body length must bound every slice.
+    std::vector<uint8_t> inner(16, 0);
+    inner[0] = 1;                                    // version
+    inner[1] = pqvpn::PQVPNNode::TUNNEL_DATA_FRAME;  // type
+    const auto hint = chain.relay.sessions_by_peer_id.at(chain.source_id)->session_id;
+    std::copy(hint.begin(), hint.begin() + 8, inner.begin() + 2);
+    inner[15] = 4;                                   // declared body length
+    inner.insert(inner.end(), 32, 0xAB);             // trailing bytes
+
+    const auto onion = chain.source.build_onion_frame_with_circuit(
+        {chain.relay_id, chain.relay_id}, inner, 0);
+    ASSERT_TRUE(onion.has_value());
+    const auto layer = chain.split_outer_frame(*onion);
+
+    std::vector<uint8_t> captured;
+    chain.relay.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+        captured = std::move(p);
+    });
+
+    EXPECT_FALSE(chain.run_relay(chain.relay, layer));
+    EXPECT_TRUE(captured.empty());
+}
+
+TEST(HandleRelay, LocalDeliveryRejectsDataFramesWithForeignLayout) {
+    RelayChain chain;
+    // main.py's FT_DATA body carries its own session id first; this codebase
+    // has no builder for that shape, so a type-3 inner frame must be rejected
+    // by policy even when it is well-formed and long enough.
+    std::vector<uint8_t> inner(16 + 28, 0x5A);
+    inner[0] = 1;                            // version
+    inner[1] = pqvpn::PQVPNNode::DATA_FRAME; // FT_DATA per main.py constants
+    const auto hint = chain.relay.sessions_by_peer_id.at(chain.source_id)->session_id;
+    std::copy(hint.begin(), hint.begin() + 8, inner.begin() + 2);
+    inner[14] = 0;
+    inner[15] = 28;                          // declared body length
+
+    const auto onion = chain.source.build_onion_frame_with_circuit(
+        {chain.relay_id, chain.relay_id}, inner, 0);
+    ASSERT_TRUE(onion.has_value());
+    const auto layer = chain.split_outer_frame(*onion);
+
+    std::vector<uint8_t> captured;
+    chain.relay.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+        captured = std::move(p);
+    });
+
+    EXPECT_FALSE(chain.run_relay(chain.relay, layer));
+    EXPECT_TRUE(captured.empty());
 }

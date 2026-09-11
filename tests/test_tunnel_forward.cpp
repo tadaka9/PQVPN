@@ -41,6 +41,9 @@ struct ForwardPair {
                 }
             });
         io.run();
+        // Restart the context: asio stops it once the work queue drains, and a
+        // later co_spawn + run() on a stopped context would never execute.
+        io.restart();
         REQUIRE_FALSE(failure);
         return result;
     }
