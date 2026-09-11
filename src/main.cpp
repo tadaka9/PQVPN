@@ -7,8 +7,11 @@
 #include <string>
 
 #ifdef _WIN32
+#include "platform/windows_routes.hpp"
 #include "platform/windows_tap.hpp"
 #endif
+
+#include "routing/route_transaction.hpp"
 
 #include "config_module.hpp"
 #include "logging_module.hpp"
@@ -166,6 +169,8 @@ int main(int argc, char** argv) {
 
 #ifdef _WIN32
     std::unique_ptr<pqvpn::platform::WindowsTap> tap;
+    pqvpn::routing::RouteTransaction route_plan;
+    pqvpn::platform::WindowsRouteBackend route_backend;
     if (!args.no_tap) {
         try {
             tap = std::make_unique<pqvpn::platform::WindowsTap>();
@@ -183,6 +188,28 @@ int main(int argc, char** argv) {
                 }
             });
             std::cout << "TAP-Windows adapter active: " << tap->guid() << "\n";
+
+            // Route traffic through the adapter only when it actually has an
+            // IPv4 address; otherwise a default route would blackhole. The row
+            // uses the Windows default-route convention: destination 0.0.0.0
+            // with an all-ones mask and the adapter address as next hop.
+            if (const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid())) {
+                route_plan.add(pqvpn::routing::RouteEntry{
+                    asio::ip::make_address_v4("0.0.0.0"), 32,
+                    adapter_route->ipv4, adapter_route->interface_index});
+            } else {
+                std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";
+            }
+
+            if (!route_plan.empty()) {
+                const auto report = route_plan.commit(route_backend);
+                if (report.committed) {
+                    std::cout << "default route installed through the TAP-Windows adapter\n";
+                } else {
+                    std::cerr << "route installation failed (" << report.error
+                              << "); continuing without VPN routes\n";
+                }
+            }
         } catch (const std::exception& error) {
             std::cerr << "TAP initialization failed: " << error.what() << "\n";
             listener.stop();
@@ -194,7 +221,15 @@ int main(int argc, char** argv) {
     asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait([&](const asio::error_code&, int) {
 #ifdef _WIN32
-        if (tap) tap->close();
+        if (tap) {
+            // Remove the installed routes before taking the adapter down;
+            // removal is idempotent, so this is safe even on partial installs.
+            const auto removal = route_plan.remove_all(route_backend);
+            if (!removal.complete) {
+                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
+            }
+            tap->close();
+        }
 #endif
         node->transport = nullptr;
         listener.stop();

@@ -138,7 +138,8 @@ endif()
 # ... (rest of the file)
 
 # Build node module as a library first
-add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp)
+add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
+  src/routing/route_transaction.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(node_module_lib PUBLIC crypto_utils_lib ${PQVPN_COMMON_LIBS})
 
@@ -146,7 +147,8 @@ set(PQVPN_NODE_SOURCES src/main.cpp)
 if(WIN32)
   list(APPEND PQVPN_NODE_SOURCES
     src/platform/windows_tap.cpp
-    src/platform/windows_wintun.cpp)
+    src/platform/windows_wintun.cpp
+    src/platform/windows_routes.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_NODE_SOURCES src/platform/macos/network_extension_bridge.cpp)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -222,6 +224,7 @@ set(CATCH_TESTS
   test_node_check_and_record_nonce
   test_tunnel_dataplane
   test_tunnel_forward
+  test_route_transaction
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization
