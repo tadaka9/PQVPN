@@ -602,13 +602,13 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
     const std::vector<std::vector<uint8_t>>& path,
     const std::vector<uint8_t>& inner_frame,
     const uint32_t circuit_id) {
-    // An onion needs at least two path elements: path[0] peels the outermost
-    // layer and forwards to path[1]. main.py accepts a one-element path but
-    // then emits a RELAY frame whose payload is raw content, which its own
-    // receive path (session hint + nonce + ciphertext) can never deliver. This
-    // builder fails closed instead; direct delivery uses build_tunnel_datagram.
-    // Recorded as a documented deviation in MIGRATION_MANIFEST.md.
-    if (path.size() < 2) return std::nullopt;
+    // main.py accepts any non-empty path. For a one-element path the
+    // encryption loop never runs and the builder emits a RELAY frame addressed
+    // to path[0] whose payload is raw content (main.py:3266-3359); neither
+    // implementation's receive path can deliver such a layer, so this shape
+    // exists for contract parity only. Direct delivery uses
+    // build_tunnel_datagram; multi-hop onions use the encrypted layers below.
+    if (path.empty()) return std::nullopt;
 
     // main.py build_onion_frame_with_circuit: encrypt from the end of the path
     // back to the start. Each layer is encrypted with the session shared with
