@@ -3,7 +3,10 @@
 #include <asio.hpp>
 #include <chrono>
 #include <cstdint>
+#include <iomanip>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "node_module.hpp"
@@ -35,12 +38,21 @@ struct RelayChain {
         source.establish_hybrid_session(
             relay_id, endpoint_9151(), x25519_secret, ml_kem_secret, transcript, false);
 
-        // relay <-> destination: the session used to forward peeled content.
-        const std::vector<uint8_t> fwd_transcript{'P', 'Q', 'V', 'P', 'N', '-', 'F', 'W', 'D'};
-        relay.establish_hybrid_session(
-            destination_id, endpoint_9152(), x25519_secret, ml_kem_secret, fwd_transcript, true);
-        destination.establish_hybrid_session(
-            relay_id, endpoint_9152(), x25519_secret, ml_kem_secret, fwd_transcript, false);
+        // The destination is known to the relay through discovery (mesh) but
+        // carries no session: forwarding only needs its network address. This
+        // is exactly the topology main.py's handle_relay resolves — it looks
+        // up the next hop in mesh.peers, not in its own sessions.
+        pqvpn::PQVPNNode::PeerInfo dest_info;
+        dest_info.peer_id = destination_id;
+        dest_info.address = endpoint_9152();
+        relay.mesh.peers[hex_id(destination_id)] = dest_info;
+    }
+
+    static std::string hex_id(const std::vector<uint8_t>& id) {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (auto b : id) ss << std::setw(2) << static_cast<int>(b);
+        return ss.str();
     }
 
     static asio::ip::udp::endpoint endpoint_9151() {
@@ -205,21 +217,20 @@ TEST(HandleRelay, RelaysPeeledLayerToTheNextHop) {
     EXPECT_TRUE(accepted);
 
     // The relay forwarded the peeled content (the raw innermost payload) to
-    // its established session with the destination.
-    const auto& forwarded_session = *chain.relay.sessions_by_peer_id.at(chain.destination_id);
-    EXPECT_EQ(forwarded_session.bytes_sent, innermost.size());
+    // the destination's mesh address even though it holds no session with it.
+    EXPECT_EQ(chain.relay.sessions_by_peer_id.count(chain.destination_id), 0u);
 
     ASSERT_TRUE(got_datagram) << "destination never received the forwarded datagram";
     EXPECT_EQ(std::vector<uint8_t>(received.begin(), received.begin() + bytes), innermost);
 }
 
-TEST(HandleRelay, RefusesForwardWithoutNextHopSession) {
+TEST(HandleRelay, RefusesForwardWhenNextHopIsUnknown) {
     RelayChain chain;
     const std::vector<uint8_t> innermost{0x60, 0x00, 0x00, 0x00, 0x01, 0x02};
 
     // The relay can still peel (source session intact) but has no route to
-    // the next hop.
-    chain.relay.sessions_by_peer_id.erase(chain.destination_id);
+    // the next hop: it is absent from both its mesh and its sessions.
+    chain.relay.mesh.peers.clear();
 
     const auto frame = chain.build_onion(innermost);
     ASSERT_TRUE(frame.has_value());

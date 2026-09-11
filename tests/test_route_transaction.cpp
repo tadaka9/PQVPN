@@ -87,6 +87,42 @@ TEST_CASE("commit on an empty plan succeeds without touching the backend", "[rou
     REQUIRE(backend.calls.empty());
 }
 
+TEST_CASE("default-route entries with an unspecified prefix are accepted", "[routing]") {
+    // main.cpp installs exactly this row for a TAP adapter that has IPv4:
+    // destination 0.0.0.0, all-ones mask (the Windows default-route
+    // convention), gateway = the adapter address.
+    ScriptedRouteBackend backend;
+    pqvpn::routing::RouteTransaction plan;
+    const auto tap_route = entry("0.0.0.0", 32, "10.8.0.2");
+    REQUIRE(tap_route.valid());
+    plan.add(tap_route);
+
+    // The IPv6 default-route shape is equally legitimate.
+    const auto v6_default = entry("::", 0, "fe80::1");
+    REQUIRE(v6_default.valid());
+    plan.add(v6_default);
+
+    const auto report = plan.commit(backend);
+    REQUIRE(report.committed);
+    REQUIRE(backend.calls == std::vector<std::string>{
+        "install 0.0.0.0/32", "install ::/0"});
+}
+
+TEST_CASE("route entries still need a concrete gateway of the prefix family", "[routing]") {
+    pqvpn::routing::RouteTransaction plan;
+
+    // Unspecified gateway: nowhere to send the traffic.
+    REQUIRE_THROWS_AS(plan.add(entry("10.0.0.0", 8, "0.0.0.0")), std::invalid_argument);
+    REQUIRE_THROWS_AS(plan.add(entry("::", 64, "::")), std::invalid_argument);
+
+    // Mixed address families cannot form a route.
+    REQUIRE_THROWS_AS(plan.add(entry("10.0.0.0", 8, "fe80::1")), std::invalid_argument);
+    REQUIRE_THROWS_AS(plan.add(entry("2001:db8::", 64, "10.9.8.7")), std::invalid_argument);
+
+    // Prefix length beyond the family maximum.
+    REQUIRE_THROWS_AS(plan.add(entry("10.0.0.0", 33)), std::invalid_argument);
+}
+
 TEST_CASE("remove_all treats absent entries as success", "[routing]") {
     ScriptedRouteBackend backend;
     backend.removes_report_absent = true;

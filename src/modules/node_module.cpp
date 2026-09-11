@@ -620,8 +620,14 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
     for (std::size_t idx = path.size() - 1; idx >= 1; --idx) {
         const auto& target = path[idx];
         const auto& hop = path[idx - 1];
+        // Only ESTABLISHED sessions can carry a layer: the receiving relay
+        // resolves its hint against established sessions, so a layer built on
+        // a handshaking/closing/closed session could never be peeled.
         const auto found = sessions_by_peer_id.find(hop);
-        if (found == sessions_by_peer_id.end() || !found->second) return std::nullopt;
+        if (found == sessions_by_peer_id.end() || !found->second ||
+            found->second->state != SessionState::ESTABLISHED) {
+            return std::nullopt;
+        }
         auto& session = *found->second;
         if ((session.aead_send_key.size() != 16 && session.aead_send_key.size() != 32) ||
             session.session_iv.size() != 12 || session.session_id.size() < 8 ||
@@ -861,26 +867,30 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         co_return true;
     }
 
-    // Forward the peeled content as-is to the next hop (main.py parity: first
-    // peer whose identity hash matches).
-    std::shared_ptr<Session> target;
-    for (const auto& [peer_id, candidate] : sessions_by_peer_id) {
-        if (!candidate || candidate->state != SessionState::ESTABLISHED) continue;
-        if (peer_hash8(peer_id) == next_hash && !target) target = candidate;
+    // Forward the peeled content as-is to the next hop (main.py parity):
+    // resolve the 8-byte identity hash against mesh.peers. The relay only
+    // needs the peer's network address, not a local session with it — the
+    // layer is already encrypted for whoever peels it next.
+    const PeerInfo* target = nullptr;
+    std::size_t matches = 0;
+    for (const auto& [peer_hex, candidate] : mesh.peers) {
+        if (!candidate.peer_id.empty() && peer_hash8(candidate.peer_id) == next_hash) {
+            ++matches;
+            target = &candidate;
+        }
     }
-    if (!target || target->remote_addr.address().is_unspecified() || !transport) {
+    // A truncated hash matching zero known peers is an unknown next hop; one
+    // matching several is ambiguous and fails closed rather than risking
+    // delivery to the wrong node (main.py takes the first match in dict order).
+    if (matches != 1 || target->address.address().is_unspecified() || !transport) {
         co_return false;
     }
 
-    const auto frame_size = inner_frame.size();
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(inner_frame));
-    const auto endpoint = target->remote_addr;
+    const auto endpoint = target->address;
     if (!co_await post_udp_send(io_context_, transport, std::move(payload), endpoint)) {
         co_return false;
     }
 
-    target->bytes_sent += frame_size;
-    target->last_activity = std::chrono::duration<double>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
     co_return true;
 }

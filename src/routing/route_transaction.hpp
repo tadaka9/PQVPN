@@ -24,8 +24,12 @@ struct RouteEntry {
     std::uint32_t interface_index = 0;
 
     [[nodiscard]] bool valid() const noexcept {
-        return prefix.is_unspecified() == false &&
-               gateway.is_unspecified() == false &&
+        // An unspecified prefix is a legitimate network address: the Windows
+        // default-route convention (route add 0.0.0.0 mask 255.255.255.255 gw,
+        // used by main.cpp for TAP adapters) has destination 0.0.0.0, so only
+        // the gateway must be a concrete address of the prefix's own family.
+        return gateway.is_unspecified() == false &&
+               prefix.is_v4() == gateway.is_v4() &&
                prefix_length <= (prefix.is_v4() ? 32 : 128);
     }
 };

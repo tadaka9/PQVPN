@@ -25,6 +25,7 @@ TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the fr
                                  0x08, 0x09, 0x0A, 0x0B}; // 12-byte IV
     first_session->aead_send_key = {0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
                                     0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00}; // 16-byte key
+    first_session->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
 
     auto second_session = std::make_shared<pqvpn::PQVPNNode::Session>();
     second_session->session_id = {0x1A, 0x2B, 0x3C, 0x4D, 0x5E, 0x6F, 0x78, 0x90};
@@ -32,6 +33,7 @@ TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the fr
                                   0x18, 0x19, 0x1A, 0x1B}; // 12-byte IV
     second_session->aead_send_key = {0xF1, 0xE2, 0xD3, 0xC4, 0xB5, 0xA6, 0x97, 0x88,
                                      0x7F, 0x6E, 0x5D, 0x4C, 0x3B, 0x2A, 0x19, 0x08}; // 16-byte key
+    second_session->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
 
     node.sessions_by_peer_id[path[0]] = first_session;   // Set session for first hop (destination)
     node.sessions_by_peer_id[path[1]] = second_session;  // Set session for second hop (source)
@@ -52,6 +54,39 @@ TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the fr
                             (static_cast<uint32_t>(frame[12]) << 8) |
                              static_cast<uint32_t>(frame[13]);
     CHECK(extracted_cid == circuit_id);
+}
+
+TEST_CASE("onion layers require established sessions", "[node][onion]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    const std::vector<uint8_t> inner{0xDE, 0xAD, 0xBE, 0xEF};
+    const std::vector<std::vector<uint8_t>> path = {{0x11, 0x22}, {0xAA, 0xBB}};
+
+    auto make_session = [](pqvpn::PQVPNNode::SessionState state) {
+        auto session = std::make_shared<pqvpn::PQVPNNode::Session>();
+        session->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+        session->session_iv = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                               0x08, 0x09, 0x0A, 0x0B};
+        session->aead_send_key = {0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
+                                  0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00};
+        session->state = state;
+        return session;
+    };
+
+    // A layer built on a non-established session could never be peeled: the
+    // receiving relay resolves its hint against established sessions only.
+    for (const auto state : {pqvpn::PQVPNNode::SessionState::INITIALIZING,
+                             pqvpn::PQVPNNode::SessionState::HANDSHAKING,
+                             pqvpn::PQVPNNode::SessionState::CLOSING,
+                             pqvpn::PQVPNNode::SessionState::CLOSED}) {
+        node.sessions_by_peer_id.clear();
+        node.sessions_by_peer_id[path[0]] = make_session(state);
+        REQUIRE_FALSE(node.build_onion_frame_with_circuit(path, inner, 7));
+    }
+
+    // The same session in ESTABLISHED state builds fine.
+    node.sessions_by_peer_id.clear();
+    node.sessions_by_peer_id[path[0]] = make_session(pqvpn::PQVPNNode::SessionState::ESTABLISHED);
+    REQUIRE(node.build_onion_frame_with_circuit(path, inner, 7).has_value());
 }
 
 TEST_CASE("single-hop and empty onion paths are rejected", "[node][onion]") {
