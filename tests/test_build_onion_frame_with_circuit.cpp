@@ -53,3 +53,27 @@ TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the fr
                              static_cast<uint32_t>(frame[13]);
     CHECK(extracted_cid == circuit_id);
 }
+
+TEST_CASE("single-hop and empty onion paths are rejected", "[node][onion]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    const std::vector<uint8_t> inner{0xDE, 0xAD, 0xBE, 0xEF};
+    const std::vector<std::vector<uint8_t>> single{{0x11, 0x22, 0x33, 0x44}};
+
+    // A one-element path would emit a RELAY frame whose payload is raw content:
+    // the receive path requires session material (hint + nonce + ciphertext),
+    // so such a frame can never be delivered. The builder fails closed instead,
+    // even when a session to that peer exists; direct delivery uses
+    // build_tunnel_datagram.
+    auto session = std::make_shared<pqvpn::PQVPNNode::Session>();
+    session->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    session->session_iv = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                           0x08, 0x09, 0x0A, 0x0B};
+    session->aead_send_key = {0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
+                              0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00};
+    session->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
+    node.sessions_by_peer_id[single.front()] = session;
+
+    REQUIRE_FALSE(node.build_onion_frame(single, inner));
+    REQUIRE_FALSE(node.build_onion_frame_with_circuit(single, inner, 7));
+    REQUIRE_FALSE(node.build_onion_frame({}, inner));
+}
