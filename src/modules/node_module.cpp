@@ -24,6 +24,21 @@ using namespace std::chrono_literals;
 
 namespace {
 
+// Invokes the tunnel packet sink while isolating its failures: a throwing
+// sink drops this frame only and the node keeps processing traffic. A VPN
+// daemon must not terminate because its packet consumer misbehaves (for
+// example when the adapter is already closed during shutdown).
+void invoke_tunnel_sink(const PQVPNNode::TunnelPacketHandler& sink, const std::vector<uint8_t>& packet) {
+    if (!sink) return;
+    try {
+        sink(packet);
+    } catch (const std::exception& error) {
+        std::cerr << "tunnel packet sink failed: " << error.what() << "\n";
+    } catch (...) {
+        std::cerr << "tunnel packet sink failed with an unknown exception\n";
+    }
+}
+
 std::optional<std::vector<uint8_t>> decode_hex(const std::string& value) {
     if (value.empty() || value.size() % 2 != 0 ||
         !std::all_of(value.begin(), value.end(), [](const unsigned char c) { return std::isxdigit(c) != 0; })) {
@@ -431,7 +446,7 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     session->bytes_recv += plaintext->size();
     session->last_activity = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    if (tunnel_packet_handler_) tunnel_packet_handler_(*plaintext);
+    invoke_tunnel_sink(tunnel_packet_handler_, *plaintext);
     co_return;
 }
 
@@ -500,20 +515,29 @@ std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
 
 asio::awaitable<bool> PQVPNNode::forward_adapter_packet(std::vector<uint8_t> packet) {
     if (packet.empty() || !transport) co_return false;
-    const auto peer = select_tunnel_peer();
-    if (!peer) co_return false;
-    const auto datagram = build_tunnel_datagram(*peer, std::span<const uint8_t>(packet));
-    if (!datagram) co_return false;
-    const auto found = sessions_by_peer_id.find(*peer);
-    if (found == sessions_by_peer_id.end() || !found->second ||
-        found->second->remote_addr.address().is_unspecified()) {
+    try {
+        const auto peer = select_tunnel_peer();
+        if (!peer) co_return false;
+        const auto datagram = build_tunnel_datagram(*peer, std::span<const uint8_t>(packet));
+        if (!datagram) co_return false;
+        const auto found = sessions_by_peer_id.find(*peer);
+        if (found == sessions_by_peer_id.end() || !found->second ||
+            found->second->remote_addr.address().is_unspecified()) {
+            co_return false;
+        }
+        // Posted send on the io_context: the adapter reader thread must not
+        // touch the Asio socket directly (see post_udp_send).
+        auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*datagram));
+        const auto endpoint = found->second->remote_addr;
+        co_return co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
+    } catch (const std::exception& error) {
+        // Adapter-originated forwarding must never take the node down.
+        std::cerr << "adapter packet forwarding failed: " << error.what() << "\n";
+        co_return false;
+    } catch (...) {
+        std::cerr << "adapter packet forwarding failed with an unknown exception\n";
         co_return false;
     }
-    // Posted send on the io_context: the adapter reader thread must not touch
-    // the Asio socket directly (see post_udp_send).
-    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*datagram));
-    const auto endpoint = found->second->remote_addr;
-    co_return co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::choose_relay(
@@ -899,7 +923,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         if (!packet || packet->empty()) co_return false;
         if (!check_and_record_nonce(data_sess, data_nonce)) co_return false;
 
-        tunnel_packet_handler_(*packet);
+        invoke_tunnel_sink(tunnel_packet_handler_, *packet);
         data_sess.bytes_recv += body.size();
         co_return true;
     }

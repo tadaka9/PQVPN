@@ -287,6 +287,44 @@ TEST(HandleRelay, LocalDeliveryFailsClosedWithoutAPacketSink) {
     EXPECT_FALSE(delivered);
 }
 
+TEST(HandleRelay, LocalDeliveryIsolatesAThrowingSink) {
+    RelayChain chain;
+    pqvpn::PQVPNNode bob{chain.io};
+    const std::vector<uint8_t> bob_id(32, 0xE2);
+    bob.set_my_id(bob_id);
+
+    const std::vector<uint8_t> x_secret(32, 0x55);
+    const std::vector<uint8_t> y_secret(32, 0x66);
+    const std::vector<uint8_t> bob_transcript{'B', 'O', 'B'};
+    chain.relay.establish_hybrid_session(
+        bob_id, asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9154),
+        x_secret, y_secret, bob_transcript, true);
+    bob.establish_hybrid_session(
+        chain.relay_id, asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9154),
+        x_secret, y_secret, bob_transcript, false);
+
+    const std::vector<uint8_t> packet{0x45, 0x00, 0x00, 0x14, 0x01};
+    const auto data_frame = bob.build_tunnel_datagram(
+        chain.relay_id, std::span<const uint8_t>(packet));
+    ASSERT_TRUE(data_frame.has_value());
+
+    const auto onion = chain.source.build_onion_frame_with_circuit(
+        {chain.relay_id, chain.relay_id}, *data_frame, 0);
+    ASSERT_TRUE(onion.has_value());
+    const auto layer = chain.split_outer_frame(*onion);
+
+    int sink_calls = 0;
+    chain.relay.set_tunnel_packet_handler([&sink_calls](std::vector<uint8_t>) {
+        ++sink_calls;
+        throw std::runtime_error("adapter is closed");
+    });
+
+    // The relay completes without an escaped exception even though the sink
+    // throws: delivery was attempted, the frame dropped, and the node stays up.
+    EXPECT_TRUE(chain.run_relay(chain.relay, layer));
+    EXPECT_EQ(sink_calls, 1);
+}
+
 TEST(HandleRelay, LocalDeliveryRejectsShortDeclaredBody) {
     RelayChain chain;
     // Inner frame with a valid 16-byte header that declares only a 4-byte body,

@@ -224,6 +224,7 @@ set(CATCH_TESTS
   test_node_check_and_record_nonce
   test_tunnel_dataplane
   test_tunnel_forward
+  test_tunnel_sink_resilience
   test_route_transaction
   test_plugin_manager_hooks
   test_plugin_manager
