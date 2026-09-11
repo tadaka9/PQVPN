@@ -650,6 +650,7 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
     // then emits a RELAY frame whose payload is raw content, which its own
     // receive path (session hint + nonce + ciphertext) can never deliver. This
     // builder fails closed instead; direct delivery uses build_tunnel_datagram.
+    // Recorded as a documented deviation in MIGRATION_MANIFEST.md.
     if (path.size() < 2) return std::nullopt;
 
     // main.py build_onion_frame_with_circuit: encrypt from the end of the path

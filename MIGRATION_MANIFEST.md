@@ -18,6 +18,14 @@
 - Replace `C++: TBD; Tests: TBD` with exact paths before checking an item.
 - Checking requires behavioral parity tests, not merely a similarly named class or placeholder.
 - Partial ports remain unchecked; describe partial status in the evidence text.
+- Intentional behavioral differences from `main.py` are recorded under "Documented deviations" with rationale and test evidence; they do not change completion weights.
+
+## Documented deviations
+
+Intentional places where the C++ contract is deliberately stricter or self-consistent than `main.py`. Each entry records the reference behavior, the reason for deviating, and focused test evidence. `main.py` itself remains immutable per the rules above.
+
+- **Onion builder single-hop paths** — `PQVPNNode.build_onion_frame`, `PQVPNNode.build_onion_frame_with_circuit` (`main.py:3266-3359`). The reference accepts a one-element path and emits a RELAY frame whose payload is raw content, because its encryption loop never runs for such paths. That frame cannot be delivered by either implementation's receive path, which parses every RELAY payload as session hint + nonce + ciphertext and drops unknown sessions (`main.py:4493-4608`, `main.py:3392-3479`). The C++ builder therefore rejects paths shorter than two elements (fail-closed); direct delivery to a single peer uses `build_tunnel_datagram`. Evidence: `tests/test_build_onion_frame_with_circuit.cpp` ("single-hop and empty onion paths are rejected").
+- **Onion AEAD additional data** — `PQVPNNode.build_onion_frame_with_circuit`, `PQVPNNode.handle_relay` (`main.py:3312-3479`). The reference builder binds the next hop's identity hash into the AEAD additional data, while its own handler reconstructs that data from the outer header's peeler field; the pair cannot decrypt each other's layers. The C++ implementation binds the peeling hop's 8-byte identity hash on both sides so a layer verifies against the node that actually peels it. Evidence: `tests/test_handle_relay.cpp` (RelaysPeeledLayerToTheNextHop, MisroutedLayerIsRejected).
 
 ## ColoredFormatter
 
