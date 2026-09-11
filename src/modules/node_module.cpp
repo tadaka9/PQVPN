@@ -341,7 +341,7 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         const auto relay_nonce = std::vector<uint8_t>(data.begin() + 24, data.begin() + 36);
         const auto relay_ciphertext = std::vector<uint8_t>(data.begin() + 36, data.end());
         co_await handle_relay(relay_hint, relay_nonce, relay_ciphertext,
-            outer_next_hash, circuit_id);
+            outer_next_hash, circuit_id, endpoint);
         co_return;
     }
 
@@ -602,13 +602,15 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
     const std::vector<std::vector<uint8_t>>& path,
     const std::vector<uint8_t>& inner_frame,
     const uint32_t circuit_id) {
-    // main.py accepts any non-empty path. For a one-element path the
-    // encryption loop never runs and the builder emits a RELAY frame addressed
-    // to path[0] whose payload is raw content (main.py:3266-3359); neither
-    // implementation's receive path can deliver such a layer, so this shape
-    // exists for contract parity only. Direct delivery uses
-    // build_tunnel_datagram; multi-hop onions use the encrypted layers below.
-    if (path.empty()) return std::nullopt;
+    // main.py accepts a one-element path and emits a RELAY frame whose payload
+    // is raw content, because its encryption loop never runs for such paths.
+    // Every RELAY receiver parses its payload as session hint + nonce +
+    // ciphertext, so that shape can never be delivered — and send_onion would
+    // report success for content that provably never arrives. The builder
+    // therefore rejects paths shorter than two elements (fail-closed); direct
+    // delivery to a single peer uses build_tunnel_datagram. Recorded in
+    // MIGRATION_MANIFEST.md.
+    if (path.size() < 2) return std::nullopt;
 
     // main.py build_onion_frame_with_circuit: encrypt from the end of the path
     // back to the start. Each layer is encrypted with the session shared with
@@ -774,12 +776,21 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     const std::vector<uint8_t>& nonce,
     const std::vector<uint8_t>& ciphertext_and_tag,
     const std::vector<uint8_t>& outer_next_hash,
-    uint32_t circuit_id) {
+    uint32_t circuit_id,
+    const asio::ip::udp::endpoint& sender) {
     // main.py handle_relay: decrypt one onion layer and either forward the
     // inner content to the next hop or deliver it locally.
     auto session = find_session_by_hint(sessions_by_peer_id, session_hint);
     if (!session || !*session) co_return false;
     auto& sess = **session;
+
+    // Sender binding (hardening beyond main.py, whose handle_relay takes no
+    // address): the layer must come from the peer the session was established
+    // with, matching the direct tunnel path's endpoint check in
+    // datagram_received. The first peeler always receives directly from the
+    // onion source, so this does not disturb the forwarding model; it blocks
+    // stolen session material submitted from an unregistered address.
+    if (sess.remote_addr != sender) co_return false;
 
     // A relay must know its own identity: it binds the layer AAD and decides
     // local delivery (main.py: nexth == peer_hash8(my_id)).

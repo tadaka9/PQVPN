@@ -225,12 +225,16 @@ public:
     //   payload     = session_hint(8) + nonce(12) + ciphertext+tag
     // The AEAD AAD is "PQVPN" + full session id + the 8-byte identity hash of
     // the node that peels this layer + circuit_id (4 BE).
+    // `sender` must be the peer the resolved session was established with:
+    // like the direct tunnel path, relay layers are bound to their origin so
+    // stolen session material cannot be injected from an unregistered address.
     asio::awaitable<bool> handle_relay(
         const std::vector<uint8_t>& session_hint,
         const std::vector<uint8_t>& nonce,
         const std::vector<uint8_t>& ciphertext_and_tag,
         const std::vector<uint8_t>& outer_next_hash,
-        uint32_t circuit_id);
+        uint32_t circuit_id,
+        const asio::ip::udp::endpoint& sender);
 
     // New Gossip Update Handler
     void handle_gossip_update(const std::vector<uint8_t>& peer_id, const std::string& nickname, bool is_relay);

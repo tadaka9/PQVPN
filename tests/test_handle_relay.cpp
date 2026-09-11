@@ -90,11 +90,14 @@ struct RelayChain {
         return layer;
     }
 
-    bool run_relay(pqvpn::PQVPNNode& node, const RelayLayer& layer) {
+    // `sender` defaults to the source's registered endpoint: the first peeler
+    // always receives directly from the onion source.
+    bool run_relay(pqvpn::PQVPNNode& node, const RelayLayer& layer,
+                   const asio::ip::udp::endpoint& sender = endpoint_9151()) {
         bool accepted = false;
         std::exception_ptr failure;
         asio::co_spawn(io, node.handle_relay(layer.session_hint, layer.nonce,
-            layer.ciphertext_and_tag, layer.next_hash, layer.circuit_id),
+            layer.ciphertext_and_tag, layer.next_hash, layer.circuit_id, sender),
             [&](std::exception_ptr e, bool result) {
                 if (e) {
                     failure = std::move(e);
@@ -206,7 +209,8 @@ TEST(HandleRelay, RelaysPeeledLayerToTheNextHop) {
         });
 
     asio::co_spawn(chain.io, chain.relay.handle_relay(layer.session_hint, layer.nonce,
-        layer.ciphertext_and_tag, layer.next_hash, layer.circuit_id),
+        layer.ciphertext_and_tag, layer.next_hash, layer.circuit_id,
+        chain.endpoint_9151()),
         [&](std::exception_ptr e, bool result) {
             if (e) failure = std::move(e);
             else accepted = result;
@@ -222,6 +226,26 @@ TEST(HandleRelay, RelaysPeeledLayerToTheNextHop) {
 
     ASSERT_TRUE(got_datagram) << "destination never received the forwarded datagram";
     EXPECT_EQ(std::vector<uint8_t>(received.begin(), received.begin() + bytes), innermost);
+}
+
+TEST(HandleRelay, RelayLayerFromForeignEndpointIsRejected) {
+    RelayChain chain;
+    // A transport is required for the (successful) forward on acceptance.
+    asio::ip::udp::socket relay_socket(chain.io,
+        asio::ip::udp::endpoint(asio::ip::make_address("0.0.0.0"), 0));
+    chain.relay.transport = &relay_socket;
+
+    const auto frame = chain.build_onion({0x45, 0x00});
+    ASSERT_TRUE(frame.has_value());
+    const auto layer = chain.split_outer_frame(*frame);
+
+    // The same valid layer is rejected when it arrives from an address the
+    // session was not established with (sender binding), and accepted again
+    // from the registered source endpoint.
+    EXPECT_FALSE(chain.run_relay(
+        chain.relay, layer,
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9999)));
+    EXPECT_TRUE(chain.run_relay(chain.relay, layer));
 }
 
 TEST(HandleRelay, RefusesForwardWhenNextHopIsUnknown) {
