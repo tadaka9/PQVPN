@@ -121,6 +121,99 @@ struct RelayChain {
     }
 };
 
+// Three-node chain for the multi-peel boundary: source builds an onion whose
+// outer layer is peeled by `first`, which then forwards the inner (raw) layer
+// to `second`. This mirrors main.py's [A,B,C] relay scenario.
+struct MultiPeelChain {
+    asio::io_context io;
+    pqvpn::PQVPNNode source{io};
+    pqvpn::PQVPNNode first{io};   // peels the outer layer, then forwards
+    pqvpn::PQVPNNode second{io};  // would-be second peeler
+
+    std::vector<uint8_t> source_id = std::vector<uint8_t>(32, 0xA1);
+    std::vector<uint8_t> first_id  = std::vector<uint8_t>(32, 0xB1);
+    std::vector<uint8_t> second_id = std::vector<uint8_t>(32, 0xC1);
+
+    MultiPeelChain() {
+        source.set_my_id(source_id);
+        first.set_my_id(first_id);
+        second.set_my_id(second_id);
+
+        const std::vector<uint8_t> ml_kem_secret(32, 0x72);
+        const std::vector<uint8_t> transcript{'M', 'P', 'C'};
+
+        // source <-> first: the session that encrypts/peels the outer layer.
+        const std::vector<uint8_t> x_first(32, 0x71);
+        first.establish_hybrid_session(source_id, endpoint_first(), x_first, ml_kem_secret, transcript, true);
+        source.establish_hybrid_session(first_id, endpoint_first(), x_first, ml_kem_secret, transcript, false);
+
+        // source <-> second: the session that encrypts the inner layer (the one
+        // first would forward). A distinct secret yields a distinct session id,
+        // so neither side sees an ambiguous hint.
+        const std::vector<uint8_t> x_second(32, 0x73);
+        second.establish_hybrid_session(source_id, endpoint_second(), x_second, ml_kem_secret, transcript, true);
+        source.establish_hybrid_session(second_id, endpoint_second(), x_second, ml_kem_secret, transcript, false);
+
+        // first learns second's address through discovery (mesh) so it can
+        // forward to it — the topology main.py's handle_relay resolves via mesh.peers.
+        pqvpn::PQVPNNode::PeerInfo s_info;
+        s_info.peer_id = second_id;
+        s_info.address = endpoint_second();
+        first.mesh.peers[hex_id(second_id)] = s_info;
+    }
+
+    static std::string hex_id(const std::vector<uint8_t>& id) {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (auto b : id) ss << std::setw(2) << static_cast<int>(b);
+        return ss.str();
+    }
+
+    static asio::ip::udp::endpoint endpoint_first() {
+        return asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9301);
+    }
+
+    static asio::ip::udp::endpoint endpoint_second() {
+        return asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9302);
+    }
+
+    // One outer RELAY frame split into its dispatchable parts (same shape as
+    // RelayChain::split_outer_frame).
+    struct RelayLayer {
+        std::vector<uint8_t> next_hash;
+        uint32_t circuit_id = 0;
+        std::vector<uint8_t> session_hint;
+        std::vector<uint8_t> nonce;
+        std::vector<uint8_t> ciphertext_and_tag;
+    };
+
+    static RelayLayer split_outer_frame(const std::vector<uint8_t>& frame) {
+        EXPECT_GE(frame.size(), 16u + 8u + 12u + 16u);
+        RelayLayer layer;
+        if (frame.size() < 36) return layer;
+        layer.next_hash.assign(frame.begin() + 2, frame.begin() + 10);
+        layer.circuit_id =
+            (static_cast<uint32_t>(frame[10]) << 24) |
+            (static_cast<uint32_t>(frame[11]) << 16) |
+            (static_cast<uint32_t>(frame[12]) << 8) |
+            static_cast<uint32_t>(frame[13]);
+        const auto payload_begin = frame.begin() + 16;
+        layer.session_hint.assign(payload_begin, payload_begin + 8);
+        layer.nonce.assign(payload_begin + 8, payload_begin + 20);
+        layer.ciphertext_and_tag.assign(payload_begin + 20, frame.end());
+        return layer;
+    }
+
+    // Two-peeler onion: source -> first -> second (path length three). The
+    // builder needs a session with each peeling hop (first and second); the
+    // final element is only hashed as the innermost next-hop.
+    std::optional<std::vector<uint8_t>> build_onion(const std::vector<uint8_t>& innermost) {
+        const std::vector<uint8_t> destination(32, 0xD1);
+        return source.build_onion_frame_with_circuit(
+            {first_id, second_id, destination}, innermost, 0);
+    }
+};
+
 } // namespace
 
 TEST(HandleRelay, UnknownSessionHintIsRejected) {
@@ -412,4 +505,73 @@ TEST(HandleRelay, LocalDeliveryRejectsDataFramesWithForeignLayout) {
 
     EXPECT_FALSE(chain.run_relay(chain.relay, layer));
     EXPECT_TRUE(captured.empty());
+}
+
+TEST(HandleRelay, ForwardedOnionLayerIsUndeliverableAtTheDispatcher) {
+    MultiPeelChain chain;
+    const std::vector<uint8_t> innermost{0x45, 0x00, 0x00, 0x14, 0x01, 0x02};
+
+    // first's transport (for the forward) and a capture socket at second's
+    // mesh address to observe exactly what first forwards.
+    asio::ip::udp::socket first_socket(chain.io,
+        asio::ip::udp::endpoint(asio::ip::make_address("0.0.0.0"), 0));
+    chain.first.transport = &first_socket;
+    asio::ip::udp::socket capture(chain.io, chain.endpoint_second());
+
+    const auto frame = chain.build_onion(innermost);
+    ASSERT_TRUE(frame.has_value());
+    const auto layer = chain.split_outer_frame(*frame);
+
+    std::vector<uint8_t> forwarded(65536);
+    asio::ip::udp::endpoint from;
+    bool got_forward = false;
+    std::size_t fwd_bytes = 0;
+    asio::steady_timer deadline(chain.io, std::chrono::seconds(2));
+    deadline.async_wait([&](const asio::error_code&) { capture.cancel(); });
+    capture.async_receive_from(asio::buffer(forwarded), from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (!ec) { got_forward = true; fwd_bytes = n; }
+            deadline.cancel();
+        });
+
+    // first peels its layer (received directly from source: sender binding OK)
+    // and forwards the inner content to second's mesh address.
+    bool accepted = false;
+    std::exception_ptr failure;
+    asio::co_spawn(chain.io, chain.first.handle_relay(
+        layer.session_hint, layer.nonce, layer.ciphertext_and_tag,
+        layer.next_hash, layer.circuit_id, chain.endpoint_first()),
+        [&](std::exception_ptr e, bool result) {
+            if (e) failure = std::move(e); else accepted = result;
+        });
+    chain.io.run();
+
+    EXPECT_FALSE(failure);
+    EXPECT_TRUE(accepted) << "the first peeler must accept the layer from its source";
+    ASSERT_TRUE(got_forward) << "first never forwarded to second's mesh address";
+
+    // What first forwarded is a RAW onion layer (session_hint+nonce+ciphertext),
+    // with no 16-byte outer frame — exactly main.py's handle_relay forward branch.
+    const std::vector<uint8_t> raw_layer(forwarded.begin(), forwarded.begin() + fwd_bytes);
+
+    // second receives it through its real dispatcher, from the address first
+    // actually sent it from. A tunnel sink would fire only if the layer were
+    // deliverable; it is not, because every receiver requires a 16-byte outer
+    // header to dispatch at all (main.py:4493-4508). This holds regardless of
+    // sender binding — the failure is at the wire-format level.
+    bool delivered = false;
+    chain.second.set_tunnel_packet_handler([&delivered](std::vector<uint8_t>) {
+        delivered = true;
+    });
+
+    std::exception_ptr second_failure;
+    asio::co_spawn(chain.io, chain.second.datagram_received(raw_layer, from),
+        [&](std::exception_ptr e) { if (e) second_failure = std::move(e); });
+    chain.io.restart();
+    chain.io.run();
+
+    EXPECT_FALSE(second_failure);
+    EXPECT_FALSE(delivered)
+        << "a forwarded onion layer must be undeliverable: it is headerless, and "
+           "every dispatcher requires a 16-byte outer frame before handle_relay";
 }
