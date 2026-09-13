@@ -2,6 +2,7 @@
 
 #include <asio.hpp>
 #include <cstdint>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@ struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
     int failing_install = -1; // 0-based index of the install call that hard-fails
     int failing_remove = -1;  // 0-based index of the remove call that hard-fails
     bool removes_report_absent = false;
+    std::set<int> already_present_installs; // install indices reported as pre-existing
 
     int installs = 0;
     int removals = 0;
@@ -26,8 +28,9 @@ struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
 
     pqvpn::routing::OperationResult install(const pqvpn::routing::RouteEntry& entry) override {
         calls.push_back("install " + key(entry));
-        if (installs++ == failing_install) return {false, false, false, "scripted failure"};
-        return {true};
+        const int index = installs++;
+        if (index == failing_install) return {false, false, false, "scripted failure"};
+        return {true, already_present_installs.count(index) != 0, false, ""};
     }
 
     pqvpn::routing::OperationResult remove(const pqvpn::routing::RouteEntry& entry) override {
@@ -89,11 +92,11 @@ TEST_CASE("commit on an empty plan succeeds without touching the backend", "[rou
 
 TEST_CASE("default-route entries with an unspecified prefix are accepted", "[routing]") {
     // main.cpp installs exactly this row for a TAP adapter that has IPv4:
-    // destination 0.0.0.0, all-ones mask (the Windows default-route
-    // convention), gateway = the adapter address.
+    // destination 0.0.0.0, zero mask (prefix length 0 = the default route),
+    // gateway = the adapter address. A /32 would match only 0.0.0.0 itself.
     ScriptedRouteBackend backend;
     pqvpn::routing::RouteTransaction plan;
-    const auto tap_route = entry("0.0.0.0", 32, "10.8.0.2");
+    const auto tap_route = entry("0.0.0.0", 0, "10.8.0.2");
     REQUIRE(tap_route.valid());
     plan.add(tap_route);
 
@@ -105,7 +108,7 @@ TEST_CASE("default-route entries with an unspecified prefix are accepted", "[rou
     const auto report = plan.commit(backend);
     REQUIRE(report.committed);
     REQUIRE(backend.calls == std::vector<std::string>{
-        "install 0.0.0.0/32", "install ::/0"});
+        "install 0.0.0.0/0", "install ::/0"});
 }
 
 TEST_CASE("route entries still need a concrete gateway of the prefix family", "[routing]") {
@@ -123,13 +126,14 @@ TEST_CASE("route entries still need a concrete gateway of the prefix family", "[
     REQUIRE_THROWS_AS(plan.add(entry("10.0.0.0", 33)), std::invalid_argument);
 }
 
-TEST_CASE("remove_all treats absent entries as success", "[routing]") {
+TEST_CASE("remove_all treats absent owned entries as success", "[routing]") {
     ScriptedRouteBackend backend;
     backend.removes_report_absent = true;
     pqvpn::routing::RouteTransaction plan;
     plan.add(entry("10.0.0.0", 8));
     plan.add(entry("192.168.5.0", 24));
 
+    REQUIRE(plan.commit(backend).committed); // entries are now owned by the transaction
     const auto report = plan.remove_all(backend);
     REQUIRE(report.complete);
     REQUIRE(report.removed == 0);
@@ -144,13 +148,16 @@ TEST_CASE("remove_all keeps cleaning up past a hard failure", "[routing]") {
     plan.add(entry("10.0.0.0", 8));
     plan.add(entry("192.168.5.0", 24));
 
+    REQUIRE(plan.commit(backend).committed); // entries are now owned by the transaction
     const auto report = plan.remove_all(backend);
     REQUIRE_FALSE(report.complete);
     REQUIRE(report.error.find("scripted failure") != std::string::npos);
     REQUIRE(report.removed == 1);
-    // Both removals were attempted despite the first failing.
-    REQUIRE(backend.calls == std::vector<std::string>{
-        "remove 10.0.0.0/8", "remove 192.168.5.0/24"});
+    // Both removals were attempted despite the first failing (after the two installs).
+    const auto& c = backend.calls;
+    REQUIRE(c.size() == 4u);
+    REQUIRE(c[2] == "remove 10.0.0.0/8");
+    REQUIRE(c[3] == "remove 192.168.5.0/24");
 }
 
 TEST_CASE("invalid entries are rejected when added to a plan", "[routing]") {
@@ -163,4 +170,48 @@ TEST_CASE("invalid entries are rejected when added to a plan", "[routing]") {
     REQUIRE_THROWS_AS(plan.add(entry("10.0.0.0", 33)), std::invalid_argument);
 
     REQUIRE(plan.empty());
+}
+
+TEST_CASE("cleanup does not delete pre-existing routes", "[routing]") {
+    ScriptedRouteBackend backend;
+    // The first route already exists in the table (admin-configured); the
+    // second is created by this transaction.
+    backend.already_present_installs.insert(0);
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));      // index 0: already present
+    plan.add(entry("192.168.5.0", 24));  // index 1: created by us
+
+    REQUIRE(plan.commit(backend).committed);
+
+    const auto report = plan.remove_all(backend);
+    REQUIRE(report.complete);
+    REQUIRE(report.removed == 1);          // only the route we created
+    REQUIRE(report.already_absent == 0);
+    // The pre-existing route (index 0) must never be removed.
+    for (const auto& call : backend.calls) {
+        REQUIRE(call.find("remove 10.0.0.0/8") == std::string::npos);
+    }
+    REQUIRE(backend.calls.back() == "remove 192.168.5.0/24");
+}
+
+TEST_CASE("rollback leaves already-present routes when a later install fails", "[routing]") {
+    ScriptedRouteBackend backend;
+    // index 0 already present, index 1 created by us, index 2 hard-fails.
+    backend.already_present_installs.insert(0);
+    backend.failing_install = 2;
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));      // index 0: already present
+    plan.add(entry("192.168.5.0", 24));  // index 1: created by us
+    plan.add(entry("172.16.0.0", 12));   // index 2: fails
+
+    const auto report = plan.commit(backend);
+    REQUIRE_FALSE(report.committed);
+    REQUIRE(report.failed_index == 2);
+    // Only the route we created (index 1) is rolled back; the pre-existing one
+    // (index 0) and the failed one (index 2, never installed) are untouched.
+    REQUIRE(report.rolled_back.size() == 1u);
+    REQUIRE(report.rolled_back.front().prefix.to_string() == "192.168.5.0");
+    for (const auto& call : backend.calls) {
+        REQUIRE(call.find("remove 10.0.0.0/8") == std::string::npos);
+    }
 }

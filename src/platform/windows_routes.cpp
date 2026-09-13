@@ -74,9 +74,8 @@ routing::OperationResult apply(const bool install, const routing::RouteEntry& en
         return {false, false, false, "gateway is not on any local interface"};
     }
 
-    // Rows use the Windows default-route convention: destination 0.0.0.0 with
-    // an all-ones mask and the adapter address as next hop (the shape
-    // `route add` produces).
+    // A default route is destination 0.0.0.0 with a zero mask (prefix length
+    // 0), matching every IPv4 destination; netmask_nbo(0) yields that mask.
     MIB_IPFORWARDROW row{};
     row.dwForwardDest = entry.prefix.to_v4().to_uint();
     row.dwForwardMask = netmask_nbo(entry.prefix_length);

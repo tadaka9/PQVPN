@@ -191,11 +191,13 @@ int main(int argc, char** argv) {
 
             // Route traffic through the adapter only when it actually has an
             // IPv4 address; otherwise a default route would blackhole. The row
-            // uses the Windows default-route convention: destination 0.0.0.0
-            // with an all-ones mask and the adapter address as next hop.
+            // is the Windows default route: destination 0.0.0.0 with a zero
+            // mask (prefix length 0, matching every destination) and the
+            // adapter address as next hop. A /32 here would match only the
+            // literal 0.0.0.0 address and send no real traffic to the TAP.
             if (const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid())) {
                 route_plan.add(pqvpn::routing::RouteEntry{
-                    asio::ip::make_address_v4("0.0.0.0"), 32,
+                    asio::ip::make_address_v4("0.0.0.0"), 0,
                     adapter_route->ipv4, adapter_route->interface_index});
             } else {
                 std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";

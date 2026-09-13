@@ -25,9 +25,9 @@ struct RouteEntry {
 
     [[nodiscard]] bool valid() const noexcept {
         // An unspecified prefix is a legitimate network address: the Windows
-        // default-route convention (route add 0.0.0.0 mask 255.255.255.255 gw,
-        // used by main.cpp for TAP adapters) has destination 0.0.0.0, so only
-        // the gateway must be a concrete address of the prefix's own family.
+        // default route (route add 0.0.0.0 mask 0.0.0.0 gw, used by main.cpp
+        // for TAP adapters) has destination 0.0.0.0 with prefix length 0, so
+        // only the gateway must be a concrete address of the prefix's family.
         return gateway.is_unspecified() == false &&
                prefix.is_v4() == gateway.is_v4() &&
                prefix_length <= (prefix.is_v4() ? 32 : 128);
@@ -84,10 +84,12 @@ struct RemovalReport {
 /**
  * @brief All-or-nothing batch of routing-table changes.
  *
- * commit() installs every entry in plan order and rolls back the installed
- * prefix (reverse order) when an install fails, so a partial route set never
- * survives. remove_all() cleans up best-effort: it keeps going past a hard
- * failure so shutdown always attempts to leave no routes behind.
+ * commit() installs every entry in plan order and records which entries it
+ * created (not already present); on an install failure it rolls back only the
+ * created prefix (reverse order), so a partial route set never survives and
+ * pre-existing routes are untouched. remove_all() cleans up best-effort,
+ * removing exactly the created entries; it keeps going past a hard failure so
+ * shutdown always attempts to leave no owned routes behind.
  */
 class RouteTransaction {
 public:
@@ -96,11 +98,23 @@ public:
     [[nodiscard]] const std::vector<RouteEntry>& entries() const noexcept;
     [[nodiscard]] bool empty() const noexcept;
 
-    CommitReport commit(RouteBackend& backend) const;
+    // Installs every entry in plan order. Records which entries this
+    // transaction actually created (installed and not already present); those
+    // are the only ones rollback and remove_all will later delete, so routes
+    // that pre-existed the commit are left untouched. Rolls back the created
+    // prefix (reverse order) when an install fails.
+    CommitReport commit(RouteBackend& backend);
+
+    // Best-effort removal of exactly the entries this transaction created via
+    // a successful commit; already-present routes are not touched. Keeps going
+    // past a hard failure so shutdown always attempts to leave no owned routes.
     RemovalReport remove_all(RouteBackend& backend) const;
 
 private:
     std::vector<RouteEntry> entries_;
+    // Indices into entries_ created by the last successful commit (installed,
+    // not already present). Empty until a commit succeeds; cleanup removes only these.
+    std::vector<std::size_t> owned_;
 };
 
 } // namespace pqvpn::routing
