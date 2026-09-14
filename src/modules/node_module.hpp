@@ -127,6 +127,11 @@ public:
     asio::io_context& get_io_context() { return io_context_; }
     const asio::io_context& get_io_context() const { return io_context_; }
     void set_my_id(std::vector<uint8_t> identity) { my_id_ = std::move(identity); }
+    // Derives this node's stable identity from its ed25519 public key (my_id =
+    // SHA256(ed25519 pk)); main.py uses the brainpoolP512r1 key instead. Returns
+    // true and sets my_id_ when an ed25519 key is present; false otherwise.
+    // Idempotent: an already-set identity is kept, so explicit set_my_id callers are unaffected.
+    bool establish_identity();
     void set_tofu_enabled(const bool enabled) { tofu_enabled_ = enabled; }
     void set_allowlist(std::set<std::string> allowlist) { allowlist_ = std::move(allowlist); }
     void add_known_peer(const std::vector<uint8_t>& peer_id);

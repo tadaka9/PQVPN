@@ -558,6 +558,23 @@ std::vector<uint8_t> PQVPNNode::session_salt(const std::vector<uint8_t>& peer_id
     return digest;
 }
 
+bool PQVPNNode::establish_identity() {
+    // Keep an identity that was set explicitly (tests, or a future key loader).
+    // Otherwise derive it from the ed25519 public key — the node's primary
+    // authentication/identity key. main.py derives my_id from the brainpoolP512r1
+    // key instead (main.py:2193-2209); using ed25519 keeps identity tied to the
+    // auth key and is recorded in MIGRATION_MANIFEST.md. Deriving it here lets a
+    // production node relay and deliver locally, since handle_relay binds its AAD
+    // to peer_hash8(my_id) and needs it set.
+    if (!my_id_.has_value()) {
+        if (ed25519_public_key.empty()) return false;
+        std::vector<uint8_t> digest(SHA256_DIGEST_LENGTH);
+        SHA256(ed25519_public_key.data(), ed25519_public_key.size(), digest.data());
+        my_id_ = std::move(digest);
+    }
+    return my_id_.has_value() && !my_id_->empty();
+}
+
 bool PQVPNNode::is_peer_allowed(const std::vector<uint8_t>& peer_id) const {
     const auto identity = hex_id(peer_id);
     if (!allowlist_.empty()) return allowlist_.contains(identity);

@@ -157,6 +157,14 @@ int main(int argc, char** argv) {
     // Start the PQVPN node runtime with the provided configuration
     asio::io_context io;
     auto node = std::make_shared<pqvpn::PQVPNNode>(io, args.config_path);
+    // Establish this node's stable identity before it can relay or deliver
+    // locally: handle_relay binds its AAD to peer_hash8(my_id) and requires it.
+    // When no ed25519 key is loaded the node cannot peel onions — say so
+    // explicitly instead of silently rejecting every relay (see establish_identity).
+    if (!node->establish_identity()) {
+        std::cerr << "warning: no node identity established (no ed25519 key); "
+                  << "onion relay and local delivery will be rejected\n";
+    }
     pqvpn::network::UdpListener listener(io, config->network);
     listener.set_receive_handler([&io, node](std::vector<uint8_t> packet, const asio::ip::udp::endpoint& sender) {
         asio::co_spawn(io, node->datagram_received(std::move(packet), sender), asio::detached);
