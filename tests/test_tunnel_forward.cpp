@@ -133,8 +133,13 @@ TEST_CASE("adapter packet crosses the wire and reaches the peer tunnel sink", "[
     asio::ip::udp::endpoint from;
     responder_socket.async_receive_from(asio::buffer(wire), from,
         [&](const asio::error_code& ec, std::size_t n) {
-            if (ec) return;
-            got_datagram = true;
+            if (!ec) {
+                got_datagram = true;
+                // Release the deadline so io.run() can drain promptly instead
+                // of holding the context open for the full timeout (same
+                // convention as test_handle_relay).
+                deadline.cancel();
+            }
             auto datagram = std::vector<uint8_t>(wire.begin(), wire.begin() + static_cast<std::ptrdiff_t>(n));
             asio::co_spawn(pair.io, pair.responder.datagram_received(std::move(datagram), from),
                 asio::detached);
