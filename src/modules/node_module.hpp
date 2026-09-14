@@ -53,6 +53,12 @@ public:
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
     static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
+    // Tunnel liveness (post-migration addition, ROADMAP peer selection):
+    // same AEAD layout as TUNNEL_DATA_FRAME with an empty plaintext, so the
+    // frame is header(16) + nonce(12) + tag(16). The type byte sits inside
+    // the AAD-protected header, so it cannot be forged or confused.
+    static inline constexpr uint8_t TUNNEL_PING = 6;
+    static inline constexpr uint8_t TUNNEL_PONG = 8;
     struct PeerInfo {
         std::vector<uint8_t> peer_id;
         bool is_relay = false;
@@ -71,6 +77,10 @@ public:
 
     static inline constexpr double SESSION_TIMEOUT = 3600.0; // 1 hour
     static inline constexpr double KEEPALIVE_INTERVAL = 30.0; // 30 seconds
+    // A peer that has not answered a tunnel PING within this window is treated
+    // as silent and excluded from adapter-traffic selection (fail closed).
+    // Three keepalive intervals tolerate one missed round trip under load.
+    static inline constexpr double LIVENESS_WINDOW = 3.0 * KEEPALIVE_INTERVAL;
 
     enum class SessionState {
         INITIALIZING,
@@ -93,6 +103,10 @@ public:
         std::vector<uint8_t> aead_recv_key;
         SessionState state = SessionState::INITIALIZING;
         double last_activity = 0.0;
+        // Last time this peer proved liveness with an authenticated frame
+        // (tunnel data, relay peel, or PONG). Refreshed by tunnel PING/PONG
+        // exchanges; used to exclude silent peers from adapter traffic.
+        double last_peer_response = 0.0;
         uint64_t bytes_sent = 0;
         uint64_t bytes_recv = 0;
         double created_at = 0.0;
@@ -164,15 +178,30 @@ public:
     std::optional<std::vector<uint8_t>> build_tunnel_datagram(
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);
+
+    // Builds one authenticated liveness frame (TUNNEL_PING or TUNNEL_PONG):
+    // header(16) + nonce(12) + tag(16), empty plaintext, AAD = the 16-byte
+    // header. Fails closed when the session cannot carry it.
+    std::optional<std::vector<uint8_t>> build_tunnel_liveness_frame(
+        uint8_t frame_type,
+        Session& session);
     bool send_tunnel_packet(
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);
 
     // Automatic peer selection for adapter-originated traffic (TAP data path):
-    // among ESTABLISHED sessions with a routable remote address, the most
-    // recently active session carries the packet; ties resolve to the
-    // lexicographically smallest peer id so the choice is deterministic.
+    // among ESTABLISHED sessions with a routable remote address, only peers
+    // that answered within LIVENESS_WINDOW are eligible; the most recently
+    // active of those carries the packet. Ties resolve to the lexicographically
+    // smallest peer id so the choice is deterministic. Returns nullopt when no
+    // live peer exists: adapter traffic then fails closed instead of being
+    // sent into a black hole.
     std::optional<std::vector<uint8_t>> select_tunnel_peer() const;
+
+    // Sends one tunnel PING to an established peer and returns whether it was
+    // posted for delivery. The peer replies with a TUNNEL_PONG, which refreshes
+    // last_peer_response on both sides (see datagram_received).
+    asio::awaitable<bool> ping_tunnel_peer(const std::vector<uint8_t>& peer_id);
 
     // Forwards one adapter-originated packet through the selected tunnel
     // session. Runs on the io_context with a posted send, so it is safe to

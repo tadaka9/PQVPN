@@ -258,21 +258,14 @@ asio::awaitable<void> PQVPNNode::session_maintenance() {
 
                     if (sess.state == SessionState::ESTABLISHED) {
                         ++active;
-                        try {
-                            std::ostringstream oss;
-                            oss << "{\"type\":\"heartbeat\",\"sessionid\":\"";
-                            oss << hex_id(sess.session_id);
-                            oss << "\",\"timestamp\":" << static_cast<long long>(now) << ",";
-                            oss << "\"peerid\":\"" << (my_id_.has_value() ? hex_id(*my_id_) : "") << "\",";
-                            oss << "\"uptime\":0}";
-                            std::string heartbeat_str = oss.str();
-                            auto hb = std::vector<uint8_t>(heartbeat_str.begin(), heartbeat_str.end());
-                            const auto peer_for_hash = sess.peer_id_.value_or(sess.session_id);
-                            auto frame = make_outer_frame(4, peer_hash8(peer_for_hash), 0, hb);
-                            if (transport && !sess.remote_addr.address().is_unspecified()) {
-                                transport->send_to(asio::buffer(frame), sess.remote_addr);
-                            }
-                        } catch (...) {
+                        // Tunnel-level liveness: the peer answers a PING with a
+                        // PONG (datagram_received), refreshing last_peer_response
+                        // on both sides so select_tunnel_peer can fail over silent
+                        // peers. Replaces the legacy type-4 heartbeat, which this
+                        // codebase's tunnel dispatcher drops and which only added
+                        // observable dead traffic to the wire.
+                        if (sess.peer_id_.has_value()) {
+                            co_await ping_tunnel_peer(*sess.peer_id_);
                         }
 
                         try {
@@ -316,6 +309,32 @@ asio::awaitable<void> PQVPNNode::session_maintenance() {
     co_return;
 }
 
+// Resolves an 8-byte session hint against established sessions bound to the
+// datagram's origin. Ambiguous hints fail closed, mirroring the tunnel data
+// path in datagram_received().
+std::shared_ptr<PQVPNNode::Session> find_tunnel_session(
+    const std::unordered_map<
+        std::vector<uint8_t>,
+        std::shared_ptr<PQVPNNode::Session>,
+        PQVPNNode::VectorHasher>& sessions,
+    const std::vector<uint8_t>& hint,
+    const asio::ip::udp::endpoint& endpoint) {
+    if (hint.size() != 8) return nullptr;
+    std::shared_ptr<PQVPNNode::Session> match;
+    for (const auto& [peer_id, candidate] : sessions) {
+        (void)peer_id;
+        if (!candidate || candidate->state != PQVPNNode::SessionState::ESTABLISHED ||
+            candidate->remote_addr != endpoint || candidate->session_id.size() < hint.size()) {
+            continue;
+        }
+        if (std::equal(hint.begin(), hint.end(), candidate->session_id.begin())) {
+            if (match) return nullptr; // Ambiguous truncated session identifier.
+            match = candidate;
+        }
+    }
+    return match;
+}
+
 asio::awaitable<void> PQVPNNode::datagram_received(
     std::vector<uint8_t> data,
     asio::ip::udp::endpoint endpoint) {
@@ -328,6 +347,44 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     if (payload_size != data.size() - 16) {
         co_return;
     }
+    if (data[1] == TUNNEL_PING || data[1] == TUNNEL_PONG) {
+        // Tunnel liveness exchange: the authenticated tunnel-data layout with
+        // an empty plaintext. The type byte is AAD-bound, so a peer cannot
+        // forge or replay one against another session; the nonce window still
+        // applies (recorded only after authentication succeeds).
+        if (payload_size != 28) co_return;
+        const std::vector<uint8_t> session_hint(data.begin() + 2, data.begin() + 10);
+        auto session = find_tunnel_session(sessions_by_peer_id, session_hint, endpoint);
+        if (!session || session->aead_recv_key.empty() || session->session_iv.size() != 12) {
+            co_return;
+        }
+
+        const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
+        const auto plaintext = tunnel_decrypt(
+            std::span<const uint8_t>(data).subspan(28),
+            session->aead_recv_key,
+            nonce,
+            std::span<const uint8_t>(data).first(16));
+        if (!plaintext || !plaintext->empty() || !check_and_record_nonce(*session, nonce)) {
+            co_return;
+        }
+
+        const double now = std::chrono::duration<double>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        session->last_peer_response = now;
+        session->last_activity = now;
+        if (data[1] == TUNNEL_PING) {
+            // Answer exactly once with a PONG; a PONG never elicits a reply,
+            // so the exchange cannot loop.
+            const auto pong = build_tunnel_liveness_frame(TUNNEL_PONG, *session);
+            if (pong && transport && !endpoint.address().is_unspecified()) {
+                auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*pong));
+                co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
+            }
+        }
+        co_return;
+    }
+
     if (data[1] == RELAY_FRAME) {
         // Onion relay layer: payload = session_hint(8) + nonce(12) + ciphertext+tag.
         if (payload_size < 8 + 12 + 16) co_return;
@@ -350,18 +407,7 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     const std::vector<uint8_t> session_hint(data.begin() + 2, data.begin() + 10);
-    std::shared_ptr<Session> session;
-    for (const auto& [peer_id, candidate] : sessions_by_peer_id) {
-        (void)peer_id;
-        if (!candidate || candidate->state != SessionState::ESTABLISHED ||
-            candidate->remote_addr != endpoint || candidate->session_id.size() < session_hint.size()) {
-            continue;
-        }
-        if (std::equal(session_hint.begin(), session_hint.end(), candidate->session_id.begin())) {
-            if (session) co_return; // Ambiguous truncated session identifier.
-            session = candidate;
-        }
-    }
+    auto session = find_tunnel_session(sessions_by_peer_id, session_hint, endpoint);
     if (!session || session->aead_recv_key.empty() || session->session_iv.size() != 12) {
         co_return;
     }
@@ -377,10 +423,59 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     session->bytes_recv += plaintext->size();
-    session->last_activity = std::chrono::duration<double>(
+    const double now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+    session->last_activity = now;
+    // Authenticated traffic from the peer is itself proof of liveness.
+    session->last_peer_response = now;
     invoke_tunnel_sink(tunnel_packet_handler_, *plaintext);
     co_return;
+}
+
+std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_liveness_frame(
+    const uint8_t frame_type, Session& session) {
+    if (session.state != SessionState::ESTABLISHED ||
+        session.session_id.size() < 8 ||
+        session.aead_send_key.empty() ||
+        session.session_iv.size() != 12 ||
+        session.nonce_send == std::numeric_limits<uint64_t>::max()) {
+        return std::nullopt;
+    }
+    const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
+    const std::vector<uint8_t> session_hint(session.session_id.begin(), session.session_id.begin() + 8);
+    // Empty plaintext: the frame carries no data, only authenticated liveness
+    // (header(16) + nonce(12) + tag(16)).
+    std::vector<uint8_t> reserved_payload(nonce.size() + 16);
+    auto frame = encode_outer_frame(frame_type, session_hint, 0, reserved_payload);
+    frame.resize(16);
+    const auto tag = tunnel_encrypt(
+        std::span<const uint8_t>{}, session.aead_send_key, nonce,
+        std::span<const uint8_t>(frame));
+    frame.insert(frame.end(), nonce.begin(), nonce.end());
+    frame.insert(frame.end(), tag.begin(), tag.end());
+    return frame;
+}
+
+asio::awaitable<bool> PQVPNNode::ping_tunnel_peer(const std::vector<uint8_t>& peer_id) {
+    if (!transport) co_return false;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified()) {
+        co_return false;
+    }
+    auto& session = *found->second;
+    const auto frame = build_tunnel_liveness_frame(TUNNEL_PING, session);
+    if (!frame) co_return false;
+    const auto frame_size = frame->size();
+    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*frame));
+    const auto endpoint = found->second->remote_addr;
+    const bool sent = co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
+    if (sent) {
+        session.bytes_sent += frame_size;
+        session.last_activity = std::chrono::duration<double>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    }
+    co_return sent;
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_datagram(
@@ -429,11 +524,17 @@ bool PQVPNNode::send_tunnel_packet(
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
+    const double now = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
     const std::vector<uint8_t>* best = nullptr;
     double best_activity = 0.0;
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
         if (!session || session->state != SessionState::ESTABLISHED) continue;
         if (session->remote_addr.address().is_unspecified()) continue;
+        // Silent peers are excluded: without a recent authenticated response
+        // the packet would be delivered to a black hole, and UDP sends report
+        // success either way. Failing closed here is the safe behavior.
+        if (now - session->last_peer_response > LIVENESS_WINDOW) continue;
         const bool better = best == nullptr
             ? true
             : session->last_activity > best_activity
@@ -718,6 +819,9 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
     session->created_at = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     session->last_activity = session->created_at;
+    // A fresh session is considered live until the first missed liveness
+    // window, so selection does not drop it before any PING/PONG has flown.
+    session->last_peer_response = session->created_at;
     sessions_by_peer_id[peer_id] = session;
     return session;
 }
@@ -834,8 +938,11 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     const auto inner_frame = std::vector<uint8_t>(plaintext->begin() + 8, plaintext->end());
 
     sess.bytes_recv += ciphertext_and_tag.size();
-    sess.last_activity = std::chrono::duration<double>(
+    const double relay_now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+    sess.last_activity = relay_now;
+    // An authenticated relay layer is proof the peeling peer is alive.
+    sess.last_peer_response = relay_now;
 
     if (next_hash == self_hash) {
         // Local delivery: the peeled content is a complete outer frame for this
