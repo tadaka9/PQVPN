@@ -117,6 +117,11 @@ def existing_build_dirs() -> list[Path]:
     env_dir = os.environ.get("PQVPN_BUILD_DIR")
     if env_dir:
         candidates.append(Path(env_dir))
+    # CTest runs each test from its binary directory. When the project is
+    # configured into a custom location (cmake -S . -B out) that directory is
+    # the active build and must be recognized, or the gate would skip the
+    # nested CTest run entirely.
+    candidates.append(Path.cwd())
     for name in ("build", "build-test"):
         candidates.append(ROOT / name)
     return [d for d in candidates if (d / "CMakeCache.txt").is_file()]
@@ -126,8 +131,11 @@ def cmake_config_oqs_prefixes() -> list[Path]:
     """liboqs CMake CONFIG package prefixes referenced by existing build caches.
 
     On Windows/vcpkg the project resolves liboqs with find_package(liboqs CONFIG)
-    (see CMakeLists.txt); each build cache records it as
-    liboqs_DIR=<prefix>/lib/cmake/liboqs, so the prefix is three levels up.
+    (see CMakeLists.txt); each build cache records it as liboqs_DIR=<pkg-dir>.
+    The layout varies: <prefix>/lib/cmake/liboqs for system builds and
+    <prefix>/share/liboqs for vcpkg. Derive both candidates and accept only a
+    prefix that actually carries the oqs headers, so a wrong guess can never
+    masquerade as a valid installation.
     """
     prefixes: list[Path] = []
     for build_dir in existing_build_dirs():
@@ -139,8 +147,13 @@ def cmake_config_oqs_prefixes() -> list[Path]:
         if not match:
             continue
         oqs_dir = Path(match.group(1).strip())
-        if len(oqs_dir.parts) >= 4:
-            prefixes.append(Path(*oqs_dir.parts[:-3]))
+        for strip_depth in (2, 3):
+            if len(oqs_dir.parts) <= strip_depth:
+                continue
+            candidate = Path(*oqs_dir.parts[:-strip_depth])
+            if (candidate / "include" / "oqs").is_dir():
+                prefixes.append(candidate)
+                break
     return prefixes
 
 
