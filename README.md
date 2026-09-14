@@ -73,9 +73,13 @@ dispatch bounded UDP datagrams, establish hybrid sessions, and enter a
 signal-aware runtime loop. The optional Qt monitor and Windows TAP integration
 are present.
 
-The Windows TAP layer currently manages the adapter and media state. Automatic
-peer selection, route installation, full bidirectional frame forwarding, an
-independent audit, and broader deployment testing remain release blockers.
+The Windows TAP layer manages the adapter and media state, forwards adapter
+traffic through the selected tunnel session (and back), installs and removes
+the default route transactionally, and selects peers automatically: only
+peers that answered a tunnel liveness exchange within the keepalive window
+carry traffic, so silent peers fail over instead of black-holing packets.
+An independent audit, cross-environment shutdown/recovery validation, and
+broader deployment testing remain release blockers.
 
 ## Build on Ubuntu / WSL
 
