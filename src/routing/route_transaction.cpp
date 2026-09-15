@@ -1,5 +1,7 @@
 #include "routing/route_transaction.hpp"
 
+#include <algorithm>
+
 namespace pqvpn::routing {
 
 void RouteTransaction::add(RouteEntry entry) {
@@ -49,27 +51,35 @@ CommitReport RouteTransaction::commit(RouteBackend& backend) {
     return report;
 }
 
-RemovalReport RouteTransaction::remove_all(RouteBackend& backend) const {
+RemovalReport RouteTransaction::remove_all(RouteBackend& backend) {
     RemovalReport report;
     bool failed = false;
+    std::vector<std::size_t> released; // indices whose removal was confirmed
     // Remove only the routes this transaction created (owned_). Routes that
     // were already present when we committed are not ours to delete.
     for (const auto index : owned_) {
         const auto result = backend.remove(entries_[index]);
         if (!result.ok) {
-            // Best-effort cleanup: record the first hard failure and keep
-            // removing the remaining owned entries.
+            // Best-effort cleanup: record the first hard failure, keep this
+            // entry owned for a later retry, and remove the rest.
             if (!failed) {
                 report.error = result.error.empty() ? "route removal failed" : result.error;
                 failed = true;
             }
             continue;
         }
+        released.push_back(index);
         if (result.not_found) {
             ++report.already_absent;
         } else {
             ++report.removed;
         }
+    }
+    // Confirmed removal ends our ownership NOW: a later cleanup pass must not
+    // delete a route someone else recreated after we relinquished it. Hard
+    // failures stay in owned_ so they are retried.
+    for (const auto index : released) {
+        owned_.erase(std::remove(owned_.begin(), owned_.end(), index), owned_.end());
     }
     report.complete = !failed;
     return report;

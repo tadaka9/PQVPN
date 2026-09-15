@@ -3,7 +3,9 @@
 #include <asio.hpp>
 #include <chrono>
 #include <cstdint>
+#include <cstddef>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -20,7 +22,10 @@ struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
     std::vector<std::string> calls;
     std::vector<pqvpn::routing::RouteEntry> installed_entries;
     int failing_remove = -1; // 0-based index of the remove call that hard-fails
+    bool always_already_present = false;   // report every install as already present (a pre-existing OS route)
+    std::set<int> already_present_installs; // specific install indices reported as pre-existing
 
+    int installs = 0;
     int removals = 0;
 
     static std::string key(const pqvpn::routing::RouteEntry& entry) {
@@ -30,7 +35,9 @@ struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
     pqvpn::routing::OperationResult install(const pqvpn::routing::RouteEntry& entry) override {
         calls.push_back("install " + key(entry));
         installed_entries.push_back(entry);
-        return {true, false, false, ""};
+        const int index = installs++;
+        return {true, always_already_present || already_present_installs.count(index) != 0,
+                false, ""};
     }
 
     pqvpn::routing::OperationResult remove(const pqvpn::routing::RouteEntry& entry) override {
@@ -181,6 +188,69 @@ TEST_CASE("a hard remove failure keeps the exclusion tracked so remove_all retri
     const auto report = manager.remove_all();
     REQUIRE(report.complete);
     REQUIRE(report.removed == 1);
+}
+
+TEST_CASE("admin-owned routes are never deleted by cleanup", "[routing][peerroutes]") {
+    ScriptedRouteBackend backend;
+    backend.always_already_present = true; // an administrator put this route there
+    pqvpn::routing::PeerRouteManager manager(backend);
+    manager.set_physical_gateway(gateway("192.168.1.1"));
+
+    const auto peer = peer_endpoint("203.0.113.20", 443);
+    REQUIRE(manager.add_peer(peer).ok); // success: the route is in place
+    REQUIRE(backend.calls.size() == 1); // install only, nothing removed yet
+
+    // Last reference dropped via remove_peer: still not ours to delete.
+    const auto single = manager.remove_peer(peer);
+    REQUIRE(single.ok);
+    REQUIRE(backend.removals == 0);
+
+    // A fresh add + full shutdown must also leave the admin's route alone.
+    REQUIRE(manager.add_peer(peer).ok);
+    const auto report = manager.remove_all();
+    REQUIRE(report.complete);
+    REQUIRE(report.removed == 0);
+    REQUIRE(backend.removals == 0); // the pre-existing route survives PQVPN shutdown
+}
+
+TEST_CASE("shared peer addresses keep their route until the last reference disappears", "[routing][peerroutes]") {
+    ScriptedRouteBackend backend;
+    backend.already_present_installs.insert(1); // second install finds our first in place
+    pqvpn::routing::PeerRouteManager manager(backend);
+    manager.set_physical_gateway(gateway("192.168.1.1"));
+
+    const auto a = peer_endpoint("203.0.113.20", 5000);
+    const auto b = peer_endpoint("203.0.113.20", 5001); // same address, different port
+    REQUIRE(manager.add_peer(a).ok);
+    REQUIRE(manager.add_peer(b).ok);
+
+    // Pruning the first session must NOT remove the route still needed by b.
+    REQUIRE(manager.remove_peer(a).ok);
+    REQUIRE(backend.removals == 0);
+
+    // The last reference releases it: exactly one OS removal, total.
+    REQUIRE(manager.remove_peer(b).ok);
+    REQUIRE(backend.removals == 1);
+}
+
+TEST_CASE("remove_all releases ownership so a later pass cannot delete recreated routes", "[routing][peerroutes]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::PeerRouteManager manager(backend);
+    manager.set_physical_gateway(gateway("192.168.1.1"));
+
+    const auto peer = peer_endpoint("203.0.113.20", 443);
+    REQUIRE(manager.add_peer(peer).ok);
+    const auto first = manager.remove_all();
+    REQUIRE(first.complete);
+    REQUIRE(first.removed == 1);
+
+    // Ownership is gone: an administrator may have recreated the route in the
+    // meantime, and a second cleanup pass must not touch the table again.
+    const std::size_t calls_before = backend.calls.size();
+    const auto second = manager.remove_all();
+    REQUIRE(second.complete);
+    REQUIRE(second.removed == 0);
+    REQUIRE(backend.calls.size() == calls_before); // no further backend activity
 }
 
 TEST_CASE("HELLO registration notifies the peer-route hook with add=true", "[routing][peerroutes][node]") {

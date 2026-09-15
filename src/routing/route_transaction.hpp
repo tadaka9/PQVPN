@@ -108,7 +108,9 @@ public:
     // Best-effort removal of exactly the entries this transaction created via
     // a successful commit; already-present routes are not touched. Keeps going
     // past a hard failure so shutdown always attempts to leave no owned routes.
-    RemovalReport remove_all(RouteBackend& backend) const;
+    // A confirmed removal releases ownership immediately: a later pass must
+    // not delete a route someone else recreated after we relinquished it.
+    RemovalReport remove_all(RouteBackend& backend);
 
 private:
     std::vector<RouteEntry> entries_;

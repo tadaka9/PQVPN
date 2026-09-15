@@ -215,3 +215,23 @@ TEST_CASE("rollback leaves already-present routes when a later install fails", "
         REQUIRE(call.find("remove 10.0.0.0/8") == std::string::npos);
     }
 }
+
+TEST_CASE("remove_all releases ownership so a later pass cannot delete recreated routes", "[routing]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));
+    REQUIRE(plan.commit(backend).committed);
+
+    const auto first = plan.remove_all(backend);
+    REQUIRE(first.complete);
+    REQUIRE(first.removed == 1);
+
+    // Ownership is gone: an administrator may have recreated the route in the
+    // meantime, and a second cleanup pass must not touch the table again.
+    const std::size_t calls_before = backend.calls.size();
+    const auto second = plan.remove_all(backend);
+    REQUIRE(second.complete);
+    REQUIRE(second.removed == 0);
+    REQUIRE(second.already_absent == 0);
+    REQUIRE(backend.calls.size() == calls_before); // no further backend activity
+}
