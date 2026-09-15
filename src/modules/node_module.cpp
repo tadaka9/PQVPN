@@ -906,12 +906,26 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     auto& sess = **session;
 
     // Sender binding (hardening beyond main.py, whose handle_relay takes no
-    // address): the layer must come from the peer the session was established
-    // with, matching the direct tunnel path's endpoint check in
-    // datagram_received. The first peeler always receives directly from the
-    // onion source, so this does not disturb the forwarding model; it blocks
-    // stolen session material submitted from an unregistered address.
-    if (sess.remote_addr != sender) co_return false;
+    // address). Hop one arrives directly from the onion source, so it must
+    // come from the endpoint the session was established with. Forwarded
+    // layers (hop two and later) necessarily arrive from the preceding relay,
+    // which is a mesh-registered peer by construction — the forwarder resolved
+    // this node's address through its own mesh to send here. Accept either
+    // origin; in both cases the layer is still bound to its creator by the
+    // source-peeler AEAD key, and the monotonic nonce window rejects replays,
+    // so an unregistered address can neither forge nor replay a valid layer.
+    const bool direct_origin = (sess.remote_addr == sender);
+    if (!direct_origin) {
+        bool relay_origin = false;
+        for (const auto& [peer_hex, info] : mesh.peers) {
+            (void)peer_hex;
+            if (!info.peer_id.empty() && info.address == sender) {
+                relay_origin = true;
+                break;
+            }
+        }
+        if (!relay_origin) co_return false;
+    }
 
     // A relay must know its own identity: it binds the layer AAD and decides
     // local delivery (main.py: nexth == peer_hash8(my_id)).
@@ -1002,10 +1016,10 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         co_return true;
     }
 
-    // Forward the peeled content as-is to the next hop (main.py parity):
-    // resolve the 8-byte identity hash against mesh.peers. The relay only
-    // needs the peer's network address, not a local session with it — the
-    // layer is already encrypted for whoever peels it next.
+    // Forward the peeled layer to the next hop: resolve the 8-byte identity
+    // hash against mesh.peers. The relay only needs the peer's network
+    // address, not a local session with it — the layer is already encrypted
+    // for whoever peels it next.
     const PeerInfo* target = nullptr;
     std::size_t matches = 0;
     for (const auto& [peer_hex, candidate] : mesh.peers) {
@@ -1021,7 +1035,15 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         co_return false;
     }
 
-    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(inner_frame));
+    // Wrap the peeled layer in a fresh RELAY_FRAME before sending. main.py
+    // forwards the raw inner blob, but every dispatcher — including main.py's
+    // own _process_outer_datagram — requires the 16-byte outer header before
+    // routing to handle_relay, so a raw forward is undeliverable at hop two.
+    // The new header identifies the next peeler (next_hash) and preserves the
+    // circuit id, which the builder bound into every layer's AAD; the payload
+    // length is set by encode_outer_frame. Recorded in MIGRATION_MANIFEST.md.
+    const auto wrapped = encode_outer_frame(RELAY_FRAME, next_hash, circuit_id, inner_frame);
+    auto payload = std::make_shared<std::vector<uint8_t>>(std::move(wrapped));
     const auto endpoint = target->address;
     if (!co_await post_udp_send(io_context_, transport, std::move(payload), endpoint)) {
         co_return false;

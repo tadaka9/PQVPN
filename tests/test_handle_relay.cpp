@@ -313,12 +313,18 @@ TEST(HandleRelay, RelaysPeeledLayerToTheNextHop) {
     EXPECT_FALSE(failure);
     EXPECT_TRUE(accepted);
 
-    // The relay forwarded the peeled content (the raw innermost payload) to
-    // the destination's mesh address even though it holds no session with it.
+    // The relay forwarded the peeled content to the destination's mesh address
+    // even though it holds no session with it.
     EXPECT_EQ(chain.relay.sessions_by_peer_id.count(chain.destination_id), 0u);
 
     ASSERT_TRUE(got_datagram) << "destination never received the forwarded datagram";
-    EXPECT_EQ(std::vector<uint8_t>(received.begin(), received.begin() + bytes), innermost);
+    const std::vector<uint8_t> got(received.begin(), received.begin() + bytes);
+    // The forward is wrapped in a RELAY_FRAME (version/type/next-hop/circuit/
+    // length header) so any dispatcher can route it; main.py's raw forward
+    // would be undeliverable at the next hop. Recorded in MIGRATION_MANIFEST.md.
+    const auto expected = chain.source.make_outer_frame(
+        pqvpn::PQVPNNode::RELAY_FRAME, chain.relay.peer_hash8(chain.destination_id), 0, innermost);
+    EXPECT_EQ(got, expected);
 }
 
 TEST(HandleRelay, RelayLayerFromForeignEndpointIsRejected) {
@@ -507,20 +513,59 @@ TEST(HandleRelay, LocalDeliveryRejectsDataFramesWithForeignLayout) {
     EXPECT_TRUE(captured.empty());
 }
 
-TEST(HandleRelay, ForwardedOnionLayerIsUndeliverableAtTheDispatcher) {
+// End-to-end multi-peel through the REAL dispatchers: source -> first -> second.
+// first receives the outer frame via datagram_received (direct origin), peels
+// it, and forwards the wrapped layer to second's mesh address; second receives
+// that forward through its own datagram_received (relay origin — first is a
+// mesh-registered peer at the address it sent from), peels its layer, and
+// forwards the final content. Only genuine AEAD success at both hops produces
+// the exact wrapped output captured below.
+TEST(HandleRelay, MultiPeelDeliversThroughRealDispatchers) {
     MultiPeelChain chain;
     const std::vector<uint8_t> innermost{0x45, 0x00, 0x00, 0x14, 0x01, 0x02};
+    const std::vector<uint8_t> destination(32, 0xD1);
 
-    // first's transport (for the forward) and a capture socket at second's
-    // mesh address to observe exactly what first forwards.
-    asio::ip::udp::socket first_socket(chain.io,
-        asio::ip::udp::endpoint(asio::ip::make_address("0.0.0.0"), 0));
+    // first forwards from a stable endpoint that second knows through discovery
+    // (relay origin for sender binding); the final content lands at a capture
+    // socket registered as destination's mesh address.
+    static constexpr unsigned kFirstForwardPort = 9303;
+    static constexpr unsigned kDestinationPort = 9304;
+    const auto first_forward_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kFirstForwardPort);
+    const auto destination_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kDestinationPort);
+
+    pqvpn::PQVPNNode::PeerInfo first_info;
+    first_info.peer_id = chain.first_id;
+    first_info.address = first_forward_endpoint;
+    chain.second.mesh.peers[chain.hex_id(chain.first_id)] = first_info;
+
+    pqvpn::PQVPNNode::PeerInfo dest_info;
+    dest_info.peer_id = destination;
+    dest_info.address = destination_endpoint;
+    chain.second.mesh.peers[chain.hex_id(destination)] = dest_info;
+
+    asio::ip::udp::socket first_socket(chain.io, first_forward_endpoint);
     chain.first.transport = &first_socket;
-    asio::ip::udp::socket capture(chain.io, chain.endpoint_second());
+    asio::ip::udp::socket second_socket(chain.io, chain.endpoint_second());
+    chain.second.transport = &second_socket;
+    asio::ip::udp::socket capture(chain.io, destination_endpoint);
 
     const auto frame = chain.build_onion(innermost);
     ASSERT_TRUE(frame.has_value());
-    const auto layer = chain.split_outer_frame(*frame);
+
+    // Register every receive before any send: one io.run() must cover the whole
+    // two-peel exchange (MinGW/Asio does not process queued work on a later run).
+    std::vector<uint8_t> second_wire(65536);
+    asio::ip::udp::endpoint second_from;
+    second_socket.async_receive_from(asio::buffer(second_wire), second_from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            auto datagram = std::vector<uint8_t>(second_wire.begin(),
+                second_wire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(chain.io, chain.second.datagram_received(std::move(datagram), second_from),
+                asio::detached);
+        });
 
     std::vector<uint8_t> forwarded(65536);
     asio::ip::udp::endpoint from;
@@ -534,8 +579,80 @@ TEST(HandleRelay, ForwardedOnionLayerIsUndeliverableAtTheDispatcher) {
             deadline.cancel();
         });
 
-    // first peels its layer (received directly from source: sender binding OK)
-    // and forwards the inner content to second's mesh address.
+    // The outer frame enters first through its real dispatcher, from the source's
+    // registered endpoint (direct origin).
+    asio::co_spawn(chain.io,
+        chain.first.datagram_received(*frame, chain.endpoint_first()),
+        [](std::exception_ptr) {});
+    chain.io.run();
+
+    ASSERT_TRUE(got_forward)
+        << "second never received the forwarded layer: the second peel did not happen";
+    const std::vector<uint8_t> got(forwarded.begin(), forwarded.begin() + fwd_bytes);
+    // After BOTH peels, what reaches destination is the final content wrapped in
+    // a RELAY_FRAME identifying it — proof that first peeled hop one and second
+    // peeled hop two (each peel requires AEAD success under its own session).
+    const auto expected = chain.source.make_outer_frame(
+        pqvpn::PQVPNNode::RELAY_FRAME, chain.second.peer_hash8(destination), 0, innermost);
+    EXPECT_EQ(got, expected);
+}
+
+// A forwarded layer arriving from an address that is neither the session's
+// registered peer nor a mesh-registered relay must be rejected: sender binding
+// still applies to hop two and later, it just accepts the relay origin instead
+// of the source endpoint. Acceptance would be observable as second peeling its
+// layer and re-forwarding the final content; rejection leaves nothing behind.
+TEST(HandleRelay, ForwardedLayerFromUnregisteredSenderIsRejected) {
+    MultiPeelChain chain;
+    const std::vector<uint8_t> innermost{0x45, 0x00, 0x00, 0x14, 0x01, 0x02};
+    const std::vector<uint8_t> destination(32, 0xD1);
+
+    // first forwards from an EPHEMERAL socket that second does not know through
+    // discovery: neither direct origin (source endpoint) nor relay origin.
+    asio::ip::udp::socket first_socket(chain.io,
+        asio::ip::udp::endpoint(asio::ip::make_address("0.0.0.0"), 0));
+    chain.first.transport = &first_socket;
+
+    // If second were to (wrongly) accept the layer, it would peel and forward
+    // the final content here; that is what we observe.
+    static constexpr unsigned kDestinationPort = 9305;
+    const auto destination_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kDestinationPort);
+    pqvpn::PQVPNNode::PeerInfo dest_info;
+    dest_info.peer_id = destination;
+    dest_info.address = destination_endpoint;
+    chain.second.mesh.peers[chain.hex_id(destination)] = dest_info;
+
+    asio::ip::udp::socket second_socket(chain.io, chain.endpoint_second());
+    chain.second.transport = &second_socket;
+    asio::ip::udp::socket capture(chain.io, destination_endpoint);
+
+    const auto frame = chain.build_onion(innermost);
+    ASSERT_TRUE(frame.has_value());
+    const auto layer = chain.split_outer_frame(*frame);
+
+    // second's real dispatcher handles whatever first forwards.
+    std::vector<uint8_t> second_wire(65536);
+    asio::ip::udp::endpoint second_from;
+    bool got_forward = false;
+    asio::steady_timer deadline(chain.io, std::chrono::seconds(2));
+    deadline.async_wait([&](const asio::error_code&) { capture.cancel(); });
+    second_socket.async_receive_from(asio::buffer(second_wire), second_from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            auto datagram = std::vector<uint8_t>(second_wire.begin(),
+                second_wire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(chain.io, chain.second.datagram_received(std::move(datagram), second_from),
+                asio::detached);
+        });
+    std::vector<uint8_t> capture_wire(65536);
+    asio::ip::udp::endpoint capture_from;
+    capture.async_receive_from(asio::buffer(capture_wire), capture_from,
+        [&](const asio::error_code& ec, std::size_t) {
+            if (!ec) got_forward = true;
+            deadline.cancel();
+        });
+
     bool accepted = false;
     std::exception_ptr failure;
     asio::co_spawn(chain.io, chain.first.handle_relay(
@@ -548,30 +665,8 @@ TEST(HandleRelay, ForwardedOnionLayerIsUndeliverableAtTheDispatcher) {
 
     EXPECT_FALSE(failure);
     EXPECT_TRUE(accepted) << "the first peeler must accept the layer from its source";
-    ASSERT_TRUE(got_forward) << "first never forwarded to second's mesh address";
-
-    // What first forwarded is a RAW onion layer (session_hint+nonce+ciphertext),
-    // with no 16-byte outer frame — exactly main.py's handle_relay forward branch.
-    const std::vector<uint8_t> raw_layer(forwarded.begin(), forwarded.begin() + fwd_bytes);
-
-    // second receives it through its real dispatcher, from the address first
-    // actually sent it from. A tunnel sink would fire only if the layer were
-    // deliverable; it is not, because every receiver requires a 16-byte outer
-    // header to dispatch at all (main.py:4493-4508). This holds regardless of
-    // sender binding — the failure is at the wire-format level.
-    bool delivered = false;
-    chain.second.set_tunnel_packet_handler([&delivered](std::vector<uint8_t>) {
-        delivered = true;
-    });
-
-    std::exception_ptr second_failure;
-    asio::co_spawn(chain.io, chain.second.datagram_received(raw_layer, from),
-        [&](std::exception_ptr e) { if (e) second_failure = std::move(e); });
-    chain.io.restart();
-    chain.io.run();
-
-    EXPECT_FALSE(second_failure);
-    EXPECT_FALSE(delivered)
-        << "a forwarded onion layer must be undeliverable: it is headerless, and "
-           "every dispatcher requires a 16-byte outer frame before handle_relay";
+    // second's dispatcher rejected the forwarded layer (unregistered sender),
+    // so nothing was peeled and nothing re-forwarded.
+    EXPECT_FALSE(got_forward)
+        << "a forwarded layer from an unregistered address must be rejected at hop two";
 }
