@@ -168,3 +168,98 @@ TEST_CASE("a fresh session is selectable before its first liveness round trip", 
     // not be dropped by selection during the grace window.
     REQUIRE(pair.initiator.select_tunnel_peer() == pair.responder_id);
 }
+
+TEST_CASE("liveness builder refuses frame types outside the PING/PONG contract", "[tunnel][liveness]") {
+    LivenessPair pair;
+    auto& session = *pair.initiator.sessions_by_peer_id.at(pair.responder_id);
+
+    // The type guard must hold even for a fully healthy, established session:
+    // no other frame type may be minted as an authenticated empty-plaintext
+    // liveness frame.
+    for (const uint8_t type : {pqvpn::PQVPNNode::DATA_FRAME,
+                              pqvpn::PQVPNNode::TUNNEL_DATA_FRAME,
+                              pqvpn::PQVPNNode::RELAY_FRAME}) {
+        REQUIRE_FALSE(pair.initiator.build_tunnel_liveness_frame(type, session).has_value());
+    }
+
+    // The two liveness constants remain buildable on the same healthy session,
+    // with the exact header(16) + nonce(12) + tag(16) shape.
+    const auto ping = pair.initiator.build_tunnel_liveness_frame(pqvpn::PQVPNNode::TUNNEL_PING, session);
+    REQUIRE(ping.has_value());
+    REQUIRE(ping->size() == 44);
+    REQUIRE(pair.initiator.build_tunnel_liveness_frame(pqvpn::PQVPNNode::TUNNEL_PONG, session).has_value());
+
+    // The type guard is not what protects a broken session: with no AEAD send
+    // key the liveness types fail closed too.
+    const auto saved_key = session.aead_send_key;
+    session.aead_send_key.clear();
+    REQUIRE_FALSE(pair.initiator.build_tunnel_liveness_frame(pqvpn::PQVPNNode::TUNNEL_PING, session).has_value());
+    session.aead_send_key = std::move(saved_key);
+}
+
+TEST_CASE("maintenance probes rescue a session idled past the liveness window", "[tunnel][liveness]") {
+    LivenessPair pair;
+    asio::ip::udp::socket initiator_socket(pair.io, pair.initiator_endpoint);
+    pair.initiator.transport = &initiator_socket;
+
+    auto& session = *pair.initiator.sessions_by_peer_id.at(pair.responder_id);
+    // The session has been idle past LIVENESS_WINDOW (but well inside the
+    // SESSION_TIMEOUT prune horizon): selection must exclude it...
+    session.last_peer_response -= pqvpn::PQVPNNode::LIVENESS_WINDOW + 60.0;
+    REQUIRE_FALSE(pair.initiator.select_tunnel_peer().has_value());
+
+    // ...until the production maintenance loop probes and the peer answers.
+    asio::ip::udp::socket responder_socket(pair.io, pair.responder_endpoint);
+    pair.responder.transport = &responder_socket;
+
+    asio::steady_timer deadline(pair.io, std::chrono::seconds(2));
+    deadline.async_wait([&](const asio::error_code&) {
+        initiator_socket.cancel();
+        responder_socket.cancel();
+    });
+
+    std::vector<uint8_t> rwire(65536);
+    asio::ip::udp::endpoint rfrom;
+    // Register every receive before any send: one io.run() must cover the whole
+    // probe/answer exchange (MinGW/Asio does not process queued work later).
+    responder_socket.async_receive_from(asio::buffer(rwire), rfrom,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            auto datagram = std::vector<uint8_t>(rwire.begin(), rwire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(pair.io, pair.responder.datagram_received(std::move(datagram), rfrom),
+                asio::detached);
+        });
+
+    bool pong_seen = false;
+    std::vector<uint8_t> wire(65536);
+    asio::ip::udp::endpoint from;
+    // The production listener dispatches every received datagram into node
+    // processing; the PONG must go through that real path to refresh liveness.
+    initiator_socket.async_receive_from(asio::buffer(wire), from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            pong_seen = true;
+            deadline.cancel();
+            auto datagram = std::vector<uint8_t>(wire.begin(), wire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(pair.io, pair.initiator.datagram_received(std::move(datagram), from),
+                asio::detached);
+        });
+
+    bool ticked = false;
+    std::exception_ptr failure;
+    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
+        co_await pair.initiator.maintenance_tick();
+        ticked = true;
+    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+
+    pair.io.run();
+
+    REQUIRE_FALSE(failure);
+    REQUIRE(ticked);
+    REQUIRE(pong_seen); // the probe reached the peer and it answered
+    // The PONG refreshed liveness: the same session is selectable again.
+    const double now = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    REQUIRE(now - pair.initiator.sessions_by_peer_id.at(pair.responder_id)->last_peer_response < 5.0);
+    REQUIRE(pair.initiator.select_tunnel_peer() == pair.responder_id);
+}
