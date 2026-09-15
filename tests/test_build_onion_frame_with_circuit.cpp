@@ -7,6 +7,9 @@
 
 TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the frame", "[node][onion]") {
     pqvpn::PQVPNNode node("test_config.toml");
+    // The builder binds the source identity into the outer layer's AAD;
+    // production nodes always have one (establish_identity at startup).
+    node.set_my_id(std::vector<uint8_t>(32, 0x5A));
 
     // Create mock data for testing
     std::vector<uint8_t> inner_frame = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -58,6 +61,8 @@ TEST_CASE("PQVPNNode::build_onion_frame_with_circuit correctly constructs the fr
 
 TEST_CASE("onion layers require established sessions", "[node][onion]") {
     pqvpn::PQVPNNode node("test_config.toml");
+    // The builder binds the source identity into the outer layer's AAD.
+    node.set_my_id(std::vector<uint8_t>(32, 0x5A));
     const std::vector<uint8_t> inner{0xDE, 0xAD, 0xBE, 0xEF};
     const std::vector<std::vector<uint8_t>> path = {{0x11, 0x22}, {0xAA, 0xBB}};
 

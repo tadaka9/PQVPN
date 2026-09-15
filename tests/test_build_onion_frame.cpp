@@ -9,6 +9,9 @@
 void test_build_onion_frame() {
     try {
         pqvpn::PQVPNNode node("test_config.toml");
+        // The builder binds the source identity into the outer layer's AAD;
+        // production nodes always have one (establish_identity at startup).
+        node.set_my_id(std::vector<uint8_t>(32, 0x5A));
 
         // Create mock data for testing
         std::vector<uint8_t> inner_frame = {0xDE, 0xAD, 0xBE, 0xEF};

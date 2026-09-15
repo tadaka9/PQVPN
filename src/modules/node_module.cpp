@@ -742,6 +742,28 @@ std::vector<uint8_t> PQVPNNode::make_outer_frame(
     return encode_outer_frame(frame_type, hop_id, circuit_id, payload);
 }
 
+// Builds the five-part relay AAD: "PQVPN" + full session id + 8-byte identity
+// hash of the node that peels this layer + 8-byte identity hash of the node
+// expected to SEND it (the onion source for hop one, the preceding relay for
+// later hops) + circuit id (big-endian). Binding the expected forwarder's
+// identity — not merely checking its address at verification time — stops a
+// registered peer from injecting a captured layer that was built for a
+// different forwarder. Builder and handler must use this single construction.
+std::vector<uint8_t> relay_aad(
+    const std::vector<uint8_t>& session_id,
+    const std::vector<uint8_t>& peeler_hash,
+    const std::vector<uint8_t>& sender_hash,
+    uint32_t circuit_id) {
+    std::vector<uint8_t> aad{'P', 'Q', 'V', 'P', 'N'};
+    aad.insert(aad.end(), session_id.begin(), session_id.end());
+    aad.insert(aad.end(), peeler_hash.begin(), peeler_hash.end());
+    aad.insert(aad.end(), sender_hash.begin(), sender_hash.end());
+    for (int shift = 24; shift >= 0; shift -= 8) {
+        aad.push_back(static_cast<uint8_t>((circuit_id >> shift) & 0xff));
+    }
+    return aad;
+}
+
 std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame(
     const std::vector<std::vector<uint8_t>>& path,
     const std::vector<uint8_t>& inner_frame) {
@@ -788,17 +810,29 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
         }
 
         const auto next_hash = peer_hash8(target);
-        // AAD: "PQVPN" + full session id + identity hash of the peeling hop +
-        // circuit id (BE). main.py bound the *target* hash here, which its own
-        // handle_relay could not reproduce; binding the peeler is the minimal
-        // self-consistent reading of the same four-part AAD.
-        std::vector<uint8_t> aad{'P', 'Q', 'V', 'P', 'N'};
-        aad.insert(aad.end(), session.session_id.begin(), session.session_id.end());
-        const auto peeler_hash = peer_hash8(hop);
-        aad.insert(aad.end(), peeler_hash.begin(), peeler_hash.end());
-        for (int shift = 24; shift >= 0; shift -= 8) {
-            aad.push_back(static_cast<uint8_t>((circuit_id >> shift) & 0xff));
+        // The node that will SEND this layer to the peeler: the onion source
+        // for the outermost layer, the preceding relay for every inner one.
+        std::vector<uint8_t> expected_sender;
+        if (idx == 1) {
+            // Without a local identity there is no source hash to bind; fail
+            // closed rather than emit an unbound outer layer.
+            if (!my_id_.has_value()) return std::nullopt;
+            expected_sender = *my_id_;
+        } else {
+            expected_sender = path[idx - 2];
         }
+        const auto sender_hash = peer_hash8(expected_sender);
+
+        // AAD: "PQVPN" + full session id + peeler hash + expected-sender hash
+        // + circuit id (BE). main.py bound the *target* hash here, which its
+        // own handle_relay could not reproduce; binding the peeler is the
+        // minimal self-consistent reading of that AAD. Binding the expected
+        // forwarder's identity additionally stops a registered peer from
+        // injecting a captured layer built for a different forwarder — the
+        // handler verifies the actual sender against this hash. Recorded in
+        // MIGRATION_MANIFEST.md.
+        const auto aad = relay_aad(session.session_id, peer_hash8(hop),
+                                   sender_hash, circuit_id);
 
         const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
         std::vector<uint8_t> plaintext = next_hash;
@@ -926,21 +960,6 @@ std::optional<std::shared_ptr<pqvpn::PQVPNNode::Session>> find_session_by_hint(
     return match;
 }
 
-// Builds the four-part relay AAD: "PQVPN" + full session id + 8-byte identity
-// hash of the node that peels this layer + circuit id (big-endian).
-std::vector<uint8_t> relay_aad(
-    const std::vector<uint8_t>& session_id,
-    const std::vector<uint8_t>& peeler_hash,
-    uint32_t circuit_id) {
-    std::vector<uint8_t> aad{'P', 'Q', 'V', 'P', 'N'};
-    aad.insert(aad.end(), session_id.begin(), session_id.end());
-    aad.insert(aad.end(), peeler_hash.begin(), peeler_hash.end());
-    for (int shift = 24; shift >= 0; shift -= 8) {
-        aad.push_back(static_cast<uint8_t>((circuit_id >> shift) & 0xff));
-    }
-    return aad;
-}
-
 } // namespace
 
 asio::awaitable<bool> PQVPNNode::handle_relay(
@@ -957,26 +976,31 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     auto& sess = **session;
 
     // Sender binding (hardening beyond main.py, whose handle_relay takes no
-    // address). Hop one arrives directly from the onion source, so it must
-    // come from the endpoint the session was established with. Forwarded
-    // layers (hop two and later) necessarily arrive from the preceding relay,
-    // which is a mesh-registered peer by construction — the forwarder resolved
-    // this node's address through its own mesh to send here. Accept either
-    // origin; in both cases the layer is still bound to its creator by the
-    // source-peeler AEAD key, and the monotonic nonce window rejects replays,
-    // so an unregistered address can neither forge nor replay a valid layer.
-    const bool direct_origin = (sess.remote_addr == sender);
-    if (!direct_origin) {
-        bool relay_origin = false;
-        for (const auto& [peer_hex, info] : mesh.peers) {
-            (void)peer_hex;
-            if (!info.peer_id.empty() && info.address == sender) {
-                relay_origin = true;
-                break;
+    // address). The layer's AAD binds the identity of the node expected to
+    // SEND it — the onion source for hop one, the preceding relay for later
+    // hops. Verification therefore requires BOTH: the actual UDP sender must
+    // be a plausible forwarder (the session's own peer at its registered
+    // endpoint, or a mesh-registered peer at that address), AND the AEAD tag
+    // must verify under that identity's hash. A captured valid layer replayed
+    // by any OTHER registered peer fails the second check: its AAD names a
+    // different forwarder. The monotonic nonce window additionally rejects
+    // replays after first delivery, so an unregistered address can neither
+    // forge nor replay a valid layer.
+    std::vector<std::vector<uint8_t>> sender_candidates;
+    if (sess.peer_id_.has_value() && sess.remote_addr == sender) {
+        sender_candidates.push_back(peer_hash8(*sess.peer_id_));
+    }
+    for (const auto& [peer_hex, info] : mesh.peers) {
+        (void)peer_hex;
+        if (!info.peer_id.empty() && info.address == sender) {
+            const auto hash = peer_hash8(info.peer_id);
+            if (std::find(sender_candidates.begin(), sender_candidates.end(), hash)
+                    == sender_candidates.end()) {
+                sender_candidates.push_back(hash);
             }
         }
-        if (!relay_origin) co_return false;
     }
+    if (sender_candidates.empty()) co_return false;
 
     // A relay must know its own identity: it binds the layer AAD and decides
     // local delivery (main.py: nexth == peer_hash8(my_id)).
@@ -987,11 +1011,18 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     // it peels; the builder binds the same value into the AAD.
     if (outer_next_hash != self_hash) co_return false;
 
-    const auto aad = relay_aad(sess.session_id, self_hash, circuit_id);
-    const auto plaintext = tunnel_decrypt(
-        std::span<const uint8_t>(ciphertext_and_tag), sess.aead_recv_key, nonce,
-        std::span<const uint8_t>(aad));
-    if (!plaintext || plaintext->size() < 9) co_return false; // nexth(8) + >=1 content byte
+    // Try each endpoint-qualified candidate identity: exactly one can verify
+    // (the AAD names a specific forwarder), and a failed tag attempt reveals
+    // nothing beyond "not this identity".
+    std::optional<std::vector<uint8_t>> plaintext;
+    for (const auto& candidate : sender_candidates) {
+        const auto aad = relay_aad(sess.session_id, self_hash, candidate, circuit_id);
+        plaintext = tunnel_decrypt(
+            std::span<const uint8_t>(ciphertext_and_tag), sess.aead_recv_key, nonce,
+            std::span<const uint8_t>(aad));
+        if (plaintext && plaintext->size() >= 9) break; // nexth(8) + >=1 content byte
+    }
+    if (!plaintext || plaintext->size() < 9) co_return false;
 
     // Replay defense: monotonic counter with bounded window (main.py parity).
     // Recorded only after authentication succeeds, so an invalid-tag packet

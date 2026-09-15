@@ -670,3 +670,84 @@ TEST(HandleRelay, ForwardedLayerFromUnregisteredSenderIsRejected) {
     EXPECT_FALSE(got_forward)
         << "a forwarded layer from an unregistered address must be rejected at hop two";
 }
+
+// A REGISTERED peer replays a valid layer from its own endpoint. The layer's
+// AAD names `first` as the expected forwarder; the rogue's identity must not
+// verify under it — mesh membership alone is not origin authorization.
+TEST(HandleRelay, ReplayedLayerByARogueRegisteredPeerIsRejected) {
+    MultiPeelChain chain;
+    const std::vector<uint8_t> innermost{0x45, 0x00, 0x00, 0x14, 0x01, 0x02};
+    const std::vector<uint8_t> destination(32, 0xD1);
+
+    // The rogue is registered in second's mesh at its own endpoint...
+    static constexpr unsigned kRoguePort = 9306;
+    const auto rogue_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kRoguePort);
+    pqvpn::PQVPNNode::PeerInfo rogue_info;
+    rogue_info.peer_id = std::vector<uint8_t>(32, 0xE9);
+    rogue_info.address = rogue_endpoint;
+    chain.second.mesh.peers[chain.hex_id(rogue_info.peer_id)] = rogue_info;
+
+    // ...and the forward leaves the wire from that endpoint (the UDP sender
+    // second observes). The layer itself is valid and was built with `first`
+    // as expected forwarder — only its origin is wrong.
+    asio::ip::udp::socket first_socket(chain.io, rogue_endpoint);
+    chain.first.transport = &first_socket;
+
+    // If second were to (wrongly) accept the layer, it would peel and forward
+    // the final content here; that is what we observe.
+    static constexpr unsigned kDestinationPort = 9307;
+    const auto destination_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kDestinationPort);
+    pqvpn::PQVPNNode::PeerInfo dest_info;
+    dest_info.peer_id = destination;
+    dest_info.address = destination_endpoint;
+    chain.second.mesh.peers[chain.hex_id(destination)] = dest_info;
+
+    asio::ip::udp::socket second_socket(chain.io, chain.endpoint_second());
+    chain.second.transport = &second_socket;
+    asio::ip::udp::socket capture(chain.io, destination_endpoint);
+
+    const auto frame = chain.build_onion(innermost);
+    ASSERT_TRUE(frame.has_value());
+    const auto layer = chain.split_outer_frame(*frame);
+
+    // second's real dispatcher handles whatever first forwards.
+    std::vector<uint8_t> second_wire(65536);
+    asio::ip::udp::endpoint second_from;
+    bool got_forward = false;
+    asio::steady_timer deadline(chain.io, std::chrono::seconds(2));
+    deadline.async_wait([&](const asio::error_code&) { capture.cancel(); });
+    second_socket.async_receive_from(asio::buffer(second_wire), second_from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            auto datagram = std::vector<uint8_t>(second_wire.begin(),
+                second_wire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(chain.io, chain.second.datagram_received(std::move(datagram), second_from),
+                asio::detached);
+        });
+    std::vector<uint8_t> capture_wire(65536);
+    asio::ip::udp::endpoint capture_from;
+    capture.async_receive_from(asio::buffer(capture_wire), capture_from,
+        [&](const asio::error_code& ec, std::size_t) {
+            if (!ec) got_forward = true;
+            deadline.cancel();
+        });
+
+    bool accepted = false;
+    std::exception_ptr failure;
+    asio::co_spawn(chain.io, chain.first.handle_relay(
+        layer.session_hint, layer.nonce, layer.ciphertext_and_tag,
+        layer.next_hash, layer.circuit_id, chain.endpoint_first()),
+        [&](std::exception_ptr e, bool result) {
+            if (e) failure = std::move(e); else accepted = result;
+        });
+    chain.io.run();
+
+    EXPECT_FALSE(failure);
+    EXPECT_TRUE(accepted) << "the first peeler must accept the layer from its source";
+    // second's dispatcher rejected the replayed layer: its AAD names `first`
+    // as expected forwarder, and the rogue's identity does not verify under it.
+    EXPECT_FALSE(got_forward)
+        << "a valid layer replayed by a different registered peer must be rejected at hop two";
+}
