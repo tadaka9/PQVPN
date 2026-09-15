@@ -75,7 +75,10 @@ are present.
 
 The Windows TAP layer manages the adapter and media state, forwards adapter
 traffic through the selected tunnel session (and back), installs and removes
-the default route transactionally, and selects peers automatically: only
+routes transactionally — pinning every known peer to the pre-VPN physical
+gateway with explicit host routes before the VPN default route can win, so
+the node's own encrypted transport is never looped back into the adapter —
+and selects peers automatically: only
 peers that answered a tunnel liveness exchange within the keepalive window
 carry traffic, so silent peers fail over instead of black-holing packets.
 An independent audit, cross-environment shutdown/recovery validation, and
