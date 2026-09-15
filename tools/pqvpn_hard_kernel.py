@@ -11,7 +11,9 @@ can be called production-runnable:
   - signatures: Ed25519 crossed with ML-DSA-87
 * no fallback, fake, stub, placeholder, simulated crypto or hollow tests
 * liboqs must be present for post-quantum operations; random bytes with the
-  right sizes are not accepted as PQ cryptography
+  right sizes are not accepted as PQ cryptography. Discovery is platform-aware:
+  pkg-config (Linux/macOS) or a CMake CONFIG package (Windows/vcpkg, the
+  mechanism CMakeLists.txt itself uses via find_package(liboqs CONFIG))
 * runtime must not be a config-only demo
 * UDP receive path must dispatch into node packet processing
 * tests must be meaningful, not unconditional success fixtures
@@ -77,7 +79,9 @@ def line_hits(path: Path, pattern: re.Pattern[str]) -> list[tuple[int, str]]:
     return hits
 
 
-def pkg_config_exists(package: str) -> bool:
+def pkg_config_available(package: str) -> bool:
+    if not shutil.which("pkg-config"):
+        return False
     return subprocess.run(
         ["pkg-config", "--exists", package],
         cwd=ROOT,
@@ -87,16 +91,101 @@ def pkg_config_exists(package: str) -> bool:
     ).returncode == 0
 
 
-def run_text(command: list[str]) -> str:
+def pkg_config_include_dirs(package: str) -> list[Path]:
+    if not shutil.which("pkg-config"):
+        return []
     completed = subprocess.run(
-        command,
+        ["pkg-config", "--cflags-only-I", package],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.DEVNULL,
         check=False,
     )
-    return completed.stdout
+    if completed.returncode != 0:
+        return []
+    roots: list[Path] = []
+    for part in completed.stdout.split():
+        if part.startswith("-I"):
+            roots.append(Path(part[2:]))
+    return roots
+
+
+def existing_build_dirs() -> list[Path]:
+    """Build directories with a CMake cache, honoring PQVPN_BUILD_DIR."""
+    candidates: list[Path] = []
+    env_dir = os.environ.get("PQVPN_BUILD_DIR")
+    if env_dir:
+        candidates.append(Path(env_dir))
+    # CTest runs each test from its binary directory. When the project is
+    # configured into a custom location (cmake -S . -B out) that directory is
+    # the active build and must be recognized, or the gate would skip the
+    # nested CTest run entirely.
+    candidates.append(Path.cwd())
+    for name in ("build", "build-test"):
+        candidates.append(ROOT / name)
+    return [d for d in candidates if (d / "CMakeCache.txt").is_file()]
+
+
+def cmake_config_oqs_prefixes() -> list[Path]:
+    """liboqs CMake CONFIG package prefixes referenced by existing build caches.
+
+    On Windows/vcpkg the project resolves liboqs with find_package(liboqs CONFIG)
+    (see CMakeLists.txt); each build cache records it as liboqs_DIR=<pkg-dir>.
+    The layout varies: <prefix>/lib/cmake/liboqs for system builds and
+    <prefix>/share/liboqs for vcpkg. Derive both candidates and accept only a
+    prefix that actually carries the oqs headers, so a wrong guess can never
+    masquerade as a valid installation.
+    """
+    prefixes: list[Path] = []
+    for build_dir in existing_build_dirs():
+        try:
+            text = (build_dir / "CMakeCache.txt").read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        match = re.search(r"^liboqs_DIR:PATH=(.+)$", text, re.MULTILINE)
+        if not match:
+            continue
+        oqs_dir = Path(match.group(1).strip())
+        for strip_depth in (2, 3):
+            if len(oqs_dir.parts) <= strip_depth:
+                continue
+            candidate = Path(*oqs_dir.parts[:-strip_depth])
+            if (candidate / "include" / "oqs").is_dir():
+                prefixes.append(candidate)
+                break
+    return prefixes
+
+
+def oqs_include_roots() -> list[Path]:
+    roots: list[Path] = []
+    roots.extend(pkg_config_include_dirs("liboqs"))
+    for prefix in cmake_config_oqs_prefixes():
+        roots.append(prefix / "include")
+    # Conventional system locations (WSL/CI images install liboqs there).
+    roots += [Path("/usr/local/include"), Path("/usr/include")]
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for root in roots:
+        key = str(root).lower()
+        if key not in seen and (root / "oqs").is_dir():
+            seen.add(key)
+            unique.append(root)
+    return unique
+
+
+def oqs_header_text(roots: list[Path]) -> str:
+    chunks: list[str] = []
+    for root in roots:
+        oqs_dir = root / "oqs"
+        if not oqs_dir.is_dir():
+            continue
+        for header in sorted(oqs_dir.rglob("*.h"))[:500]:
+            try:
+                chunks.append(header.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                pass
+    return "\n".join(chunks)
 
 
 def main() -> int:
@@ -132,17 +221,16 @@ def main() -> int:
         if not pattern.search(all_source):
             add(findings, "error", "mandatory_algorithms_present", ROOT / "CMakeLists.txt", 1, f"required algorithm token absent: {name}")
 
-    if not pkg_config_exists("liboqs"):
-        add(findings, "error", "liboqs_required", ROOT / "CMakeLists.txt", 1, "pkg-config cannot find liboqs; install/build liboqs and link the C API before PQ blocks can pass")
-    else:
-        oqs_version = run_text(["pkg-config", "--modversion", "liboqs"]).strip()
-        if not oqs_version:
-            add(findings, "error", "liboqs_required", ROOT / "CMakeLists.txt", 1, "liboqs exists but version is unavailable")
+    oqs_via_pkg_config = pkg_config_available("liboqs")
+    oqs_cmake_prefixes = cmake_config_oqs_prefixes()
+    if not oqs_via_pkg_config and not oqs_cmake_prefixes:
+        add(findings, "error", "liboqs_required", ROOT / "CMakeLists.txt", 1,
+            "neither pkg-config nor a CMake CONFIG package can find liboqs; install/build liboqs and link the C API before PQ blocks can pass")
 
-    oqs_headers = "\n".join(
-        run_text(["bash", "-lc", "grep -R \"OQS_KEM_alg\\|OQS_SIG_alg\" -n /usr/include /usr/local/include 2>/dev/null | head -200"])
-        .splitlines()
-    )
+    oqs_headers = oqs_header_text(oqs_include_roots())
+    if "OQS_KEM_alg" not in oqs_headers or "OQS_SIG_alg" not in oqs_headers:
+        add(findings, "error", "liboqs_algorithms", ROOT / "CMakeLists.txt", 1,
+            "liboqs OQS_KEM/OQS_SIG C API declarations were not found")
     if "ml_kem_1024" not in oqs_headers.lower() and "kyber_1024" not in oqs_headers.lower():
         add(findings, "error", "liboqs_algorithms", ROOT / "CMakeLists.txt", 1, "liboqs headers with ML-KEM-1024/Kyber1024 were not found")
     if "ml_dsa_87" not in oqs_headers.lower():
@@ -165,6 +253,11 @@ def main() -> int:
         add(findings, "error", "runtime_modes", SRC / "main.cpp", 1, "runtime must keep smoke-test separate from default node mode")
     if "io.run()" not in main_text:
         add(findings, "error", "runtime_liveness", SRC / "main.cpp", 1, "default executable must run an event loop")
+    # Peer selection fails closed once a peer stops answering liveness probes;
+    # the production runtime must therefore run the probe loop itself.
+    if "session_maintenance" not in main_text:
+        add(findings, "error", "runtime_liveness", SRC / "main.cpp", 1,
+            "production startup must run session maintenance (liveness probes) before io.run(); selection fails closed without them")
 
     network_text = "\n".join(
         path.read_text(encoding="utf-8", errors="replace")
@@ -176,9 +269,13 @@ def main() -> int:
     if "datagram_received" not in network_text or "co_spawn" not in network_text:
         add(findings, "error", "udp_receive_dispatch", SRC / "modules" / "udp_protocol.cpp", 1, "UDP receive path is not wired into PQVPNNode::datagram_received")
 
-    build_dir = ROOT / "build-wsl"
-    if not build_dir.exists():
-        add(findings, "warning", "build_state", build_dir, 1, "build-wsl does not exist; run cmake before full gate")
+    build_dir = next(
+        (d for d in existing_build_dirs() if (d / "CTestTestfile.cmake").is_file()),
+        None,
+    )
+    if build_dir is None:
+        add(findings, "warning", "build_state", ROOT / "build", 1,
+            "no CMake build directory with a test configuration found; run cmake before full gate")
     else:
         ctest = subprocess.run(
             ["ctest", "--test-dir", str(build_dir), "-LE", "hardening", "--output-on-failure"],
@@ -198,7 +295,8 @@ def main() -> int:
             "errors": sum(item.severity == "error" for item in findings),
             "warnings": sum(item.severity == "warning" for item in findings),
             "files_scanned": len(files),
-            "liboqs_pkg_config": pkg_config_exists("liboqs"),
+            "liboqs_pkg_config": oqs_via_pkg_config,
+            "liboqs_cmake_config": bool(oqs_cmake_prefixes),
             "cmake": shutil.which("cmake") is not None,
             "ctest": shutil.which("ctest") is not None,
         },

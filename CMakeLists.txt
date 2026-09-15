@@ -113,7 +113,9 @@ target_link_libraries(crypto_utils_lib PRIVATE pqvpn_oqs_static OpenSSL::Crypto 
 # Build crypto signature library
 add_library(crypto_signature_lib src/crypto_signature.cpp)
 target_include_directories(crypto_signature_lib PRIVATE ${PQVPN_INCLUDE_DIRS})
-target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib OpenSSL::Crypto spdlog::spdlog)
+# crypto_signature.cpp includes oqs/oqs.h directly; link the OQS interface so
+# its include directories propagate (crypto_utils_lib links it privately).
+target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib pqvpn_oqs_static OpenSSL::Crypto spdlog::spdlog)
 
 # Build KEM module
 add_library(crypto_kem_lib src/modules/crypto_kem.cpp)
@@ -136,7 +138,8 @@ endif()
 # ... (rest of the file)
 
 # Build node module as a library first
-add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp)
+add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
+  src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(node_module_lib PUBLIC crypto_utils_lib ${PQVPN_COMMON_LIBS})
 
@@ -144,7 +147,8 @@ set(PQVPN_NODE_SOURCES src/main.cpp)
 if(WIN32)
   list(APPEND PQVPN_NODE_SOURCES
     src/platform/windows_tap.cpp
-    src/platform/windows_wintun.cpp)
+    src/platform/windows_wintun.cpp
+    src/platform/windows_routes.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_NODE_SOURCES src/platform/macos/network_extension_bridge.cpp)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -153,6 +157,32 @@ endif()
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
+
+# MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
+# the binaries so the loader finds them without a modified PATH (every target
+# in this project is placed in CMAKE_BINARY_DIR).
+set(PQVPN_OQS_DLL_PATH "")
+if(WIN32 AND TARGET OQS::oqs)
+  get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION_RELEASE)
+  if(NOT _pqvpn_oqs_dll OR NOT EXISTS "${_pqvpn_oqs_dll}")
+    get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION)
+  endif()
+  if(_pqvpn_oqs_dll AND EXISTS "${_pqvpn_oqs_dll}")
+    set(PQVPN_OQS_DLL_PATH "${_pqvpn_oqs_dll}")
+  endif()
+endif()
+
+function(pqvpn_attach_oqs_runtime target)
+  if(NOT PQVPN_OQS_DLL_PATH)
+    return()
+  endif()
+  add_custom_command(TARGET ${target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PQVPN_OQS_DLL_PATH}" "$<TARGET_FILE_DIR:${target}>"
+    COMMENT "Placing oqs.dll next to the PQVPN binaries")
+endfunction()
+
+pqvpn_attach_oqs_runtime(pqvpn_node)
 
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -193,6 +223,9 @@ set(CATCH_TESTS
   test_node_session_salt
   test_node_check_and_record_nonce
   test_tunnel_dataplane
+  test_tunnel_forward
+  test_tunnel_sink_resilience
+  test_route_transaction
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization
@@ -240,6 +273,7 @@ foreach(target IN LISTS CATCH_TESTS)
   elseif(target STREQUAL "test_crypto_signature_verify")
     target_link_libraries(${target} PRIVATE crypto_signature_lib)
   endif()
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
@@ -247,6 +281,7 @@ foreach(target IN LISTS GTEST_TESTS)
   add_executable(${target} tests/${target}.cpp)
   target_include_directories(${target} PRIVATE ${PQVPN_INCLUDE_DIRS})
   target_link_libraries(${target} PRIVATE GTest::gtest_main node_module_lib ${PQVPN_COMMON_LIBS})
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
@@ -265,6 +300,7 @@ if(PQVPN_BUILD_LEGACY_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_s
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
   )
   target_link_libraries(test_send_to PRIVATE node_module_lib crypto_signature_lib GTest::gtest_main ${PQVPN_COMMON_LIBS})
+  pqvpn_attach_oqs_runtime(test_send_to)
   add_test(NAME test_send_to COMMAND test_send_to)
 endif()
 
@@ -297,6 +333,7 @@ foreach(test_src IN LISTS PQVPN_AUTO_TEST_SOURCES)
     else()
       target_link_libraries(${auto_target} PRIVATE Catch2::Catch2WithMain node_module_lib crypto_utils_lib crypto_kem_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
     endif()
+    pqvpn_attach_oqs_runtime(${auto_target})
     add_test(NAME ${auto_target} COMMAND ${auto_target})
   endif()
 endforeach()
