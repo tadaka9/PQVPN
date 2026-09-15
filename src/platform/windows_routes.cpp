@@ -120,9 +120,47 @@ std::optional<AdapterRouteInfo> find_adapter_ipv4(const std::string& guid) {
     return std::nullopt;
 }
 
+// Interface oper status when the table is available (SNMP: 1=up). Rows on
+// interfaces KNOWN to be down are unusable; an unknown interface is not
+// excluded on status alone.
+bool interface_known_down(const std::uint32_t ifindex) {
+    ULONG size = 0;
+    if (GetIfTable(nullptr, &size, FALSE) != ERROR_BUFFER_OVERFLOW || size == 0) return false;
+    std::vector<uint8_t> storage(size);
+    auto* table = reinterpret_cast<MIB_IFTABLE*>(storage.data());
+    if (GetIfTable(table, &size, FALSE) != NO_ERROR) return false;
+    for (ULONG index = 0; index < table->dwNumEntries; ++index) {
+        if (table->table[index].dwIndex == ifindex) {
+            return table->table[index].dwOperStatus != 1;
+        }
+    }
+    return false;
+}
+
 std::optional<AdapterRouteInfo> find_default_route(const std::uint32_t excluded_ifindex) {
-    // This toolchain's iphlpapi.h declares the legacy three-argument form
-    // (with bOrder) and a lowercase `table` member; both are stable.
+    // This toolchain's iphlpapi.h declares the legacy three-argument forms
+    // (with bOrder) and lowercase `table` members; both are stable.
+
+    // Preferred: ask the kernel which route it would actually use for an
+    // arbitrary destination. GetBestRoute resolves effective cost including
+    // interface metrics, so a multi-homed host picks the gateway Windows
+    // itself prefers — not merely the first row in the table (a disconnected
+    // adapter's default must not win over the active one).
+    MIB_IPFORWARDROW best{};
+    if (GetBestRoute(0 /*any destination*/, 0 /*local source*/, &best) == NO_ERROR &&
+        best.dwForwardDest == 0 && best.dwForwardMask == 0 &&
+        !(excluded_ifindex != 0 && best.dwForwardIfIndex == excluded_ifindex)) {
+        AdapterRouteInfo info{};
+        // dwForwardNextHop is network byte order, as address_v4 expects.
+        info.ipv4 = asio::ip::address(asio::ip::address_v4(best.dwForwardNextHop));
+        info.interface_index = best.dwForwardIfIndex;
+        return info;
+    }
+
+    // Fallback: scan the forward table for default routes (destination 0.0.0.0
+    // with a zero mask), skipping the excluded interface and interfaces known
+    // to be down, and pick the lowest primary metric; ties keep first-seen
+    // order so the choice stays deterministic.
     ULONG size = 0;
     if (GetIpForwardTable(nullptr, &size, FALSE) != ERROR_BUFFER_OVERFLOW || size == 0) {
         return std::nullopt;
@@ -133,20 +171,25 @@ std::optional<AdapterRouteInfo> find_default_route(const std::uint32_t excluded_
         return std::nullopt;
     }
 
-    // First IPv4 default route (destination 0.0.0.0 with a zero mask) that is
-    // not on the excluded interface; its next hop and interface are exactly
-    // where peer traffic egresses before the VPN adapter takes over.
+    const MIB_IPFORWARDROW* best_row = nullptr;
+    DWORD best_metric = 0xFFFFFFFF;
     for (ULONG index = 0; index < table->dwNumEntries; ++index) {
         const auto& row = table->table[index];
         if (excluded_ifindex != 0 && row.dwForwardIfIndex == excluded_ifindex) continue;
         if (row.dwForwardDest != 0 || row.dwForwardMask != 0) continue;
-        AdapterRouteInfo info{};
-        // dwForwardNextHop is network byte order, as address_v4 expects.
-        info.ipv4 = asio::ip::address(asio::ip::address_v4(row.dwForwardNextHop));
-        info.interface_index = row.dwForwardIfIndex;
-        return info;
+        if (interface_known_down(row.dwForwardIfIndex)) continue;
+        if (!best_row || row.dwForwardMetric1 < best_metric) {
+            best_row = &row;
+            best_metric = row.dwForwardMetric1;
+        }
     }
-    return std::nullopt;
+    if (!best_row) return std::nullopt;
+
+    AdapterRouteInfo info{};
+    // dwForwardNextHop is network byte order, as address_v4 expects.
+    info.ipv4 = asio::ip::address(asio::ip::address_v4(best_row->dwForwardNextHop));
+    info.interface_index = best_row->dwForwardIfIndex;
+    return info;
 }
 
 routing::OperationResult WindowsRouteBackend::install(const routing::RouteEntry& entry) {
