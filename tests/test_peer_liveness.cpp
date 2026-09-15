@@ -263,3 +263,33 @@ TEST_CASE("maintenance probes rescue a session idled past the liveness window", 
     REQUIRE(now - pair.initiator.sessions_by_peer_id.at(pair.responder_id)->last_peer_response < 5.0);
     REQUIRE(pair.initiator.select_tunnel_peer() == pair.responder_id);
 }
+
+TEST_CASE("maintenance never swaps keys unilaterally when the rekey threshold is reached", "[tunnel][liveness]") {
+    LivenessPair pair;
+    auto& session = *pair.initiator.sessions_by_peer_id.at(pair.responder_id);
+
+    // Force the rotation threshold (well past the 1MB traffic limit)...
+    session.bytes_sent = 4ull * 1024 * 1024;
+    const auto send_key_before = session.aead_send_key;
+    const auto recv_key_before = session.aead_recv_key;
+    const auto iv_before = session.session_iv;
+
+    // ...and drive one full maintenance pass (no transport: the liveness probe
+    // fails gracefully, which must not matter here).
+    bool ticked = false;
+    std::exception_ptr failure;
+    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
+        co_await pair.initiator.maintenance_tick();
+        ticked = true;
+    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+    pair.io.run();
+
+    REQUIRE_FALSE(failure);
+    REQUIRE(ticked);
+    // The authenticated channel must be intact: perform_rekey derives keys
+    // from local entropy the peer cannot know, so a unilateral swap would
+    // destroy every later frame. Keeping the working keys is the contract.
+    REQUIRE(session.aead_send_key == send_key_before);
+    REQUIRE(session.aead_recv_key == recv_key_before);
+    REQUIRE(session.session_iv == iv_before);
+}

@@ -270,24 +270,15 @@ asio::awaitable<void> PQVPNNode::maintenance_tick() {
         if (sess.state == SessionState::ESTABLISHED) {
             ++active;
             live_sessions.push_back(it->second);
-            try {
-                const auto rekey_it = rekey_manager.last_rekey.find(sess.session_id);
-                const double last_rekey = rekey_it != rekey_manager.last_rekey.end()
-                    ? rekey_it->second : sess.created_at;
-                if (rekey_manager.should_rekey(sess.session_id, sess.bytes_sent + sess.bytes_recv, last_rekey)) {
-                    try {
-                        auto [sid, aead_send, aead_recv] = rekey_manager.perform_rekey(sess.session_id);
-                        (void)sid;
-                        sess.aead_send_key = std::move(aead_send);
-                        sess.aead_recv_key = std::move(aead_recv);
-                        sess.session_iv.clear();
-                        sess.last_activity = now;
-                    } catch (const std::exception& e) {
-                        std::cerr << "Rekey failed: " << e.what() << std::endl;
-                    }
-                }
-            } catch (...) {
-            }
+            // Rekey is deliberately NOT performed here. main.py's maintenance
+            // installs freshly derived keys at this point, but perform_rekey
+            // derives them from LOCAL random entropy the peer can never know:
+            // swapping them in unilaterally destroys an authenticated channel
+            // (every later frame fails AEAD at the peer) with no security gain.
+            // Until an authenticated key exchange exists, keep the working
+            // keys rather than break traffic. RekeyManager remains available
+            // as a tested primitive for that future exchange. Recorded in
+            // MIGRATION_MANIFEST.md.
         }
         ++it;
     }
