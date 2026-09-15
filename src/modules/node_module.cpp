@@ -227,6 +227,10 @@ std::optional<PQVPNNode::PeerInfo> PQVPNNode::register_peer_from_hello(
     const auto peer_hex = hex_id(peer.peer_id);
     mesh.peers[peer_hex] = peer;
 
+    // The peer's address is now a control-plane destination (handshakes,
+    // discovery): pin it to the physical gateway in full-tunnel mode.
+    notify_peer_route(address, true);
+
     auto& known = known_peers_[peer_hex];
     known["nickname"] = peer.nickname;
     known["ed25519_pk"] = hello.contains("ed25519_pk") ? hello.at("ed25519_pk") : "";
@@ -823,7 +827,23 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
     // window, so selection does not drop it before any PING/PONG has flown.
     session->last_peer_response = session->created_at;
     sessions_by_peer_id[peer_id] = session;
+    // Full-tunnel route exclusion: this peer address must keep egressing via
+    // the physical gateway, or our own transport traffic would loop through
+    // the VPN adapter (see PeerRouteHook).
+    notify_peer_route(remote_endpoint, true);
     return session;
+}
+
+void PQVPNNode::notify_peer_route(const asio::ip::udp::endpoint& address, const bool add) {
+    if (!peer_route_hook_ || address.address().is_unspecified()) return;
+    try {
+        peer_route_hook_(address, add);
+    } catch (const std::exception& error) {
+        // Route-exclusion bookkeeping is best-effort and must never break the
+        // protocol path that triggered it.
+        std::cerr << "peer route hook failed: " << error.what() << "\n";
+    } catch (...) {
+    }
 }
 
 asio::awaitable<bool> PQVPNNode::send_onion(

@@ -49,6 +49,10 @@ public:
 class PQVPNNode : public std::enable_shared_from_this<PQVPNNode> {
 public:
     using TunnelPacketHandler = std::function<void(std::vector<uint8_t>)>;
+    // (address, add) notification for full-tunnel route exclusions: the
+    // platform layer pins each known peer address to the physical gateway so
+    // tunnel transport traffic is not captured by the VPN default route.
+    using PeerRouteHook = std::function<void(const asio::ip::udp::endpoint&, bool)>;
     // Frame types (main.py FT_* constants).
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
@@ -175,6 +179,13 @@ public:
     void set_tunnel_packet_handler(TunnelPacketHandler handler) {
         tunnel_packet_handler_ = std::move(handler);
     }
+
+    // Installs the peer-route exclusion hook (see PeerRouteHook). Called with
+    // add=true when a peer address becomes known (session established, HELLO
+    // registration) and add=false when its session is pruned. A failing hook
+    // must not break the protocol path: notifications are best-effort.
+    void set_peer_route_hook(PeerRouteHook hook) { peer_route_hook_ = std::move(hook); }
+    void notify_peer_route(const asio::ip::udp::endpoint& address, bool add);
     std::optional<std::vector<uint8_t>> build_tunnel_datagram(
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);
@@ -280,6 +291,7 @@ public:
 private:
     std::string config_path_;
     TunnelPacketHandler tunnel_packet_handler_;
+    PeerRouteHook peer_route_hook_;
 };
 
 } // namespace pqvpn

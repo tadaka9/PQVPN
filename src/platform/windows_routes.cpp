@@ -120,6 +120,35 @@ std::optional<AdapterRouteInfo> find_adapter_ipv4(const std::string& guid) {
     return std::nullopt;
 }
 
+std::optional<AdapterRouteInfo> find_default_route(const std::uint32_t excluded_ifindex) {
+    // This toolchain's iphlpapi.h declares the legacy three-argument form
+    // (with bOrder) and a lowercase `table` member; both are stable.
+    ULONG size = 0;
+    if (GetIpForwardTable(nullptr, &size, FALSE) != ERROR_BUFFER_OVERFLOW || size == 0) {
+        return std::nullopt;
+    }
+    std::vector<uint8_t> storage(size);
+    auto* table = reinterpret_cast<MIB_IPFORWARDTABLE*>(storage.data());
+    if (GetIpForwardTable(table, &size, FALSE) != NO_ERROR) {
+        return std::nullopt;
+    }
+
+    // First IPv4 default route (destination 0.0.0.0 with a zero mask) that is
+    // not on the excluded interface; its next hop and interface are exactly
+    // where peer traffic egresses before the VPN adapter takes over.
+    for (ULONG index = 0; index < table->dwNumEntries; ++index) {
+        const auto& row = table->table[index];
+        if (excluded_ifindex != 0 && row.dwForwardIfIndex == excluded_ifindex) continue;
+        if (row.dwForwardDest != 0 || row.dwForwardMask != 0) continue;
+        AdapterRouteInfo info{};
+        // dwForwardNextHop is network byte order, as address_v4 expects.
+        info.ipv4 = asio::ip::address(asio::ip::address_v4(row.dwForwardNextHop));
+        info.interface_index = row.dwForwardIfIndex;
+        return info;
+    }
+    return std::nullopt;
+}
+
 routing::OperationResult WindowsRouteBackend::install(const routing::RouteEntry& entry) {
     return apply(true, entry);
 }

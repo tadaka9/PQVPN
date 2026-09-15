@@ -139,7 +139,7 @@ endif()
 
 # Build node module as a library first
 add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
-  src/routing/route_transaction.cpp)
+  src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(node_module_lib PUBLIC crypto_utils_lib ${PQVPN_COMMON_LIBS})
 

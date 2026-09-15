@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include "platform/windows_routes.hpp"
 #include "platform/windows_tap.hpp"
+#include "routing/peer_route_manager.hpp"
 #endif
 
 #include "routing/route_transaction.hpp"
@@ -179,6 +180,10 @@ int main(int argc, char** argv) {
     std::unique_ptr<pqvpn::platform::WindowsTap> tap;
     pqvpn::routing::RouteTransaction route_plan;
     pqvpn::platform::WindowsRouteBackend route_backend;
+    // Declared with the other route state (not inside the TAP block) so the
+    // signal handler can roll back peer exclusions on shutdown. Safe to leave
+    // unused when no_tap is set: remove_all() on an empty manager succeeds.
+    pqvpn::routing::PeerRouteManager peer_routes(route_backend);
     if (!args.no_tap) {
         try {
             tap = std::make_unique<pqvpn::platform::WindowsTap>();
@@ -203,24 +208,70 @@ int main(int argc, char** argv) {
             // mask (prefix length 0, matching every destination) and the
             // adapter address as next hop. A /32 here would match only the
             // literal 0.0.0.0 address and send no real traffic to the TAP.
-            if (const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid())) {
-                route_plan.add(pqvpn::routing::RouteEntry{
-                    asio::ip::make_address_v4("0.0.0.0"), 0,
-                    adapter_route->ipv4, adapter_route->interface_index});
-            } else {
+            const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid());
+            if (!adapter_route) {
                 std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";
-            }
-
-            if (!route_plan.empty()) {
-                const auto report = route_plan.commit(route_backend);
-                if (report.committed) {
-                    std::cout << "default route installed through the TAP-Windows adapter\n";
+            } else {
+                // The TAP default route would also capture this node's own UDP
+                // transport: peer datagrams would enter the adapter, get
+                // re-encrypted by the data path, and loop. Before it can win,
+                // pin every known tunnel peer (and control-plane destination)
+                // to the pre-VPN physical gateway with /32 host routes.
+                const auto physical = pqvpn::platform::find_default_route(adapter_route->interface_index);
+                if (!physical) {
+                    std::cerr << "no pre-VPN default route found; skipping TAP default route "
+                              << "(installing it without peer exclusions would loop tunnel traffic)\n";
                 } else {
-                    std::cerr << "route installation failed (" << report.error
-                              << "); continuing without VPN routes\n";
+                    peer_routes.set_physical_gateway(
+                        {physical->ipv4, physical->interface_index});
+
+                    // Exclude every address already known at startup...
+                    bool exclusions_ok = true;
+                    for (const auto& [peer_id, session] : node->sessions_by_peer_id) {
+                        (void)peer_id;
+                        if (!session || session->remote_addr.address().is_unspecified()) continue;
+                        if (!peer_routes.add_peer(session->remote_addr).ok) exclusions_ok = false;
+                    }
+                    for (const auto& [peer_hex, info] : node->mesh.peers) {
+                        (void)peer_hex;
+                        if (info.address.address().is_unspecified()) continue;
+                        if (!peer_routes.add_peer(info.address).ok) exclusions_ok = false;
+                    }
+
+                    // ...and keep the exclusions current as peers appear or go.
+                    node->set_peer_route_hook(
+                        [&peer_routes](const asio::ip::udp::endpoint& address, const bool add) {
+                            if (add) peer_routes.add_peer(address);
+                            else peer_routes.remove_peer(address);
+                        });
+
+                    if (!exclusions_ok) {
+                        std::cerr << "peer route exclusions incomplete; skipping TAP default route\n";
+                    } else {
+                        route_plan.add(pqvpn::routing::RouteEntry{
+                            asio::ip::make_address_v4("0.0.0.0"), 0,
+                            adapter_route->ipv4, adapter_route->interface_index});
+
+                        if (const auto report = route_plan.commit(route_backend); report.committed) {
+                            std::cout << "default route installed through the TAP-Windows adapter\n";
+                        } else {
+                            // The default is down; drop the exclusions we just
+                            // created so no owned routes survive a failed setup.
+                            const auto cleanup = peer_routes.remove_all();
+                            (void)cleanup;
+                            std::cerr << "route installation failed (" << report.error
+                                      << "); continuing without VPN routes\n";
+                        }
+                    }
                 }
             }
         } catch (const std::exception& error) {
+            // No owned routes may survive a failed setup, even if the failure
+            // happened after some peer exclusions were installed.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
             std::cerr << "TAP initialization failed: " << error.what() << "\n";
             listener.stop();
             return 1;
@@ -232,8 +283,13 @@ int main(int argc, char** argv) {
     signals.async_wait([&](const asio::error_code&, int) {
 #ifdef _WIN32
         if (tap) {
-            // Remove the installed routes before taking the adapter down;
-            // removal is idempotent, so this is safe even on partial installs.
+            // Remove the installed routes before taking the adapter down, in
+            // reverse build order: peer exclusions first, then the default.
+            // Removal is idempotent, so this is safe even on partial installs.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
             const auto removal = route_plan.remove_all(route_backend);
             if (!removal.complete) {
                 std::cerr << "route cleanup incomplete: " << removal.error << "\n";

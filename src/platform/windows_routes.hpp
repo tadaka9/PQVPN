@@ -24,6 +24,13 @@ struct AdapterRouteInfo {
 // nullopt when the adapter has no IPv4 configured.
 std::optional<AdapterRouteInfo> find_adapter_ipv4(const std::string& guid);
 
+// Finds the current IPv4 default route (destination 0.0.0.0, zero mask): its
+// next hop and owning interface — i.e., where peer traffic egresses BEFORE a
+// VPN adapter takes over. Entries on excluded_ifindex are skipped when it is
+// non-zero (e.g., the TAP adapter's own default route). Returns nullopt when
+// no usable default route exists.
+std::optional<AdapterRouteInfo> find_default_route(std::uint32_t excluded_ifindex = 0);
+
 /**
  * @brief Windows routing-table backend over iphlpapi forward entries.
  *
