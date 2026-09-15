@@ -253,6 +253,11 @@ def main() -> int:
         add(findings, "error", "runtime_modes", SRC / "main.cpp", 1, "runtime must keep smoke-test separate from default node mode")
     if "io.run()" not in main_text:
         add(findings, "error", "runtime_liveness", SRC / "main.cpp", 1, "default executable must run an event loop")
+    # Peer selection fails closed once a peer stops answering liveness probes;
+    # the production runtime must therefore run the probe loop itself.
+    if "session_maintenance" not in main_text:
+        add(findings, "error", "runtime_liveness", SRC / "main.cpp", 1,
+            "production startup must run session maintenance (liveness probes) before io.run(); selection fails closed without them")
 
     network_text = "\n".join(
         path.read_text(encoding="utf-8", errors="replace")

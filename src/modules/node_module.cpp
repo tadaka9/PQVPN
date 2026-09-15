@@ -242,58 +242,80 @@ std::optional<PQVPNNode::PeerInfo> PQVPNNode::register_peer_from_hello(
     return peer;
 }
 
+// One pass of session upkeep, split from the timer loop so tests can drive it
+// directly. The map is only iterated while no suspension is pending: stale
+// sessions are pruned and established ones collected as shared_ptr copies in a
+// synchronous first phase; the liveness PINGs (which suspend) run second,
+// touching only those copies. Holding an unordered_map iterator or a reference
+// into it across co_await would dangle if another handler inserted (rehash)
+// or erased sessions while the send was in flight.
+asio::awaitable<void> PQVPNNode::maintenance_tick() {
+    const double now = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    // Phase 1 (synchronous): prune, rekey, and snapshot established sessions.
+    int active = 0;
+    std::vector<std::shared_ptr<Session>> live_sessions;
+    for (auto it = sessions_by_peer_id.begin(); it != sessions_by_peer_id.end();) {
+        auto& sess = *(it->second);
+        if (now - sess.last_activity > SESSION_TIMEOUT) {
+            std::cout << "Pruning stale session " << hex_id(sess.session_id).substr(0, 8) << std::endl;
+            // The peer is gone: drop its route exclusion too so a later
+            // re-establishment re-adds it cleanly.
+            notify_peer_route(sess.remote_addr, false);
+            it = sessions_by_peer_id.erase(it);
+            continue;
+        }
+
+        if (sess.state == SessionState::ESTABLISHED) {
+            ++active;
+            live_sessions.push_back(it->second);
+            try {
+                const auto rekey_it = rekey_manager.last_rekey.find(sess.session_id);
+                const double last_rekey = rekey_it != rekey_manager.last_rekey.end()
+                    ? rekey_it->second : sess.created_at;
+                if (rekey_manager.should_rekey(sess.session_id, sess.bytes_sent + sess.bytes_recv, last_rekey)) {
+                    try {
+                        auto [sid, aead_send, aead_recv] = rekey_manager.perform_rekey(sess.session_id);
+                        (void)sid;
+                        sess.aead_send_key = std::move(aead_send);
+                        sess.aead_recv_key = std::move(aead_recv);
+                        sess.session_iv.clear();
+                        sess.last_activity = now;
+                    } catch (const std::exception& e) {
+                        std::cerr << "Rekey failed: " << e.what() << std::endl;
+                    }
+                }
+            } catch (...) {
+            }
+        }
+        ++it;
+    }
+
+    // Phase 2 (suspends): tunnel-level liveness. The peer answers a PING with
+    // a PONG (datagram_received), refreshing last_peer_response on both sides
+    // so select_tunnel_peer can fail over silent peers. Replaces the legacy
+    // type-4 heartbeat, which this codebase's tunnel dispatcher drops and
+    // which only added observable dead traffic to the wire.
+    for (const auto& session : live_sessions) {
+        if (!session || !session->peer_id_.has_value()) continue;
+        try {
+            co_await ping_tunnel_peer(*session->peer_id_);
+        } catch (...) {
+            // One failed probe must not stop upkeep of the remaining peers.
+        }
+    }
+
+    std::cout << "Session maintenance: active_sessions=" << active << std::endl;
+    co_return;
+}
+
 asio::awaitable<void> PQVPNNode::session_maintenance() {
     std::cout << "Session maintenance task started" << std::endl;
     try {
         while (true) {
             try {
-                int active = 0;
-                for (auto it = sessions_by_peer_id.begin(); it != sessions_by_peer_id.end();) {
-                    auto& sess = *(it->second);
-                    const double now = std::chrono::duration_cast<std::chrono::seconds>(
-                        std::chrono::system_clock::now().time_since_epoch()
-                    ).count();
-
-                    if (now - sess.last_activity > SESSION_TIMEOUT) {
-                        std::cout << "Pruning stale session " << hex_id(sess.session_id).substr(0, 8) << std::endl;
-                        it = sessions_by_peer_id.erase(it);
-                        continue;
-                    }
-
-                    if (sess.state == SessionState::ESTABLISHED) {
-                        ++active;
-                        // Tunnel-level liveness: the peer answers a PING with a
-                        // PONG (datagram_received), refreshing last_peer_response
-                        // on both sides so select_tunnel_peer can fail over silent
-                        // peers. Replaces the legacy type-4 heartbeat, which this
-                        // codebase's tunnel dispatcher drops and which only added
-                        // observable dead traffic to the wire.
-                        if (sess.peer_id_.has_value()) {
-                            co_await ping_tunnel_peer(*sess.peer_id_);
-                        }
-
-                        try {
-                            const auto rekey_it = rekey_manager.last_rekey.find(sess.session_id);
-                            const double last_rekey = rekey_it != rekey_manager.last_rekey.end()
-                                ? rekey_it->second : sess.created_at;
-                            if (rekey_manager.should_rekey(sess.session_id, sess.bytes_sent + sess.bytes_recv, last_rekey)) {
-                                try {
-                                    auto [sid, aead_send, aead_recv] = rekey_manager.perform_rekey(sess.session_id);
-                                    (void)sid;
-                                    sess.aead_send_key = std::move(aead_send);
-                                    sess.aead_recv_key = std::move(aead_recv);
-                                    sess.session_iv.clear();
-                                    sess.last_activity = now;
-                                } catch (const std::exception& e) {
-                                    std::cerr << "Rekey failed: " << e.what() << std::endl;
-                                }
-                            }
-                        } catch (...) {
-                        }
-                    }
-                    ++it;
-                }
-                std::cout << "Session maintenance: active_sessions=" << active << std::endl;
+                co_await maintenance_tick();
             } catch (const std::exception& e) {
                 std::cerr << "session_maintenance loop error: " << e.what() << std::endl;
             }
@@ -438,6 +460,9 @@ asio::awaitable<void> PQVPNNode::datagram_received(
 
 std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_liveness_frame(
     const uint8_t frame_type, Session& session) {
+    // Liveness frames are the only authenticated empty-plaintext frames; any
+    // other type would mint an out-of-contract frame shape.
+    if (frame_type != TUNNEL_PING && frame_type != TUNNEL_PONG) return std::nullopt;
     if (session.state != SessionState::ESTABLISHED ||
         session.session_id.size() < 8 ||
         session.aead_send_key.empty() ||
@@ -467,16 +492,19 @@ asio::awaitable<bool> PQVPNNode::ping_tunnel_peer(const std::vector<uint8_t>& pe
         found->second->remote_addr.address().is_unspecified()) {
         co_return false;
     }
-    auto& session = *found->second;
-    const auto frame = build_tunnel_liveness_frame(TUNNEL_PING, session);
+    // Hold a shared_ptr copy across the suspension: the map may rehash or
+    // erase this session while the send is in flight, and a reference or
+    // iterator would dangle on resume.
+    auto session = found->second;
+    const auto frame = build_tunnel_liveness_frame(TUNNEL_PING, *session);
     if (!frame) co_return false;
     const auto frame_size = frame->size();
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*frame));
-    const auto endpoint = found->second->remote_addr;
+    const auto endpoint = session->remote_addr;
     const bool sent = co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
     if (sent) {
-        session.bytes_sent += frame_size;
-        session.last_activity = std::chrono::duration<double>(
+        session->bytes_sent += frame_size;
+        session->last_activity = std::chrono::duration<double>(
             std::chrono::system_clock::now().time_since_epoch()).count();
     }
     co_return sent;
@@ -852,17 +880,20 @@ asio::awaitable<bool> PQVPNNode::send_onion(
     const auto frame = build_onion_frame(path, inner_frame);
     if (!frame || path.empty() || !transport) co_return false;
     // The outer frame is addressed to the first hop (main.py send_onion).
-    const auto session = sessions_by_peer_id.find(path[0]);
-    if (session == sessions_by_peer_id.end() || !session->second ||
-        session->second->remote_addr.address().is_unspecified()) co_return false;
+    const auto found = sessions_by_peer_id.find(path[0]);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified()) co_return false;
 
+    // Shared_ptr copy across the suspension: the map may rehash or erase this
+    // session while the send is in flight.
+    auto session = found->second;
     const auto frame_size = frame->size();
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(*frame));
-    const auto endpoint = session->second->remote_addr;
+    const auto endpoint = session->remote_addr;
     const bool sent = co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
     if (sent) {
-        session->second->bytes_sent += frame_size;
-        session->second->last_activity = std::chrono::duration<double>(
+        session->bytes_sent += frame_size;
+        session->last_activity = std::chrono::duration<double>(
             std::chrono::system_clock::now().time_since_epoch()).count();
     }
     co_return sent;

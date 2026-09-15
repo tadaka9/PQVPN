@@ -302,6 +302,13 @@ int main(int argc, char** argv) {
         io.stop();
     });
 
+    // Run session maintenance for the lifetime of the runtime. This loop is
+    // what sends tunnel liveness probes, and select_tunnel_peer only trusts
+    // peers that answered within LIVENESS_WINDOW — without it, idle sessions
+    // expire after one window and adapter forwarding fails closed even though
+    // every peer is healthy. It stops with the io_context on shutdown.
+    asio::co_spawn(io, node->session_maintenance(), asio::detached);
+
     std::cout << "PQVPN Node Runtime started with config: " << args.config_path << "\n";
     io.run();
     std::cout << "PQVPN Node Runtime stopped.\n";

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "modules/node_module.hpp"
 #include "routing/peer_route_manager.hpp"
 
 namespace {
@@ -180,4 +181,62 @@ TEST_CASE("a hard remove failure keeps the exclusion tracked so remove_all retri
     const auto report = manager.remove_all();
     REQUIRE(report.complete);
     REQUIRE(report.removed == 1);
+}
+
+TEST_CASE("HELLO registration notifies the peer-route hook with add=true", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    std::vector<std::pair<asio::ip::udp::endpoint, bool>> notifications;
+    node.set_peer_route_hook([&notifications](const asio::ip::udp::endpoint& address, const bool add) {
+        notifications.emplace_back(address, add);
+    });
+
+    const auto address = peer_endpoint("198.51.100.23", 51820);
+    std::map<std::string, std::string> hello;
+    hello["peerid"] = "aabbccddeeff00112233445566778899";
+
+    REQUIRE(node.register_peer_from_hello(hello, address).has_value());
+    REQUIRE(notifications.size() == 1);
+    REQUIRE(notifications.front().first == address);
+    REQUIRE(notifications.front().second); // add=true: the peer is now known
+}
+
+TEST_CASE("pruning a stale session notifies the hook with add=false and drops the session", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    std::vector<std::pair<asio::ip::udp::endpoint, bool>> notifications;
+    node.set_peer_route_hook([&notifications](const asio::ip::udp::endpoint& address, const bool add) {
+        notifications.emplace_back(address, add);
+    });
+
+    const auto now = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    // Stale session: past SESSION_TIMEOUT, so maintenance_tick must prune it.
+    auto stale = std::make_shared<pqvpn::PQVPNNode::Session>();
+    stale->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    stale->remote_addr = peer_endpoint("203.0.113.20", 443);
+    stale->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
+    stale->last_activity = now - pqvpn::PQVPNNode::SESSION_TIMEOUT - 60.0;
+    node.sessions_by_peer_id[{0xAA, 0xBB}] = stale;
+
+    // Fresh session: must survive the same tick untouched (and unnotified).
+    auto fresh = std::make_shared<pqvpn::PQVPNNode::Session>();
+    fresh->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF1};
+    fresh->remote_addr = peer_endpoint("203.0.113.21", 443);
+    fresh->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
+    fresh->last_activity = now;
+    node.sessions_by_peer_id[{0xCC, 0xDD}] = fresh;
+
+    asio::io_context& io = node.get_io_context();
+    bool ticked = false;
+    asio::co_spawn(io, [&]() -> asio::awaitable<void> {
+        co_await node.maintenance_tick();
+        ticked = true;
+    }(), asio::detached);
+    io.run();
+
+    REQUIRE(ticked);
+    REQUIRE(node.sessions_by_peer_id.size() == 1); // only the fresh one remains
+    REQUIRE(notifications.size() == 1);
+    REQUIRE(notifications.front().first == stale->remote_addr);
+    REQUIRE_FALSE(notifications.front().second); // add=false: exclusion rolled back
 }

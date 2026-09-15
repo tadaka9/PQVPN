@@ -256,6 +256,10 @@ public:
 
     void save_known_peers();
     void load_known_peers();
+    // One pass of session upkeep (prune stale, rekey due, probe liveness),
+    // split from the timer loop so tests can drive it directly. Never holds a
+    // sessions_by_peer_id iterator or reference across a suspension.
+    asio::awaitable<void> maintenance_tick();
     asio::awaitable<void> session_maintenance();
     asio::awaitable<void> datagram_received(std::vector<uint8_t> data, asio::ip::udp::endpoint endpoint);
     std::optional<std::map<std::string, std::string>> find_known_peer_by_pubkeys(const std::map<std::string, std::string>& j);
