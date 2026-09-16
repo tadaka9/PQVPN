@@ -364,27 +364,16 @@ TEST(HandleRelay, RefusesForwardWhenNextHopIsUnknown) {
 
 TEST(HandleRelay, LocalDeliveryDeliversDecryptedPacket) {
     RelayChain chain;
-    // The inner data frame and the onion layer must ride on separate sessions:
-    // sharing one session would put both nonces in the relay's per-session
-    // replay window and the older counter would be rejected as a replay.
-    pqvpn::PQVPNNode bob{chain.io};
-    const std::vector<uint8_t> bob_id(32, 0xE2);
-    bob.set_my_id(bob_id);
-
-    const std::vector<uint8_t> x_secret(32, 0x55);
-    const std::vector<uint8_t> y_secret(32, 0x66);
-    const std::vector<uint8_t> bob_transcript{'B', 'O', 'B'};
-    chain.relay.establish_hybrid_session(
-        bob_id, asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9154),
-        x_secret, y_secret, bob_transcript, true);
-    bob.establish_hybrid_session(
-        chain.relay_id, asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9154),
-        x_secret, y_secret, bob_transcript, false);
-
     const std::vector<uint8_t> packet{0x45, 0x00, 0x00, 0x14, 0x01, 0x02, 0x03, 0x04};
 
-    // Bob's application frame is a tunnel data datagram for the relay itself.
-    const auto data_frame = bob.build_tunnel_datagram(
+    // The inner data frame and the onion layer ride on ONE shared
+    // source-destination session: the data frame is built first (lower counter)
+    // and the relay's own onion layer after it (higher counter). At delivery
+    // time the relay peels its layer BEFORE opening the inner frame, so a
+    // single shared replay window would reject the lower counter as a replay.
+    // Independent nonce domains (relay_domain vs data_domain) keep both fresh;
+    // the sender's one monotonic counter keeps nonces unique per session key.
+    const auto data_frame = chain.source.build_tunnel_datagram(
         chain.relay_id, std::span<const uint8_t>(packet));
     ASSERT_TRUE(data_frame.has_value());
 
@@ -750,4 +739,71 @@ TEST(HandleRelay, ReplayedLayerByARogueRegisteredPeerIsRejected) {
     // as expected forwarder, and the rogue's identity does not verify under it.
     EXPECT_FALSE(got_forward)
         << "a valid layer replayed by a different registered peer must be rejected at hop two";
+}
+
+// End-to-end delivery of application data through a real first->second UDP
+// forward, where the innermost tunnel-data frame and second's own onion layer
+// ride on ONE shared source-destination session. The destination peels its
+// layer (higher counter) before opening the inner frame (lower counter);
+// independent nonce domains keep both fresh, so the sink receives exactly the
+// original packet.
+TEST(HandleRelay, MultiHopDeliversInnerDataOnSharedDestinationSession) {
+    MultiPeelChain chain;
+    const std::vector<uint8_t> packet{0x45, 0x00, 0x00, 0x14, 0x0A, 0x0B};
+
+    // The innermost frame is a real tunnel-data datagram for `second`, built on
+    // the source<->second session — the same session that carries second's onion
+    // layer. Built first: lower counter than the layer wrapped around it.
+    const auto data_frame = chain.source.build_tunnel_datagram(
+        chain.second_id, std::span<const uint8_t>(packet));
+    ASSERT_TRUE(data_frame.has_value());
+
+    // source -> first -> second (local delivery at second).
+    const auto onion = chain.source.build_onion_frame_with_circuit(
+        {chain.first_id, chain.second_id, chain.second_id}, *data_frame, 0);
+    ASSERT_TRUE(onion.has_value());
+
+    // first forwards from a stable endpoint that second knows through discovery
+    // (relay origin for sender binding).
+    static constexpr unsigned kFirstForwardPort = 9310;
+    const auto first_forward_endpoint =
+        asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), kFirstForwardPort);
+    pqvpn::PQVPNNode::PeerInfo first_info;
+    first_info.peer_id = chain.first_id;
+    first_info.address = first_forward_endpoint;
+    chain.second.mesh.peers[chain.hex_id(chain.first_id)] = first_info;
+
+    asio::ip::udp::socket first_socket(chain.io, first_forward_endpoint);
+    chain.first.transport = &first_socket;
+    asio::ip::udp::socket second_socket(chain.io, chain.endpoint_second());
+    chain.second.transport = &second_socket;
+
+    std::vector<uint8_t> captured;
+    chain.second.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+        captured = std::move(p);
+    });
+
+    // Register the receive before any send: one io.run() must cover the whole
+    // first->second exchange (MinGW/Asio does not process queued work later).
+    std::vector<uint8_t> second_wire(65536);
+    asio::ip::udp::endpoint second_from;
+    second_socket.async_receive_from(asio::buffer(second_wire), second_from,
+        [&](const asio::error_code& ec, std::size_t n) {
+            if (ec) return;
+            auto datagram = std::vector<uint8_t>(second_wire.begin(),
+                second_wire.begin() + static_cast<std::ptrdiff_t>(n));
+            asio::co_spawn(chain.io, chain.second.datagram_received(std::move(datagram), second_from),
+                asio::detached);
+        });
+
+    // The outer frame enters first through its real dispatcher, from the source's
+    // registered endpoint (direct origin).
+    asio::co_spawn(chain.io,
+        chain.first.datagram_received(*onion, chain.endpoint_first()),
+        [](std::exception_ptr) {});
+    chain.io.run();
+
+    EXPECT_EQ(captured, packet)
+        << "the destination must deliver the inner tunnel-data frame even though "
+           "its own onion layer (higher counter) was peeled first on the same session";
 }

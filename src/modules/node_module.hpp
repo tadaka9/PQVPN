@@ -99,8 +99,20 @@ public:
         std::optional<std::vector<uint8_t>> peer_id_;
         asio::ip::udp::endpoint remote_addr;
         uint64_t nonce_send = 0;
-        uint64_t nonce_recv = 0;
-        std::set<uint64_t> replay_window;
+        // Replay state is split into two independent domains. The sender draws
+        // BOTH from the one monotonic nonce_send counter, so nonces stay unique
+        // per session key; the receiver must not let a higher counter accepted
+        // in one domain evict a lower fresh counter in the other — an onion
+        // layer is always peeled BEFORE the tunnel data frame it carries, and
+        // both ride on the same source-destination session. The two domains are
+        // also AEAD-separated (outer-header AAD vs five-part relay AAD), so a
+        // captured frame cannot be replayed across domains.
+        struct NonceDomain {
+            uint64_t high_water = 0;   // highest counter accepted in this domain
+            std::set<uint64_t> window; // bounded set of recently accepted counters
+        };
+        NonceDomain data_domain;  // direct tunnel frames: TUNNEL_DATA + PING/PONG
+        NonceDomain relay_domain; // onion RELAY layers peeled by this node
         size_t replay_window_size = 1024;
         std::vector<uint8_t> session_iv; // 12 bytes for AES-GCM
         std::vector<uint8_t> aead_send_key;
@@ -160,7 +172,8 @@ public:
     void add_known_peer(const std::vector<uint8_t>& peer_id);
     std::vector<uint8_t> session_salt(const std::vector<uint8_t>& peer_id) const;
     bool is_peer_allowed(const std::vector<uint8_t>& peer_id) const;
-    bool check_and_record_nonce(Session& session, const std::vector<uint8_t>& nonce) const;
+    bool check_and_record_nonce(Session& session, Session::NonceDomain& domain,
+                                const std::vector<uint8_t>& nonce) const;
     std::vector<uint8_t> make_outer_frame(uint8_t frame_type, const std::vector<uint8_t>& hop_id,
                                           uint32_t circuit_id, const std::vector<uint8_t>& payload) const;
     std::vector<uint8_t> peer_hash8(const std::vector<uint8_t>& peer_id) const {

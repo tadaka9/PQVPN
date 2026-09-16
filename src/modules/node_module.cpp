@@ -382,7 +382,9 @@ asio::awaitable<void> PQVPNNode::datagram_received(
             session->aead_recv_key,
             nonce,
             std::span<const uint8_t>(data).first(16));
-        if (!plaintext || !plaintext->empty() || !check_and_record_nonce(*session, nonce)) {
+        // Liveness frames are direct tunnel frames: data_domain.
+        if (!plaintext || !plaintext->empty() ||
+            !check_and_record_nonce(*session, session->data_domain, nonce)) {
             co_return;
         }
 
@@ -435,7 +437,9 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         session->aead_recv_key,
         nonce,
         std::span<const uint8_t>(data).first(16));
-    if (!plaintext || plaintext->empty() || !check_and_record_nonce(*session, nonce)) {
+    // Direct tunnel data: data_domain.
+    if (!plaintext || plaintext->empty() ||
+        !check_and_record_nonce(*session, session->data_domain, nonce)) {
         co_return;
     }
 
@@ -711,7 +715,13 @@ bool PQVPNNode::is_peer_allowed(const std::vector<uint8_t>& peer_id) const {
     return previously_known || tofu_enabled_;
 }
 
-bool PQVPNNode::check_and_record_nonce(Session& session, const std::vector<uint8_t>& nonce) const {
+// Strictly monotonic within the given domain: a counter at or below the
+// domain's high-water mark is a replay, and a counter already seen in the
+// bounded window is rejected. Domains are independent (see Session::NonceDomain),
+// so an onion layer accepted into relay_domain never evicts a lower fresh
+// tunnel-data counter from data_domain — or vice versa.
+bool PQVPNNode::check_and_record_nonce(Session& session, Session::NonceDomain& domain,
+                                       const std::vector<uint8_t>& nonce) const {
     if (nonce.size() != 12) return false;
     const std::array<uint8_t, 4> expected_prefix = session.session_iv.size() >= 4
         ? std::array<uint8_t, 4>{session.session_iv[0], session.session_iv[1], session.session_iv[2], session.session_iv[3]}
@@ -721,13 +731,13 @@ bool PQVPNNode::check_and_record_nonce(Session& session, const std::vector<uint8
     for (std::size_t index = 4; index < nonce.size(); ++index) {
         counter = (counter << 8) | nonce[index];
     }
-    if (counter <= session.nonce_recv || session.replay_window.contains(counter)) return false;
-    session.nonce_recv = counter;
-    session.replay_window.insert(counter);
-    while (session.replay_window.size() > session.replay_window_size) {
-        session.replay_window.erase(session.replay_window.begin());
+    if (counter <= domain.high_water || domain.window.contains(counter)) return false;
+    domain.high_water = counter;
+    domain.window.insert(counter);
+    while (domain.window.size() > session.replay_window_size) {
+        domain.window.erase(domain.window.begin());
     }
-    return session.replay_window.contains(counter);
+    return domain.window.contains(counter);
 }
 
 std::vector<uint8_t> PQVPNNode::make_outer_frame(
@@ -1021,11 +1031,14 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     }
     if (!plaintext || plaintext->size() < 9) co_return false;
 
-    // Replay defense: monotonic counter with bounded window (main.py parity).
+    // Replay defense: strictly monotonic counter within relay_domain.
     // Recorded only after authentication succeeds, so an invalid-tag packet
     // cannot advance the replay window and evict a legitimate nonce (same
-    // order as the tunnel data path in datagram_received).
-    if (!check_and_record_nonce(sess, nonce)) co_return false;
+    // order as the tunnel data path in datagram_received). The domain is
+    // separate from data_domain on purpose: this layer's counter must not
+    // evict the lower counter of the tunnel data frame it carries, which is
+    // checked against data_domain after local delivery.
+    if (!check_and_record_nonce(sess, sess.relay_domain, nonce)) co_return false;
 
     const auto next_hash = std::vector<uint8_t>(plaintext->begin(), plaintext->begin() + 8);
     const auto inner_frame = std::vector<uint8_t>(plaintext->begin() + 8, plaintext->end());
@@ -1088,7 +1101,10 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
             data_ciphertext, data_sess.aead_recv_key, data_nonce,
             std::span<const uint8_t>(inner_frame).first(16));
         if (!packet || packet->empty()) co_return false;
-        if (!check_and_record_nonce(data_sess, data_nonce)) co_return false;
+        // The inner frame is a direct tunnel-data frame: data_domain. It may
+        // share its session with the layer just peeled (relay_domain) — the
+        // split domains keep its lower counter from being rejected as a replay.
+        if (!check_and_record_nonce(data_sess, data_sess.data_domain, data_nonce)) co_return false;
 
         invoke_tunnel_sink(tunnel_packet_handler_, *packet);
         data_sess.bytes_recv += body.size();
