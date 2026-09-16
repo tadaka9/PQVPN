@@ -106,6 +106,11 @@ public:
         std::vector<uint8_t> aead_send_key;
         std::vector<uint8_t> aead_recv_key;
         SessionState state = SessionState::INITIALIZING;
+        // Last time this session saw authenticated INBOUND traffic from its
+        // peer (tunnel data, relay peel, or PONG). Outbound sends never
+        // refresh it — a UDP handoff proves nothing about the peer — so a
+        // silent session stays prunable after SESSION_TIMEOUT instead of being
+        // kept alive by our own probes.
         double last_activity = 0.0;
         // Last time this peer proved liveness with an authenticated frame
         // (tunnel data, relay peel, or PONG). Refreshed by tunnel PING/PONG

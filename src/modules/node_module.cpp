@@ -495,8 +495,11 @@ asio::awaitable<bool> PQVPNNode::ping_tunnel_peer(const std::vector<uint8_t>& pe
     const bool sent = co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
     if (sent) {
         session->bytes_sent += frame_size;
-        session->last_activity = std::chrono::duration<double>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+        // A successful UDP handoff only proves the local socket accepted the
+        // datagram — it says nothing about whether the peer is alive. Do NOT
+        // refresh last_activity here: a silent peer would otherwise evade the
+        // SESSION_TIMEOUT prune forever (probes every 30s < 1h horizon). Only
+        // authenticated inbound frames (PONG, tunnel data, relay peel) count.
     }
     co_return sent;
 }
@@ -528,8 +531,10 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_datagram(
     frame.insert(frame.end(), nonce.begin(), nonce.end());
     frame.insert(frame.end(), encrypted.begin(), encrypted.end());
     session.bytes_sent += packet.size();
-    session.last_activity = std::chrono::duration<double>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
+    // Outbound construction never refreshes last_activity: freshness is
+    // receive-side proof of life only (see ping_tunnel_peer). A peer that
+    // never answers must stay prunable instead of being kept alive by our own
+    // sends.
     return frame;
 }
 
@@ -918,8 +923,9 @@ asio::awaitable<bool> PQVPNNode::send_onion(
     const bool sent = co_await post_udp_send(io_context_, transport, std::move(payload), endpoint);
     if (sent) {
         session->bytes_sent += frame_size;
-        session->last_activity = std::chrono::duration<double>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+        // Outbound send success is not proof of life: last_activity stays
+        // receive-side only, so a silent peer remains prunable (see
+        // ping_tunnel_peer).
     }
     co_return sent;
 }

@@ -264,6 +264,39 @@ TEST_CASE("maintenance probes rescue a session idled past the liveness window", 
     REQUIRE(pair.initiator.select_tunnel_peer() == pair.responder_id);
 }
 
+TEST_CASE("unanswered probes do not extend session lifetime", "[tunnel][liveness]") {
+    LivenessPair pair;
+    asio::ip::udp::socket initiator_socket(pair.io, pair.initiator_endpoint);
+    pair.initiator.transport = &initiator_socket;
+    // The responder socket is bound so the local UDP handoff succeeds, but it
+    // never dispatches: no PONG comes back and nothing refreshes liveness.
+    asio::ip::udp::socket responder_sink(pair.io, pair.responder_endpoint);
+
+    auto& session = *pair.initiator.sessions_by_peer_id.at(pair.responder_id);
+    const double aged =
+        session.last_activity - (pqvpn::PQVPNNode::SESSION_TIMEOUT + 60.0);
+    session.last_activity = aged; // idle past the prune horizon
+
+    REQUIRE(pair.ping(pair.initiator, pair.responder_id)); // local send succeeds
+    REQUIRE(session.bytes_sent > 0);                        // outbound accounting kept
+    // A successful UDP handoff is not proof of life: freshness must stay stale...
+    REQUIRE(session.last_activity == aged);
+    // ...so the next maintenance pass prunes the silent session instead of
+    // keeping it alive forever.
+    bool ticked = false;
+    std::exception_ptr failure;
+    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
+        co_await pair.initiator.maintenance_tick();
+        ticked = true;
+    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+    pair.io.run();
+
+    REQUIRE_FALSE(failure);
+    REQUIRE(ticked);
+    REQUIRE(pair.initiator.sessions_by_peer_id.find(pair.responder_id)
+            == pair.initiator.sessions_by_peer_id.end());
+}
+
 TEST_CASE("maintenance never swaps keys unilaterally when the rekey threshold is reached", "[tunnel][liveness]") {
     LivenessPair pair;
     auto& session = *pair.initiator.sessions_by_peer_id.at(pair.responder_id);
