@@ -282,6 +282,13 @@ public:
 
     void save_known_peers();
     void load_known_peers();
+    // Releases the peer-route exclusion for `address` only when no live consumer
+    // can still send to that address — neither a session nor a relay-capable mesh
+    // entry references it. Keeps the exclusion while any such consumer remains, so
+    // pruning one stale session cannot leave an active relay path looping through
+    // the TAP default (see maintenance_tick). Any future code path that removes a
+    // mesh peer must call this instead of notify_peer_route(..., false) directly.
+    void release_peer_route_if_unreferenced(const asio::ip::udp::endpoint& address);
     // One pass of session upkeep (prune stale, rekey due, probe liveness),
     // split from the timer loop so tests can drive it directly. Never holds a
     // sessions_by_peer_id iterator or reference across a suspension.

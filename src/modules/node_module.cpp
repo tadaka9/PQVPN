@@ -267,10 +267,14 @@ asio::awaitable<void> PQVPNNode::maintenance_tick() {
         auto& sess = *(it->second);
         if (now - sess.last_activity > SESSION_TIMEOUT) {
             std::cout << "Pruning stale session " << hex_id(sess.session_id).substr(0, 8) << std::endl;
-            // The peer is gone: drop its route exclusion too so a later
-            // re-establishment re-adds it cleanly.
-            notify_peer_route(sess.remote_addr, false);
+            const auto remote = sess.remote_addr; // capture before the entry is erased
             it = sessions_by_peer_id.erase(it);
+            // Release this peer's route exclusion only if no other consumer can
+            // still send to its address. A live relay path (mesh entry) or a second
+            // session at the same /32 would otherwise be left without an exclusion
+            // and loop through the TAP default; keep it in that case so a later
+            // re-establishment or mesh removal releases it cleanly.
+            release_peer_route_if_unreferenced(remote);
             continue;
         }
 
@@ -932,6 +936,22 @@ bool PQVPNNode::notify_peer_route(const asio::ip::udp::endpoint& address, const 
     } catch (...) {
     }
     return false;
+}
+
+void PQVPNNode::release_peer_route_if_unreferenced(const asio::ip::udp::endpoint& address) {
+    // A consumer is anything that can still send UDP to this address without a
+    // local session: an established session at the same /32, or a relay-capable
+    // mesh entry (non-empty peer id — the only shape handle_relay will forward
+    // to). While any such consumer exists, dropping the exclusion would let its
+    // transport fall into the TAP default and loop through adapter re-encryption.
+    const auto addr = address.address();
+    for (const auto& [peer_id, session] : sessions_by_peer_id) {
+        if (session && session->remote_addr.address() == addr) return;
+    }
+    for (const auto& [hex, info] : mesh.peers) {
+        if (!info.peer_id.empty() && info.address.address() == addr) return;
+    }
+    notify_peer_route(address, false);
 }
 
 asio::awaitable<bool> PQVPNNode::send_onion(

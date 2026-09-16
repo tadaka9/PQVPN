@@ -360,3 +360,47 @@ TEST_CASE("pruning a stale session notifies the hook with add=false and drops th
     REQUIRE(notifications.front().first == stale->remote_addr);
     REQUIRE_FALSE(notifications.front().second); // add=false: exclusion rolled back
 }
+
+TEST_CASE("pruning keeps the exclusion while a mesh entry still references the address", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    std::vector<std::pair<asio::ip::udp::endpoint, bool>> notifications;
+    node.set_peer_route_hook([&notifications](const asio::ip::udp::endpoint& address, const bool add) {
+        notifications.emplace_back(address, add);
+        return kRouteHookOk; // removal is best-effort: report success
+    });
+
+    const auto now = std::chrono::duration<double>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    // Stale session at 203.0.113.20 — past SESSION_TIMEOUT, so it is pruned.
+    auto stale = std::make_shared<pqvpn::PQVPNNode::Session>();
+    stale->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+    stale->remote_addr = peer_endpoint("203.0.113.20", 443);
+    stale->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
+    stale->last_activity = now - pqvpn::PQVPNNode::SESSION_TIMEOUT - 60.0;
+    node.sessions_by_peer_id[{0xAA, 0xBB}] = stale;
+
+    // A live relay-capable mesh entry still references the SAME address (a
+    // different port is fine — both map to one OS /32 route). Relay forwarding
+    // can still send to it, so its exclusion must survive the session prune.
+    pqvpn::PQVPNNode::PeerInfo info;
+    info.peer_id = {0x11, 0x22};
+    info.address = peer_endpoint("203.0.113.20", 51820);
+    node.mesh.peers["aabb"] = info;
+
+    asio::io_context& io = node.get_io_context();
+    std::exception_ptr failure;
+    asio::co_spawn(io, node.maintenance_tick(), [&](std::exception_ptr e) {
+        if (e) failure = std::move(e);
+    });
+    io.run();
+
+    const bool completed_cleanly = !failure; // exception_ptr converts to bool
+    REQUIRE(completed_cleanly);              // maintenance ran without throwing
+    // The stale session is pruned...
+    REQUIRE(node.sessions_by_peer_id.empty());
+    // ...but the mesh entry that can still send to the address survives, and its
+    // exclusion must NOT have been released (no add=false notification).
+    REQUIRE(node.mesh.peers.size() == 1);
+    REQUIRE(notifications.empty()); // a consumer still references the address
+}
