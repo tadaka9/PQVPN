@@ -225,12 +225,19 @@ std::optional<PQVPNNode::PeerInfo> PQVPNNode::register_peer_from_hello(
     peer.mldsa_pk = parse_key("mldsa_pk");
 
     const auto peer_hex = hex_id(peer.peer_id);
+
+    // Full-tunnel gate: if this address cannot be pinned to the physical
+    // gateway, admitting the peer would let its UDP transport fall into the TAP
+    // default and loop through adapter re-encryption. Fail closed — reject the
+    // registration (the peer may retry once routing is healthy) instead of
+    // recording a peer we cannot reach without looping our own socket.
+    if (!notify_peer_route(address, true)) {
+        std::cerr << "rejecting HELLO registration from " << address
+                  << ": route exclusion unavailable\n";
+        return std::nullopt;
+    }
+
     mesh.peers[peer_hex] = peer;
-
-    // The peer's address is now a control-plane destination (handshakes,
-    // discovery): pin it to the physical gateway in full-tunnel mode.
-    notify_peer_route(address, true);
-
     auto& known = known_peers_[peer_hex];
     known["nickname"] = peer.nickname;
     known["ed25519_pk"] = hello.contains("ed25519_pk") ? hello.at("ed25519_pk") : "";
@@ -875,6 +882,16 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
         throw std::invalid_argument("hybrid session requires a peer identity and remote endpoint");
     }
 
+    // Full-tunnel gate (see register_peer_from_hello): a session whose peer
+    // address cannot be excluded from the TAP default would loop its own
+    // transport traffic, so refuse to establish it. No hook installed means no
+    // full-tunnel routing is active and there is nothing to gate on.
+    if (!notify_peer_route(remote_endpoint, true)) {
+        std::cerr << "refusing hybrid session with " << remote_endpoint
+                  << ": route exclusion unavailable\n";
+        return nullptr;
+    }
+
     const auto material = crypto::combine_hybrid_secrets(
         x25519_secret, ml_kem_secret, handshake_transcript, 92);
     const std::vector<uint8_t> initiator_to_responder(material.begin(), material.begin() + 32);
@@ -895,23 +912,26 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
     // window, so selection does not drop it before any PING/PONG has flown.
     session->last_peer_response = session->created_at;
     sessions_by_peer_id[peer_id] = session;
-    // Full-tunnel route exclusion: this peer address must keep egressing via
-    // the physical gateway, or our own transport traffic would loop through
-    // the VPN adapter (see PeerRouteHook).
-    notify_peer_route(remote_endpoint, true);
     return session;
 }
 
-void PQVPNNode::notify_peer_route(const asio::ip::udp::endpoint& address, const bool add) {
-    if (!peer_route_hook_ || address.address().is_unspecified()) return;
+bool PQVPNNode::notify_peer_route(const asio::ip::udp::endpoint& address, const bool add) {
+    // No hook installed means full-tunnel routing is not active; an
+    // unspecified address has nowhere to be pinned. In both cases the
+    // requested state change trivially holds, so admission proceeds.
+    if (!peer_route_hook_ || address.address().is_unspecified()) {
+        const bool ok = true;
+        return ok;
+    }
     try {
-        peer_route_hook_(address, add);
+        return peer_route_hook_(address, add);
     } catch (const std::exception& error) {
-        // Route-exclusion bookkeeping is best-effort and must never break the
-        // protocol path that triggered it.
+        // A hook that throws is a failed state change: admission paths fail
+        // closed rather than admitting an unexcluded peer.
         std::cerr << "peer route hook failed: " << error.what() << "\n";
     } catch (...) {
     }
+    return false;
 }
 
 asio::awaitable<bool> PQVPNNode::send_onion(

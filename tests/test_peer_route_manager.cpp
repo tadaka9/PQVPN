@@ -14,6 +14,10 @@
 
 namespace {
 
+// Healthy-backend outcome for hook-based tests: the requested route state
+// change succeeded, so admission proceeds.
+constexpr bool kRouteHookOk = true;
+
 // Records every backend call (and the entries it saw) so the manager logic is
 // exercised without touching a real routing table. Mirrors the scripted
 // backend in test_route_transaction.cpp, extended with entry capture and a
@@ -258,6 +262,7 @@ TEST_CASE("HELLO registration notifies the peer-route hook with add=true", "[rou
     std::vector<std::pair<asio::ip::udp::endpoint, bool>> notifications;
     node.set_peer_route_hook([&notifications](const asio::ip::udp::endpoint& address, const bool add) {
         notifications.emplace_back(address, add);
+        return kRouteHookOk; // exclusion succeeded: admission proceeds
     });
 
     const auto address = peer_endpoint("198.51.100.23", 51820);
@@ -270,11 +275,55 @@ TEST_CASE("HELLO registration notifies the peer-route hook with add=true", "[rou
     REQUIRE(notifications.front().second); // add=true: the peer is now known
 }
 
+TEST_CASE("HELLO registration is rejected when its route exclusion fails", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    int hook_calls = 0;
+    node.set_peer_route_hook([&hook_calls](const asio::ip::udp::endpoint&, const bool) {
+        ++hook_calls;
+        return false; // the /32 exclusion could not be installed
+    });
+
+    const auto address = peer_endpoint("198.51.100.23", 51820);
+    std::map<std::string, std::string> hello;
+    hello["peerid"] = "aabbccddeeff00112233445566778899";
+
+    // Fail closed: with the TAP default active an unexcluded peer would loop
+    // its transport through the adapter, so the registration is refused...
+    REQUIRE_FALSE(node.register_peer_from_hello(hello, address).has_value());
+    REQUIRE(hook_calls == 1);
+    // ...and nothing may be left behind for that peer.
+    REQUIRE(node.mesh.peers.empty());
+}
+
+TEST_CASE("session establishment is refused when its route exclusion fails", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+    int hook_calls = 0;
+    node.set_peer_route_hook([&hook_calls](const asio::ip::udp::endpoint&, const bool) {
+        ++hook_calls;
+        return false; // the /32 exclusion could not be installed
+    });
+
+    const auto endpoint = peer_endpoint("203.0.113.40", 51821);
+    const std::vector<uint8_t> peer_id(32, 0x7E);
+    const std::vector<uint8_t> x_secret(32, 0x33);
+    const std::vector<uint8_t> y_secret(32, 0x44);
+    const std::vector<uint8_t> transcript{'R', 'T', 'H'};
+
+    // A session whose peer address cannot be pinned off the TAP default would
+    // loop its own transport traffic: refuse it instead of establishing.
+    REQUIRE_FALSE(node.establish_hybrid_session(
+        peer_id, endpoint, x_secret, y_secret, transcript, true));
+    REQUIRE(hook_calls == 1);
+    // No session state may survive a refused establishment.
+    REQUIRE(node.sessions_by_peer_id.empty());
+}
+
 TEST_CASE("pruning a stale session notifies the hook with add=false and drops the session", "[routing][peerroutes][node]") {
     pqvpn::PQVPNNode node("test_config.toml");
     std::vector<std::pair<asio::ip::udp::endpoint, bool>> notifications;
     node.set_peer_route_hook([&notifications](const asio::ip::udp::endpoint& address, const bool add) {
         notifications.emplace_back(address, add);
+        return kRouteHookOk; // removal is best-effort: report success
     });
 
     const auto now = std::chrono::duration<double>(

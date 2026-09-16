@@ -51,8 +51,13 @@ public:
     using TunnelPacketHandler = std::function<void(std::vector<uint8_t>)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
-    // tunnel transport traffic is not captured by the VPN default route.
-    using PeerRouteHook = std::function<void(const asio::ip::udp::endpoint&, bool)>;
+    // tunnel transport traffic is not captured by the VPN default route. The
+    // hook reports whether the requested state change succeeded; a failed ADD
+    // while the TAP default is active would loop that peer's transport through
+    // the adapter, so registration and session establishment fail closed on it
+    // (see register_peer_from_hello / establish_hybrid_session). Removals are
+    // best-effort: teardown must not be blocked by cleanup failures.
+    using PeerRouteHook = std::function<bool(const asio::ip::udp::endpoint&, bool)>;
     // Frame types (main.py FT_* constants).
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
@@ -199,11 +204,14 @@ public:
     }
 
     // Installs the peer-route exclusion hook (see PeerRouteHook). Called with
-    // add=true when a peer address becomes known (session established, HELLO
-    // registration) and add=false when its session is pruned. A failing hook
-    // must not break the protocol path: notifications are best-effort.
+    // add=true when a peer address becomes known (HELLO registration, session
+    // establishment) and add=false when its session is pruned. A failed ADD is
+    // fail-closed at those admission points; removals stay best-effort.
     void set_peer_route_hook(PeerRouteHook hook) { peer_route_hook_ = std::move(hook); }
-    void notify_peer_route(const asio::ip::udp::endpoint& address, bool add);
+    // Reports whether the requested route state change succeeded (true when no
+    // hook is installed: full-tunnel routing is not active and there is nothing
+    // to gate on). A throwing hook counts as a failed change.
+    bool notify_peer_route(const asio::ip::udp::endpoint& address, bool add);
     std::optional<std::vector<uint8_t>> build_tunnel_datagram(
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);

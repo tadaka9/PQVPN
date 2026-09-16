@@ -239,10 +239,29 @@ int main(int argc, char** argv) {
                     }
 
                     // ...and keep the exclusions current as peers appear or go.
+                    // A failed ADD is reported back: while the TAP default is
+                    // active, admitting a peer without its /32 exclusion would
+                    // loop that peer's transport through the adapter, so the
+                    // node fails closed on it (registration rejected, session
+                    // refused). Removals stay best-effort — teardown must not
+                    // be blocked by cleanup failures; the manager keeps failed
+                    // removals owned for retry.
                     node->set_peer_route_hook(
                         [&peer_routes](const asio::ip::udp::endpoint& address, const bool add) {
-                            if (add) peer_routes.add_peer(address);
-                            else peer_routes.remove_peer(address);
+                            if (add) {
+                                const auto result = peer_routes.add_peer(address);
+                                if (!result.ok) {
+                                    std::cerr << "peer route exclusion failed for "
+                                              << address << ": " << result.error << "\n";
+                                }
+                                return result.ok;
+                            }
+                            const auto result = peer_routes.remove_peer(address);
+                            if (!result.ok) {
+                                std::cerr << "peer route removal failed for "
+                                          << address << ": " << result.error << "\n";
+                            }
+                            return result.ok;
                         });
 
                     if (!exclusions_ok) {
