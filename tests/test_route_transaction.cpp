@@ -153,11 +153,31 @@ TEST_CASE("remove_all keeps cleaning up past a hard failure", "[routing]") {
     REQUIRE_FALSE(report.complete);
     REQUIRE(report.error.find("scripted failure") != std::string::npos);
     REQUIRE(report.removed == 1);
-    // Both removals were attempted despite the first failing (after the two installs).
+    // Both removals were attempted despite the first failing (after the two
+    // installs), in reverse installation order: 192.168.5.0/24 was installed
+    // last, so it is unwound first.
     const auto& c = backend.calls;
     REQUIRE(c.size() == 4u);
-    REQUIRE(c[2] == "remove 10.0.0.0/8");
-    REQUIRE(c[3] == "remove 192.168.5.0/24");
+    REQUIRE(c[2] == "remove 192.168.5.0/24");
+    REQUIRE(c[3] == "remove 10.0.0.0/8");
+}
+
+TEST_CASE("remove_all removes owned routes in reverse installation order", "[routing]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));
+    plan.add(entry("192.168.5.0", 24));
+    plan.add(entry("172.16.0.0", 12));
+
+    REQUIRE(plan.commit(backend).committed);
+    const auto report = plan.remove_all(backend);
+    REQUIRE(report.complete);
+    REQUIRE(report.removed == 3);
+    // Reverse installation order: the last prerequisite installed is the first
+    // one unwound, so dependents never outlive the routes they rely on.
+    REQUIRE(backend.calls == std::vector<std::string>{
+        "install 10.0.0.0/8", "install 192.168.5.0/24", "install 172.16.0.0/12",
+        "remove 172.16.0.0/12", "remove 192.168.5.0/24", "remove 10.0.0.0/8"});
 }
 
 TEST_CASE("invalid entries are rejected when added to a plan", "[routing]") {

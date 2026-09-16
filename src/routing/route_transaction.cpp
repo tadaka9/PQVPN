@@ -56,8 +56,11 @@ RemovalReport RouteTransaction::remove_all(RouteBackend& backend) {
     bool failed = false;
     std::vector<std::size_t> released; // indices whose removal was confirmed
     // Remove only the routes this transaction created (owned_). Routes that
-    // were already present when we committed are not ours to delete.
-    for (const auto index : owned_) {
+    // were already present when we committed are not ours to delete. Reverse
+    // installation order: unwind dependents before their prerequisites, the
+    // same contract as the commit rollback above.
+    for (auto it = owned_.rbegin(); it != owned_.rend(); ++it) {
+        const auto index = *it;
         const auto result = backend.remove(entries_[index]);
         if (!result.ok) {
             // Best-effort cleanup: record the first hard failure, keep this
