@@ -265,6 +265,14 @@ int main(int argc, char** argv) {
                         });
 
                     if (!exclusions_ok) {
+                        // Incomplete exclusions are an aborted transaction: roll
+                        // back the ones that did install and lift the admission
+                        // gate, since no VPN default is active to protect against.
+                        const auto cleanup = peer_routes.remove_all();
+                        if (!cleanup.complete) {
+                            std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
+                        }
+                        node->set_peer_route_hook(nullptr); // nothing left to gate on
                         std::cerr << "peer route exclusions incomplete; skipping TAP default route\n";
                     } else {
                         route_plan.add(pqvpn::routing::RouteEntry{
@@ -275,9 +283,14 @@ int main(int argc, char** argv) {
                             std::cout << "default route installed through the TAP-Windows adapter\n";
                         } else {
                             // The default is down; drop the exclusions we just
-                            // created so no owned routes survive a failed setup.
+                            // created so no owned routes survive a failed setup, and
+                            // lift the admission gate — with no VPN default active
+                            // there is nothing to protect against.
                             const auto cleanup = peer_routes.remove_all();
-                            (void)cleanup;
+                            if (!cleanup.complete) {
+                                std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
+                            }
+                            node->set_peer_route_hook(nullptr);
                             std::cerr << "route installation failed (" << report.error
                                       << "); continuing without VPN routes\n";
                         }

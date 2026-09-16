@@ -404,3 +404,23 @@ TEST_CASE("pruning keeps the exclusion while a mesh entry still references the a
     REQUIRE(node.mesh.peers.size() == 1);
     REQUIRE(notifications.empty()); // a consumer still references the address
 }
+
+TEST_CASE("clearing the peer-route hook lifts the admission gate", "[routing][peerroutes][node]") {
+    pqvpn::PQVPNNode node("test_config.toml");
+
+    const auto address = peer_endpoint("198.51.100.23", 51820);
+    std::map<std::string, std::string> hello;
+    hello["peerid"] = "aabbccddeeff00112233445566778899";
+
+    // While a failing hook is installed (TAP default active), admission fails
+    // closed: the peer's exclusion cannot be guaranteed, so it would loop.
+    node.set_peer_route_hook([](const asio::ip::udp::endpoint&, const bool) { return false; });
+    REQUIRE_FALSE(node.register_peer_from_hello(hello, address).has_value());
+    REQUIRE(node.mesh.peers.empty());
+
+    // main.cpp clears the hook when setup aborts (no VPN default active). With
+    // nothing left to gate on, the same HELLO now registers successfully.
+    node.set_peer_route_hook(nullptr);
+    REQUIRE(node.register_peer_from_hello(hello, address).has_value());
+    REQUIRE(node.mesh.peers.size() == 1);
+}
