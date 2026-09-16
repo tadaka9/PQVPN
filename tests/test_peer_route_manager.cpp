@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstddef>
+#include <exception>
 #include <map>
 #include <set>
 #include <string>
@@ -346,14 +347,14 @@ TEST_CASE("pruning a stale session notifies the hook with add=false and drops th
     node.sessions_by_peer_id[{0xCC, 0xDD}] = fresh;
 
     asio::io_context& io = node.get_io_context();
-    bool ticked = false;
-    asio::co_spawn(io, [&]() -> asio::awaitable<void> {
-        co_await node.maintenance_tick();
-        ticked = true;
-    }(), asio::detached);
+    std::exception_ptr failure;
+    asio::co_spawn(io, node.maintenance_tick(), [&](std::exception_ptr e) {
+        if (e) failure = std::move(e);
+    });
     io.run();
 
-    REQUIRE(ticked);
+    const bool completed_cleanly = !failure; // exception_ptr converts to bool
+    REQUIRE(completed_cleanly);              // maintenance ran without throwing
     REQUIRE(node.sessions_by_peer_id.size() == 1); // only the fresh one remains
     REQUIRE(notifications.size() == 1);
     REQUIRE(notifications.front().first == stale->remote_addr);
