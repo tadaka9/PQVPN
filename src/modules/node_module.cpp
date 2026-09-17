@@ -939,17 +939,19 @@ bool PQVPNNode::notify_peer_route(const asio::ip::udp::endpoint& address, const 
 }
 
 void PQVPNNode::release_peer_route_if_unreferenced(const asio::ip::udp::endpoint& address) {
-    // A consumer is anything that can still send UDP to this address without a
-    // local session: an established session at the same /32, or a relay-capable
-    // mesh entry (non-empty peer id — the only shape handle_relay will forward
-    // to). While any such consumer exists, dropping the exclusion would let its
-    // transport fall into the TAP default and loop through adapter re-encryption.
-    const auto addr = address.address();
+    // A consumer is anything that can still send UDP to this exact endpoint without a
+    // local session: another established session at the same endpoint, or a relay-capable
+    // mesh entry (non-empty peer id — the only shape handle_relay will forward to). While
+    // any such consumer exists, dropping the exclusion would let its transport fall into
+    // the TAP default and loop through adapter re-encryption. Compare full endpoints, not
+    // just the address: PeerRouteManager refcounts each endpoint independently on a shared
+    // /32 (see remove_peer's still_referenced check), so releasing this one keeps the OS
+    // route alive for other ports without leaking a stale reference when none remain.
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
-        if (session && session->remote_addr.address() == addr) return;
+        if (session && session->remote_addr == address) return;
     }
     for (const auto& [hex, info] : mesh.peers) {
-        if (!info.peer_id.empty() && info.address.address() == addr) return;
+        if (!info.peer_id.empty() && info.address == address) return;
     }
     notify_peer_route(address, false);
 }
