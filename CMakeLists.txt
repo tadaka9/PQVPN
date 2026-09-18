@@ -3,7 +3,6 @@ project(PQVPN VERSION 0.1.0 LANGUAGES CXX)
 
 include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
-option(PQVPN_BUILD_LEGACY_TESTS "Build tests for the retired monolithic PQVPNNode implementation" OFF)
 
 find_package(OpenSSL REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
@@ -113,7 +112,9 @@ target_link_libraries(crypto_utils_lib PRIVATE pqvpn_oqs_static OpenSSL::Crypto 
 # Build crypto signature library
 add_library(crypto_signature_lib src/crypto_signature.cpp)
 target_include_directories(crypto_signature_lib PRIVATE ${PQVPN_INCLUDE_DIRS})
-target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib OpenSSL::Crypto spdlog::spdlog)
+# crypto_signature.cpp includes oqs/oqs.h directly; link the OQS interface so
+# its include directories propagate (crypto_utils_lib links it privately).
+target_link_libraries(crypto_signature_lib PRIVATE crypto_utils_lib pqvpn_oqs_static OpenSSL::Crypto spdlog::spdlog)
 
 # Build KEM module
 add_library(crypto_kem_lib src/modules/crypto_kem.cpp)
@@ -136,23 +137,67 @@ endif()
 # ... (rest of the file)
 
 # Build node module as a library first
-add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp)
+add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
+  src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
-target_link_libraries(node_module_lib PUBLIC crypto_utils_lib ${PQVPN_COMMON_LIBS})
+# node_module verifies peer ML-DSA signatures (pq_sig_verify) in the handshake
+# control plane, so it needs the signature library as well.
+target_link_libraries(node_module_lib PUBLIC crypto_utils_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
+
+# Per-OS tunnel adapter layer (see src/platform/adapter.hpp): TAP-Windows on
+# Windows, /dev/net/tun on Linux, and the Network Extension boundary on macOS.
+set(PQVPN_PLATFORM_SOURCES "")
+if(WIN32)
+  list(APPEND PQVPN_PLATFORM_SOURCES
+    src/platform/windows_tap.cpp
+    src/platform/windows_wintun.cpp
+    src/platform/windows_routes.cpp
+    src/platform/windows_adapter.cpp)
+elseif(APPLE)
+  list(APPEND PQVPN_PLATFORM_SOURCES
+    src/platform/macos/network_extension_bridge.cpp
+    src/platform/macos_adapter.cpp)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  list(APPEND PQVPN_PLATFORM_SOURCES
+    src/platform/linux_tun.cpp
+    src/platform/linux_adapter.cpp)
+endif()
+add_library(pqvpn_platform STATIC ${PQVPN_PLATFORM_SOURCES})
+target_include_directories(pqvpn_platform PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/platform
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${asio_SOURCE_DIR}/asio/include)
 
 set(PQVPN_NODE_SOURCES src/main.cpp)
-if(WIN32)
-  list(APPEND PQVPN_NODE_SOURCES
-    src/platform/windows_tap.cpp
-    src/platform/windows_wintun.cpp)
-elseif(APPLE)
-  list(APPEND PQVPN_NODE_SOURCES src/platform/macos/network_extension_bridge.cpp)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  list(APPEND PQVPN_NODE_SOURCES src/platform/linux_tun.cpp)
-endif()
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
-target_link_libraries(pqvpn_node PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
+target_link_libraries(pqvpn_node PRIVATE node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
+
+# MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
+# the binaries so the loader finds them without a modified PATH (every target
+# in this project is placed in CMAKE_BINARY_DIR).
+set(PQVPN_OQS_DLL_PATH "")
+if(WIN32 AND TARGET OQS::oqs)
+  get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION_RELEASE)
+  if(NOT _pqvpn_oqs_dll OR NOT EXISTS "${_pqvpn_oqs_dll}")
+    get_target_property(_pqvpn_oqs_dll OQS::oqs IMPORTED_LOCATION)
+  endif()
+  if(_pqvpn_oqs_dll AND EXISTS "${_pqvpn_oqs_dll}")
+    set(PQVPN_OQS_DLL_PATH "${_pqvpn_oqs_dll}")
+  endif()
+endif()
+
+function(pqvpn_attach_oqs_runtime target)
+  if(NOT PQVPN_OQS_DLL_PATH)
+    return()
+  endif()
+  add_custom_command(TARGET ${target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PQVPN_OQS_DLL_PATH}" "$<TARGET_FILE_DIR:${target}>"
+    COMMENT "Placing oqs.dll next to the PQVPN binaries")
+endfunction()
+
+pqvpn_attach_oqs_runtime(pqvpn_node)
 
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
@@ -162,6 +207,7 @@ add_test(
 )
 set_tests_properties(pqvpn_hard_kernel PROPERTIES
   LABELS "hardening;security;production"
+  RESOURCE_LOCK "pqvpn_shared_resources"
 )
 
 set(CATCH_TESTS
@@ -193,6 +239,9 @@ set(CATCH_TESTS
   test_node_session_salt
   test_node_check_and_record_nonce
   test_tunnel_dataplane
+  test_tunnel_forward
+  test_tunnel_sink_resilience
+  test_route_transaction
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization
@@ -228,7 +277,7 @@ foreach(target IN LISTS CATCH_TESTS)
   endif()
   add_executable(${target} ${sources})
   target_include_directories(${target} PRIVATE ${PQVPN_INCLUDE_DIRS})
-  target_link_libraries(${target} PRIVATE Catch2::Catch2WithMain node_module_lib ${PQVPN_COMMON_LIBS})
+  target_link_libraries(${target} PRIVATE Catch2::Catch2WithMain node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
   if(target STREQUAL "test_crypto_signature")
     target_link_libraries(${target} PRIVATE crypto_utils_lib)
   elseif(target STREQUAL "test_crypto_signature_keygen")
@@ -240,13 +289,15 @@ foreach(target IN LISTS CATCH_TESTS)
   elseif(target STREQUAL "test_crypto_signature_verify")
     target_link_libraries(${target} PRIVATE crypto_signature_lib)
   endif()
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
 foreach(target IN LISTS GTEST_TESTS)
   add_executable(${target} tests/${target}.cpp)
   target_include_directories(${target} PRIVATE ${PQVPN_INCLUDE_DIRS})
-  target_link_libraries(${target} PRIVATE GTest::gtest_main node_module_lib ${PQVPN_COMMON_LIBS})
+  target_link_libraries(${target} PRIVATE GTest::gtest_main node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
+  pqvpn_attach_oqs_runtime(${target})
   add_test(NAME ${target} COMMAND ${target})
 endforeach()
 
@@ -254,50 +305,47 @@ target_link_libraries(test_find_known_peer_by_pubkeys PRIVATE node_module_lib ${
 
 target_link_libraries(test_handle_relay PRIVATE node_module_lib)
 
-# Focused parity test for PQVPNNode.send_to.
-if(PQVPN_BUILD_LEGACY_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_send_to.cpp" AND NOT TARGET test_send_to)
-  add_executable(test_send_to tests/test_send_to.cpp src/PQVPNNode.cpp)
-  target_include_directories(test_send_to PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/modules
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
-  )
-  target_link_libraries(test_send_to PRIVATE node_module_lib crypto_signature_lib GTest::gtest_main ${PQVPN_COMMON_LIBS})
-  add_test(NAME test_send_to COMMAND test_send_to)
-endif()
-
 # Auto-healing test registration for Hermes-generated parity tests.
 # New tests/test_*.cpp files are automatically added to CTest so the
 # deterministic validator cannot fail with evidence_test_registered=false.
-set(PQVPN_SKIP_AUTO_TESTS
-  test_runner
-  simple_save_known_peers)
 file(GLOB PQVPN_AUTO_TEST_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
 foreach(test_src IN LISTS PQVPN_AUTO_TEST_SOURCES)
   get_filename_component(auto_target "${test_src}" NAME_WE)
-  list(FIND PQVPN_SKIP_AUTO_TESTS "${auto_target}" skip_index)
-  if(skip_index EQUAL -1 AND NOT TARGET ${auto_target})
+  if(NOT TARGET ${auto_target})
     file(READ "${test_src}" auto_test_body)
-    if(auto_test_body MATCHES "PQVPNNode\\.h" AND NOT PQVPN_BUILD_LEGACY_TESTS)
-      continue()
-    endif()
-    set(auto_sources "${test_src}")
-    if(auto_test_body MATCHES "PQVPNNode\\.h")
-      if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/PQVPNNode.cpp")
-        list(APPEND auto_sources src/PQVPNNode.cpp)
-      endif()
-    endif()
-    add_executable(${auto_target} ${auto_sources})
+    add_executable(${auto_target} ${test_src})
     target_include_directories(${auto_target} PRIVATE ${PQVPN_INCLUDE_DIRS})
     if(auto_test_body MATCHES "gtest|GTEST|TEST_F")
-      target_link_libraries(${auto_target} PRIVATE GTest::gtest_main node_module_lib crypto_utils_lib crypto_kem_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
+      target_link_libraries(${auto_target} PRIVATE GTest::gtest_main node_module_lib pqvpn_platform crypto_utils_lib crypto_kem_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
     else()
-      target_link_libraries(${auto_target} PRIVATE Catch2::Catch2WithMain node_module_lib crypto_utils_lib crypto_kem_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
+      target_link_libraries(${auto_target} PRIVATE Catch2::Catch2WithMain node_module_lib pqvpn_platform crypto_utils_lib crypto_kem_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
     endif()
+    pqvpn_attach_oqs_runtime(${auto_target})
     add_test(NAME ${auto_target} COMMAND ${auto_target})
+  endif()
+endforeach()
+
+# Tests that bind fixed UDP ports or share scratch files in the working /
+# temp directory cannot run concurrently with each other. None of them may
+# overlap pqvpn_hard_kernel either: that gate re-runs this whole suite inside
+# itself, so while it runs the outer suite must not touch those resources.
+# One shared resource lock makes ctest serialize exactly these tests (and the
+# gate) while leaving everything else free to parallelize.
+set(PQVPN_EXCLUSIVE_TESTS
+  test_network
+  test_network_module
+  test_handle_relay
+  test_handshake_integration
+  test_peer_liveness
+  test_tunnel_forward
+  test_config
+  test_save_known_peers
+  test_load_known_peers
+  test_logger_init)
+foreach(exclusive_test IN LISTS PQVPN_EXCLUSIVE_TESTS)
+  if(TEST ${exclusive_test})
+    set_tests_properties(${exclusive_test} PROPERTIES RESOURCE_LOCK "pqvpn_shared_resources")
   endif()
 endforeach()
 endif()

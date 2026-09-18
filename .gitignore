@@ -28,6 +28,7 @@
 /keys/
 /keys.json
 /known_peers.json
+/known_peers.yaml
 *.key
 *.p12
 *.pem
