@@ -115,16 +115,14 @@ void WindowsTap::read_loop(const std::stop_token stop_token) {
     }
 }
 
-void WindowsTap::write(const std::vector<uint8_t>& ethernet_frame) {
+[[nodiscard]] bool WindowsTap::write(const std::vector<uint8_t>& ethernet_frame) {
     if (!is_open()) throw std::logic_error("TAP adapter is closed");
     if (ethernet_frame.empty() || ethernet_frame.size() > 65536) {
         throw std::invalid_argument("invalid TAP Ethernet frame size");
     }
     DWORD written = 0;
-    if (!WriteFile(device_, ethernet_frame.data(), static_cast<DWORD>(ethernet_frame.size()), &written, nullptr) ||
-        static_cast<size_t>(written) != ethernet_frame.size()) {
-        throw std::runtime_error("TAP-Windows write failed");
-    }
+    const bool accepted = WriteFile(device_, ethernet_frame.data(), static_cast<DWORD>(ethernet_frame.size()), &written, nullptr);
+    return accepted && static_cast<size_t>(written) == ethernet_frame.size();
 }
 
 void WindowsTap::close() noexcept {

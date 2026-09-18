@@ -59,6 +59,9 @@ public:
     // best-effort: teardown must not be blocked by cleanup failures.
     using PeerRouteHook = std::function<bool(const asio::ip::udp::endpoint&, bool)>;
     // Frame types (main.py FT_* constants).
+    static inline constexpr uint8_t HELLO_FRAME = 0;     // FT_HELLO
+    static inline constexpr uint8_t S1_FRAME = 1;        // FT_S1
+    static inline constexpr uint8_t S2_FRAME = 2;        // FT_S2
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
     static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
@@ -79,17 +82,40 @@ public:
         std::vector<uint8_t> brainpoolP512r1_pk{};
         std::vector<uint8_t> kyber_pk{};
         std::vector<uint8_t> mldsa_pk{};
+        // Hybrid-handshake keys (X25519 long-term + ML-KEM-1024) learned from
+        // the peer's signed HELLO; required to initiate/complete a session.
+        std::vector<uint8_t> x25519_pk{};
+        std::vector<uint8_t> ml_kem_pk{};
         std::string kyber_alg{};
         std::string sig_alg{};
         double last_seen = 0.0;
     };
 
+    // Protocol defaults (seconds). These are the built-in values a node runs
+    // with when the deployment does not override them via config "tuning";
+    // tests may still reference them as compile-time constants.
     static inline constexpr double SESSION_TIMEOUT = 3600.0; // 1 hour
     static inline constexpr double KEEPALIVE_INTERVAL = 30.0; // 30 seconds
     // A peer that has not answered a tunnel PING within this window is treated
     // as silent and excluded from adapter-traffic selection (fail closed).
     // Three keepalive intervals tolerate one missed round trip under load.
     static inline constexpr double LIVENESS_WINDOW = 3.0 * KEEPALIVE_INTERVAL;
+    // An in-flight handshake whose S2 never arrives is pruned after this
+    // horizon; the bootstrap loop re-drives contact for such peers.
+    static inline constexpr double HANDSHAKE_TIMEOUT = 30.0;
+    // Seconds between bootstrap contact rounds while a peer has no session yet.
+    static inline constexpr double BOOTSTRAP_RETRY_INTERVAL = 10.0;
+
+    // Per-deployment runtime tuning (seconds / counts). Initialized to the
+    // protocol defaults above; main.cpp applies config "tuning" overrides on
+    // top, so a deployment can retune these without recompiling.
+    double session_timeout = SESSION_TIMEOUT;
+    double keepalive_interval = KEEPALIVE_INTERVAL;
+    double liveness_window = LIVENESS_WINDOW;
+    double handshake_timeout = HANDSHAKE_TIMEOUT;
+    double bootstrap_retry_interval = BOOTSTRAP_RETRY_INTERVAL;
+    // Default nonce replay window applied to newly established sessions.
+    size_t replay_window_size = 1024;
 
     enum class SessionState {
         INITIALIZING,
@@ -254,6 +280,17 @@ public:
     std::vector<uint8_t> brainpool_public_key;
     std::vector<uint8_t> ml_kem_public_key;
     std::vector<uint8_t> ml_dsa_public_key;
+    // Private halves of the node identity (see node_identity.hpp). Public
+    // counterparts are mirrored into the *_public_key fields above.
+    std::vector<uint8_t> ed25519_private_key;
+    std::vector<uint8_t> x25519_public_key;
+    std::vector<uint8_t> x25519_private_key;
+    std::vector<uint8_t> ml_kem_secret_key;
+    std::vector<uint8_t> ml_dsa_private_key;
+    // Loads the persistent identity from <config dir>/node_keys.json, or
+    // generates and stores one when absent. Returns false (and leaves all key
+    // material empty) only when neither load nor generation succeeds.
+    bool load_or_create_identity();
     std::string known_peers_file_ = "known_peers.yaml";
 
     std::shared_ptr<asio::io_context> owned_io_context_;
@@ -282,6 +319,11 @@ public:
 
     void save_known_peers();
     void load_known_peers();
+    // Resolves a peer's advertised hybrid keys (x25519 long-term + ML-KEM)
+    // from the mesh registration or the known-peers store. Returns nullopt
+    // when either key is missing — handshakes with such peers fail closed.
+    std::optional<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> peer_hybrid_keys(
+        const std::vector<uint8_t>& peer_id) const;
     // Releases the peer-route exclusion for `address` only when no live consumer can
     // still send to that exact endpoint — neither another session nor a relay-capable
     // mesh entry uses it. Keeps the exclusion while any such consumer remains, so pruning
@@ -327,10 +369,56 @@ public:
     asio::awaitable<void> handle_hello(std::vector<uint8_t> payload, const std::map<std::string, std::string>& extra_info, const std::vector<uint8_t>& signature, uint64_t nonce);
     asio::awaitable<void> handle_gossip(std::vector<uint8_t> payload, asio::ip::udp::endpoint endpoint);
 
+    // ---- Hybrid handshake control plane (HELLO / S1 / S2) -----------------
+    // Wire contract (both sides are this implementation; the field set mirrors
+    // main.py's HELLO/S1 with X25519 + ML-KEM-1024 in place of BrainpoolP/Kyber):
+    //   HELLO  {peerid, nickname, ed25519_pk, x25519_pk, ml_kem_pk, mldsa_pk,
+    //           timestamp, response, sessionid} + ed25519_sig + mldsa_sig
+    //   S1     {peerid, sessionid, ct, x25519_pk(ephemeral), ed25519_pk,
+    //           mldsa_pk, timestamp} + both signatures
+    //   S2     {peerid, sessionid, ed25519_pk, mldsa_pk, timestamp}
+    //           + both signatures
+    // Signatures cover the canonical JSON of exactly those fields (fixed order,
+    // signatures excluded). Both Ed25519 AND ML-DSA must verify — partial
+    // authentication is rejected. Key material:
+    //   x25519_secret = X25519(ephemeral_sk, peer_longterm_pk) / (peer_ephemeral_pk, longterm_sk)
+    //   ml_kem_secret = ML-KEM-1024 encaps/decaps shared secret
+    //   transcript    = the raw S1 payload bytes as sent by the initiator
+    //   keys          = establish_hybrid_session(...) over those three inputs.
+    asio::awaitable<void> handle_hello_frame(std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint);
+    asio::awaitable<void> handle_s1_frame(std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint);
+    asio::awaitable<void> handle_s2_frame(std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint);
+
+    // Initiates the handshake toward a registered peer: ephemeral X25519 +
+    // ML-KEM encapsulation against the peer's advertised keys, signed S1 sent,
+    // pending state kept until S2 arrives. Returns false when the peer cannot
+    // be contacted (missing keys, no transport) — fail closed.
+    bool initiate_handshake(const std::vector<uint8_t>& peer_id, const asio::ip::udp::endpoint& endpoint);
+
+    // Startup contact loop: for every configured bootstrap address that has no
+    // established session yet, send a signed HELLO (response=false). Repeats on
+    // an interval until the session exists; silent once it does. The list is
+    // taken BY VALUE because the coroutine outlives any caller's temporaries.
+    asio::awaitable<void> bootstrap_peers(std::vector<asio::ip::udp::endpoint> peers);
+
+    // One pending initiator-side handshake, keyed by session id hex in
+    // pending_handshakes_. The transcript is the exact S1 payload bytes so the
+    // responder (which signs/derives from what it received) derives identical
+    // keys.
+    struct PendingHandshake {
+        std::vector<uint8_t> peer_id;
+        asio::ip::udp::endpoint endpoint;
+        std::vector<uint8_t> x25519_ephemeral_sk;
+        std::vector<uint8_t> ml_kem_secret;
+        std::vector<uint8_t> transcript;
+        double created_at = 0.0;
+    };
+
 private:
     std::string config_path_;
     TunnelPacketHandler tunnel_packet_handler_;
     PeerRouteHook peer_route_hook_;
+    std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
 };
 
 } // namespace pqvpn

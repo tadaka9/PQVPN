@@ -115,6 +115,27 @@ The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
 Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
 available command-line options.
 
+### Configuration reference
+
+| Section | Key | Default | Meaning |
+|---|---|---|---|
+| `security` | `strict_sig_verify`, `tofu`, `allowlist`, `known_peers_file`, `kdf.*` | see `config.json` | Peer admission policy and Argon2id KDF costs. |
+| `network` | `port`, `bind_address` | `8080`, `0.0.0.0` | UDP transport endpoint. |
+| `bootstrap` | `["host:port", ...]` | none | Peers the node actively contacts until a session exists. |
+| `tuning` | `session_timeout_seconds` | `3600` | Prune horizon for idle sessions. |
+| `tuning` | `keepalive_interval_seconds` | `30` | Tunnel PING cadence of the maintenance loop. |
+| `tuning` | `liveness_window_seconds` | `90` | A peer silent longer than this is excluded from adapter traffic (must stay below `session_timeout_seconds`). |
+| `tuning` | `handshake_timeout_seconds` | `30` | In-flight handshakes without an S2 are pruned after this. |
+| `tuning` | `replay_window_size` | `1024` | Per-session nonce replay window (minimum 2). |
+| `tuning` | `bootstrap_retry_seconds` | `10` | Seconds between bootstrap contact rounds. |
+| `tunnel` | `interface_name` | empty | TUN name on Linux / TAP GUID on Windows; empty keeps the platform default (kernel-selected / auto-detect). CLI flags still win where they exist. |
+
+Every `tuning` field is optional and must be positive when present; omitted
+fields keep the built-in protocol defaults, so existing configs are unaffected.
+The cryptographic algorithm set (Ed25519 + ML-DSA-87, X25519 + ML-KEM-1024,
+HKDF-SHA3-512) and the wire frame types are fixed by design — they are
+protocol identity enforced by the `pqvpn_hard_kernel` gate, not tunables.
+
 ## Windows x64 and TAP
 
 Build with the supplied [`mingw-toolchain.cmake`](mingw-toolchain.cmake),
@@ -122,6 +143,23 @@ install a TAP-Windows6 adapter, and use
 [`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1) from an
 elevated PowerShell session. Pass `--tap-guid {GUID}` to select an adapter or
 `--no-tap` for UDP-only operation.
+
+## Platform adapters
+
+The node attaches to one tunnel device per OS through a uniform, exception-free
+adapter layer ([`src/platform/adapter.hpp`](src/platform/adapter.hpp)); every
+operation reports its outcome by return value so the core never unwinds from
+device code:
+
+| OS | Adapter | When it cannot attach |
+|---|---|---|
+| Windows x64 / ARM64 | TAP-Windows device (`--tap-guid`, `--no-tap`) plus transactional route installation | fail closed (exit 1) — a VPN node without its TAP is useless here |
+| Linux | `/dev/net/tun` layer-3 interface (root or CAP_NET_ADMIN); address/route/DNS left to a network manager | warn and continue UDP-only |
+| macOS | Network Extension boundary; an `NEPacketTunnelProvider` host plugs in the packet flow via `attach_extension()` | core-to-device writes drop until attached; node runs UDP-only |
+
+The adapter contract (open / bidirectional delivery / close lifecycle) is
+covered by [`tests/test_platform_adapter.cpp`](tests/test_platform_adapter.cpp),
+which builds and runs on every OS.
 
 ## Verification grid
 

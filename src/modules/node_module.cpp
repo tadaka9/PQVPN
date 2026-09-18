@@ -17,7 +17,11 @@
 #include <thread>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include <random>
+#include "crypto_utils.hpp"
+#include "hybrid_auth.hpp"
 #include "hybrid_kdf.hpp"
+#include "node_identity.hpp"
 #include "tunnel_aead.hpp"
 
 using namespace pqvpn;
@@ -105,6 +109,152 @@ std::string hex_id(const std::vector<uint8_t>& id) {
     return stream.str();
 }
 
+// ---- Hybrid handshake control plane helpers -------------------------------
+
+double now_seconds() {
+    return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+std::string escape_json_string(const std::string& value) {
+    static constexpr char hexdigits[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(value.size());
+    for (const unsigned char c : value) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (c < 0x20) {
+                    out += "\\u00";
+                    out.push_back(hexdigits[(c >> 4) & 0xf]);
+                    out.push_back(hexdigits[c & 0xf]);
+                } else {
+                    out.push_back(static_cast<char>(c));
+                }
+        }
+    }
+    return out;
+}
+
+// Canonical signing bytes: exactly the listed fields present in `j`, in this
+// fixed order, compact JSON. Signatures are never part of it; both sides
+// recompute it from the parsed wire object, so key order on the wire is
+// irrelevant and a field cannot be dropped or reordered without breaking
+// verification.
+std::string canonical_json(const nlohmann::json& j, const std::vector<std::string>& field_order) {
+    std::string out = "{";
+    bool first = true;
+    for (const auto& name : field_order) {
+        if (!j.contains(name)) continue;
+        if (!first) out += ",";
+        first = false;
+        const auto& value = j.at(name);
+        out += "\"" + name + "\":";
+        if (value.is_string()) {
+            out += "\"" + escape_json_string(value.get<std::string>()) + "\"";
+        } else {
+            out += value.dump(); // numbers / booleans
+        }
+    }
+    return out + "}";
+}
+
+std::optional<std::vector<uint8_t>> hex_field(const nlohmann::json& j, const char* name) {
+    if (!j.contains(name)) return std::nullopt;
+    const auto& value = j.at(name);
+    if (value.is_string()) return decode_hex(value.get<std::string>());
+    return std::nullopt;
+}
+
+std::vector<uint8_t> random_bytes(std::size_t size) {
+    static thread_local std::mt19937_64 engine{std::random_device{}()};
+    std::uniform_int_distribution<unsigned> dist(0, 255);
+    std::vector<uint8_t> out;
+    out.reserve(size);
+    for (std::size_t i = 0; i < size; ++i) out.push_back(static_cast<uint8_t>(dist(engine)));
+    return out;
+}
+
+// Fixed field orders for the signed handshake messages (signatures excluded).
+const std::vector<std::string> kHelloFields = {
+    "peerid", "nickname", "ed25519_pk", "x25519_pk", "ml_kem_pk",
+    "mldsa_pk", "timestamp", "response", "sessionid"};
+const std::vector<std::string> kS1Fields = {
+    "peerid", "sessionid", "ct", "x25519_pk", "ed25519_pk", "mldsa_pk", "timestamp"};
+const std::vector<std::string> kS2Fields = {
+    "peerid", "sessionid", "ed25519_pk", "mldsa_pk", "x25519_pk", "timestamp"};
+
+// Strict hybrid policy: BOTH Ed25519 and ML-DSA must verify over the same
+// canonical bytes. Partial authentication is rejected (README perimeter).
+bool verify_hybrid_signatures(const nlohmann::json& j, const std::vector<std::string>& field_order) {
+    if (!j.is_object()) return false;
+    auto ed_pk = hex_field(j, "ed25519_pk");
+    auto ed_sig = hex_field(j, "ed25519_sig");
+    auto mld_pk = hex_field(j, "mldsa_pk");
+    auto mld_sig = hex_field(j, "mldsa_sig");
+    if (!ed_pk || !ed_sig || !mld_pk || !mld_sig) return false;
+    const std::string canonical = canonical_json(j, field_order);
+    const std::vector<uint8_t> message(canonical.begin(), canonical.end());
+    bool ed_ok = false;
+    bool mld_ok = false;
+    try { ed_ok = crypto::ed25519_verify(*ed_pk, message, *ed_sig); } catch (...) {}
+    try { mld_ok = pq_sig_verify(*mld_pk, message, *mld_sig, "ML-DSA-87"); } catch (...) {}
+    return ed_ok && mld_ok;
+}
+
+// Signs `message` with the node's Ed25519 and ML-DSA keys; returns hex pairs.
+std::pair<std::string, std::string> sign_hybrid_message(
+    const std::vector<uint8_t>& ed25519_sk,
+    const std::vector<uint8_t>& mldsa_sk,
+    const std::string& message) {
+    const auto ed = crypto::ed25519_sign(ed25519_sk, std::vector<uint8_t>(message.begin(), message.end()));
+    const auto mld = pq_sig_sign(mldsa_sk, std::vector<uint8_t>(message.begin(), message.end()), "ML-DSA-87");
+    return {hex_id(ed), hex_id(mld)};
+}
+
+// Builds this node's signed HELLO body (response flag selects direction).
+nlohmann::json build_signed_hello(const PQVPNNode& node, const bool response) {
+    nlohmann::json j = {
+        {"peerid", node.my_id_.has_value() ? hex_id(*node.my_id_) : std::string{}},
+        {"nickname", "pqvpn-node"},
+        {"ed25519_pk", hex_id(node.ed25519_public_key)},
+        {"x25519_pk", hex_id(node.x25519_public_key)},
+        {"ml_kem_pk", hex_id(node.ml_kem_public_key)},
+        {"mldsa_pk", hex_id(node.ml_dsa_public_key)},
+        {"timestamp", static_cast<long long>(now_seconds())},
+        {"response", response},
+        {"sessionid", std::string{}}
+    };
+    const auto [ed_sig, mld_sig] = sign_hybrid_message(
+        node.ed25519_private_key, node.ml_dsa_private_key,
+        canonical_json(j, kHelloFields));
+    j["ed25519_sig"] = ed_sig;
+    j["mldsa_sig"] = mld_sig;
+    return j;
+}
+
+std::optional<std::vector<uint8_t>> send_outer_frame(
+    PQVPNNode& node,
+    uint8_t frame_type,
+    const std::string& wire_payload,
+    const asio::ip::udp::endpoint& endpoint) {
+    if (!node.transport || endpoint.address().is_unspecified()) return std::nullopt;
+    auto frame = node.make_outer_frame(frame_type, std::vector<uint8_t>(8, 0), 0,
+        std::vector<uint8_t>(wire_payload.begin(), wire_payload.end()));
+    asio::error_code error;
+    node.transport->send_to(asio::buffer(frame), endpoint, 0, error);
+    if (error) {
+        std::cerr << "UDP send to " << endpoint << " failed: " << error.message() << "\n";
+        return std::nullopt;
+    }
+    return frame;
+}
+
 std::vector<uint8_t> encode_outer_frame(
     const uint8_t frame_type,
     const std::vector<uint8_t>& hop_id,
@@ -135,6 +285,14 @@ std::vector<uint8_t> encode_outer_frame(
 // some MinGW/Asio combinations: the datagram is dropped while the call still
 // reports success (verified with loopback probes). Perform the send in a
 // posted non-coroutine handler and co_await its result instead.
+//
+// The resume signal lives in HEAP-OWNED shared state, not in the coroutine
+// frame: the posted handler holds its own shared_ptr copy, so resumption can
+// never destroy an object the handler still references (no use-after-free),
+// and no overflow-prone duration::max() expiry is needed — on some platforms
+// (Linux/glibc steady_clock) now + nanoseconds::max wraps to a PAST time
+// point, which made the old frame-local timer fire immediately and race the
+// handler into cancelling an already-destroyed object.
 asio::awaitable<bool> post_udp_send(
     asio::io_context& io,
     asio::ip::udp::socket* transport,
@@ -142,18 +300,28 @@ asio::awaitable<bool> post_udp_send(
     const asio::ip::udp::endpoint& endpoint) {
     if (!transport || !payload) co_return false;
 
+    struct SendSignal {
+        asio::steady_timer timer;
+        explicit SendSignal(asio::io_context& context) : timer(context) {}
+    };
+    auto signal = std::make_shared<SendSignal>(io);
     auto ok = std::make_shared<bool>(false);
-    // A far-future timer used purely as a one-shot resume signal: the posted
-    // handler cancels it once the send has completed.
-    asio::steady_timer signal(io, (std::numeric_limits<std::chrono::nanoseconds>::max)());
-    asio::post(io, [transport, payload, endpoint, ok, &signal]() {
+
+    // Keep the timer pending until the handler cancels it. A 24h horizon is
+    // far beyond any send latency and cannot overflow the clock.
+    using clock_t = asio::steady_timer::clock_type;
+    signal->timer.expires_at(
+        std::min(clock_t::now() + std::chrono::hours(24), clock_t::time_point::max()));
+
+    asio::post(io, [transport, payload, endpoint, ok, signal]() {
         asio::error_code error;
         transport->send_to(asio::buffer(*payload), endpoint, 0, error);
         *ok = !error;
-        signal.cancel();
+        signal->timer.cancel(); // resumes the waiter; last use of `signal`
     });
+
     try {
-        co_await signal.async_wait(asio::use_awaitable);
+        co_await signal->timer.async_wait(asio::use_awaitable);
     } catch (const asio::system_error&) {
         // operation_aborted: the posted handler finished and cancelled us.
     }
@@ -223,6 +391,8 @@ std::optional<PQVPNNode::PeerInfo> PQVPNNode::register_peer_from_hello(
     peer.brainpoolP512r1_pk = parse_key("brainpoolP512r1_pk");
     peer.kyber_pk = parse_key("kyber_pk");
     peer.mldsa_pk = parse_key("mldsa_pk");
+    peer.x25519_pk = parse_key("x25519_pk");
+    peer.ml_kem_pk = parse_key("ml_kem_pk");
 
     const auto peer_hex = hex_id(peer.peer_id);
 
@@ -244,6 +414,8 @@ std::optional<PQVPNNode::PeerInfo> PQVPNNode::register_peer_from_hello(
     known["brainpoolP512r1_pk"] = hello.contains("brainpoolP512r1_pk") ? hello.at("brainpoolP512r1_pk") : "";
     known["kyber_pk"] = hello.contains("kyber_pk") ? hello.at("kyber_pk") : "";
     known["mldsa_pk"] = hello.contains("mldsa_pk") ? hello.at("mldsa_pk") : "";
+    known["x25519_pk"] = hello.contains("x25519_pk") ? hello.at("x25519_pk") : "";
+    known["ml_kem_pk"] = hello.contains("ml_kem_pk") ? hello.at("ml_kem_pk") : "";
     known["is_relay"] = peer.is_relay ? "true" : "false";
 
     return peer;
@@ -260,12 +432,23 @@ asio::awaitable<void> PQVPNNode::maintenance_tick() {
     const double now = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
 
+    // Expire in-flight handshakes whose S2 never arrived. The horizon is the
+    // tunable handshake_timeout (default HANDSHAKE_TIMEOUT); the bootstrap loop
+    // re-drives contact for peers without an established session.
+    for (auto it = pending_handshakes_.begin(); it != pending_handshakes_.end();) {
+        if (now - it->second.created_at > handshake_timeout) {
+            it = pending_handshakes_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     // Phase 1 (synchronous): prune, rekey, and snapshot established sessions.
     int active = 0;
     std::vector<std::shared_ptr<Session>> live_sessions;
     for (auto it = sessions_by_peer_id.begin(); it != sessions_by_peer_id.end();) {
         auto& sess = *(it->second);
-        if (now - sess.last_activity > SESSION_TIMEOUT) {
+        if (now - sess.last_activity > session_timeout) {
             std::cout << "Pruning stale session " << hex_id(sess.session_id).substr(0, 8) << std::endl;
             const auto remote = sess.remote_addr; // capture before the entry is erased
             it = sessions_by_peer_id.erase(it);
@@ -322,7 +505,9 @@ asio::awaitable<void> PQVPNNode::session_maintenance() {
                 std::cerr << "session_maintenance loop error: " << e.what() << std::endl;
             }
             asio::steady_timer timer(co_await asio::this_coro::executor);
-            timer.expires_after(std::chrono::seconds(static_cast<int>(KEEPALIVE_INTERVAL)));
+            timer.expires_after(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::duration<double>(keepalive_interval)));
             co_await timer.async_wait(asio::use_awaitable);
         }
     } catch (const asio::system_error& e) {
@@ -375,6 +560,18 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     if (payload_size != data.size() - 16) {
         co_return;
     }
+
+    // Control plane: HELLO registration and the S1/S2 hybrid handshake.
+    // These frames carry a JSON body after the 16-byte outer header; the
+    // established-session paths below keep their existing layout.
+    if (data[1] == HELLO_FRAME || data[1] == S1_FRAME || data[1] == S2_FRAME) {
+        std::vector<uint8_t> body(data.begin() + 16, data.end());
+        if (data[1] == HELLO_FRAME) co_await handle_hello_frame(std::move(body), endpoint);
+        else if (data[1] == S1_FRAME) co_await handle_s1_frame(std::move(body), endpoint);
+        else co_await handle_s2_frame(std::move(body), endpoint);
+        co_return;
+    }
+
     if (data[1] == TUNNEL_PING || data[1] == TUNNEL_PONG) {
         // Tunnel liveness exchange: the authenticated tunnel-data layout with
         // an empty plaintext. The type byte is AAD-bound, so a peer cannot
@@ -577,7 +774,7 @@ std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
         // Silent peers are excluded: without a recent authenticated response
         // the packet would be delivered to a black hole, and UDP sends report
         // success either way. Failing closed here is the safe behavior.
-        if (now - session->last_peer_response > LIVENESS_WINDOW) continue;
+        if (now - session->last_peer_response > liveness_window) continue;
         const bool better = best == nullptr
             ? true
             : session->last_activity > best_activity
@@ -909,6 +1106,9 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
     session->aead_recv_key = initiator ? responder_to_initiator : initiator_to_responder;
     session->session_iv.assign(material.begin() + 64, material.begin() + 76);
     session->state = SessionState::ESTABLISHED;
+    // The node's configured replay window (default 1024) bounds each
+    // session's nonce domains; a deployment may retune it via config.
+    session->replay_window_size = replay_window_size;
     session->created_at = std::chrono::duration<double>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     session->last_activity = session->created_at;
@@ -1187,4 +1387,407 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     }
 
     co_return true;
+}
+
+// ============================================================================
+// Hybrid handshake control plane (HELLO / S1 / S2)
+// ============================================================================
+
+bool PQVPNNode::load_or_create_identity() {
+    using pqvpn::identity::NodeIdentity;
+    std::error_code ec;
+    const auto config_file = std::filesystem::path(config_path_);
+    const auto directory = config_file.has_parent_path()
+        ? config_file.parent_path()
+        : std::filesystem::current_path(ec);
+    const auto file = (directory / "node_keys.json").string();
+
+    NodeIdentity identity;
+    bool needs_generation = false;
+    if (std::filesystem::exists(file, ec)) {
+        try {
+            identity = NodeIdentity::load(file);
+        } catch (const std::exception& error) {
+            std::cerr << "node identity load failed (" << error.what()
+                      << "); generating a fresh one\n";
+            needs_generation = true;
+        }
+    } else {
+        needs_generation = true;
+    }
+
+    if (needs_generation) {
+        try {
+            identity = NodeIdentity::generate();
+        } catch (const std::exception& error) {
+            std::cerr << "node identity generation failed: " << error.what() << "\n";
+            return false;
+        }
+        try {
+            identity.save(file);
+        } catch (const std::exception& error) {
+            std::cerr << "warning: could not persist node identity ("
+                      << error.what() << "); it will not survive a restart\n";
+        }
+    }
+
+    ed25519_private_key = identity.ed25519_sk;
+    ed25519_public_key = identity.ed25519_pk;
+    x25519_private_key = identity.x25519_sk;
+    x25519_public_key = identity.x25519_pk;
+    ml_kem_secret_key = identity.ml_kem_sk;
+    ml_kem_public_key = identity.ml_kem_pk;
+    ml_dsa_private_key = identity.mldsa_sk;
+    ml_dsa_public_key = identity.mldsa_pk;
+    return !ed25519_private_key.empty();
+}
+
+std::optional<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> PQVPNNode::peer_hybrid_keys(
+    const std::vector<uint8_t>& peer_id) const {
+    if (const auto* peer = mesh.get_peer(peer_id);
+        peer && !peer->x25519_pk.empty() && !peer->ml_kem_pk.empty()) {
+        return std::make_pair(peer->x25519_pk, peer->ml_kem_pk);
+    }
+    const auto known = known_peers_.find(hex_id(peer_id));
+    if (known != known_peers_.end()) {
+        auto decode = [&](const char* name) -> std::vector<uint8_t> {
+            const auto it = known->second.find(name);
+            if (it == known->second.end() || it->second.empty()) return {};
+            return decode_hex(it->second).value_or(std::vector<uint8_t>{});
+        };
+        auto x25519_pk = decode("x25519_pk");
+        auto ml_kem_pk = decode("ml_kem_pk");
+        if (!x25519_pk.empty() && !ml_kem_pk.empty()) {
+            return std::make_pair(std::move(x25519_pk), std::move(ml_kem_pk));
+        }
+    }
+    return std::nullopt;
+}
+
+asio::awaitable<void> PQVPNNode::handle_hello_frame(
+    std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint) {
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(payload);
+    } catch (const std::exception&) {
+        co_return; // not a HELLO body
+    }
+    if (!j.is_object()) co_return;
+
+    if (!verify_hybrid_signatures(j, kHelloFields)) {
+        std::cerr << "rejecting HELLO from " << endpoint
+                  << ": hybrid signature verification failed\n";
+        co_return;
+    }
+
+    const auto peer_id = hex_field(j, "peerid");
+    if (!peer_id || peer_id->empty()) co_return;
+    if (my_id_.has_value() && *peer_id == *my_id_) co_return; // self-addressed
+    if (!is_peer_allowed(*peer_id)) {
+        std::cerr << "rejecting HELLO from " << endpoint << ": peer not allowed\n";
+        co_return;
+    }
+
+    std::map<std::string, std::string> hello_map;
+    for (const auto& [key, value] : j.items()) {
+        if (value.is_string()) hello_map[key] = value.get<std::string>();
+    }
+    const auto pinfo = register_peer_from_hello(hello_map, endpoint);
+    if (!pinfo) co_return; // route gate or malformed identity
+    try { save_known_peers(); } catch (const std::exception&) {}
+
+    const bool response_flag = j.value("response", false);
+    const bool have_address = !endpoint.address().is_unspecified();
+
+    if (!response_flag && have_address) {
+        // Answer the contact with our signed identity (main.py HELLO reply).
+        try {
+            const auto wire = build_signed_hello(*this, true).dump();
+            send_outer_frame(*this, HELLO_FRAME, wire, endpoint);
+        } catch (const std::exception& error) {
+            std::cerr << "HELLO response to " << endpoint << " failed: " << error.what() << "\n";
+        }
+    }
+
+    // Deterministic initiator: the lexicographically smaller identity drives
+    // S1/S2, so exactly one side initiates even when both nodes bootstrap each
+    // other at startup. Re-initiation is skipped while a session or an in-
+    // flight handshake with this peer already exists.
+    const bool i_am_initiator = my_id_.has_value() && *my_id_ < *peer_id;
+    if (!i_am_initiator || !have_address) co_return;
+
+    {
+        const auto session_it = sessions_by_peer_id.find(*peer_id);
+        if (session_it != sessions_by_peer_id.end() && session_it->second &&
+            session_it->second->state == SessionState::ESTABLISHED) {
+            co_return;
+        }
+        for (const auto& [sid, pending] : pending_handshakes_) {
+            if (pending.peer_id == *peer_id) co_return; // in flight
+        }
+    }
+
+    if (!initiate_handshake(*peer_id, endpoint)) {
+        std::cerr << "handshake initiation toward " << endpoint << " failed\n";
+    }
+}
+
+bool PQVPNNode::initiate_handshake(
+    const std::vector<uint8_t>& peer_id, const asio::ip::udp::endpoint& endpoint) {
+    if (!my_id_.has_value() || *my_id_ == peer_id) return false;
+    if (endpoint.address().is_unspecified()) return false;
+
+    const auto keys = peer_hybrid_keys(peer_id);
+    if (!keys) {
+        std::cerr << "cannot initiate handshake: no hybrid keys registered for peer\n";
+        return false;
+    }
+    const auto& [peer_x25519_pk, peer_ml_kem_pk] = *keys;
+
+    try {
+        // Ephemeral X25519 half (PFS) + ML-KEM-1024 encapsulation against the
+        // peer's advertised long-term KEM key.
+        const auto ephemeral = crypto::X25519::keygen();
+        const auto kem = crypto::KEM::encaps(peer_ml_kem_pk);
+        const auto x25519_secret = crypto::X25519::derive(ephemeral.private_key, peer_x25519_pk);
+
+        const auto session_id = random_bytes(8);
+        nlohmann::json s1 = {
+            {"peerid", hex_id(*my_id_)},
+            {"sessionid", hex_id(session_id)},
+            {"ct", hex_id(kem.ciphertext)},
+            {"x25519_pk", hex_id(ephemeral.public_key)},
+            {"ed25519_pk", hex_id(ed25519_public_key)},
+            {"mldsa_pk", hex_id(ml_dsa_public_key)},
+            {"timestamp", static_cast<long long>(now_seconds())}
+        };
+        const auto [ed_sig, mld_sig] = sign_hybrid_message(
+            ed25519_private_key, ml_dsa_private_key,
+            canonical_json(s1, kS1Fields));
+        s1["ed25519_sig"] = ed_sig;
+        s1["mldsa_sig"] = mld_sig;
+
+        const std::string wire = s1.dump();
+        if (!send_outer_frame(*this, S1_FRAME, wire, endpoint)) return false;
+
+        pending_handshakes_[hex_id(session_id)] = PendingHandshake{
+            peer_id,
+            endpoint,
+            ephemeral.private_key,
+            kem.shared_secret,
+            std::vector<uint8_t>(wire.begin(), wire.end()),
+            now_seconds()};
+    } catch (const std::exception& error) {
+        std::cerr << "handshake initiation failed for " << endpoint << ": " << error.what() << "\n";
+        return false;
+    }
+
+    std::cout << "S1 sent to " << endpoint << " (handshake initiated)\n";
+    const bool handshake_started = true;
+    return handshake_started;
+}
+
+asio::awaitable<void> PQVPNNode::handle_s1_frame(
+    std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint) {
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(payload);
+    } catch (const std::exception&) {
+        co_return;
+    }
+    if (!j.is_object()) co_return;
+
+    if (!verify_hybrid_signatures(j, kS1Fields)) {
+        std::cerr << "rejecting S1 from " << endpoint
+                  << ": hybrid signature verification failed\n";
+        co_return;
+    }
+
+    const auto peer_id = hex_field(j, "peerid");
+    const auto session_id = hex_field(j, "sessionid");
+    const auto ciphertext = hex_field(j, "ct");
+    const auto eph_pk = hex_field(j, "x25519_pk");
+    if (!peer_id || peer_id->empty() || !session_id || session_id->size() != 8 ||
+        !ciphertext || ciphertext->empty() || !eph_pk || eph_pk->size() != 32) {
+        co_return;
+    }
+    if (my_id_.has_value() && *peer_id == *my_id_) co_return;
+    if (!is_peer_allowed(*peer_id)) co_return;
+
+    // TOFU consistency: an identity already known with different auth keys is
+    // an impersonation attempt — reject before any key material moves.
+    const auto known = known_peers_.find(hex_id(*peer_id));
+    if (known != known_peers_.end()) {
+        for (const char* name : {"ed25519_pk", "mldsa_pk"}) {
+            const auto stored = known->second.find(name);
+            if (stored != known->second.end() && !stored->second.empty() &&
+                stored->second != j.value(name, std::string{})) {
+                std::cerr << "rejecting S1 from " << endpoint
+                          << ": identity key mismatch for " << name << "\n";
+                co_return;
+            }
+        }
+    }
+
+    // Decapsulate the ML-KEM ciphertext and derive the classical half against
+    // our long-term X25519 key. The transcript is the raw S1 payload exactly as
+    // received, so both sides bind identical bytes.
+    std::vector<uint8_t> x25519_secret;
+    std::vector<uint8_t> ml_kem_secret;
+    try {
+        ml_kem_secret = crypto::KEM::decaps(*ciphertext, ml_kem_secret_key);
+        x25519_secret = crypto::X25519::derive(x25519_private_key, *eph_pk);
+    } catch (const std::exception& error) {
+        std::cerr << "S1 key derivation failed from " << endpoint << ": " << error.what() << "\n";
+        co_return;
+    }
+
+    auto session = std::shared_ptr<Session>();
+    try {
+        session = establish_hybrid_session(
+            *peer_id, endpoint, x25519_secret, ml_kem_secret, payload, /*initiator=*/false);
+    } catch (const std::exception& error) {
+        std::cerr << "S1 session establishment failed for " << endpoint << ": " << error.what() << "\n";
+        co_return;
+    }
+    if (!session) co_return; // route gate refused the peer address
+
+    std::cout << "Session established (responder) with " << endpoint
+              << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
+
+    // Confirm to the initiator: signed S2 carrying our long-term X25519 key so
+    // it can derive the classical half and cross-check it against what its
+    // HELLO exchange registered for us.
+    try {
+        nlohmann::json s2 = {
+            {"peerid", my_id_.has_value() ? hex_id(*my_id_) : std::string{}},
+            {"sessionid", j.value("sessionid", std::string{})},
+            {"ed25519_pk", hex_id(ed25519_public_key)},
+            {"mldsa_pk", hex_id(ml_dsa_public_key)},
+            {"x25519_pk", hex_id(x25519_public_key)},
+            {"timestamp", static_cast<long long>(now_seconds())}
+        };
+        const auto [ed_sig, mld_sig] = sign_hybrid_message(
+            ed25519_private_key, ml_dsa_private_key,
+            canonical_json(s2, kS2Fields));
+        s2["ed25519_sig"] = ed_sig;
+        s2["mldsa_sig"] = mld_sig;
+        send_outer_frame(*this, S2_FRAME, s2.dump(), endpoint);
+    } catch (const std::exception& error) {
+        std::cerr << "S2 to " << endpoint << " failed: " << error.what() << "\n";
+    }
+}
+
+asio::awaitable<void> PQVPNNode::handle_s2_frame(
+    std::vector<uint8_t> payload, const asio::ip::udp::endpoint& endpoint) {
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(payload);
+    } catch (const std::exception&) {
+        co_return;
+    }
+    if (!j.is_object()) co_return;
+
+    const auto session_id_hex = j.value("sessionid", std::string{});
+    const auto pending_it = pending_handshakes_.find(session_id_hex);
+    if (pending_it == pending_handshakes_.end()) co_return; // unknown/expired
+    const auto& pending = pending_it->second;
+
+    // Bind the confirmation to the peer and address we initiated toward.
+    const auto peer_id = hex_field(j, "peerid");
+    if (!peer_id || *peer_id != pending.peer_id) co_return;
+    if (endpoint.address().is_unspecified() || endpoint != pending.endpoint) co_return;
+
+    if (!verify_hybrid_signatures(j, kS2Fields)) {
+        std::cerr << "rejecting S2 from " << endpoint
+                  << ": hybrid signature verification failed\n";
+        co_return;
+    }
+
+    // Cross-check the responder's long-term X25519 key against what its signed
+    // HELLO registered (TOFU): a mismatch means the confirmation does not come
+    // from the identity we contacted.
+    const auto s2_x25519_pk = hex_field(j, "x25519_pk");
+    if (!s2_x25519_pk || s2_x25519_pk->size() != 32) co_return;
+    const auto registered = peer_hybrid_keys(pending.peer_id);
+    if (!registered || registered->first != *s2_x25519_pk) {
+        std::cerr << "rejecting S2 from " << endpoint
+                  << ": x25519 key does not match HELLO registration\n";
+        co_return;
+    }
+
+    std::vector<uint8_t> x25519_secret;
+    try {
+        x25519_secret = crypto::X25519::derive(pending.x25519_ephemeral_sk, *s2_x25519_pk);
+    } catch (const std::exception& error) {
+        std::cerr << "S2 key derivation failed for " << endpoint << ": " << error.what() << "\n";
+        co_return;
+    }
+
+    auto session = std::shared_ptr<Session>();
+    try {
+        session = establish_hybrid_session(
+            pending.peer_id, pending.endpoint,
+            x25519_secret, pending.ml_kem_secret, pending.transcript,
+            /*initiator=*/true);
+    } catch (const std::exception& error) {
+        std::cerr << "S2 session establishment failed for " << endpoint << ": " << error.what() << "\n";
+        co_return;
+    }
+    if (!session) co_return;
+
+    pending_handshakes_.erase(pending_it);
+    std::cout << "Session established (initiator) with " << endpoint
+              << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
+}
+
+asio::awaitable<void> PQVPNNode::bootstrap_peers(
+    std::vector<asio::ip::udp::endpoint> peers) {
+    if (peers.empty()) co_return;
+    std::cout << "Bootstrap contact loop started for " << peers.size() << " peer(s)\n";
+
+    while (true) {
+        for (const auto& endpoint : peers) {
+            bool established = false;
+            for (const auto& [peer_id, session] : sessions_by_peer_id) {
+                if (session && session->state == SessionState::ESTABLISHED &&
+                    session->remote_addr == endpoint) {
+                    established = true;
+                    break;
+                }
+            }
+            if (established) continue; // session live: nothing to contact
+
+            try {
+                const auto wire = build_signed_hello(*this, /*response=*/false).dump();
+                send_outer_frame(*this, HELLO_FRAME, wire, endpoint);
+            } catch (const std::exception& error) {
+                std::cerr << "bootstrap HELLO to " << endpoint << " failed: " << error.what() << "\n";
+            }
+        }
+
+        asio::steady_timer timer(co_await asio::this_coro::executor);
+        timer.expires_after(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::duration<double>(bootstrap_retry_interval)));
+        try {
+            co_await timer.async_wait(asio::use_awaitable);
+        } catch (const asio::system_error&) {
+            co_return; // io_context stopped: shutdown in progress
+        }
+    }
+}
+
+// Legacy UDPProtocol dispatch carries no sender address: verify and register
+// only — replying or initiating needs the peer's endpoint, which this path
+// cannot know. The runtime uses handle_hello_frame with the real endpoint.
+asio::awaitable<void> PQVPNNode::handle_hello(
+    std::vector<uint8_t> payload,
+    const std::map<std::string, std::string>& extra_info,
+    const std::vector<uint8_t>& signature,
+    uint64_t nonce) {
+    (void)extra_info;
+    (void)signature;
+    (void)nonce;
+    co_await handle_hello_frame(std::move(payload), asio::ip::udp::endpoint());
 }

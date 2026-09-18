@@ -54,6 +54,18 @@ struct LivenessPair {
     }
 };
 
+// Drive one maintenance pass and record completion. This must be a named
+// coroutine function rather than a capturing lambda temporary passed to
+// asio::co_spawn: GCC 15 on aarch64 miscompiles that pattern — the actor
+// reads its captures from the original closure object after it has died
+// (stack-use-after-scope / SIGSEGV at -O1 and above; passes at -O0, with
+// GCC 14, and on x86_64). A named function's parameters are copied into
+// its frame while the arguments are still alive.
+asio::awaitable<void> drive_maintenance(pqvpn::PQVPNNode& node, bool& ticked) {
+    co_await node.maintenance_tick();
+    ticked = true;
+}
+
 } // namespace
 
 TEST_CASE("tunnel ping elicits exactly one pong and refreshes liveness on both sides", "[tunnel][liveness]") {
@@ -247,10 +259,8 @@ TEST_CASE("maintenance probes rescue a session idled past the liveness window", 
 
     bool ticked = false;
     std::exception_ptr failure;
-    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
-        co_await pair.initiator.maintenance_tick();
-        ticked = true;
-    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+    asio::co_spawn(pair.io, drive_maintenance(pair.initiator, ticked),
+        [&](std::exception_ptr e) { if (e) failure = e; });
 
     pair.io.run();
 
@@ -285,10 +295,8 @@ TEST_CASE("unanswered probes do not extend session lifetime", "[tunnel][liveness
     // keeping it alive forever.
     bool ticked = false;
     std::exception_ptr failure;
-    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
-        co_await pair.initiator.maintenance_tick();
-        ticked = true;
-    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+    asio::co_spawn(pair.io, drive_maintenance(pair.initiator, ticked),
+        [&](std::exception_ptr e) { if (e) failure = e; });
     pair.io.run();
 
     REQUIRE_FALSE(failure);
@@ -311,10 +319,8 @@ TEST_CASE("maintenance never swaps keys unilaterally when the rekey threshold is
     // fails gracefully, which must not matter here).
     bool ticked = false;
     std::exception_ptr failure;
-    asio::co_spawn(pair.io, [&]() -> asio::awaitable<void> {
-        co_await pair.initiator.maintenance_tick();
-        ticked = true;
-    }(), [&](std::exception_ptr e) { if (e) failure = e; });
+    asio::co_spawn(pair.io, drive_maintenance(pair.initiator, ticked),
+        [&](std::exception_ptr e) { if (e) failure = e; });
     pair.io.run();
 
     REQUIRE_FALSE(failure);

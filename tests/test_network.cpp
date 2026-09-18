@@ -4,7 +4,12 @@
 
 TEST_CASE("UDP Listener basic functionality", "[network]") {
     asio::io_context io_context;
-    uint16_t test_port = 8888;
+
+    // Reserve an ephemeral port so concurrent suites (including the
+    // hard-kernel gate's nested CTest run) can never collide on a fixed one.
+    asio::ip::udp::socket reservation(io_context, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
+    uint16_t test_port = static_cast<uint16_t>(reservation.local_endpoint().port());
+    reservation.close();
 
     SECTION("Successful start") {
         pqvpn::network::UdpListener listener(io_context, test_port);
