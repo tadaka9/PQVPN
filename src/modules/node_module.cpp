@@ -658,7 +658,10 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     session->last_activity = now;
     // Authenticated traffic from the peer is itself proof of liveness.
     session->last_peer_response = now;
-    invoke_tunnel_sink(tunnel_packet_handler_, *plaintext, session->peer_id_.value_or({}));
+    // Explicit type: libc++ (macOS) cannot deduce the empty initializer in
+    // optional::value_or; libstdc++ accepts it.
+    invoke_tunnel_sink(tunnel_packet_handler_, *plaintext,
+                       session->peer_id_.value_or(std::vector<uint8_t>{}));
     co_return;
 }
 
@@ -1349,7 +1352,10 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         // split domains keep its lower counter from being rejected as a replay.
         if (!check_and_record_nonce(data_sess, data_sess.data_domain, data_nonce)) co_return false;
 
-        invoke_tunnel_sink(tunnel_packet_handler_, *packet, data_sess.peer_id_.value_or({}));
+        // Explicit type: libc++ (macOS) cannot deduce the empty initializer in
+        // optional::value_or; libstdc++ accepts it.
+        invoke_tunnel_sink(tunnel_packet_handler_, *packet,
+                           data_sess.peer_id_.value_or(std::vector<uint8_t>{}));
         data_sess.bytes_recv += body.size();
         co_return true;
     }
