@@ -88,16 +88,18 @@ TEST_CASE("two nodes complete the hybrid handshake and exchange tunnel data", "[
     // Tunnel data sinks: whatever each node decrypts from the peer lands here.
     std::vector<uint8_t> received_at_a;
     std::atomic<bool> got_at_a{false};
-    a.node->set_tunnel_packet_handler([&](std::vector<uint8_t> packet) {
-        received_at_a = std::move(packet);
-        got_at_a = true;
-    });
+    a.node->set_tunnel_packet_handler(
+        [&](std::vector<uint8_t> packet, const std::vector<uint8_t>& /*src*/) {
+            received_at_a = std::move(packet);
+            got_at_a = true;
+        });
     std::vector<uint8_t> received_at_b;
     std::atomic<bool> got_at_b{false};
-    b.node->set_tunnel_packet_handler([&](std::vector<uint8_t> packet) {
-        received_at_b = std::move(packet);
-        got_at_b = true;
-    });
+    b.node->set_tunnel_packet_handler(
+        [&](std::vector<uint8_t> packet, const std::vector<uint8_t>& /*src*/) {
+            received_at_b = std::move(packet);
+            got_at_b = true;
+        });
 
     // Same wiring as main.cpp: each node bootstraps toward the other. The
     // deterministic initiator (smaller identity) drives S1/S2 exactly once.

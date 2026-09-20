@@ -16,6 +16,7 @@
 #include "routing/route_transaction.hpp"
 
 #include "config_module.hpp"
+#include "egress_forwarder.hpp"
 #include "logging_module.hpp"
 #include "metrics_module.hpp"
 #include "network_module.hpp"
@@ -265,6 +266,25 @@ int main(int argc, char** argv) {
     adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
 #endif
 
+    // User-space egress (OpenVPN-server style NAT): when enabled, decrypted
+    // tunnel frames are terminated with real outbound sockets on this host and
+    // bridged to the physical network instead of being written to a local TAP
+    // segment where they would die. Only outbound connect() calls are used, so
+    // it runs without elevation (see egress_forwarder.hpp).
+    std::unique_ptr<pqvpn::egress::EgressForwarder> egress;
+    if (config->egress.enabled) {
+        egress = std::make_unique<pqvpn::egress::EgressForwarder>(io);
+        auto* eg = egress.get();
+        eg->set_sender([node](const std::vector<uint8_t>& frame,
+                              const std::vector<uint8_t>& peer) -> bool {
+            // Return traffic goes back to the SPECIFIC client that owns the
+            // flow (bound when its first frame was seen), so one exit node
+            // can serve several clients at once.
+            if (peer.empty()) return false;
+            return node->send_tunnel_packet(peer, std::span<const uint8_t>(frame));
+        });
+    }
+
     bool adapter_active = false;
     if (adapter) {
         if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
@@ -273,12 +293,6 @@ int main(int argc, char** argv) {
                     node->forward_adapter_packet(std::move(frame)), asio::detached);
             })) {
             adapter_active = true;
-            auto* raw_adapter = adapter.get();
-            node->set_tunnel_packet_handler([raw_adapter](std::vector<uint8_t> frame) {
-                // Tunnel -> adapter. The adapter may already be closed during
-                // shutdown; drop the frame instead of unwinding the coroutine.
-                if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
-            });
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
         } else {
 #ifdef _WIN32
@@ -290,6 +304,24 @@ int main(int argc, char** argv) {
 #endif
         }
     }
+
+    // Tunnel -> local delivery sink. Egress (when enabled) gets first claim on
+    // every decrypted frame and consumes what it can forward; the rest falls
+    // through to the legacy TAP write so non-forwardable traffic keeps its old
+    // behavior. Installed even without an adapter: a UDP-only node with egress
+    // enabled is still a functional exit (frames never touch a local device).
+    auto* raw_adapter = adapter_active ? adapter.get() : nullptr;
+    auto* eg_ptr = egress.get();
+    node->set_tunnel_packet_handler([raw_adapter, eg_ptr](std::vector<uint8_t> frame,
+                                                           const std::vector<uint8_t>& src_peer) {
+        if (eg_ptr && !frame.empty()) {
+            // Egress binds return traffic to the client that sent this frame.
+            if (eg_ptr->handle_frame(frame.data(), frame.size(), src_peer)) return; // consumed/answered
+        }
+        // Tunnel -> adapter. The adapter may already be closed during shutdown;
+        // drop the frame instead of unwinding the coroutine.
+        if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
+    });
 
 #ifdef _WIN32
     if (adapter_active && tap) {

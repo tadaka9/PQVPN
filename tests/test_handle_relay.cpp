@@ -384,9 +384,10 @@ TEST(HandleRelay, LocalDeliveryDeliversDecryptedPacket) {
     const auto layer = chain.split_outer_frame(*onion);
 
     std::vector<uint8_t> captured;
-    chain.relay.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
-        captured = std::move(p);
-    });
+    chain.relay.set_tunnel_packet_handler(
+        [&captured](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
+            captured = std::move(p);
+        });
 
     EXPECT_TRUE(chain.run_relay(chain.relay, layer));
     EXPECT_EQ(captured, packet);
@@ -437,7 +438,8 @@ TEST(HandleRelay, LocalDeliveryIsolatesAThrowingSink) {
     const auto layer = chain.split_outer_frame(*onion);
 
     int sink_calls = 0;
-    chain.relay.set_tunnel_packet_handler([&sink_calls](std::vector<uint8_t>) {
+    chain.relay.set_tunnel_packet_handler(
+        [&sink_calls](std::vector<uint8_t>, const std::vector<uint8_t>& /*src*/) {
         ++sink_calls;
         throw std::runtime_error("adapter is closed");
     });
@@ -467,7 +469,8 @@ TEST(HandleRelay, LocalDeliveryRejectsShortDeclaredBody) {
     const auto layer = chain.split_outer_frame(*onion);
 
     std::vector<uint8_t> captured;
-    chain.relay.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+    chain.relay.set_tunnel_packet_handler(
+        [&captured](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
         captured = std::move(p);
     });
 
@@ -494,7 +497,8 @@ TEST(HandleRelay, LocalDeliveryRejectsDataFramesWithForeignLayout) {
     const auto layer = chain.split_outer_frame(*onion);
 
     std::vector<uint8_t> captured;
-    chain.relay.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+    chain.relay.set_tunnel_packet_handler(
+        [&captured](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
         captured = std::move(p);
     });
 
@@ -779,7 +783,8 @@ TEST(HandleRelay, MultiHopDeliversInnerDataOnSharedDestinationSession) {
     chain.second.transport = &second_socket;
 
     std::vector<uint8_t> captured;
-    chain.second.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
+    chain.second.set_tunnel_packet_handler(
+        [&captured](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
         captured = std::move(p);
     });
 

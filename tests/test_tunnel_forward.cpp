@@ -114,9 +114,10 @@ TEST_CASE("adapter packet crosses the wire and reaches the peer tunnel sink", "[
     pair.initiator.transport = &initiator_socket;
 
     std::vector<uint8_t> captured;
-    pair.responder.set_tunnel_packet_handler([&captured](std::vector<uint8_t> p) {
-        captured = std::move(p);
-    });
+    pair.responder.set_tunnel_packet_handler(
+        [&captured](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
+            captured = std::move(p);
+        });
 
     asio::ip::udp::socket responder_socket(pair.io, pair.responder_endpoint);
     const std::vector<uint8_t> packet{0x45, 0x00, 0x00, 0x14, 0xde, 0xad};

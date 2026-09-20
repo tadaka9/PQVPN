@@ -150,12 +150,28 @@ namespace pqvpn::config {
         }
     };
 
+    // User-space egress (OpenVPN-server style NAT): decrypted adapter frames
+    // are terminated with real outbound sockets on this host instead of being
+    // written to a local TAP segment. Runs without elevation because it only
+    // performs outbound connect() calls (see src/modules/egress_forwarder.hpp).
+    struct EgressConfig {
+        bool enabled = false;
+
+        friend void from_json(const nlohmann::json& j, EgressConfig& value) {
+            value.enabled = j.value("enabled", value.enabled);
+        }
+        friend void to_json(nlohmann::json& j, const EgressConfig& value) {
+            j = {{"enabled", value.enabled}};
+        }
+    };
+
     struct Config {
         SecurityConfig security;
         NetworkConfig network;
         std::vector<BootstrapPeer> bootstrap;
         TuningConfig tuning;
         TunnelConfig tunnel;
+        EgressConfig egress;
 
         friend void from_json(const nlohmann::json& j, Config& value) {
             if (j.contains("security")) value.security = j.at("security").get<SecurityConfig>();
@@ -167,6 +183,7 @@ namespace pqvpn::config {
             }
             if (j.contains("tuning")) value.tuning = j.at("tuning").get<TuningConfig>();
             if (j.contains("tunnel")) value.tunnel = j.at("tunnel").get<TunnelConfig>();
+            if (j.contains("egress")) value.egress = j.at("egress").get<EgressConfig>();
         }
         friend void to_json(nlohmann::json& j, const Config& value) {
             j = {{"security", value.security}, {"network", value.network}, {"bootstrap", value.bootstrap}};
@@ -176,6 +193,9 @@ namespace pqvpn::config {
                 j["tuning"] = value.tuning;
             }
             if (!value.tunnel.interface_name.empty()) j["tunnel"] = value.tunnel;
+            // Emitted only when non-default so existing configs serialize
+            // byte-identically to before this section existed.
+            if (value.egress.enabled) j["egress"] = value.egress;
         }
     };
 

@@ -138,6 +138,7 @@ endif()
 
 # Build node module as a library first
 add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
+  src/modules/egress_forwarder.cpp
   src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 # node_module verifies peer ML-DSA signatures (pq_sig_verify) in the handshake
@@ -333,6 +334,7 @@ endforeach()
 # One shared resource lock makes ctest serialize exactly these tests (and the
 # gate) while leaving everything else free to parallelize.
 set(PQVPN_EXCLUSIVE_TESTS
+  test_e2e_egress
   test_network
   test_network_module
   test_handle_relay

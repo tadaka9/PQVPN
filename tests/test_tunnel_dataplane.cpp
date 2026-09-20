@@ -37,7 +37,9 @@ TEST_CASE("tunnel data plane authenticates and delivers a packet", "[tunnel][dat
     const std::vector<uint8_t> packet{0x45, 0x00, 0x00, 0x14, 0xde, 0xad, 0xbe, 0xef};
     std::vector<std::vector<uint8_t>> delivered;
     pair.responder.set_tunnel_packet_handler(
-        [&](std::vector<uint8_t> plaintext) { delivered.push_back(std::move(plaintext)); });
+        [&](std::vector<uint8_t> plaintext, const std::vector<uint8_t>& /*src*/) {
+            delivered.push_back(std::move(plaintext));
+        });
 
     const auto datagram = pair.initiator.build_tunnel_datagram(pair.responder_id, packet);
     REQUIRE(datagram);
@@ -53,7 +55,7 @@ TEST_CASE("tunnel data plane rejects replay, tampering, and endpoint mismatch", 
     const std::vector<uint8_t> packet{0x60, 0x00, 0x00, 0x00, 0xca, 0xfe};
     std::size_t deliveries = 0;
     pair.responder.set_tunnel_packet_handler(
-        [&](std::vector<uint8_t>) { ++deliveries; });
+        [&](std::vector<uint8_t>, const std::vector<uint8_t>& /*src*/) { ++deliveries; });
 
     const auto first = pair.initiator.build_tunnel_datagram(pair.responder_id, packet);
     REQUIRE(first);

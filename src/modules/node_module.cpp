@@ -33,10 +33,11 @@ namespace {
 // sink drops this frame only and the node keeps processing traffic. A VPN
 // daemon must not terminate because its packet consumer misbehaves (for
 // example when the adapter is already closed during shutdown).
-void invoke_tunnel_sink(const PQVPNNode::TunnelPacketHandler& sink, const std::vector<uint8_t>& packet) {
+void invoke_tunnel_sink(const PQVPNNode::TunnelPacketHandler& sink, const std::vector<uint8_t>& packet,
+                        const std::vector<uint8_t>& src_peer_id) {
     if (!sink) return;
     try {
-        sink(packet);
+        sink(packet, src_peer_id);
     } catch (const std::exception& error) {
         std::cerr << "tunnel packet sink failed: " << error.what() << "\n";
     } catch (...) {
@@ -657,7 +658,7 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     session->last_activity = now;
     // Authenticated traffic from the peer is itself proof of liveness.
     session->last_peer_response = now;
-    invoke_tunnel_sink(tunnel_packet_handler_, *plaintext);
+    invoke_tunnel_sink(tunnel_packet_handler_, *plaintext, session->peer_id_.value_or({}));
     co_return;
 }
 
@@ -1348,7 +1349,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         // split domains keep its lower counter from being rejected as a replay.
         if (!check_and_record_nonce(data_sess, data_sess.data_domain, data_nonce)) co_return false;
 
-        invoke_tunnel_sink(tunnel_packet_handler_, *packet);
+        invoke_tunnel_sink(tunnel_packet_handler_, *packet, data_sess.peer_id_.value_or({}));
         data_sess.bytes_recv += body.size();
         co_return true;
     }

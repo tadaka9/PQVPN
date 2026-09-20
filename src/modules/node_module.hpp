@@ -48,7 +48,12 @@ public:
  */
 class PQVPNNode : public std::enable_shared_from_this<PQVPNNode> {
 public:
-    using TunnelPacketHandler = std::function<void(std::vector<uint8_t>)>;
+    // Decrypted tunnel-data delivery. `src_peer_id` identifies the session
+    // peer that sent this frame (empty only when it cannot be determined).
+    // Consumers such as user-space egress use it to bind return traffic to
+    // the originating client, so one exit node can serve several clients.
+    using TunnelPacketHandler =
+        std::function<void(std::vector<uint8_t>, const std::vector<uint8_t>&)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
     // tunnel transport traffic is not captured by the VPN default route. The

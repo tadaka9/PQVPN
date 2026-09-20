@@ -55,9 +55,10 @@ TEST_CASE("a throwing tunnel sink drops the frame but not the node", "[tunnel][r
     std::vector<uint8_t> recovered;
 
     // The first call throws (adapter already closed); the second succeeds.
-    h.responder.set_tunnel_packet_handler([&](std::vector<uint8_t> p) {
-        ++sink_calls;
-        if (sink_calls == 1) throw std::runtime_error("adapter is closed");
+    h.responder.set_tunnel_packet_handler(
+        [&](std::vector<uint8_t> p, const std::vector<uint8_t>& /*src*/) {
+            ++sink_calls;
+            if (sink_calls == 1) throw std::runtime_error("adapter is closed");
         recovered = std::move(p);
     });
 
