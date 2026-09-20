@@ -181,6 +181,30 @@ int main() {
         std::cout << "✓ Test Case 10 passed: nonce domains are independent" << std::endl;
     }
 
+    // Test Case 11: counter zero is rejected even on a fresh domain. The C++
+    // wire contract starts every session's send counter at 1 (pre-increment),
+    // and the peeler rejects any counter at or below the high-water mark,
+    // whose initial value is 0 — so there is no "first nonce" special case to
+    // tolerate. This deliberately diverges from main.py, where the builder
+    // emits counter 0 first and the peeler accepts it through its out-of-order
+    // tolerance branch (see MIGRATION_MANIFEST.md, documented deviations).
+    {
+        sess.data_domain.window.clear();
+        sess.data_domain.high_water = 0;
+
+        std::vector<uint8_t> zero_nonce(12, 0x00); // counter = 0
+        assert(node.check_and_record_nonce(sess, sess.data_domain, zero_nonce) == false);
+        assert(sess.data_domain.high_water == 0);
+        assert(sess.data_domain.window.empty());
+
+        // And the first accepted nonce of a fresh domain is exactly counter 1.
+        std::vector<uint8_t> first_nonce(12, 0x00);
+        first_nonce[11] = 0x01;
+        assert(node.check_and_record_nonce(sess, sess.data_domain, first_nonce) == true);
+        assert(sess.data_domain.high_water == 1);
+        std::cout << "✓ Test Case 11 passed: counter zero rejected; fresh domains start at one" << std::endl;
+    }
+
     std::cout << "All check_and_record_nonce tests passed!" << std::endl;
     return 0;
 }
