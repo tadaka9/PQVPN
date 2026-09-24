@@ -79,3 +79,51 @@ TEST_CASE("State serialization includes configuration", "[windows][control-chann
     REQUIRE(json["state"] == "connecting");
     REQUIRE(json.contains("kill_switch"));
 }
+
+TEST_CASE("IP assignment round-trip", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Initially no IPs assigned
+    auto initial = sm.enumerate_ips();
+    REQUIRE(initial.empty());
+
+    // Assign multiple IPs
+    std::vector<std::string> ips = {"10.8.0.1", "10.8.0.2", "fd00::1"};
+    REQUIRE(sm.assign_ips(ips));
+
+    // Verify they were stored correctly
+    auto retrieved = sm.enumerate_ips();
+    REQUIRE(retrieved.size() == 3);
+    REQUIRE(retrieved[0] == "10.8.0.1");
+    REQUIRE(retrieved[1] == "10.8.0.2");
+    REQUIRE(retrieved[2] == "fd00::1");
+}
+
+TEST_CASE("IP assignment validation", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Empty address should fail
+    std::vector<std::string> invalid = {""};
+    REQUIRE(!sm.assign_ips(invalid));
+
+    // Valid single IP should succeed
+    std::vector<std::string> valid = {"192.168.1.1"};
+    REQUIRE(sm.assign_ips(valid));
+    REQUIRE(sm.enumerate_ips().size() == 1);
+}
+
+TEST_CASE("IP reassignment replaces previous", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // First assignment
+    std::vector<std::string> first = {"10.8.0.1"};
+    REQUIRE(sm.assign_ips(first));
+    REQUIRE(sm.enumerate_ips().size() == 1);
+
+    // Second assignment replaces the first
+    std::vector<std::string> second = {"172.16.0.1", "172.16.0.2"};
+    REQUIRE(sm.assign_ips(second));
+    auto retrieved = sm.enumerate_ips();
+    REQUIRE(retrieved.size() == 2);
+    REQUIRE(retrieved[0] == "172.16.0.1");
+}

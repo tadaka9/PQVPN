@@ -206,6 +206,14 @@ nlohmann::json ControlChannelServer::handle_command(const std::string& command_j
         return handle_get_startpoint();
     }
 
+    if (method == "ip_assign") {
+        return handle_ip_assign(cmd.value("params", nlohmann::json::object()));
+    }
+
+    if (method == "ip_enumerate") {
+        return handle_ip_enumerate();
+    }
+
     // Unknown command
     nlohmann::json resp;
     resp["error"] = "unknown method: " + method;
@@ -484,6 +492,64 @@ nlohmann::json ControlChannelServer::handle_get_startpoint() {
     } else {
         resp["ip"] = nullptr;
         resp["prefix"] = nullptr;
+    }
+    return resp;
+}
+
+nlohmann::json ControlChannelServer::handle_ip_assign(const nlohmann::json& params) {
+    try {
+        std::vector<std::string> addresses;
+        if (params.contains("ips") && params["ips"].is_array()) {
+            for (const auto& ip : params["ips"]) {
+                if (ip.is_string()) {
+                    addresses.push_back(ip.get<std::string>());
+                }
+            }
+        } else if (params.contains("ip") && params["ip"].is_string()) {
+            // Single IP for backward compatibility
+            addresses.push_back(params["ip"].get<std::string>());
+        }
+
+        if (addresses.empty()) {
+            nlohmann::json resp;
+            resp["ok"] = false;
+            resp["error"] = "no IP addresses provided";
+            return resp;
+        }
+
+        // Validate all IP addresses before assigning
+        for (const auto& addr : addresses) {
+            std::error_code ec;
+            asio::ip::make_address(addr, ec);
+            if (ec) {
+                nlohmann::json resp;
+                resp["ok"] = false;
+                resp["error"] = "invalid IP address: " + addr;
+                return resp;
+            }
+        }
+
+        bool ok = state_machine_.assign_ips(addresses);
+        nlohmann::json resp;
+        resp["ok"] = ok;
+        if (!ok) {
+            resp["error"] = "failed to assign IP addresses";
+        }
+        return resp;
+    } catch (const std::exception& e) {
+        nlohmann::json resp;
+        resp["ok"] = false;
+        resp["error"] = e.what();
+        return resp;
+    }
+}
+
+nlohmann::json ControlChannelServer::handle_ip_enumerate() {
+    auto addresses = state_machine_.enumerate_ips();
+    nlohmann::json resp;
+    resp["ips"] = nlohmann::json::array();
+    for (const auto& addr : addresses) {
+        resp["ips"].push_back(addr);
     }
     return resp;
 }

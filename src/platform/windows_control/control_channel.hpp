@@ -47,6 +47,8 @@ private:
     nlohmann::json handle_get_endpoints();
     nlohmann::json handle_set_startpoint(const nlohmann::json& params);
     nlohmann::json handle_get_startpoint();
+    nlohmann::json handle_ip_assign(const nlohmann::json& params);
+    nlohmann::json handle_ip_enumerate();
 
     VpnStateMachine& state_machine_;
     routing::RouteBackend& route_backend_;

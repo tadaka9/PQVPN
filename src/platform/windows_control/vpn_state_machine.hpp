@@ -42,6 +42,11 @@ struct StartpointConfig {
     int prefix_length = 0;
 };
 
+// Custom IP assignment for the tunnel adapter
+struct IpAssignment {
+    std::vector<std::string> addresses;  // Assigned IP addresses
+};
+
 // State change event data
 struct VpnStateChangedEvent {
     VpnState previous_state;
@@ -79,6 +84,10 @@ public:
     bool set_startpoint(const StartpointConfig& startpoint);
     [[nodiscard]] std::optional<StartpointConfig> get_startpoint() const;
 
+    // Custom IP assignment/enumeration
+    bool assign_ips(const std::vector<std::string>& addresses);
+    [[nodiscard]] std::vector<std::string> enumerate_ips() const;
+
     // Serialize current state to JSON (for control channel)
     nlohmann::json serialize_state() const;
 
@@ -88,6 +97,7 @@ private:
     mutable std::mutex config_mutex_;
     std::optional<EndpointConfig> endpoint_config_;
     std::optional<StartpointConfig> startpoint_config_;
+    IpAssignment ip_assignment_;
     mutable std::mutex callback_mutex_;
     StateChangedCallback state_changed_callback_;
 

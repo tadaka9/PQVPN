@@ -76,6 +76,23 @@ std::optional<StartpointConfig> VpnStateMachine::get_startpoint() const {
     return startpoint_config_;
 }
 
+bool VpnStateMachine::assign_ips(const std::vector<std::string>& addresses) {
+    std::lock_guard<std::mutex> lock(config_mutex_);
+    // Validate all addresses before assigning any
+    for (const auto& addr : addresses) {
+        if (addr.empty()) {
+            return false;  // Invalid: empty address
+        }
+    }
+    ip_assignment_.addresses = addresses;
+    return !ip_assignment_.addresses.empty();
+}
+
+std::vector<std::string> VpnStateMachine::enumerate_ips() const {
+    std::lock_guard<std::mutex> lock(config_mutex_);
+    return ip_assignment_.addresses;
+}
+
 nlohmann::json VpnStateMachine::serialize_state() const {
     nlohmann::json j;
     j["state"] = state_name(get_state());
