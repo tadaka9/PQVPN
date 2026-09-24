@@ -156,7 +156,9 @@ if(WIN32)
     src/platform/windows_routes.cpp
     src/platform/windows_adapter.cpp
     src/platform/windows_control/vpn_state_machine.cpp
-    src/platform/windows_control/control_channel.cpp)
+    src/platform/windows_control/control_channel.cpp
+    src/routing/route_transaction.cpp
+    src/routing/peer_route_manager.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/macos/network_extension_bridge.cpp

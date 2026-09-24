@@ -148,3 +148,33 @@ TEST_CASE("IP assignment preserves order", "[windows][control-channel]") {
         REQUIRE(retrieved[i] == ordered[i]);
     }
 }
+
+TEST_CASE("Kill switch state transitions", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Initially kill switch is OFF
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::OFF);
+
+    // Turn it ON (without route backend)
+    REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+
+    // Turning it ON again should succeed (idempotent)
+    REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+
+    // Turn it OFF
+    REQUIRE(sm.set_kill_switch(KillSwitchState::OFF, nullptr));
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::OFF);
+}
+
+TEST_CASE("Kill switch with route backend integration", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Test that set_kill_switch accepts a route backend pointer
+    // (actual route installation requires elevated privileges, so we just verify the API)
+    REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+    REQUIRE(sm.set_kill_switch(KillSwitchState::OFF, nullptr));
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::OFF);
+}

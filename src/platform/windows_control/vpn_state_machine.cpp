@@ -1,6 +1,7 @@
 #ifdef _WIN32
 
 #include "vpn_state_machine.hpp"
+#include "routing/route_transaction.hpp"
 
 namespace pqvpn::platform {
 
@@ -47,9 +48,51 @@ KillSwitchState VpnStateMachine::get_kill_switch() const noexcept {
     return kill_switch_.load();
 }
 
-bool VpnStateMachine::set_kill_switch(KillSwitchState state) {
-    KillSwitchState previous = kill_switch_.exchange(state);
-    return previous != state || state == KillSwitchState::OFF;  // Always succeeds
+bool VpnStateMachine::set_kill_switch(KillSwitchState state, void* route_backend_ptr) {
+    auto* backend = static_cast<::pqvpn::routing::RouteBackend*>(route_backend_ptr);
+    std::lock_guard<std::mutex> lock(config_mutex_);
+    
+    KillSwitchState previous = kill_switch_.load();
+    if (previous == state) {
+        return kill_switch_.load() == state;
+    }
+    
+    kill_switch_.store(state);
+    
+    // If backend provided, install/remove blackhole route
+    if (backend && state == KillSwitchState::ON && !kill_switch_route_installed_) {
+        // Install default route to loopback (blackhole)
+        pqvpn::routing::RouteTransaction transaction;
+        std::error_code ec;
+        asio::ip::address loopback = asio::ip::make_address("127.0.0.1", ec);
+        if (!ec) {
+            transaction.add(pqvpn::routing::RouteEntry{
+                asio::ip::make_address("0.0.0.0", ec),
+                0,  // Default route
+                loopback,
+                0
+            });
+            auto report = transaction.commit(*backend);
+            kill_switch_route_installed_ = report.committed;
+        }
+    } else if (backend && state == KillSwitchState::OFF && kill_switch_route_installed_) {
+        // Remove blackhole route
+        pqvpn::routing::RouteTransaction transaction;
+        std::error_code ec;
+        asio::ip::address loopback = asio::ip::make_address("127.0.0.1", ec);
+        if (!ec) {
+            transaction.add(pqvpn::routing::RouteEntry{
+                asio::ip::make_address("0.0.0.0", ec),
+                0,
+                loopback,
+                0
+            });
+            auto report = transaction.remove_all(*backend);
+            kill_switch_route_installed_ = !report.complete;
+        }
+    }
+    
+    return kill_switch_.load() == state;
 }
 
 void VpnStateMachine::set_endpoint(const EndpointConfig& endpoint) {

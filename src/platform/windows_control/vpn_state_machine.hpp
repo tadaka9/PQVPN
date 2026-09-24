@@ -9,6 +9,7 @@
 #include <functional>
 #include <chrono>
 #include <vector>
+#include <memory>
 #include <nlohmann/json.hpp>
 
 namespace pqvpn::platform {
@@ -28,6 +29,8 @@ enum class KillSwitchState {
     OFF,              // Normal routing when disconnected
     ON               // Blackhole all egress when not connected
 };
+
+
 
 // Endpoint configuration (remote peer)
 struct EndpointConfig {
@@ -72,9 +75,9 @@ public:
     // Register callback for state changes
     void on_state_changed(StateChangedCallback callback);
 
-    // Kill switch control
+    // Kill switch control with route installation
     [[nodiscard]] KillSwitchState get_kill_switch() const noexcept;
-    bool set_kill_switch(KillSwitchState state);
+    bool set_kill_switch(KillSwitchState state, void* route_backend = nullptr);
 
     // Endpoint configuration
     void set_endpoint(const EndpointConfig& endpoint);
@@ -98,6 +101,7 @@ private:
     std::optional<EndpointConfig> endpoint_config_;
     std::optional<StartpointConfig> startpoint_config_;
     IpAssignment ip_assignment_;
+    bool kill_switch_route_installed_ = false;
     mutable std::mutex callback_mutex_;
     StateChangedCallback state_changed_callback_;
 

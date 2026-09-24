@@ -51,7 +51,7 @@ private:
     nlohmann::json handle_ip_enumerate();
 
     VpnStateMachine& state_machine_;
-    routing::RouteBackend& route_backend_;
+    ::pqvpn::routing::RouteBackend& route_backend_;
     HANDLE pipe_handle_ = INVALID_HANDLE_VALUE;
     std::atomic<bool> running_{false};
     std::thread accept_thread_;

@@ -168,7 +168,7 @@ nlohmann::json ControlChannelServer::handle_command(const std::string& command_j
     if (method == "set_kill_switch") {
         std::string value = cmd.value("value", "off");
         KillSwitchState state = (value == "on") ? KillSwitchState::ON : KillSwitchState::OFF;
-        bool ok = state_machine_.set_kill_switch(state);
+        bool ok = state_machine_.set_kill_switch(state, &route_backend_);
         nlohmann::json resp;
         resp["ok"] = ok;
         return resp;
@@ -266,7 +266,7 @@ nlohmann::json ControlChannelServer::handle_routes_add(const nlohmann::json& par
             return resp;
         }
 
-        routing::RouteEntry entry{
+        ::pqvpn::routing::RouteEntry entry{
             prefix,
             static_cast<uint8_t>(prefix_length),
             next_hop,
@@ -320,7 +320,7 @@ nlohmann::json ControlChannelServer::handle_routes_remove(const nlohmann::json& 
 
         // Route removal requires a gateway address; use the default route target
         asio::ip::address removal_gateway = asio::ip::make_address("0.0.0.0", ec);
-        routing::RouteEntry entry{
+        ::pqvpn::routing::RouteEntry entry{
             prefix,
             static_cast<uint8_t>(prefix_length),
             removal_gateway,
@@ -353,7 +353,7 @@ nlohmann::json ControlChannelServer::handle_routes_list() {
 
 nlohmann::json ControlChannelServer::handle_routes_set(const nlohmann::json& params) {
     try {
-        routing::RouteTransaction transaction;
+        ::pqvpn::routing::RouteTransaction transaction;
 
         for (const auto& route : params) {
             std::string prefix_str = route.value("prefix", "");
@@ -377,7 +377,7 @@ nlohmann::json ControlChannelServer::handle_routes_set(const nlohmann::json& par
             } catch (...) { continue; }
             if (ec) continue;
 
-            transaction.add(routing::RouteEntry{
+            transaction.add(::pqvpn::routing::RouteEntry{
                 prefix,
                 static_cast<uint8_t>(prefix_length),
                 next_hop,
