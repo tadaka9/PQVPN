@@ -127,3 +127,24 @@ TEST_CASE("IP reassignment replaces previous", "[windows][control-channel]") {
     REQUIRE(retrieved.size() == 2);
     REQUIRE(retrieved[0] == "172.16.0.1");
 }
+
+TEST_CASE("IP assignment with mixed IPv4 and IPv6", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    std::vector<std::string> mixed = {"192.168.1.1", "fd00::dead:beef", "10.0.0.1"};
+    REQUIRE(sm.assign_ips(mixed));
+    auto retrieved = sm.enumerate_ips();
+    REQUIRE(retrieved.size() == 3);
+    REQUIRE(retrieved[1] == "fd00::dead:beef");
+}
+
+TEST_CASE("IP assignment preserves order", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    std::vector<std::string> ordered = {"1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"};
+    REQUIRE(sm.assign_ips(ordered));
+    auto retrieved = sm.enumerate_ips();
+    for (size_t i = 0; i < ordered.size(); ++i) {
+        REQUIRE(retrieved[i] == ordered[i]);
+    }
+}
