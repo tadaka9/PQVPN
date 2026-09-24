@@ -152,8 +152,11 @@ if(WIN32)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/windows_tap.cpp
     src/platform/windows_wintun.cpp
+    src/platform/windows_own_tunnel.cpp
     src/platform/windows_routes.cpp
-    src/platform/windows_adapter.cpp)
+    src/platform/windows_adapter.cpp
+    src/platform/windows_control/vpn_state_machine.cpp
+    src/platform/windows_control/control_channel.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/macos/network_extension_bridge.cpp
@@ -167,6 +170,7 @@ add_library(pqvpn_platform STATIC ${PQVPN_PLATFORM_SOURCES})
 target_include_directories(pqvpn_platform PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src/platform
   ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann_json/include
   ${asio_SOURCE_DIR}/asio/include)
 
 set(PQVPN_NODE_SOURCES src/main.cpp)
@@ -202,6 +206,10 @@ pqvpn_attach_oqs_runtime(pqvpn_node)
 
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(
+  NAME test_hard_kernel_runner
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_hard_kernel_runner.py
+)
 add_test(
   NAME pqvpn_hard_kernel
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/pqvpn_hard_kernel.py

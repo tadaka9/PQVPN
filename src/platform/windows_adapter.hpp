@@ -6,6 +6,7 @@
 
 #include "adapter.hpp"
 #include "windows_tap.hpp"
+#include "windows_own_tunnel.hpp"
 
 namespace pqvpn::platform {
 

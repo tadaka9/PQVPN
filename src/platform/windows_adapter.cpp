@@ -35,6 +35,12 @@ std::string WindowsTapAdapter::describe() const {
 }
 
 std::unique_ptr<Adapter> make_adapter(std::string_view device_hint) {
+    // Convention: "own" or a \\.\ device path selects PQVPN's own NDIS driver.
+    // Everything else falls back to TAP-Windows (transitional backend).
+    if (device_hint == "own" ||
+        (device_hint.size() >= 4 && device_hint.substr(0, 4) == "\\\\.")) {
+        return std::unique_ptr<Adapter>(new WindowsOwnTunnel(std::string(device_hint)));
+    }
     return std::unique_ptr<Adapter>(new WindowsTapAdapter(std::string(device_hint)));
 }
 
