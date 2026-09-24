@@ -178,3 +178,39 @@ TEST_CASE("Kill switch with route backend integration", "[windows][control-chann
     REQUIRE(sm.set_kill_switch(KillSwitchState::OFF, nullptr));
     REQUIRE(sm.get_kill_switch() == KillSwitchState::OFF);
 }
+
+TEST_CASE("Kill switch idempotency", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Multiple ON transitions should all succeed
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
+    }
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+
+    // Multiple OFF transitions should all succeed
+    for (int i = 0; i < 3; ++i) {
+        REQUIRE(sm.set_kill_switch(KillSwitchState::OFF, nullptr));
+    }
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::OFF);
+}
+
+TEST_CASE("Kill switch state persists across other operations", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Enable kill switch
+    REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
+
+    // Perform other operations that shouldn't affect kill switch state
+    EndpointConfig ep{"192.168.1.100", 9090, ""};
+    sm.set_endpoint(ep);
+
+    StartpointConfig sp{"10.8.0.1", 24};
+    sm.set_startpoint(sp);
+
+    std::vector<std::string> ips = {"10.8.0.1"};
+    sm.assign_ips(ips);
+
+    // Kill switch should still be ON
+    REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+}
