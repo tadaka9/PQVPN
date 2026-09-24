@@ -68,7 +68,7 @@ bool VpnStateMachine::set_startpoint(const StartpointConfig& startpoint) {
         return false;  // Invalid: empty IP address
     }
     startpoint_config_ = startpoint;
-    return get_startpoint().has_value();
+    return startpoint_config_.has_value();
 }
 
 std::optional<StartpointConfig> VpnStateMachine::get_startpoint() const {
