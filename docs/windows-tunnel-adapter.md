@@ -168,9 +168,7 @@ without TAP-Windows6 or Wintun present in the data path.
 1. **Scaffold** — WDK project layout, INF, `DriverEntry` (WDM), file object creation with default-deny DACL. Exit criteria: adapter visible in `netsh interface show interface` under test signing; open succeeds for the node identity and fails for another process. *Status: implemented; compiles + links clean on x64 (valid PE, correct NDIS/Io imports). Load verification pending test signing.*
 2. **Data path + state machine + control channel** — bounded ReadFile/WriteFile queues, backpressure, teardown drain; `WindowsOwnTunnel` backend behind the Adapter contract; VPN state machine (all states) owned by the node with kernel media up/down mirroring; external control channel `\\.\pipe\pqvpn-tun-ctl` (ACL-gated) exposing get_state/connect/disconnect + state_changed events. Exit criteria: loopback ping through the adapter with a node-assigned address; CTest coverage of open/write/close lifecycle and the control-channel command contract on Windows CI.
 3. **Integration + full control surface** — full-tunnel mode end to end: default route + peer exclusions via `RouteTransaction`; custom/transversal routes (add/remove/list/set, transactional); endpoint/startpoint config + custom IP enumeration; kill switch (fail-closed blackhole when down); DNS switching with guaranteed restore-on-teardown. Two-node e2e (handshake, both directions, clean shutdown with route+DNS rollback) on a self-hosted Windows runner in the functional release gates.
-4. **Hardening & signing** — IRP fuzzing, HLK/DDI compliance run, EV +
-   attestation pipeline, provenance attached to release packaging (feeds
-   `functional-release-gates.yml` evidence contract).
+4. **Hardening & signing** — IRP fuzzing (*implemented*), HLK/DDI compliance test infrastructure (*implemented*), EV code-signing certificate setup + Microsoft attestation pipeline, provenance attached to release packaging (feeds `functional-release-gates.yml` evidence contract).
 
 ## Transitional backends until phase 3 lands
 

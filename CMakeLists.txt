@@ -360,4 +360,11 @@ foreach(exclusive_test IN LISTS PQVPN_EXCLUSIVE_TESTS)
     set_tests_properties(${exclusive_test} PROPERTIES RESOURCE_LOCK "pqvpn_shared_resources")
   endif()
 endforeach()
+
+# Optional: Driver HLK/DDI compliance tests (Phase 4)
+option(PQVPN_BUILD_DRIVER_TESTS "Build driver test utilities" OFF)
+if(PQVPN_BUILD_DRIVER_TESTS AND WIN32)
+    add_subdirectory(driver/pqvpn_tunnel)
+endif()
+
 endif()
