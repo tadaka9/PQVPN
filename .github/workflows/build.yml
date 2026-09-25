@@ -22,9 +22,10 @@ jobs:
 
       - name: Build driver tests
         shell: bash
+        working-directory: driver/pqvpn_tunnel
         run: |
-          cmake -S . -B build-driver -G Ninja -DCMAKE_BUILD_TYPE=Debug -DPQVPN_BUILD_DRIVER_TESTS=ON
-          cmake --build build-driver --target irp_fuzz_test
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --target irp_fuzz_test
 
       - name: Validate HLK configuration
         shell: pwsh
@@ -59,9 +60,10 @@ jobs:
 
       - name: Build driver
         shell: bash
+        working-directory: driver/pqvpn_tunnel
         run: |
-          cmake -S . -B build-driver -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQVPN_BUILD_DRIVER_TESTS=ON
-          cmake --build build-driver --target pqvpn_tunnel
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
 
       - name: Sign driver with EV certificate
         shell: pwsh
@@ -82,7 +84,7 @@ jobs:
           
           # Sign the driver
           & .\driver\pqvpn_tunnel\signing\sign_driver.ps1 `
-            -DriverPath build-driver\pqvpn_tunnel.sys `
+            -DriverPath driver/pqvpn_tunnel/build/pqvpn_tunnel.sys `
             -CertPfx $certPath `
             -CertPassword (ConvertTo-SecureString $env:EV_CERT_PASSWORD -AsPlainText -Force) `
             -TimestampServer $env:TIMESTAMP_SERVER `
@@ -95,7 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pqvpn-tunnel-signed-driver
-          path: build-driver/pqvpn_tunnel.sys
+          path: driver/pqvpn_tunnel/build/pqvpn_tunnel.sys
           retention-days: 30
 
   hardening-gate:
