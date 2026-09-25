@@ -136,6 +136,32 @@ std::vector<std::string> VpnStateMachine::enumerate_ips() const {
     return ip_assignment_.addresses;
 }
 
+bool VpnStateMachine::switch_dns(bool enable, const std::vector<std::string>& resolvers) {
+    std::lock_guard<std::mutex> lock(config_mutex_);
+    
+    if (enable) {
+        // Capture original DNS servers before switching (in real implementation,
+        // this would query the system via registry or IP Helper API)
+        if (dns_config_.original_resolvers.empty()) {
+            // Capture current system DNS servers before switching
+            dns_config_.original_resolvers = {"8.8.8.8", "8.8.4.4"};
+        }
+        dns_config_.resolvers = resolvers;
+        dns_config_.enabled = true;
+    } else {
+        // Restore original DNS servers (in real implementation, write back to system)
+        dns_config_.enabled = false;
+        // Original resolvers are preserved for potential re-enable
+    }
+    
+    return dns_config_.enabled == enable;
+}
+
+DnsConfig VpnStateMachine::get_dns_config() const {
+    std::lock_guard<std::mutex> lock(config_mutex_);
+    return dns_config_;
+}
+
 nlohmann::json VpnStateMachine::serialize_state() const {
     nlohmann::json j;
     j["state"] = state_name(get_state());

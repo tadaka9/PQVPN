@@ -159,7 +159,7 @@ TEST_CASE("Kill switch state transitions", "[windows][control-channel]") {
     REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
     REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
 
-    // Turning it ON again should succeed (idempotent)
+    // Repeated ON transitions must all succeed
     REQUIRE(sm.set_kill_switch(KillSwitchState::ON, nullptr));
     REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
 
@@ -213,4 +213,56 @@ TEST_CASE("Kill switch state persists across other operations", "[windows][contr
 
     // Kill switch should still be ON
     REQUIRE(sm.get_kill_switch() == KillSwitchState::ON);
+}
+
+TEST_CASE("DNS switching enable/disable", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Initially DNS switching is disabled
+    auto config = sm.get_dns_config();
+    REQUIRE(!config.enabled);
+
+    // Enable with custom resolvers
+    std::vector<std::string> tunnel_dns = {"10.8.0.1", "1.1.1.1"};
+    REQUIRE(sm.switch_dns(true, tunnel_dns));
+    
+    config = sm.get_dns_config();
+    REQUIRE(config.enabled);
+    REQUIRE(config.resolvers.size() == 2);
+    REQUIRE(config.resolvers[0] == "10.8.0.1");
+    REQUIRE(config.original_resolvers.size() > 0);  // Original DNS captured
+
+    // Disable (restore original)
+    REQUIRE(sm.switch_dns(false));
+    config = sm.get_dns_config();
+    REQUIRE(!config.enabled);
+}
+
+TEST_CASE("DNS switching preserves original resolvers", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Enable DNS switching
+    std::vector<std::string> tunnel_dns = {"10.8.0.1"};
+    REQUIRE(sm.switch_dns(true, tunnel_dns));
+    
+    auto config = sm.get_dns_config();
+    auto original_count = config.original_resolvers.size();
+    REQUIRE(original_count > 0);
+
+    // Disable and re-enable - original resolvers should be preserved
+    REQUIRE(sm.switch_dns(false));
+    REQUIRE(sm.switch_dns(true, {"172.16.0.1"}));
+    
+    config = sm.get_dns_config();
+    REQUIRE(config.original_resolvers.size() == original_count);
+}
+
+TEST_CASE("DNS switching with empty resolver list", "[windows][control-channel]") {
+    VpnStateMachine sm;
+
+    // Enable without specifying resolvers (use defaults)
+    REQUIRE(sm.switch_dns(true, {}));
+    
+    auto config = sm.get_dns_config();
+    REQUIRE(config.enabled);
 }

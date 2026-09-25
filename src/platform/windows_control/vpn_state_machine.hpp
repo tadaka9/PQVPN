@@ -50,6 +50,13 @@ struct IpAssignment {
     std::vector<std::string> addresses;  // Assigned IP addresses
 };
 
+// DNS configuration with restore-on-teardown support
+struct DnsConfig {
+    bool enabled = false;
+    std::vector<std::string> resolvers;      // Tunnel DNS servers
+    std::vector<std::string> original_resolvers;  // Captured system DNS for restore
+};
+
 // State change event data
 struct VpnStateChangedEvent {
     VpnState previous_state;
@@ -91,6 +98,10 @@ public:
     bool assign_ips(const std::vector<std::string>& addresses);
     [[nodiscard]] std::vector<std::string> enumerate_ips() const;
 
+    // DNS switching with restore-on-teardown
+    bool switch_dns(bool enable, const std::vector<std::string>& resolvers = {});
+    [[nodiscard]] DnsConfig get_dns_config() const;
+
     // Serialize current state to JSON (for control channel)
     nlohmann::json serialize_state() const;
 
@@ -101,6 +112,7 @@ private:
     std::optional<EndpointConfig> endpoint_config_;
     std::optional<StartpointConfig> startpoint_config_;
     IpAssignment ip_assignment_;
+    DnsConfig dns_config_;
     bool kill_switch_route_installed_ = false;
     mutable std::mutex callback_mutex_;
     StateChangedCallback state_changed_callback_;

@@ -49,6 +49,8 @@ private:
     nlohmann::json handle_get_startpoint();
     nlohmann::json handle_ip_assign(const nlohmann::json& params);
     nlohmann::json handle_ip_enumerate();
+    nlohmann::json handle_dns_switch(const nlohmann::json& params);
+    nlohmann::json handle_get_dns();
 
     VpnStateMachine& state_machine_;
     ::pqvpn::routing::RouteBackend& route_backend_;

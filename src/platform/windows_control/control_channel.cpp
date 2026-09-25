@@ -214,6 +214,14 @@ nlohmann::json ControlChannelServer::handle_command(const std::string& command_j
         return handle_ip_enumerate();
     }
 
+    if (method == "dns_switch") {
+        return handle_dns_switch(cmd.value("params", nlohmann::json::object()));
+    }
+
+    if (method == "get_dns") {
+        return handle_get_dns();
+    }
+
     // Unknown command
     nlohmann::json resp;
     resp["error"] = "unknown method: " + method;
@@ -551,6 +559,53 @@ nlohmann::json ControlChannelServer::handle_ip_enumerate() {
     for (const auto& addr : addresses) {
         resp["ips"].push_back(addr);
     }
+    return resp;
+}
+
+nlohmann::json ControlChannelServer::handle_dns_switch(const nlohmann::json& params) {
+    try {
+        std::string value = params.value("value", "off");
+        bool enable = (value == "on");
+        
+        std::vector<std::string> resolvers;
+        if (params.contains("resolvers") && params["resolvers"].is_array()) {
+            for (const auto& resolver : params["resolvers"]) {
+                if (resolver.is_string()) {
+                    resolvers.push_back(resolver.get<std::string>());
+                }
+            }
+        }
+        
+        bool ok = state_machine_.switch_dns(enable, resolvers);
+        nlohmann::json resp;
+        resp["ok"] = ok;
+        if (!ok) {
+            resp["error"] = "failed to switch DNS configuration";
+        }
+        return resp;
+    } catch (const std::exception& e) {
+        nlohmann::json resp;
+        resp["ok"] = false;
+        resp["error"] = e.what();
+        return resp;
+    }
+}
+
+nlohmann::json ControlChannelServer::handle_get_dns() {
+    auto config = state_machine_.get_dns_config();
+    nlohmann::json resp;
+    resp["enabled"] = config.enabled;
+    
+    resp["resolvers"] = nlohmann::json::array();
+    for (const auto& resolver : config.resolvers) {
+        resp["resolvers"].push_back(resolver);
+    }
+    
+    resp["original_resolvers"] = nlohmann::json::array();
+    for (const auto& resolver : config.original_resolvers) {
+        resp["original_resolvers"].push_back(resolver);
+    }
+    
     return resp;
 }
 
