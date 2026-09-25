@@ -115,6 +115,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          # Ensure pkg-config and CMake can find the newly installed liboqs
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
 
       - name: Run hardening gate
         run: |
