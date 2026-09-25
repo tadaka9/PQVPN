@@ -17,6 +17,15 @@
 #ifndef ERROR_ENTRY_NOT_FOUND
 #define ERROR_ENTRY_NOT_FOUND 4295L
 #endif
+// Protocol/type constants for MIB_IPFORWARDROW; values are stable.
+// NETMGMT is 3 on both toolchains (MS nldef.h RouteProtocolNetMgmt=3;
+// MinGW iprtrmib.h MIB_IPPROTO_NETMGMT=3).
+#ifndef MIB_IPPROTO_NETMGMT
+#define MIB_IPPROTO_NETMGMT 3L
+#endif
+#ifndef GATEWAY_STATIC
+#define GATEWAY_STATIC 4L
+#endif
 
 namespace pqvpn::platform {
 namespace {
@@ -81,6 +90,15 @@ routing::OperationResult apply(const bool install, const routing::RouteEntry& en
     row.dwForwardMask = netmask_nbo(entry.prefix_length);
     row.dwForwardNextHop = entry.gateway.to_v4().to_uint();
     row.dwForwardIfIndex = interface_index;
+    // CreateIpForwardEntry fails with ERROR_INVALID_PARAMETER (87) unless the
+    // protocol is MIB_IPPROTO_NETMGMT — MSDN: "must be set to
+    // MIB_IPPROTO_NETMGMT otherwise CreateIpForwardEntry will fail". Leaving it
+    // at zero made every install fail on real Windows.
+    row.dwForwardProto = MIB_IPPROTO_NETMGMT;
+    // dwForwardType is not matched by DeleteIpForwardEntry and not validated
+    // by CreateIpForwardEntry (MSDN), but a static-gateway value keeps `route
+    // print` output sane.
+    row.dwForwardType = GATEWAY_STATIC;
 
     const auto status = install ? CreateIpForwardEntry(&row) : DeleteIpForwardEntry(&row);
     if (status == NO_ERROR) return {true};

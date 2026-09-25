@@ -188,6 +188,21 @@ def oqs_header_text(roots: list[Path]) -> str:
     return "\n".join(chunks)
 
 
+def run_ctest(build_dir: Path) -> subprocess.CompletedProcess[str]:
+    # Bound the nested suite independently of an outer CTest's parallel level
+    # or CTEST_PARALLEL_LEVEL inherited from CI. Exclude this gate's label to
+    # prevent recursion, and keep the canonical two-worker test budget.
+    return subprocess.run(
+        ["ctest", "--test-dir", str(build_dir), "-LE", "hardening",
+         "--parallel", "2", "--output-on-failure"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+
+
 def main() -> int:
     findings: list[Finding] = []
     files = iter_code_files()
@@ -277,14 +292,7 @@ def main() -> int:
         add(findings, "warning", "build_state", ROOT / "build", 1,
             "no CMake build directory with a test configuration found; run cmake before full gate")
     else:
-        ctest = subprocess.run(
-            ["ctest", "--test-dir", str(build_dir), "-LE", "hardening", "--output-on-failure"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
+        ctest = run_ctest(build_dir)
         if ctest.returncode != 0:
             add(findings, "error", "ctest", build_dir, 1, "CTest failed")
 

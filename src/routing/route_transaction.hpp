@@ -82,12 +82,12 @@ struct RemovalReport {
 };
 
 /**
- * @brief All-or-nothing batch of routing-table changes.
+ * @brief Batch of routing-table changes with best-effort rollback.
  *
  * commit() installs every entry in plan order and records which entries it
- * created (not already present); on an install failure it rolls back only the
- * created prefix (reverse order), so a partial route set never survives and
- * pre-existing routes are untouched. remove_all() cleans up best-effort,
+ * created (not already present); on an install failure it attempts to roll back
+ * the newly created prefix in reverse order. Failed removals stay owned for
+ * retry; pre-existing routes are untouched. remove_all() cleans up best-effort,
  * removing exactly the created entries; it keeps going past a hard failure so
  * shutdown always attempts to leave no owned routes behind.
  */
@@ -102,20 +102,22 @@ public:
     // transaction actually created (installed and not already present); those
     // are the only ones rollback and remove_all will later delete, so routes
     // that pre-existed the commit are left untouched. Rolls back the created
-    // prefix (reverse order) when an install fails.
+    // prefix (reverse order) when an install fails, retaining failed removals
+    // for retry. Repeated commits preserve ownership from earlier commits.
     CommitReport commit(RouteBackend& backend);
 
     // Best-effort removal of exactly the entries this transaction created via
-    // a successful commit; already-present routes are not touched. Keeps going
-    // past a hard failure so shutdown always attempts to leave no owned routes.
+    // any commit, including an incomplete rollback; pre-existing routes are
+    // not touched. Keeps going past a hard failure so shutdown always attempts
+    // to leave no owned routes.
     // A confirmed removal releases ownership immediately: a later pass must
     // not delete a route someone else recreated after we relinquished it.
     RemovalReport remove_all(RouteBackend& backend);
 
 private:
     std::vector<RouteEntry> entries_;
-    // Indices into entries_ created by the last successful commit (installed,
-    // not already present). Empty until a commit succeeds; cleanup removes only these.
+    // Indices into entries_ created by this transaction and not yet confirmed
+    // removed. Includes routes left behind by an incomplete rollback.
     std::vector<std::size_t> owned_;
 };
 

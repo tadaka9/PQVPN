@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <!-- NDIS 6.x miniport drivers are x86/x64 only: this SDK's ndis.h #errors on
+         ARM64 ("NDIS API version not supported on the target architecture"). We
+         therefore ship x64 (Debug + Release) and do not configure an ARM64 build. -->
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{9A4C7DEF-F591-4ECB-9B39-C6FAE713550E}</ProjectGuid>
+    <RootNamespace>pqvpntunnel</RootNamespace>
+    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <SpectreMitigation>false</SpectreMitigation>
+    <!-- Local dev builds: the WDK DPVerifierTask (INF validation) loads a 32-bit
+         InfVerif.dll that this SDK install does not ship (only x64/arm64 exist),
+         so it fails with a load error. Skip package verification locally; real
+         INF validation belongs to the signing/CI pipeline, not the dev loop.
+         Re-enable by removing this property or passing -p:SkipPackageVerification=false. -->
+    <SkipPackageVerification>true</SkipPackageVerification>
+    <!-- Local dev builds produce an UNSIGNED .sys artifact. In-build signing is
+         off by default: the WDM TestSign path fails here (no digest algorithm /
+         no cert configured). Signing is done out-of-band when we actually need to
+         load the driver; see docs/windows-tunnel-adapter.md for the test-signing
+         sequence. Set SignMode=TestSign or ProductionSign to sign in-build instead. -->
+    <SignMode>off</SignMode>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <!-- Output under the repo's driver build tree so artifacts are predictable
+       and easy to clean. -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(ProjectDir)\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)\..\build\obj\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>pqvpn_tunnel</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(ProjectDir)\..\build\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)\..\build\obj\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>pqvpn_tunnel</TargetName>
+  </PropertyGroup>
+
+
+  <!-- NDIS miniport build surface, identical for every configuration. -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>NDIS_MINIPORT_DRIVER=1;NDIS620_MINIPORT=1;POOL_NX_OPTIN=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>ndis.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- NDIS 6.x miniports register via NdisMRegisterMiniportDriver in DriverEntry;
+           there is no MiniportInitializeEx export to emit (that is the legacy
+           NDIS5 pattern). Do NOT add /EXPORT:MiniportInitializeEx. -->
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <Inf Include="pqvpn_tunnel.inf" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pqvpn_tunnel.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="pqvpn_tunnel.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

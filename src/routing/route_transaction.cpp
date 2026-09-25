@@ -29,24 +29,25 @@ CommitReport RouteTransaction::commit(RouteBackend& backend) {
             report.error = result.error.empty() ? "route install failed" : result.error;
             // Roll back only the entries this commit created, in reverse order.
             // Already-present routes are left alone: they pre-date us and must
-            // survive a failed commit. A rollback that itself fails is recorded:
-            // the caller must treat the table as uncertain and inspect it manually.
+            // survive a failed commit. Keep failed removals owned for a later
+            // cleanup pass and attempt the rest even when one removal fails.
             for (auto it = created.rbegin(); it != created.rend(); ++it) {
                 const auto rollback = backend.remove(entries_[*it]);
                 if (!rollback.ok) {
                     report.error += "; rollback of an installed entry failed";
-                    break;
+                    continue;
                 }
                 report.rolled_back.push_back(entries_[*it]);
+                owned_.erase(std::remove(owned_.begin(), owned_.end(), *it), owned_.end());
             }
-            owned_.clear(); // nothing survives a failed commit for us to clean up
             return report;
         }
-        if (!result.already_present) {
+        if (!result.already_present &&
+            std::find(owned_.begin(), owned_.end(), index) == owned_.end()) {
             created.push_back(index);
+            owned_.push_back(index);
         }
     }
-    owned_ = std::move(created); // these are the routes we own for cleanup
     report.committed = true;
     return report;
 }

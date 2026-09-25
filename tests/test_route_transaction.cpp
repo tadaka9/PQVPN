@@ -255,3 +255,65 @@ TEST_CASE("remove_all releases ownership so a later pass cannot delete recreated
     REQUIRE(second.already_absent == 0);
     REQUIRE(backend.calls.size() == calls_before); // no further backend activity
 }
+
+TEST_CASE("failed rollback keeps cleaning and retains only failed removals for retry", "[routing]") {
+    ScriptedRouteBackend backend;
+    backend.already_present_installs.insert(0);
+    backend.failing_install = 4;
+    backend.failing_remove = 1; // middle rollback fails, earlier route still needs cleanup
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8)); // administrator-owned
+    plan.add(entry("192.168.1.0", 24));
+    plan.add(entry("192.168.2.0", 24));
+    plan.add(entry("192.168.3.0", 24));
+    plan.add(entry("172.16.0.0", 12));
+
+    const auto failed = plan.commit(backend);
+    REQUIRE_FALSE(failed.committed);
+    REQUIRE(failed.failed_index == 4);
+    REQUIRE(failed.error.find("rollback") != std::string::npos);
+    REQUIRE(failed.rolled_back.size() == 2);
+    REQUIRE(failed.rolled_back[0].prefix.to_string() == "192.168.3.0");
+    REQUIRE(failed.rolled_back[1].prefix.to_string() == "192.168.1.0");
+    REQUIRE(backend.removals == 3);
+
+    backend.calls.clear();
+    const auto cleanup = plan.remove_all(backend);
+    REQUIRE(cleanup.complete);
+    REQUIRE(cleanup.removed == 1);
+    REQUIRE(backend.calls == std::vector<std::string>{"remove 192.168.2.0/24"});
+    backend.calls.clear();
+    REQUIRE(plan.remove_all(backend).complete);
+    REQUIRE(backend.calls.empty());
+}
+
+TEST_CASE("repeated commit retains ownership of previously installed routes", "[routing]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));
+    REQUIRE(plan.commit(backend).committed);
+    backend.already_present_installs.insert(1);
+    REQUIRE(plan.commit(backend).committed);
+
+    backend.calls.clear();
+    REQUIRE(plan.remove_all(backend).removed == 1);
+    REQUIRE(backend.calls == std::vector<std::string>{"remove 10.0.0.0/8"});
+}
+
+TEST_CASE("failed extension preserves earlier ownership and unwinds new routes", "[routing]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::RouteTransaction plan;
+    plan.add(entry("10.0.0.0", 8));
+    REQUIRE(plan.commit(backend).committed);
+    plan.add(entry("192.168.1.0", 24));
+    plan.add(entry("192.168.2.0", 24));
+    backend.already_present_installs.insert(1); // prior committed route
+    backend.failing_install = 3;
+    const auto failed = plan.commit(backend);
+    REQUIRE_FALSE(failed.committed);
+    REQUIRE(failed.rolled_back.size() == 1);
+    REQUIRE(failed.rolled_back.front().prefix.to_string() == "192.168.1.0");
+    backend.calls.clear();
+    REQUIRE(plan.remove_all(backend).removed == 1);
+    REQUIRE(backend.calls == std::vector<std::string>{"remove 10.0.0.0/8"});
+}
