@@ -123,4 +123,4 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           cmake --build build --parallel 2
-          python3 tools/pqvpn_hard_kernel.py
+          python3 tools/pqvpn_hard_kernel.py || (cat .loop-engineering/hard_kernel_report.json; exit 1)
