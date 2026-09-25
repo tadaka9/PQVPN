@@ -74,6 +74,42 @@ jobs:
           cmake --build build -j$(nproc)
           ctest --test-dir build -j2 --output-on-failure
 
+  driver-tests:
+    name: Driver HLK/DDI Tests (Windows x64)
+    runs-on: windows-latest
+    needs: [build-windows]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          choco install cmake ninja -y
+
+      - name: Build driver tests
+        shell: bash
+        run: |
+          cmake -S . -B build-driver -G Ninja -DCMAKE_BUILD_TYPE=Debug -DPQVPN_BUILD_DRIVER_TESTS=ON
+          cmake --build build-driver --target irp_fuzz_test
+
+      - name: Validate HLK configuration
+        shell: pwsh
+        run: |
+          # Verify HLK config file is valid XML
+          [xml]$config = Get-Content driver/pqvpn_tunnel/hlk_tests/pqvpn_tunnel.hlkx
+          Write-Host "HLK configuration validated successfully"
+          
+          # Check that all required test suites are present
+          $suites = $config.TestConfiguration.TestSuite | ForEach-Object { $_.Name }
+          if (-not ($suites -contains "NDIS_Miniport")) {
+            Write-Error "Missing NDIS_Miniport test suite"
+            exit 1
+          }
+          if (-not ($suites -contains "DDI_Compliance")) {
+            Write-Error "Missing DDI_Compliance test suite"
+            exit 1
+          }
+          Write-Host "All required HLK test suites present"
+
   hardening-gate:
     name: Security Hardening Gate
     runs-on: ubuntu-latest
