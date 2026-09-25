@@ -110,6 +110,59 @@ jobs:
           }
           Write-Host "All required HLK test suites present"
 
+  driver-signing:
+    name: Driver Code Signing (Windows x64)
+    runs-on: windows-latest
+    needs: [driver-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          choco install cmake ninja -y
+
+      - name: Build driver
+        shell: bash
+        run: |
+          cmake -S . -B build-driver -G Ninja -DCMAKE_BUILD_TYPE=Release -DPQVPN_BUILD_DRIVER_TESTS=ON
+          cmake --build build-driver --target pqvpn_tunnel
+
+      - name: Sign driver with EV certificate
+        shell: pwsh
+        env:
+          EV_CERT_PFX: ${{ secrets.EV_CERT_PFX }}
+          EV_CERT_PASSWORD: ${{ secrets.EV_CERT_PASSWORD }}
+          TIMESTAMP_SERVER: ${{ secrets.TIMESTAMP_SERVER || 'http://timestamp.digicert.com' }}
+        run: |
+          if (-not $env:EV_CERT_PFX) {
+            Write-Host "WARNING: EV certificate not configured. Skipping signing." -ForegroundColor Yellow
+            exit 0
+          }
+          
+          # Decode base64 PFX to file
+          $pfxBytes = [Convert]::FromBase64String($env:EV_CERT_PFX)
+          $certPath = Join-Path $env:TEMP "pqvpn-ev-cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $pfxBytes)
+          
+          # Sign the driver
+          & .\driver\pqvpn_tunnel\signing\sign_driver.ps1 `
+            -DriverPath build-driver\pqvpn_tunnel.sys `
+            -CertPfx $certPath `
+            -CertPassword (ConvertTo-SecureString $env:EV_CERT_PASSWORD -AsPlainText -Force) `
+            -TimestampServer $env:TIMESTAMP_SERVER `
+            -Verify
+          
+          # Clean up certificate file
+          Remove-Item $certPath -Force
+
+      - name: Upload signed driver artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pqvpn-tunnel-signed-driver
+          path: build-driver/pqvpn_tunnel.sys
+          retention-days: 30
+
   hardening-gate:
     name: Security Hardening Gate
     runs-on: ubuntu-latest

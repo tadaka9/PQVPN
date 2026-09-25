@@ -18,7 +18,7 @@ backends only, not the destination. Design of record:
 - [ ] Phase 4 hardening & signing:
   - [x] HLK/DDI compliance test infrastructure (configuration, runner scripts, documentation)
   - [x] IRP fuzzing test suite
-  - [ ] EV code-signing certificate setup + Microsoft attestation pipeline
+  - [x] EV code-signing certificate setup + Microsoft attestation pipeline (documentation and CI integration)
   - [ ] Provenance attachment to release packaging
 
 ## Network and platform integration
