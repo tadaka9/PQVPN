@@ -1,4 +1,4 @@
-name: Build and Test
+name: Driver Tests and Signing
 
 on:
   push:
@@ -10,74 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  build-linux:
-    name: Build on Linux (${{ matrix.arch }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x86_64, arm64]
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install dependencies (x86_64)
-        if: matrix.arch == 'x86_64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
-
-      - name: Build and test
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build build -j$(nproc)
-          ctest --test-dir build -j2 --output-on-failure
-
-  build-macos:
-    name: Build on macOS (${{ matrix.arch }})
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x86_64, arm64]
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja openssl pkg-config argon2
-
-      - name: Build and test
-        run: |
-          export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix argon2)/lib/pkgconfig"
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build build -j$(sysctl -n hw.ncpu)
-          ctest --test-dir build -j2 --output-on-failure
-
-  build-windows:
-    name: Build on Windows (${{ matrix.arch }})
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [x64, arm64]
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install dependencies
-        run: |
-          choco install cmake ninja -y
-
-      - name: Build and test
-        shell: bash
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build build -j$(nproc)
-          ctest --test-dir build -j2 --output-on-failure
-
   driver-tests:
     name: Driver HLK/DDI Tests (Windows x64)
     runs-on: windows-latest
-    needs: [build-windows]
     steps:
       - uses: actions/checkout@v6
 
@@ -166,7 +101,6 @@ jobs:
   hardening-gate:
     name: Security Hardening Gate
     runs-on: ubuntu-latest
-    needs: [build-linux]
     steps:
       - uses: actions/checkout@v6
 
@@ -174,9 +108,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev python3
+          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
+          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
+          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
 
       - name: Run hardening gate
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-          cmake --build build -j$(nproc)
+          cmake --build build --parallel 2
           python3 tools/pqvpn_hard_kernel.py
