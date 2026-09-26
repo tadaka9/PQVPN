@@ -192,9 +192,13 @@ def run_ctest(build_dir: Path) -> subprocess.CompletedProcess[str]:
     # Bound the nested suite independently of an outer CTest's parallel level
     # or CTEST_PARALLEL_LEVEL inherited from CI. Exclude this gate's label to
     # prevent recursion, and keep the canonical two-worker test budget.
+    command = ["ctest", "--test-dir", str(build_dir), "-LE", "hardening",
+               "--parallel", "2", "--output-on-failure"]
+    configuration = os.environ.get("CTEST_CONFIGURATION_TYPE")
+    if configuration:
+        command.extend(["--build-config", configuration])
     return subprocess.run(
-        ["ctest", "--test-dir", str(build_dir), "-LE", "hardening",
-         "--parallel", "2", "--output-on-failure"],
+        command,
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,

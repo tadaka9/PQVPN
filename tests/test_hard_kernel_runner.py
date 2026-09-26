@@ -16,6 +16,13 @@ SPEC.loader.exec_module(gate)
 
 
 class NestedCTestTests(unittest.TestCase):
+    def test_multi_config_build_preserves_selected_configuration(self):
+        with patch.dict(os.environ, {"CTEST_CONFIGURATION_TYPE": "Debug"}), \
+                patch.object(gate.subprocess, "run") as run:
+            gate.run_ctest(Path("build"))
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--build-config") + 1], "Debug")
+
     def test_parallelism_is_bounded_and_gate_is_excluded(self):
         build = Path("build with spaces")
         failed = subprocess.CompletedProcess([], 8, "a regression failed")
