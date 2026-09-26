@@ -6,9 +6,9 @@
 
 // Test that UDPProtocol class can be instantiated and has expected interface
 TEST_CASE("UDPProtocol instantiation", "[node][network]") {
-    SECTION("Constructor accepts weak_ptr to node") {
-        // Verify the class can be constructed with a null weak_ptr
-        std::weak_ptr<pqvpn::PQVPNNode> empty_node;
+    SECTION("Constructor accepts shared_ptr to node") {
+        // Verify the class can be constructed with a null shared_ptr
+        std::shared_ptr<pqvpn::PQVPNNode> empty_node;
         pqvpn::UDPProtocol protocol(empty_node);
         // If we get here, construction succeeded
     }
