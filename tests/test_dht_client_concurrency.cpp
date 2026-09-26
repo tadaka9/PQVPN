@@ -11,6 +11,29 @@
 
 using namespace pqvpn::dht;
 
+namespace {
+// Named coroutine function (not a capturing lambda temporary): GCC 15 on
+// aarch64 miscompiles coroutine lambdas passed by value through
+// asio::co_spawn — the actor reads its captures from the original closure
+// object after it has died. See test_peer_liveness.cpp for details.
+asio::awaitable<void> drive_dht(DHTClient& c) {
+    co_await c.start();
+    try {
+        co_await c.set("pqvpn/test", "value");
+        SUCCEED("Allowed prefix set succeeded");
+    } catch (const std::exception& e) {
+        FAIL(std::string("Allowed prefix set failed: ") + e.what());
+    }
+    try {
+        co_await c.set("other/test", "sometext");
+        FAIL("Disallowed prefix set should have thrown");
+    } catch (const std::runtime_error& e) {
+        CHECK(std::string(e.what()).find("not allowed") != std::string::npos);
+    }
+    co_await c.stop();
+}
+} // namespace
+
 TEST_CASE("DHTClient.__init__ parity: semaphore and config", "[dht][parity]") {
     DHTClient::Config config;
     config.bootstrap = {"127.0.0.1:8468", "192.168.1.1:8468"};
@@ -25,35 +48,9 @@ TEST_CASE("DHTClient.__init__ parity: semaphore and config", "[dht][parity]") {
     SECTION("allowed_prefixes enforcement") {
         asio::io_context ctx;
 
-        asio::co_spawn(ctx, [&]() -> asio::awaitable<void> {
-            // We need to use the client. Since it's in the scope of this test case,
-            // we can capture by reference. 'ctx.run()' blocks until all tasks are done.
-            // The lifetime of 'client' is safe here because ctx.run() happens before it goes out of scope.
-
-            // Use a pointer or reference to avoid moving the client itself in the lambda
-            auto& c = client;
-
-            // Start the client (this creates the InMemory server)
-            co_await c.start();
-
-            // Test allowed prefix
-            try {
-                co_await c.set("pqvpn/test", "value");
-                SUCCEED("Allowed prefix set succeeded");
-            } catch (const std::exception& e) {
-                FAIL(std::string("Allowed prefix set failed: ") + e.what());
-            }
-
-            // Test disallowed prefix
-            try {
-                co_await c.set("other/test", "sometext");
-                FAIL("Disallowed prefix set should have thrown");
-            } catch (const std::runtime_error& e) {
-                CHECK(std::string(e.what()).find("not allowed") != std::string::npos);
-            }
-
-            co_await c.stop();
-        }, asio::detached);
+        // 'client' outlives ctx.run(), so the reference parameters of
+        // drive_dht stay valid for the whole coroutine.
+        asio::co_spawn(ctx, drive_dht(client), asio::detached);
 
         ctx.run();
     }

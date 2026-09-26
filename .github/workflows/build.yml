@@ -1,0 +1,158 @@
+name: Driver Tests and Signing
+
+on:
+  push:
+    branches: [main, future]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  driver-tests:
+    name: Driver HLK/DDI Tests (Windows x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          choco install cmake ninja -y
+
+      - name: Build driver tests
+        shell: bash
+        working-directory: driver/pqvpn_tunnel
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --target irp_fuzz_test
+
+      - name: Validate HLK configuration
+        shell: pwsh
+        run: |
+          # Verify HLK config file is valid XML
+          [xml]$config = Get-Content driver/pqvpn_tunnel/hlk_tests/pqvpn_tunnel.hlkx
+          Write-Host "HLK configuration validated successfully"
+          
+          # Check that all required test suites are present
+          $suites = $config.TestConfiguration.TestSuite | ForEach-Object { $_.Name }
+          if (-not ($suites -contains "NDIS_Miniport")) {
+            Write-Error "Missing NDIS_Miniport test suite"
+            exit 1
+          }
+          if (-not ($suites -contains "DDI_Compliance")) {
+            Write-Error "Missing DDI_Compliance test suite"
+            exit 1
+          }
+          Write-Host "All required HLK test suites present"
+
+  driver-signing:
+    name: Driver Code Signing (Windows x64)
+    runs-on: windows-latest
+    needs: [driver-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/future'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          choco install cmake ninja -y
+
+      - name: Build driver
+        shell: bash
+        working-directory: driver/pqvpn_tunnel
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Sign driver with EV certificate
+        shell: pwsh
+        env:
+          EV_CERT_PFX: ${{ secrets.EV_CERT_PFX }}
+          EV_CERT_PASSWORD: ${{ secrets.EV_CERT_PASSWORD }}
+          TIMESTAMP_SERVER: ${{ secrets.TIMESTAMP_SERVER || 'http://timestamp.digicert.com' }}
+        run: |
+          if (-not $env:EV_CERT_PFX) {
+            Write-Host "WARNING: EV certificate not configured. Skipping signing." -ForegroundColor Yellow
+            exit 0
+          }
+          
+          # Decode base64 PFX to file
+          $pfxBytes = [Convert]::FromBase64String($env:EV_CERT_PFX)
+          $certPath = Join-Path $env:TEMP "pqvpn-ev-cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, $pfxBytes)
+          
+          # Sign the driver
+          & .\driver\pqvpn_tunnel\signing\sign_driver.ps1 `
+            -DriverPath driver/pqvpn_tunnel/build/pqvpn_tunnel.sys `
+            -CertPfx $certPath `
+            -CertPassword (ConvertTo-SecureString $env:EV_CERT_PASSWORD -AsPlainText -Force) `
+            -TimestampServer $env:TIMESTAMP_SERVER `
+            -Verify
+          
+          # Clean up certificate file
+          Remove-Item $certPath -Force
+
+      - name: Upload signed driver artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pqvpn-tunnel-signed-driver
+          path: driver/pqvpn_tunnel/build/pqvpn_tunnel.sys
+          retention-days: 30
+
+  hardening-gate:
+    name: Security Hardening Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev python3
+          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
+          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
+          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          # Ensure pkg-config and CMake can find the newly installed liboqs
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
+
+      - name: Run hardening gate
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+          python3 tools/pqvpn_hard_kernel.py || (cat .loop-engineering/hard_kernel_report.json; exit 1)
+
+  provenance-manifest:
+    name: Generate Provenance Manifest
+    runs-on: ubuntu-latest
+    needs: [driver-signing]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history for git describe
+
+      - name: Download signed driver artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pqvpn-tunnel-signed-driver
+          path: artifacts/
+
+      - name: Generate provenance manifest
+        run: |
+          python3 tools/provenance/generate_manifest.py \
+            --artifacts artifacts/pqvpn_tunnel.sys \
+            --output provenance-manifest.json
+
+      - name: Display manifest
+        run: cat provenance-manifest.json
+
+      - name: Upload provenance manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: provenance-manifest
+          path: provenance-manifest.json
+          retention-days: 90

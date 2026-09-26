@@ -101,12 +101,20 @@ private:
             });
     }
 
+    // Maximum IPv4 UDP datagram size (65535 bytes on the wire). The buffer is
+    // deliberately sized to the protocol maximum and NOT configurable: a
+    // smaller buffer would silently truncate valid frames, and larger is
+    // impossible for IPv4 UDP.
+    static constexpr std::size_t kMaxUdpDatagramBytes = 65536;
+
     std::shared_ptr<asio::io_context> owned_io_;
     asio::io_context& io_context_;
     uint16_t port_;
+    // Fallback for the convenience (io, port) constructor; production always
+    // supplies bind_address via NetworkConfig.
     std::string bind_address_ = "0.0.0.0";
     asio::ip::udp::socket socket_;
-    std::array<uint8_t, 65536> receive_buffer_{};
+    std::array<uint8_t, kMaxUdpDatagramBytes> receive_buffer_{};
     asio::ip::udp::endpoint remote_endpoint_;
     ReceiveHandler receive_handler_;
 };

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PQVPN Tunnel Driver HLK Test Configuration -->
+<!-- Run with: hlk.exe /config:pqvpn_tunnel.hlkx -->
+<TestConfiguration>
+  <DriverInfo>
+    <DriverName>PQVPN Tunnel</DriverName>
+    <DriverVersion>1.0.0</DriverVersion>
+    <DriverType>NDIS Miniport</DriverType>
+    <Architecture>x64</Architecture>
+    <InfFile>pqvpn_tunnel.inf</InfFile>
+  </DriverInfo>
+
+  <!-- NDIS Miniport Test Suite -->
+  <TestSuite Name="NDIS_Miniport">
+    <Tests>
+      <!-- Basic driver installation and removal -->
+      <Test Name="InstallAndRemove" Priority="High"/>
+      
+      <!-- Driver entry/exit points -->
+      <Test Name="DriverEntryExit" Priority="High"/>
+      
+      <!-- NDIS registration -->
+      <Test Name="NdisRegistration" Priority="High"/>
+      
+      <!-- IRP handling -->
+      <Test Name="IrpHandling" Priority="Medium"/>
+      
+      <!-- Power management -->
+      <Test Name="PowerManagement" Priority="Low"/>
+    </Tests>
+  </TestSuite>
+
+  <!-- DDI Compliance Tests -->
+  <TestSuite Name="DDI_Compliance">
+    <Tests>
+      <!-- WDM driver interface compliance -->
+      <Test Name="WdmInterfaceCompliance" Priority="High"/>
+      
+      <!-- NDIS API usage compliance -->
+      <Test Name="NdisApiUsage" Priority="High"/>
+      
+      <!-- Memory management -->
+      <Test Name="MemoryManagement" Priority="Medium"/>
+    </Tests>
+  </TestSuite>
+
+  <!-- Functional Tests -->
+  <TestSuite Name="Functional">
+    <Tests>
+      <!-- Adapter creation and enumeration -->
+      <Test Name="AdapterCreation" Priority="High"/>
+      
+      <!-- File object access -->
+      <Test Name="FileObjectAccess" Priority="High"/>
+      
+      <!-- Security descriptor validation -->
+      <Test Name="SecurityDescriptor" Priority="Medium"/>
+    </Tests>
+  </TestSuite>
+
+  <!-- Stress Tests (Phase 4) -->
+  <TestSuite Name="Stress">
+    <Tests>
+      <!-- IRP fuzzing -->
+      <Test Name="IrpFuzzing" Priority="Low"/>
+      
+      <!-- Concurrent access -->
+      <Test Name="ConcurrentAccess" Priority="Low"/>
+    </Tests>
+  </TestSuite>
+</TestConfiguration>

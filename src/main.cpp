@@ -6,11 +6,17 @@
 #include <set>
 #include <string>
 
+#include "platform/adapter.hpp"
 #ifdef _WIN32
-#include "platform/windows_tap.hpp"
+#include "platform/windows_adapter.hpp"
+#include "platform/windows_routes.hpp"
+#include "routing/peer_route_manager.hpp"
 #endif
 
+#include "routing/route_transaction.hpp"
+
 #include "config_module.hpp"
+#include "egress_forwarder.hpp"
 #include "logging_module.hpp"
 #include "metrics_module.hpp"
 #include "network_module.hpp"
@@ -154,6 +160,56 @@ int main(int argc, char** argv) {
     // Start the PQVPN node runtime with the provided configuration
     asio::io_context io;
     auto node = std::make_shared<pqvpn::PQVPNNode>(io, args.config_path);
+
+    // Apply optional runtime tuning from config "tuning". Omitted fields keep
+    // the protocol defaults baked into PQVPNNode, so existing configs behave
+    // exactly as before; load_config already rejected non-positive values.
+    if (config->tuning.session_timeout_seconds) {
+        node->session_timeout = *config->tuning.session_timeout_seconds;
+    }
+    if (config->tuning.keepalive_interval_seconds) {
+        node->keepalive_interval = *config->tuning.keepalive_interval_seconds;
+    }
+    if (config->tuning.liveness_window_seconds) {
+        node->liveness_window = *config->tuning.liveness_window_seconds;
+    }
+    if (config->tuning.handshake_timeout_seconds) {
+        node->handshake_timeout = *config->tuning.handshake_timeout_seconds;
+    }
+    if (config->tuning.bootstrap_retry_seconds) {
+        node->bootstrap_retry_interval = *config->tuning.bootstrap_retry_seconds;
+    }
+    if (config->tuning.replay_window_size) {
+        node->replay_window_size = static_cast<size_t>(*config->tuning.replay_window_size);
+    }
+
+    // Load (or generate and persist) this node's hybrid identity: Ed25519 +
+    // X25519 + ML-KEM-1024 + ML-DSA-87. Without it the node cannot sign HELLO/
+    // S1/S2 or complete a handshake, so fail closed instead of running mute.
+    if (!node->load_or_create_identity()) {
+        std::cerr << "Failed to load or create node identity\n";
+        return 1;
+    }
+
+    // Apply the operator's security policy: TOFU admission and the known-peers
+    // store location. (The allowlist is intentionally not wired into peer-id
+    // matching — it holds addresses, while admission keys on peer identity.)
+    node->set_tofu_enabled(config->security.tofu);
+    node->known_peers_file_ = config->security.known_peers_file;
+    try {
+        node->load_known_peers();
+    } catch (const std::exception& error) {
+        std::cerr << "warning: known-peers load failed: " << error.what() << "\n";
+    }
+
+    // Establish this node's stable identity before it can relay or deliver
+    // locally: handle_relay binds its AAD to peer_hash8(my_id) and requires it.
+    // When no ed25519 key is loaded the node cannot peel onions — say so
+    // explicitly instead of silently rejecting every relay (see establish_identity).
+    if (!node->establish_identity()) {
+        std::cerr << "warning: no node identity established (no ed25519 key); "
+                  << "onion relay and local delivery will be rejected\n";
+    }
     pqvpn::network::UdpListener listener(io, config->network);
     listener.set_receive_handler([&io, node](std::vector<uint8_t> packet, const asio::ip::udp::endpoint& sender) {
         asio::co_spawn(io, node->datagram_received(std::move(packet), sender), asio::detached);
@@ -164,17 +220,216 @@ int main(int argc, char** argv) {
     }
     node->transport = &listener.socket();
 
+    // Bootstrap contact: actively send signed HELLOs toward configured peers
+    // until a session with each is established (the deterministic initiator
+    // then drives S1/S2). Skipped entirely when no bootstrap list is set.
+    if (!config->bootstrap.empty()) {
+        std::vector<asio::ip::udp::endpoint> bootstrap_endpoints;
+        for (const auto& peer : config->bootstrap) {
+            std::error_code address_error;
+            const auto address = asio::ip::make_address(peer.host, address_error);
+            if (address_error || peer.port <= 0 || peer.port > 65535) {
+                std::cerr << "skipping invalid bootstrap entry "
+                          << peer.host << ":" << peer.port << "\n";
+                continue;
+            }
+            bootstrap_endpoints.emplace_back(address, static_cast<uint16_t>(peer.port));
+        }
+        if (!bootstrap_endpoints.empty()) {
+            asio::co_spawn(io, node->bootstrap_peers(bootstrap_endpoints), asio::detached);
+        }
+    }
+
+    // Per-OS tunnel adapter: TAP on Windows, /dev/net/tun on Linux, and the
+    // Network Extension boundary on macOS (see src/platform/adapter.hpp).
+    std::unique_ptr<pqvpn::platform::Adapter> adapter;
 #ifdef _WIN32
-    std::unique_ptr<pqvpn::platform::WindowsTap> tap;
+    pqvpn::routing::RouteTransaction route_plan;
+    pqvpn::platform::WindowsRouteBackend route_backend;
+    // Declared with the other route state (not inside the TAP block) so the
+    // signal handler can roll back peer exclusions on shutdown. Safe to leave
+    // unused when no_tap is set: remove_all() on an empty manager succeeds.
+    pqvpn::routing::PeerRouteManager peer_routes(route_backend);
+    const pqvpn::platform::WindowsTap* tap = nullptr;
     if (!args.no_tap) {
+        // CLI --tap-guid wins; otherwise config "tunnel.interface_name" may
+        // supply the TAP GUID (empty = auto-detect).
+        const std::string tap_hint =
+            !args.tap_guid.empty() ? args.tap_guid : config->tunnel.interface_name;
+        adapter = pqvpn::platform::make_adapter(tap_hint);
+        auto* tap_adapter = dynamic_cast<pqvpn::platform::WindowsTapAdapter*>(adapter.get());
+        tap = tap_adapter ? &tap_adapter->device() : nullptr;
+    }
+#else
+    // Config "tunnel.interface_name" selects the TUN device name; empty keeps
+    // the kernel-selected default.
+    adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
+#endif
+
+    // User-space egress (OpenVPN-server style NAT): when enabled, decrypted
+    // tunnel frames are terminated with real outbound sockets on this host and
+    // bridged to the physical network instead of being written to a local TAP
+    // segment where they would die. Only outbound connect() calls are used, so
+    // it runs without elevation (see egress_forwarder.hpp).
+    std::unique_ptr<pqvpn::egress::EgressForwarder> egress;
+    if (config->egress.enabled) {
+        egress = std::make_unique<pqvpn::egress::EgressForwarder>(io);
+        auto* eg = egress.get();
+        eg->set_sender([node](const std::vector<uint8_t>& frame,
+                              const std::vector<uint8_t>& peer) -> bool {
+            // Return traffic goes back to the SPECIFIC client that owns the
+            // flow (bound when its first frame was seen), so one exit node
+            // can serve several clients at once.
+            if (peer.empty()) return false;
+            return node->send_tunnel_packet(peer, std::span<const uint8_t>(frame));
+        });
+    }
+
+    bool adapter_active = false;
+    if (adapter) {
+        if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
+                // Adapter -> tunnel: forward to the selected established session.
+                asio::co_spawn(node->get_io_context(),
+                    node->forward_adapter_packet(std::move(frame)), asio::detached);
+            })) {
+            adapter_active = true;
+            std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
+        } else {
+#ifdef _WIN32
+            // A VPN node without its TAP device is useless on Windows; fail closed.
+            listener.stop();
+            return 1;
+#else
+            std::cerr << "tunnel adapter unavailable; continuing in UDP-only mode\n";
+#endif
+        }
+    }
+
+    // Tunnel -> local delivery sink. Egress (when enabled) gets first claim on
+    // every decrypted frame and consumes what it can forward; the rest falls
+    // through to the legacy TAP write so non-forwardable traffic keeps its old
+    // behavior. Installed even without an adapter: a UDP-only node with egress
+    // enabled is still a functional exit (frames never touch a local device).
+    auto* raw_adapter = adapter_active ? adapter.get() : nullptr;
+    auto* eg_ptr = egress.get();
+    node->set_tunnel_packet_handler([raw_adapter, eg_ptr](std::vector<uint8_t> frame,
+                                                           const std::vector<uint8_t>& src_peer) {
+        if (eg_ptr && !frame.empty()) {
+            // Egress binds return traffic to the client that sent this frame.
+            if (eg_ptr->handle_frame(frame.data(), frame.size(), src_peer)) return; // consumed/answered
+        }
+        // Tunnel -> adapter. The adapter may already be closed during shutdown;
+        // drop the frame instead of unwinding the coroutine.
+        if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
+    });
+
+#ifdef _WIN32
+    if (adapter_active && tap) {
         try {
-            tap = std::make_unique<pqvpn::platform::WindowsTap>();
-            tap->open(args.tap_guid, [](std::vector<uint8_t>) {
-                // Frames are accepted once peer routing selects a negotiated session.
-            });
-            std::cout << "TAP-Windows adapter active: " << tap->guid() << "\n";
+
+            // Route traffic through the adapter only when it actually has an
+            // IPv4 address; otherwise a default route would blackhole. The row
+            // is the Windows default route: destination 0.0.0.0 with a zero
+            // mask (prefix length 0, matching every destination) and the
+            // adapter address as next hop. A /32 here would match only the
+            // literal 0.0.0.0 address and send no real traffic to the TAP.
+            const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid());
+            if (!adapter_route) {
+                std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";
+            } else {
+                // The TAP default route would also capture this node's own UDP
+                // transport: peer datagrams would enter the adapter, get
+                // re-encrypted by the data path, and loop. Before it can win,
+                // pin every known tunnel peer (and control-plane destination)
+                // to the pre-VPN physical gateway with /32 host routes.
+                const auto physical = pqvpn::platform::find_default_route(adapter_route->interface_index);
+                if (!physical) {
+                    std::cerr << "no pre-VPN default route found; skipping TAP default route "
+                              << "(installing it without peer exclusions would loop tunnel traffic)\n";
+                } else {
+                    peer_routes.set_physical_gateway(
+                        {physical->ipv4, physical->interface_index});
+
+                    // Exclude every address already known at startup...
+                    bool exclusions_ok = true;
+                    for (const auto& [peer_id, session] : node->sessions_by_peer_id) {
+                        (void)peer_id;
+                        if (!session || session->remote_addr.address().is_unspecified()) continue;
+                        if (!peer_routes.add_peer(session->remote_addr).ok) exclusions_ok = false;
+                    }
+                    for (const auto& [peer_hex, info] : node->mesh.peers) {
+                        (void)peer_hex;
+                        if (info.address.address().is_unspecified()) continue;
+                        if (!peer_routes.add_peer(info.address).ok) exclusions_ok = false;
+                    }
+
+                    // ...and keep the exclusions current as peers appear or go.
+                    // A failed ADD is reported back: while the TAP default is
+                    // active, admitting a peer without its /32 exclusion would
+                    // loop that peer's transport through the adapter, so the
+                    // node fails closed on it (registration rejected, session
+                    // refused). Removals stay best-effort — teardown must not
+                    // be blocked by cleanup failures; the manager keeps failed
+                    // removals owned for retry.
+                    node->set_peer_route_hook(
+                        [&peer_routes](const asio::ip::udp::endpoint& address, const bool add) {
+                            if (add) {
+                                const auto result = peer_routes.add_peer(address);
+                                if (!result.ok) {
+                                    std::cerr << "peer route exclusion failed for "
+                                              << address << ": " << result.error << "\n";
+                                }
+                                return result.ok;
+                            }
+                            const auto result = peer_routes.remove_peer(address);
+                            if (!result.ok) {
+                                std::cerr << "peer route removal failed for "
+                                          << address << ": " << result.error << "\n";
+                            }
+                            return result.ok;
+                        });
+
+                    if (!exclusions_ok) {
+                        // Incomplete exclusions are an aborted transaction: roll
+                        // back the ones that did install and lift the admission
+                        // gate, since no VPN default is active to protect against.
+                        const auto cleanup = peer_routes.remove_all();
+                        if (!cleanup.complete) {
+                            std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
+                        }
+                        node->set_peer_route_hook(nullptr); // nothing left to gate on
+                        std::cerr << "peer route exclusions incomplete; skipping TAP default route\n";
+                    } else {
+                        route_plan.add(pqvpn::routing::RouteEntry{
+                            asio::ip::make_address_v4("0.0.0.0"), 0,
+                            adapter_route->ipv4, adapter_route->interface_index});
+
+                        if (const auto report = route_plan.commit(route_backend); report.committed) {
+                            std::cout << "default route installed through the TAP-Windows adapter\n";
+                        } else {
+                            // The default is down; drop the exclusions we just
+                            // created so no owned routes survive a failed setup, and
+                            // lift the admission gate — with no VPN default active
+                            // there is nothing to protect against.
+                            const auto cleanup = peer_routes.remove_all();
+                            if (!cleanup.complete) {
+                                std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
+                            }
+                            node->set_peer_route_hook(nullptr);
+                            std::cerr << "route installation failed (" << report.error
+                                      << "); continuing without VPN routes\n";
+                        }
+                    }
+                }
+            }
         } catch (const std::exception& error) {
-            std::cerr << "TAP initialization failed: " << error.what() << "\n";
+            // No owned routes may survive a failed setup, even if the failure
+            // happened after some peer exclusions were installed.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
+            std::cerr << "adapter route setup failed: " << error.what() << "\n";
             listener.stop();
             return 1;
         }
@@ -184,12 +439,32 @@ int main(int argc, char** argv) {
     asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait([&](const asio::error_code&, int) {
 #ifdef _WIN32
-        if (tap) tap->close();
+        if (adapter_active && tap) {
+            // Remove the installed routes before taking the adapter down, in
+            // reverse build order: peer exclusions first, then the default.
+            // Removal is idempotent, so this is safe even on partial installs.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
+            const auto removal = route_plan.remove_all(route_backend);
+            if (!removal.complete) {
+                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
+            }
+        }
 #endif
         node->transport = nullptr;
         listener.stop();
+        if (adapter) adapter->close(); // idempotent per OS
         io.stop();
     });
+
+    // Run session maintenance for the lifetime of the runtime. This loop is
+    // what sends tunnel liveness probes, and select_tunnel_peer only trusts
+    // peers that answered within LIVENESS_WINDOW — without it, idle sessions
+    // expire after one window and adapter forwarding fails closed even though
+    // every peer is healthy. It stops with the io_context on shutdown.
+    asio::co_spawn(io, node->session_maintenance(), asio::detached);
 
     std::cout << "PQVPN Node Runtime started with config: " << args.config_path << "\n";
     io.run();
