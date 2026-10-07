@@ -29,6 +29,10 @@ struct CliArgs {
     std::string config_path = "config.json";
     std::string log_level = "info";
     bool smoke_test = false;
+    bool validate_config = false;
+    bool print_config = false;
+    bool platform_info = false;
+    bool version = false;
     bool help = false;
 #ifdef _WIN32
     bool no_tunnel = false;
@@ -43,6 +47,10 @@ void print_usage(const char* program) {
         << "  -c, --config PATH       Configuration file path (default: config.json)\n"
         << "      --log-level LEVEL   spdlog level hint (default: info)\n"
         << "      --smoke-test        Load/serialize config and exit\n"
+        << "      --validate-config   Validate configuration and exit\n"
+        << "      --print-config      Print normalized configuration and exit\n"
+        << "      --platform-info     Show OS-specific tunnel capabilities\n"
+        << "      --version           Show the PQVPN build version\n"
 #ifdef _WIN32
         << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
         << "      --no-tunnel          Run without the PQVPN tunnel adapter\n"
@@ -58,6 +66,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.help = true;
         } else if (value == "--smoke-test") {
             args.smoke_test = true;
+        } else if (value == "--validate-config") {
+            args.validate_config = true;
+        } else if (value == "--print-config") {
+            args.print_config = true;
+        } else if (value == "--platform-info") {
+            args.platform_info = true;
+        } else if (value == "--version") {
+            args.version = true;
 #ifdef _WIN32
         } else if (value == "--no-tunnel") {
             args.no_tunnel = true;
@@ -86,6 +102,19 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
         }
     }
     return args;
+}
+
+void print_platform_info() {
+#if defined(_WIN32)
+    std::cout << "os=windows\ntunnel=pqvpn-native-ndis\nminimum=windows-10\n";
+#elif defined(__APPLE__)
+    std::cout << "os=macos\ntunnel=network-extension-boundary\n";
+#elif defined(__linux__)
+    std::cout << "os=linux\ntunnel=/dev/net/tun\n";
+#else
+    std::cout << "os=unknown\ntunnel=unsupported\n";
+#endif
+    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n";
 }
 
 int run_smoke_test(const CliArgs& args) {
@@ -143,6 +172,29 @@ int main(int argc, char** argv) {
     const CliArgs args = *parsed;
     if (args.help) {
         print_usage(argv[0]);
+        return 0;
+    }
+
+    if (args.version) {
+        std::cout << "PQVPN 0.0.1-alpha\n";
+        return 0;
+    }
+    if (args.platform_info) {
+        print_platform_info();
+        return 0;
+    }
+
+    if (args.validate_config || args.print_config) {
+        auto checked = pqvpn::config::load_config(args.config_path);
+        if (!checked) {
+            std::cerr << "Invalid PQVPN configuration: " << args.config_path << "\n";
+            return 1;
+        }
+        if (args.print_config) {
+            std::cout << pqvpn::serialization::JsonSerializer::serialize(*checked) << "\n";
+        } else {
+            std::cout << "Configuration valid: " << args.config_path << "\n";
+        }
         return 0;
     }
 

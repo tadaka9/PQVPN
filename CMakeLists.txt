@@ -192,6 +192,10 @@ add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
 
+add_executable(pqvpn_tui src/tui/pqvpn_tui.cpp)
+target_include_directories(pqvpn_tui PRIVATE ${PQVPN_INCLUDE_DIRS})
+target_link_libraries(pqvpn_tui PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
+
 # MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
 # the binaries so the loader finds them without a modified PATH (every target
 # in this project is placed in CMAKE_BINARY_DIR).
@@ -217,12 +221,17 @@ function(pqvpn_attach_oqs_runtime target)
 endfunction()
 
 pqvpn_attach_oqs_runtime(pqvpn_node)
+pqvpn_attach_oqs_runtime(pqvpn_tui)
 
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 add_test(NAME pqvpn_cli_udp2raw_config COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.udp2raw.json)
+add_test(NAME pqvpn_cli_validate COMMAND pqvpn_node --validate-config --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
+add_test(NAME pqvpn_cli_platform COMMAND pqvpn_node --platform-info)
+add_test(NAME pqvpn_tui_smoke COMMAND pqvpn_tui --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
+set_tests_properties(pqvpn_cli_validate pqvpn_cli_platform pqvpn_tui_smoke PROPERTIES TIMEOUT 30 LABELS "baseline;console")
 add_executable(pqvpn_hard_kernel tools/pqvpn_hard_kernel.cpp)
 target_include_directories(pqvpn_hard_kernel PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_hard_kernel PRIVATE pqvpn_oqs_static)

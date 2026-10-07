@@ -146,6 +146,30 @@ cmake -S . -B build -G Ninja \
 cmake --build build --target pqvpn_node
 ```
 
+### CLI and terminal console
+
+The node executable is also the canonical automation interface. Its commands
+use the same parser and validation rules as the runtime:
+
+```bash
+./build/pqvpn_node --validate-config --config config.json
+./build/pqvpn_node --print-config --config config.json
+./build/pqvpn_node --platform-info
+./build/pqvpn_node --version
+```
+
+`pqvpn_tui` is a dependency-light C++23 terminal console for SSH sessions,
+servers and systems without Qt. It shows the selected endpoint, verification,
+traffic shaping, external transport, adaptive PQTP policy and native tunnel
+integration, then starts the same `pqvpn_node` binary. It detects Windows,
+macOS and Linux at compile time and describes only the adapter implemented for
+that target.
+
+```bash
+cmake --build build --target pqvpn_node pqvpn_tui
+./build/pqvpn_tui --config config.json
+```
+
 ### Privacy Console
 
 Install the Qt 6 Core, Gui and Widgets development packages, then build the
@@ -333,7 +357,8 @@ blocker.
 | `tuning` | `handshake_timeout_seconds` | `30` | In-flight handshakes without an S2 are pruned after this. |
 | `tuning` | `replay_window_size` | `1024` | Per-session nonce replay window (minimum 2). |
 | `tuning` | `bootstrap_retry_seconds` | `10` | Seconds between bootstrap contact rounds. |
-| `tunnel` | `interface_name` | empty | TUN name on Linux / TAP GUID on Windows; empty keeps the platform default (kernel-selected / auto-detect). CLI flags still win where they exist. |
+| `tunnel` | `interface_name` | empty | TUN name on Linux / native PQVPN NDIS device on Windows; empty keeps the platform default. CLI flags still win where they exist. |
+| `adaptive_transport` | `enabled`, `mode`, thresholds | disabled, `auto` | PQTP UDP/TCP lane policy, loss/jitter limits, failure count, recovery probes and minimum dwell time. |
 
 Every `tuning` field is optional and must be positive when present; omitted
 fields keep the built-in protocol defaults, so existing configs are unaffected.

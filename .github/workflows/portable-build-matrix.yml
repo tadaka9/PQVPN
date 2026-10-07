@@ -123,8 +123,8 @@ jobs:
             -DBUILD_TESTING=OFF \
             -DPQVPN_BUILD_MONITOR=OFF
 
-      - name: Compile node
-        run: cmake --build build --target pqvpn_node --parallel 2
+      - name: Compile node and terminal console
+        run: cmake --build build --target pqvpn_node pqvpn_tui --parallel 2
 
       - name: Install upstream Qt for the verified GUI target
         if: matrix.target == 'linux-x86_64'
@@ -150,8 +150,11 @@ jobs:
           file build/pqvpn_node | tee binary-type.txt
           grep -F "${{ matrix.expected_machine }}" binary-type.txt
           build/pqvpn_node --help
+          build/pqvpn_node --validate-config --config config.json
+          build/pqvpn_node --platform-info
           build/pqvpn_node --smoke-test --config config.json
           build/pqvpn_node --smoke-test --config config.udp2raw.json
+          build/pqvpn_tui --smoke-test --config config.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
           else
@@ -163,7 +166,8 @@ jobs:
         run: |
           stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$stage"
-          cp build/pqvpn_node config.json config.udp2raw.json LICENSE README.md "$stage/"
+          cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
+          if [ -x build/pqvpn_monitor ]; then cp build/pqvpn_monitor "$stage/"; fi
           tar -czf "$stage.tar.gz" "$stage"
 
       - name: Upload release candidate
@@ -281,8 +285,8 @@ jobs:
             -DVCPKG_MANIFEST_MODE=OFF `
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
 
-      - name: Compile node
-        run: cmake --build build --config Release --target pqvpn_node --parallel 2
+      - name: Compile node and terminal console
+        run: cmake --build build --config Release --target pqvpn_node pqvpn_tui --parallel 2
 
       - name: Compile PQVPN x64 tunnel driver
         shell: pwsh
@@ -321,10 +325,16 @@ jobs:
           }
           & $binary --help
           if ($LASTEXITCODE -ne 0) { throw 'CLI help failed' }
+          & $binary --validate-config --config config.json
+          if ($LASTEXITCODE -ne 0) { throw 'CLI configuration validation failed' }
+          & $binary --platform-info
+          if ($LASTEXITCODE -ne 0) { throw 'CLI platform inspection failed' }
           & $binary --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
           & $binary --smoke-test --config config.udp2raw.json
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
+          & build/Release/pqvpn_tui.exe --smoke-test --config config.json
+          if ($LASTEXITCODE -ne 0) { throw 'TUI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
       - name: Package verified native build
@@ -332,7 +342,7 @@ jobs:
         run: |
           $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item build/Release/pqvpn_node.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
+          Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
           Get-ChildItem build/Release/*.dll -ErrorAction SilentlyContinue | Copy-Item -Destination $stage
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
 

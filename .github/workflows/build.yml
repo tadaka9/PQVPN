@@ -38,10 +38,6 @@ jobs:
             throw 'Driver build did not produce pqvpn_tunnel.sys'
           }
 
-      - name: Install dependencies
-        run: |
-          choco install cmake ninja -y
-
       - name: Build driver tests
         shell: bash
         working-directory: driver/pqvpn_tunnel
