@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: native-deps-v2-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Install build tools on Linux
         if: matrix.family == 'linux'
@@ -81,6 +81,19 @@ jobs:
           git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
           make -C "$RUNNER_TEMP/argon2" -j2
           make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+          mkdir -p "$prefix/lib/pkgconfig"
+          cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
+          prefix=$prefix
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: libargon2
+          Description: Upstream Argon2 password hashing library
+          Version: $ARGON2_VERSION
+          Libs: -L\${libdir} -largon2
+          Cflags: -I\${includedir}
+          EOF
 
           git clone --depth 1 --branch "$LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
@@ -96,13 +109,14 @@ jobs:
         run: |
           prefix="$RUNNER_TEMP/pqvpn-deps"
           test "$($prefix/bin/openssl version | awk '{print $2}')" = "$OPENSSL_VERSION"
-          test "$(PKG_CONFIG_PATH="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
-          test "$(PKG_CONFIG_PATH="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
 
       - name: Configure
         shell: bash
         run: |
           export PKG_CONFIG_PATH="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
           export CMAKE_PREFIX_PATH="$RUNNER_TEMP/pqvpn-deps"
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -192,7 +206,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: native-deps-v2-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Build official OpenSSL and liboqs releases
         if: steps.windows-upstream-deps.outputs.cache-hit != 'true'
