@@ -13,7 +13,7 @@ hasn't been built yet.
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
-[![Six native targets](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge&logo=intel)](#six-native-targets)
+[![Native CI targets](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge&logo=intel)](#native-ci-targets)
 [![Test suite](https://img.shields.io/badge/test%20suite-verified-00d084?style=for-the-badge)](#verification-grid)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#project-status)
 
@@ -48,7 +48,7 @@ everyone.
 | 🧅 **Onion relay paths** | Traffic can peel through several of your own nodes. Each layer is AEAD-bound to the exact forwarder identity allowed to unwrap it; replays and rogue injection fail closed. |
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
-| 🖥️ **Six native targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 / ARM64 — each compiled by the portable matrix on every pull request. |
+| 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
 
@@ -207,9 +207,9 @@ independent security review, reproducible release packaging with provenance,
 and operator documentation. The first production-oriented release will not be
 declared until those have merged evidence.
 
-## Six native targets
+## Native CI targets
 
-Every pull request compiles the node on all six — no cross-compiled guesses:
+The matrix follows Dvx3-Backup-Manager: Linux x86_64/ARM64, macOS Intel/ARM64, and Windows x64. Every pull request and push to `main` or `future` must configure, compile, run `--help`, and run `--smoke-test --config config.json` on each native runner. A platform is verified only when its job passes for the relevant commit.
 
 | Target | Runner | Toolchain |
 |---|---|---|
@@ -217,10 +217,14 @@ Every pull request compiles the node on all six — no cross-compiled guesses:
 | `linux-arm64` | ubuntu-24.04-arm | GCC + Ninja, liboqs from source |
 | `macos-x86_64` | macos-15-intel | AppleClang + Homebrew deps |
 | `macos-arm64` | macos-15 | AppleClang + Homebrew deps |
-| `windows-x86_64` | windows-2025 | MSVC (VS 2026) + vcpkg |
-| `windows-arm64` | windows-11-arm | MSVC cross (ARM64) + vcpkg |
+| `windows-x86_64` | windows-2022 | MSVC (VS 2022) + vcpkg |
 
-Each job verifies the binary's architecture and CLI startup, then uploads a
+Windows ARM64 is outside this baseline and is not claimed as verified.
+The Windows driver workflow compiles a user-mode test utility and validates
+HLK configuration XML; it does not build/sign a kernel driver or certify HLK.
+Driver signing and release qualification require the separate WDK/native gates.
+
+Each job verifies the binary's architecture and CLI smoke test, then uploads a
 compile-only artifact. These artifacts are **not** release builds — see the
 release criteria in [`ROADMAP.md`](ROADMAP.md).
 

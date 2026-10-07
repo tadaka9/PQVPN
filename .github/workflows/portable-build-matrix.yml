@@ -24,6 +24,14 @@ jobs:
             os: ubuntu-24.04
             family: linux
             expected_machine: x86-64
+          - target: linux-arm64
+            os: ubuntu-24.04-arm
+            family: linux
+            expected_machine: aarch64
+          - target: macos-x86_64
+            os: macos-15-intel
+            family: macos
+            expected_machine: x86_64
           - target: macos-arm64
             os: macos-15
             family: macos
@@ -40,7 +48,8 @@ jobs:
           sudo apt-get install --yes ninja-build pkg-config libssl-dev libargon2-dev
           git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           sudo cmake --install "$RUNNER_TEMP/liboqs-build"
 
@@ -51,6 +60,7 @@ jobs:
           git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
             -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/oqs-install"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
