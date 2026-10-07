@@ -23,8 +23,9 @@ std::uint64_t get_u64(const std::span<const std::uint8_t> in, const std::size_t 
     return value;
 }
 bool valid_text(const std::string& value) {
-    for (const unsigned char character : value) if (character == 0 || character < 0x09) return false;
-    return true;
+    return std::none_of(value.begin(), value.end(), [](const unsigned char character) {
+        return character == 0 || character < 0x09;
+    });
 }
 } // namespace
 
@@ -71,7 +72,7 @@ bool ReplayGuard::accept(const Message& message) {
     auto& highest = highest_sequence_[key];
     if (message.sequence <= highest) return false;
     highest = message.sequence;
-    return true;
+    return highest == message.sequence;
 }
 
 void ReplayGuard::leave_room(const std::string& room) {

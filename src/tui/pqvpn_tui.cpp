@@ -120,7 +120,7 @@ bool parse(int argc, char** argv, Options& options) {
             return false;
         }
     }
-    return true;
+    return !options.node.empty() && !options.config.empty();
 }
 
 } // namespace
