@@ -2,9 +2,9 @@ name: Unit tests and hardening
 
 on:
   push:
-    branches: [main, future]
+    branches: [main]
   pull_request:
-    branches: [main, future]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -84,20 +84,54 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install dependencies
+      - name: Load dependency versions
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+
+      - name: Restore upstream dependency cache
+        id: upstream-deps
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pqvpn-deps
+          key: hardening-deps-v2-linux-x86_64-${{ hashFiles('.github/dependencies.env') }}
+
+      - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
-          git clone --depth 1 --branch 0.16.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          sudo apt-get install -y cmake ninja-build g++ pkg-config perl make
+
+      - name: Build official upstream dependencies
+        if: steps.upstream-deps.outputs.cache-hit != 'true'
+        run: |
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          mkdir -p "$prefix"
+
+          git clone --depth 1 --branch "openssl-$OPENSSL_VERSION" https://github.com/openssl/openssl.git "$RUNNER_TEMP/openssl"
+          pushd "$RUNNER_TEMP/openssl"
+          ./Configure --prefix="$prefix" --libdir=lib no-shared no-tests
+          make -j2
+          make install_sw
+          popd
+
+          git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
+          make -C "$RUNNER_TEMP/argon2" -j2
+          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+
+          git clone --depth 1 --branch "$LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
-            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
+            -DOPENSSL_ROOT_DIR="$prefix" -DCMAKE_INSTALL_PREFIX="$prefix"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
-          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
-          test "$(pkg-config --modversion liboqs)" = 0.16.0
-          # Ensure pkg-config and CMake can find the newly installed liboqs
-          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
+          cmake --install "$RUNNER_TEMP/liboqs-build"
+
+      - name: Verify official upstream dependency versions
+        run: |
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          test "$($prefix/bin/openssl version | awk '{print $2}')" = "$OPENSSL_VERSION"
+          test "$(PKG_CONFIG_PATH="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
+          test "$(PKG_CONFIG_PATH="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
+          echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$prefix" >> "$GITHUB_ENV"
 
       - name: Run hardening gate
         run: |

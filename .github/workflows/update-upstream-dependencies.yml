@@ -1,0 +1,85 @@
+name: Update upstream dependencies
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve latest stable upstream releases
+        id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag() {
+            gh api "repos/$1/releases/latest" --jq .tag_name
+          }
+          stable_tag() {
+            git ls-remote --tags --refs "https://github.com/$1.git" "$2" |
+              awk '{sub("refs/tags/", "", $2); print $2}' |
+              grep -E "$3" | sort -V | tail -1
+          }
+
+          {
+            echo "OPENSSL_VERSION=$(release_tag openssl/openssl | sed 's/^openssl-//')"
+            echo "ARGON2_VERSION=$(release_tag P-H-C/phc-winner-argon2)"
+            echo "LIBOQS_VERSION=$(release_tag open-quantum-safe/liboqs)"
+            echo "SPDLOG_TAG=$(release_tag gabime/spdlog)"
+            echo "ASIO_TAG=$(stable_tag chriskohlhoff/asio 'asio-*' '^asio-[0-9]+-[0-9]+-[0-9]+$')"
+            echo "CATCH2_TAG=$(release_tag catchorg/Catch2)"
+            echo "GOOGLETEST_TAG=$(release_tag google/googletest)"
+            echo "QT_VERSION=$(stable_tag qt/qtbase 'v6.*' '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//')"
+          } > .github/dependencies.env.new
+
+          test "$(wc -l < .github/dependencies.env.new)" -eq 8
+          while IFS='=' read -r key value; do
+            test -n "$key"
+            test -n "$value"
+          done < .github/dependencies.env.new
+          mv .github/dependencies.env.new .github/dependencies.env
+
+      - name: Create or refresh the protected update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/dependencies.env; then
+            echo 'Every dependency already matches its latest stable upstream release.'
+            exit 0
+          fi
+
+          branch=automation/upstream-dependencies
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -C "$branch"
+          git add .github/dependencies.env
+          git commit -m 'Update dependencies to latest upstream releases'
+          git push --force-with-lease origin "$branch"
+
+          pr_number="$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            pr_url="$(gh pr create --base main --head "$branch" \
+              --title 'Update dependencies to latest upstream releases' \
+              --body 'Updates the centralized native dependency pins from official stable upstream releases. The protected C++23 matrix must pass before automatic merge.')"
+            pr_number="${pr_url##*/}"
+          fi
+
+          gh workflow run portable-build-matrix.yml --ref "$branch"
+          gh workflow run build.yml --ref "$branch"
+          gh workflow run codeql.yml --ref "$branch"
+          gh pr merge "$pr_number" --auto --squash

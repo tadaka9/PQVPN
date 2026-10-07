@@ -126,9 +126,13 @@ central party to trust?*
 
 ### Build (Ubuntu / WSL shown; the matrix covers five native targets)
 
-Install CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, pkg-config, and
-liboqs 0.16.0 or newer. The native CI pins liboqs 0.16.0 on every platform;
-CMake downloads pinned Asio and spdlog sources during the first configure.
+Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config, and the upstream
+dependency versions listed in [`.github/dependencies.env`](.github/dependencies.env).
+The native CI builds the official OpenSSL, Argon2 and liboqs releases on every
+platform. CMake fetches Asio, spdlog, Catch2 and GoogleTest from their upstream
+repositories, while the Privacy Console uses the official upstream Qt package.
+An automated daily check proposes new stable releases and merges them only
+after the complete protected CI matrix succeeds.
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git

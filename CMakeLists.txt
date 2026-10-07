@@ -1,10 +1,17 @@
 cmake_minimum_required(VERSION 3.28)
-project(PQVPN VERSION 0.1.0 LANGUAGES CXX)
+project(PQVPN VERSION 0.0.1 LANGUAGES CXX)
+
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/.github/dependencies.env" PQVPN_DEPENDENCY_LINES
+     REGEX "^[A-Z0-9_]+=[^=]+$")
+foreach(PQVPN_DEPENDENCY_LINE IN LISTS PQVPN_DEPENDENCY_LINES)
+  string(REGEX MATCH "^([^=]+)=(.+)$" _ "${PQVPN_DEPENDENCY_LINE}")
+  set("PQVPN_${CMAKE_MATCH_1}" "${CMAKE_MATCH_2}")
+endforeach()
 
 include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL ${PQVPN_OPENSSL_VERSION} REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
 if(TARGET unofficial::argon2::libargon2)
     message(STATUS "Argon2 found via vcpkg: unofficial::argon2::libargon2")
@@ -30,13 +37,13 @@ if(NOT ARGON2_FOUND AND NOT HAVE_ARGON2)
 endif()
 
 # Use liboqs' exported usage requirements instead of guessing a static path.
-find_package(liboqs 0.16 CONFIG QUIET)
+find_package(liboqs ${PQVPN_LIBOQS_VERSION} CONFIG QUIET)
 add_library(pqvpn_oqs_static INTERFACE)
 if(TARGET OQS::oqs)
   target_link_libraries(pqvpn_oqs_static INTERFACE OQS::oqs)
 else()
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.16)
+  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=${PQVPN_LIBOQS_VERSION})
   # A static liboqs .pc lists OpenSSL in Requires.private, which the regular
   # imported pkg-config target omits. Carry it explicitly for static installs.
   target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS OpenSSL::Crypto)
@@ -66,18 +73,18 @@ include(FetchContent)
 
 FetchContent_Declare(spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.14.1)
+  GIT_TAG ${PQVPN_SPDLOG_TAG})
 FetchContent_Declare(asio
   GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-  GIT_TAG asio-1-30-2)
+  GIT_TAG ${PQVPN_ASIO_TAG})
 FetchContent_MakeAvailable(spdlog asio)
 if(BUILD_TESTING)
   FetchContent_Declare(Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.4.0)
+    GIT_TAG ${PQVPN_CATCH2_TAG})
   FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.15.2)
+    GIT_TAG ${PQVPN_GOOGLETEST_TAG})
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(Catch2 googletest)
 endif()
@@ -121,7 +128,7 @@ target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIB
 
 # ... (previous lines)
 if(PQVPN_BUILD_MONITOR)
-    find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets)
     # The privacy console controls the canonical pqvpn_node process; it does
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
