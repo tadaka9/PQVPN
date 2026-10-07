@@ -172,9 +172,14 @@ jobs:
       - name: Compile PQVPN x64 tunnel driver
         shell: pwsh
         run: |
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /t:Restore /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'WDK restore failed' }
           $wdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.wdk.x64\10.0.28000.2526\c"
-          $sdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp.x64\10.0.28000.1\c"
-          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /restore `
+          $sdkPackage = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp.x64\10.0.28000.*" |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdkPackage) { throw 'Matching Windows SDK NuGet package was not restored' }
+          $sdk = Join-Path $sdkPackage.FullName 'c'
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj `
             /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off `
             /p:SkipPackageVerification=true "/p:WindowsSdkDir=$sdk\" "/p:WDKContentRoot=$wdk\" /m
           if ($LASTEXITCODE -ne 0) { throw 'PQVPN tunnel driver build failed' }
