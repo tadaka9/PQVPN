@@ -35,8 +35,8 @@ fails closed on Windows if the adapter was requested but cannot be opened;
 
 ## Build and install
 
-The driver project restores `Microsoft.Windows.WDK.x64` 10.0.26100.6584 and
-builds with Visual Studio 2022:
+The driver project restores `Microsoft.Windows.WDK.x64` 10.0.28000.2526 and
+builds with Visual Studio 2026 while targeting Windows 10 and later:
 
 ```powershell
 msbuild driver\pqvpn_tunnel\pqvpn_tunnel.vcxproj /restore `

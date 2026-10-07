@@ -264,7 +264,7 @@ The matrix follows Dvx3-Backup-Manager: Linux x86_64/ARM64, macOS Intel/ARM64, a
 | `linux-arm64` | ubuntu-24.04-arm | GCC + Ninja, liboqs from source |
 | `macos-x86_64` | macos-15-intel | AppleClang + Homebrew deps |
 | `macos-arm64` | macos-15 | AppleClang + Homebrew deps |
-| `windows-x86_64` | windows-2022 | MSVC (VS 2022) + vcpkg |
+| `windows-x86_64` | windows-2025 | MSVC (VS 2026) + vcpkg; Windows 10+ target |
 
 Windows ARM64 is outside this baseline and is not claimed as verified.
 The Windows driver workflow restores Microsoft's supported WDK package, builds
