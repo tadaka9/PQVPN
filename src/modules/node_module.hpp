@@ -25,6 +25,7 @@
 #include "rekey_manager.hpp"
 #include <chrono>
 #include <cstdint>
+#include "ml_traffic_shaper.hpp"
 
 namespace pqvpn {
 
@@ -69,6 +70,7 @@ public:
     static inline constexpr uint8_t S2_FRAME = 2;        // FT_S2
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
+    static inline constexpr uint8_t PADDED_TUNNEL_DATA_FRAME = 9;
     static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
     // Tunnel liveness (post-migration addition, ROADMAP peer selection):
     // same AEAD layout as TUNNEL_DATA_FRAME with an empty plaintext, so the
@@ -256,6 +258,8 @@ public:
     bool send_tunnel_packet(
         const std::vector<uint8_t>& peer_id,
         std::span<const uint8_t> packet);
+    void configure_traffic_shaping(const traffic::ShapingConfig& config);
+    void stop_traffic_shaping();
 
     // Automatic peer selection for adapter-originated traffic (TAP data path):
     // among ESTABLISHED sessions with a routable remote address, only peers
@@ -417,6 +421,7 @@ public:
 
 private:
     std::string config_path_;
+    std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
     PeerRouteHook peer_route_hook_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;

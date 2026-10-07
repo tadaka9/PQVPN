@@ -64,6 +64,12 @@ namespace pqvpn::serialization {
                     if (n.contains("bind_address")) cfg.network.bind_address = n["bind_address"].get<std::string>();
                 }
 
+                // Preserve optional runtime sections, including shaping, via
+                // the configuration's single parser and validation contract.
+                cfg = j.get<config::Config>();
+                if (const auto error = config::validate_config(cfg))
+                    return std::unexpected(error->message);
+
                 return cfg;
             } catch (const std::exception& e) {
                 return std::unexpected(std::string("JSON Deserialization Error: ") + e.what());

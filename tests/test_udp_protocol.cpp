@@ -54,6 +54,12 @@ TEST_CASE("UDP protocol preserves authenticated outer frames", "[node][network]"
     responder->establish_hybrid_session(initiator_id, source,
         classical, post_quantum, transcript, false);
     const std::vector<uint8_t> packet{0x45, 0, 0, 20, 0xde, 0xad};
+    SECTION("legacy data") {}
+    SECTION("encrypted padding") {
+        pqvpn::traffic::ShapingConfig shaping;
+        shaping.enabled = true;
+        initiator.configure_traffic_shaping(shaping);
+    }
     std::vector<uint8_t> delivered;
     responder->set_tunnel_packet_handler(
         [&](std::vector<uint8_t> plaintext, const std::vector<uint8_t>& peer) {
@@ -63,6 +69,12 @@ TEST_CASE("UDP protocol preserves authenticated outer frames", "[node][network]"
     auto frame = initiator.build_tunnel_datagram(responder_id, packet);
     REQUIRE(frame);
     pqvpn::UDPProtocol protocol(responder);
+    auto tampered = *frame;
+    tampered.back() ^= 1;
+    protocol.datagram_received({}, tampered, source);
+    io.run();
+    REQUIRE(delivered.empty());
+    io.restart();
     protocol.datagram_received({}, *frame, source);
     io.run();
     REQUIRE(delivered == packet);

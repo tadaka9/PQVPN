@@ -1,4 +1,5 @@
 #include "node_module.hpp"
+#include "external_transport.hpp"
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -244,7 +245,7 @@ std::optional<std::vector<uint8_t>> send_outer_frame(
     uint8_t frame_type,
     const std::string& wire_payload,
     const asio::ip::udp::endpoint& endpoint) {
-    if (!node.transport || endpoint.address().is_unspecified()) return std::nullopt;
+    if (!transport_allows(node.transport, endpoint) || endpoint.address().is_unspecified()) return std::nullopt;
     auto frame = node.make_outer_frame(frame_type, std::vector<uint8_t>(8, 0), 0,
         std::vector<uint8_t>(wire_payload.begin(), wire_payload.end()));
     asio::error_code error;
@@ -299,7 +300,7 @@ asio::awaitable<bool> post_udp_send(
     asio::ip::udp::socket* transport,
     std::shared_ptr<std::vector<uint8_t>> payload,
     const asio::ip::udp::endpoint& endpoint) {
-    if (!transport || !payload) co_return false;
+    if (!transport_allows(transport, endpoint) || !payload) co_return false;
 
     struct SendSignal {
         asio::steady_timer timer;
@@ -630,7 +631,7 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         co_return;
     }
 
-    if (data[1] != TUNNEL_DATA_FRAME || payload_size < 28) {
+    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME) || payload_size < 28) {
         co_return;
     }
 
@@ -641,12 +642,15 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
-    const auto plaintext = tunnel_decrypt(
+    auto plaintext = tunnel_decrypt(
         std::span<const uint8_t>(data).subspan(28),
         session->aead_recv_key,
         nonce,
         std::span<const uint8_t>(data).first(16));
-    // Direct tunnel data: data_domain.
+    if (plaintext && data[1] == PADDED_TUNNEL_DATA_FRAME)
+        plaintext = traffic::MLTrafficShaper::unpad(*plaintext);
+    // Direct tunnel data: data_domain. Padding length is trusted only after
+    // AEAD verification, and malformed envelopes cannot advance the window.
     if (!plaintext || plaintext->empty() ||
         !check_and_record_nonce(*session, session->data_domain, nonce)) {
         co_return;
@@ -723,7 +727,7 @@ asio::awaitable<bool> PQVPNNode::ping_tunnel_peer(const std::vector<uint8_t>& pe
 std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_datagram(
     const std::vector<uint8_t>& peer_id,
     const std::span<const uint8_t> packet) {
-    if (packet.empty() || packet.size() > UINT16_MAX - 28) return std::nullopt;
+    if (packet.empty() || packet.size() > 65507 - 44) return std::nullopt;
     const auto found = sessions_by_peer_id.find(peer_id);
     if (found == sessions_by_peer_id.end() || !found->second ||
         found->second->state != SessionState::ESTABLISHED ||
@@ -735,14 +739,21 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_datagram(
     }
 
     auto& session = *found->second;
+    std::vector<uint8_t> padded;
+    if (traffic_shaper_) {
+        try { padded = traffic_shaper_->pad(packet); }
+        catch (const std::exception&) { return std::nullopt; }
+    }
+    const auto plaintext = traffic_shaper_ ? std::span<const uint8_t>(padded) : packet;
     const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
     const std::vector<uint8_t> session_hint(session.session_id.begin(), session.session_id.begin() + 8);
-    const auto encrypted_size = packet.size() + 16;
+    const auto encrypted_size = plaintext.size() + 16;
     const auto payload_size = nonce.size() + encrypted_size;
     std::vector<uint8_t> reserved_payload(payload_size);
-    auto frame = encode_outer_frame(TUNNEL_DATA_FRAME, session_hint, 0, reserved_payload);
+    auto frame = encode_outer_frame(traffic_shaper_ ? PADDED_TUNNEL_DATA_FRAME : TUNNEL_DATA_FRAME,
+        session_hint, 0, reserved_payload);
     frame.resize(16);
-    const auto encrypted = tunnel_encrypt(packet, session.aead_send_key, nonce,
+    const auto encrypted = tunnel_encrypt(plaintext, session.aead_send_key, nonce,
         std::span<const uint8_t>(frame));
     frame.insert(frame.end(), nonce.begin(), nonce.end());
     frame.insert(frame.end(), encrypted.begin(), encrypted.end());
@@ -762,9 +773,36 @@ bool PQVPNNode::send_tunnel_packet(
     const auto found = sessions_by_peer_id.find(peer_id);
     if (found == sessions_by_peer_id.end() || !found->second ||
         found->second->remote_addr.address().is_unspecified()) return false;
+    if (traffic_shaper_) {
+        const auto weak = weak_from_this();
+        if (weak.expired()) return false;
+        const auto session = found->second;
+        return traffic_shaper_->enqueue(*datagram, packet.size(),
+            [weak, peer_id, session](const std::vector<uint8_t>& frame) {
+                const auto node = weak.lock();
+                if (!node || !transport_allows(node->transport, session->remote_addr)) return false;
+                const auto current = node->sessions_by_peer_id.find(peer_id);
+                if (current == node->sessions_by_peer_id.end() || current->second != session ||
+                    session->state != SessionState::ESTABLISHED) return false;
+                asio::error_code error;
+                node->transport->send_to(asio::buffer(frame), session->remote_addr, 0, error);
+                return !error;
+            });
+    }
     asio::error_code error;
+    if (!transport_allows(transport, found->second->remote_addr)) return false;
     transport->send_to(asio::buffer(*datagram), found->second->remote_addr, 0, error);
     return !error;
+}
+
+void PQVPNNode::configure_traffic_shaping(const traffic::ShapingConfig& config) {
+    stop_traffic_shaping();
+    traffic_shaper_.reset();
+    if (config.enabled)
+        traffic_shaper_ = std::make_shared<traffic::MLTrafficShaper>(io_context_, config);
+}
+void PQVPNNode::stop_traffic_shaping() {
+    if (traffic_shaper_) traffic_shaper_->stop();
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
@@ -796,6 +834,7 @@ asio::awaitable<bool> PQVPNNode::forward_adapter_packet(std::vector<uint8_t> pac
     try {
         const auto peer = select_tunnel_peer();
         if (!peer) co_return false;
+        if (traffic_shaper_) co_return send_tunnel_packet(*peer, packet);
         const auto datagram = build_tunnel_datagram(*peer, std::span<const uint8_t>(packet));
         if (!datagram) co_return false;
         const auto found = sessions_by_peer_id.find(*peer);
@@ -1327,7 +1366,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         // codebase has no builder for that shape, so it fails closed. The body
         // length (not the frame size) bounds every slice taken below.
         const bool deliverable_data =
-            headered && frame_type == TUNNEL_DATA_FRAME && tunnel_packet_handler_ &&
+            headered && (frame_type == TUNNEL_DATA_FRAME || frame_type == PADDED_TUNNEL_DATA_FRAME) && tunnel_packet_handler_ &&
             body.size() >= 12 + 16;
         if (!deliverable_data) co_return false;
 
@@ -1343,9 +1382,11 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         // frame header (build_tunnel_datagram / datagram_received).
         const auto data_nonce = std::vector<uint8_t>(body.begin(), body.begin() + 12);
         const auto data_ciphertext = std::span<const uint8_t>(body).subspan(12);
-        const auto packet = tunnel_decrypt(
+        auto packet = tunnel_decrypt(
             data_ciphertext, data_sess.aead_recv_key, data_nonce,
             std::span<const uint8_t>(inner_frame).first(16));
+        if (packet && frame_type == PADDED_TUNNEL_DATA_FRAME)
+            packet = traffic::MLTrafficShaper::unpad(*packet);
         if (!packet || packet->empty()) co_return false;
         // The inner frame is a direct tunnel-data frame: data_domain. It may
         // share its session with the layer just peeled (relay_domain) — the

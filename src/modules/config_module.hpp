@@ -12,6 +12,8 @@
 #include <map>
 #include <nlohmann/json.hpp>
 #include <string_view>
+#include "ml_traffic_shaper.hpp"
+#include "external_transport.hpp"
 
 namespace pqvpn::config {
     struct KDFConfig {
@@ -172,8 +174,11 @@ namespace pqvpn::config {
         TuningConfig tuning;
         TunnelConfig tunnel;
         EgressConfig egress;
+        traffic::ShapingConfig traffic_shaping;
+        std::optional<ExternalTransport> external_transport;
 
         friend void from_json(const nlohmann::json& j, Config& value) {
+            if (j.contains("external_transport")) value.external_transport = j.at("external_transport").get<ExternalTransport>();
             if (j.contains("security")) value.security = j.at("security").get<SecurityConfig>();
             if (j.contains("network")) value.network = j.at("network").get<NetworkConfig>();
             if (j.contains("bootstrap") && j.at("bootstrap").is_array()) {
@@ -184,9 +189,18 @@ namespace pqvpn::config {
             if (j.contains("tuning")) value.tuning = j.at("tuning").get<TuningConfig>();
             if (j.contains("tunnel")) value.tunnel = j.at("tunnel").get<TunnelConfig>();
             if (j.contains("egress")) value.egress = j.at("egress").get<EgressConfig>();
+            if (j.contains("traffic_shaping")) {
+                const auto& shape = j.at("traffic_shaping");
+                value.traffic_shaping.enabled = shape.value("enabled", false);
+                value.traffic_shaping.max_padding_bytes = shape.value("max_padding_bytes", std::size_t{1024});
+                value.traffic_shaping.max_delay_ms = shape.value("max_delay_ms", 20);
+                value.traffic_shaping.max_queue_packets = shape.value("max_queue_packets", std::size_t{256});
+                value.traffic_shaping.max_queue_bytes = shape.value("max_queue_bytes", std::size_t{524288});
+            }
         }
         friend void to_json(nlohmann::json& j, const Config& value) {
             j = {{"security", value.security}, {"network", value.network}, {"bootstrap", value.bootstrap}};
+            if (value.external_transport) j["external_transport"] = *value.external_transport;
             if (value.tuning.session_timeout_seconds || value.tuning.keepalive_interval_seconds ||
                 value.tuning.liveness_window_seconds || value.tuning.handshake_timeout_seconds ||
                 value.tuning.replay_window_size || value.tuning.bootstrap_retry_seconds) {
@@ -196,6 +210,12 @@ namespace pqvpn::config {
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;
+            if (value.traffic_shaping.enabled) {
+                const auto& shape = value.traffic_shaping;
+                j["traffic_shaping"] = {{"enabled", shape.enabled}, {"max_padding_bytes", shape.max_padding_bytes},
+                    {"max_delay_ms", shape.max_delay_ms}, {"max_queue_packets", shape.max_queue_packets},
+                    {"max_queue_bytes", shape.max_queue_bytes}};
+            }
         }
     };
 
@@ -204,6 +224,21 @@ namespace pqvpn::config {
     };
 
     inline std::optional<ConfigError> validate_config(const Config& cfg) {
+        if (cfg.external_transport) {
+            try {
+                const auto endpoint = cfg.external_transport->endpoint();
+                if (!asio::ip::make_address(cfg.network.bind_address).is_loopback())
+                    return ConfigError{"external transport requires a loopback listener"};
+                if (cfg.bootstrap.size() != 1 || cfg.bootstrap.front().host != endpoint.address().to_string() ||
+                    cfg.bootstrap.front().port != endpoint.port())
+                    return ConfigError{"external transport requires exactly its local endpoint as bootstrap"};
+            } catch (const std::exception& error) { return ConfigError{error.what()}; }
+        }
+        const auto& shape = cfg.traffic_shaping;
+        if (shape.max_padding_bytes > 4096 || shape.max_delay_ms < 0 || shape.max_delay_ms > 100 ||
+            shape.max_queue_packets == 0 || shape.max_queue_packets > 4096 ||
+            shape.max_queue_bytes < 1200 || shape.max_queue_bytes > 16 * 1024 * 1024)
+            return ConfigError{"traffic_shaping limits are out of range"};
         if (cfg.network.port <= 0 || cfg.network.port > 65535) {
             return ConfigError{"Invalid network port: " + std::to_string(cfg.network.port)};
         }

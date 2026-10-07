@@ -310,6 +310,12 @@ release work, and [`UPDATE.md`](UPDATE.md) for the verified engineering history.
 
 ## Contributing and security
 
+External UDP transport attachment and optional C++23 online traffic shaping
+are described in [`docs/external-transports.md`](docs/external-transports.md).
+[`config.udp2raw.json`](config.udp2raw.json) attaches to a separately managed
+loopback udp2raw engine; it never falls back to a public mesh destination.
+TCP/SOCKS engines require a separate relay and are not yet supported.
+
 Contributions are welcome through focused pull requests — test peers, auditors,
 and platform builders especially. Start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Report suspected vulnerabilities privately

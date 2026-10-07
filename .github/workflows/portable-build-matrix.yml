@@ -88,6 +88,7 @@ jobs:
           grep -F "${{ matrix.expected_machine }}" binary-type.txt
           build/pqvpn_node --help
           build/pqvpn_node --smoke-test --config config.json
+          build/pqvpn_node --smoke-test --config config.udp2raw.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
           else
@@ -164,6 +165,8 @@ jobs:
           & $binary --help
           if ($LASTEXITCODE -ne 0) { throw 'CLI help failed' }
           & $binary --smoke-test --config config.json
+          if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
+          & $binary --smoke-test --config config.udp2raw.json
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 

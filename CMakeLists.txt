@@ -136,7 +136,7 @@ endif()
 
 # Build node module as a library first
 add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
-  src/modules/egress_forwarder.cpp
+  src/modules/egress_forwarder.cpp src/modules/ml_traffic_shaper.cpp
   src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 # node_module verifies peer ML-DSA signatures (pq_sig_verify) in the handshake
@@ -205,6 +205,7 @@ pqvpn_attach_oqs_runtime(pqvpn_node)
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
+add_test(NAME pqvpn_cli_udp2raw_config COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.udp2raw.json)
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
 add_executable(pqvpn_hard_kernel tools/pqvpn_hard_kernel.cpp)
 target_include_directories(pqvpn_hard_kernel PRIVATE ${PQVPN_INCLUDE_DIRS})

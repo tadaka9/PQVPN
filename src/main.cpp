@@ -160,6 +160,7 @@ int main(int argc, char** argv) {
     // Start the PQVPN node runtime with the provided configuration
     asio::io_context io;
     auto node = std::make_shared<pqvpn::PQVPNNode>(io, args.config_path);
+    node->configure_traffic_shaping(config->traffic_shaping);
 
     // Apply optional runtime tuning from config "tuning". Omitted fields keep
     // the protocol defaults baked into PQVPNNode, so existing configs behave
@@ -219,6 +220,14 @@ int main(int argc, char** argv) {
         return 1;
     }
     node->transport = &listener.socket();
+    if (config->external_transport) {
+        asio::error_code error;
+        listener.socket().connect(config->external_transport->endpoint(), error);
+        if (error) {
+            std::cerr << "Cannot attach external UDP transport: " << error.message() << "\n";
+            return 1;
+        }
+    }
 
     // Bootstrap contact: actively send signed HELLOs toward configured peers
     // until a session with each is established (the deterministic initiator
@@ -453,6 +462,7 @@ int main(int argc, char** argv) {
             }
         }
 #endif
+        node->stop_traffic_shaping();
         node->transport = nullptr;
         listener.stop();
         if (adapter) adapter->close(); // idempotent per OS
