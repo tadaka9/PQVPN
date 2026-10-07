@@ -29,37 +29,36 @@ if(NOT ARGON2_FOUND AND NOT HAVE_ARGON2)
     endif()
 endif()
 
-if(WIN32)
-  # MinGW's compiler TLS extension can produce an invalid Asio call-stack
-  # pointer before io_context::run(). Use Asio's Win32 TSS implementation.
-  add_compile_definitions(
-    _WIN32_WINNT=0x0A00
-    WINVER=0x0A00
-    ASIO_HAS_THREADS=1
-    ASIO_DISABLE_THREAD_KEYWORD_EXTENSION=1)
-  find_package(liboqs CONFIG REQUIRED)
-  add_library(pqvpn_oqs_static INTERFACE)
+# Use liboqs' exported usage requirements instead of guessing a static path.
+find_package(liboqs 0.12 CONFIG QUIET)
+add_library(pqvpn_oqs_static INTERFACE)
+if(TARGET OQS::oqs)
   target_link_libraries(pqvpn_oqs_static INTERFACE OQS::oqs)
 else()
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs)
-  message(STATUS "liboqs found via pkg-config: ${LIBOQS_VERSION}")
-  add_library(pqvpn_oqs_static STATIC IMPORTED GLOBAL)
-  set_target_properties(pqvpn_oqs_static PROPERTIES
-    IMPORTED_LOCATION "${LIBOQS_LIBRARY_DIRS}/liboqs.a"
-    INTERFACE_INCLUDE_DIRECTORIES "${LIBOQS_INCLUDE_DIRS}")
-  if(APPLE)
-    set_property(TARGET pqvpn_oqs_static PROPERTY
-      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto")
-  else()
-    set_property(TARGET pqvpn_oqs_static PROPERTY
-      INTERFACE_LINK_LIBRARIES "OpenSSL::Crypto;ssl;dl;pthread;crypto")
-  endif()
+  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.12)
+  target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS)
+endif()
+find_package(Threads REQUIRED)
+
+if(WIN32)
+  add_compile_definitions(
+    NOMINMAX WIN32_LEAN_AND_MEAN
+    _WIN32_WINNT=0x0A00 WINVER=0x0A00
+    ASIO_HAS_THREADS=1 ASIO_DISABLE_THREAD_KEYWORD_EXTENSION=1)
 endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("#include <expected>
+int main() { std::expected<int, int> value(23); return *value == 23 ? 0 : 1; }"
+  PQVPN_HAS_STD_EXPECTED)
+if(NOT PQVPN_HAS_STD_EXPECTED)
+  message(FATAL_ERROR "PQVPN requires a C++23 toolchain with std::expected (GCC 13+, recent AppleClang/libc++, or MSVC).")
+endif()
 
 include(FetchContent)
 
@@ -91,15 +90,12 @@ set(PQVPN_INCLUDE_DIRS
   ${asio_SOURCE_DIR}/asio/include
   ${spdlog_SOURCE_DIR}/include)
 
-set(PQVPN_COMMON_LIBS spdlog::spdlog)
+set(PQVPN_COMMON_LIBS spdlog::spdlog Threads::Threads ${CMAKE_DL_LIBS})
 if(ARGON2_TARGET)
   list(APPEND PQVPN_COMMON_LIBS ${ARGON2_TARGET})
 endif()
 list(APPEND PQVPN_COMMON_LIBS pqvpn_oqs_static)
 list(APPEND PQVPN_COMMON_LIBS OpenSSL::Crypto)
-if(UNIX AND NOT APPLE)
-  list(APPEND PQVPN_COMMON_LIBS ssl dl pthread crypto)
-endif()
 if(WIN32)
   list(APPEND PQVPN_COMMON_LIBS ws2_32 mswsock iphlpapi advapi32)
 endif()
@@ -156,9 +152,7 @@ if(WIN32)
     src/platform/windows_routes.cpp
     src/platform/windows_adapter.cpp
     src/platform/windows_control/vpn_state_machine.cpp
-    src/platform/windows_control/control_channel.cpp
-    src/routing/route_transaction.cpp
-    src/routing/peer_route_manager.cpp)
+    src/platform/windows_control/control_channel.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/macos/network_extension_bridge.cpp
@@ -207,6 +201,9 @@ endfunction()
 pqvpn_attach_oqs_runtime(pqvpn_node)
 
 if(BUILD_TESTING)
+add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
+add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
+set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(
   NAME test_hard_kernel_runner
@@ -319,13 +316,17 @@ target_link_libraries(test_handle_relay PRIVATE node_module_lib)
 # Auto-healing test registration for Hermes-generated parity tests.
 # New tests/test_*.cpp files are automatically added to CTest so the
 # deterministic validator cannot fail with evidence_test_registered=false.
+set(PQVPN_WINDOWS_TESTS
+  test_control_channel_commands
+  test_vpn_state_machine
+  test_windows_own_tunnel)
 file(GLOB PQVPN_AUTO_TEST_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
 foreach(test_src IN LISTS PQVPN_AUTO_TEST_SOURCES)
   get_filename_component(auto_target "${test_src}" NAME_WE)
   if(NOT TARGET ${auto_target})
     file(READ "${test_src}" auto_test_body)
-    if(auto_target STREQUAL "test_control_channel_commands" AND NOT WIN32)
+    if(auto_target IN_LIST PQVPN_WINDOWS_TESTS AND NOT WIN32)
       continue()
     endif()
     add_executable(${auto_target} ${test_src})
