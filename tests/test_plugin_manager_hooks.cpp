@@ -14,6 +14,16 @@ private:
     std::string name_;
 };
 
+namespace {
+// Named coroutine function (not a capturing lambda temporary): GCC 15 on
+// aarch64 miscompiles coroutine lambdas passed by value through
+// asio::co_spawn — the actor reads its captures from the original closure
+// object after it has died. See test_peer_liveness.cpp for details.
+asio::awaitable<void> invoke_hook(pqvpn::PluginManager& pm, const char* name, bool& out) {
+    out = co_await pm.call_hook_async(name);
+}
+} // namespace
+
 TEST_CASE("PluginManager call_hook_async", "[plugin_manager]") {
     auto node = std::make_shared<int>(42);
     pqvpn::PluginManager pm(node, nlohmann::json::object());
@@ -36,10 +46,7 @@ TEST_CASE("PluginManager call_hook_async", "[plugin_manager]") {
     asio::io_context ctx;
     bool result = false;
 
-    asio::co_spawn(ctx, [&]() -> asio::awaitable<void> {
-        result = co_await pm.call_hook_async("on_start");
-        co_return;
-    }, asio::detached);
+    asio::co_spawn(ctx, invoke_hook(pm, "on_start", result), asio::detached);
 
     ctx.run();
 
@@ -58,10 +65,7 @@ TEST_CASE("PluginManager call_hook_async", "[plugin_manager]") {
         co_return false;
     });
 
-    asio::co_spawn(ctx, [&]() -> asio::awaitable<void> {
-        result = co_await pm.call_hook_async("on_error");
-        co_return;
-    }, asio::detached);
+    asio::co_spawn(ctx, invoke_hook(pm, "on_error", result), asio::detached);
 
     ctx.run();
 

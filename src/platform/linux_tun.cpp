@@ -88,7 +88,8 @@ void LinuxTun::close() noexcept {
     }
     if (cancellation >= 0) {
         const std::uint64_t signal = 1;
-        (void)::write(cancellation, &signal, sizeof(signal));
+        const auto written = ::write(cancellation, &signal, sizeof(signal));
+        (void)written;
     }
     if (reader_.joinable() && reader_.get_id() != std::this_thread::get_id()) {
         reader_.join();

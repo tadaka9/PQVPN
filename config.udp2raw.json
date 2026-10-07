@@ -1,0 +1,21 @@
+{
+  "security": {
+    "strict_sig_verify": true,
+    "tofu": false,
+    "known_peers_file": "known_peers.json",
+    "allowlist": ["127.0.0.1"]
+  },
+  "network": {"port": 9090, "bind_address": "127.0.0.1"},
+  "bootstrap": [{"host": "127.0.0.1", "port": 9091}],
+  "external_transport": {
+    "version": 1, "mode": "attach", "engine": "udp2raw",
+    "host": "127.0.0.1", "port": 9091
+  },
+  "traffic_shaping": {
+    "enabled": true,
+    "max_padding_bytes": 1024,
+    "max_delay_ms": 20,
+    "max_queue_packets": 256,
+    "max_queue_bytes": 524288
+  }
+}

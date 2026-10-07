@@ -27,7 +27,7 @@ public:
     ~WindowsTap();
 
     void open(const std::string& requested_guid, PacketHandler handler);
-    void write(const std::vector<uint8_t>& ethernet_frame);
+    [[nodiscard]] bool write(const std::vector<uint8_t>& ethernet_frame);
     void close() noexcept;
     bool is_open() const noexcept { return device_ != INVALID_HANDLE_VALUE; }
     const std::string& guid() const noexcept { return guid_; }

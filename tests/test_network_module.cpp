@@ -1,10 +1,17 @@
 #include <catch2/catch_test_macros.hpp>
 #include "network_module.hpp"
 #include "config_module.hpp"
+#include <asio.hpp>
 
 TEST_CASE("UDPListener basic functionality", "[network]") {
+    // Reserve an ephemeral port so concurrent suites (including the
+    // hard-kernel gate's nested CTest run) can never collide on a fixed one.
+    asio::io_context io;
+    asio::ip::udp::socket reservation(io, asio::ip::udp::endpoint(asio::ip::udp::v4(), 0));
+
     pqvpn::config::NetworkConfig config;
-    config.port = 12345;
+    config.port = static_cast<uint16_t>(reservation.local_endpoint().port());
+    reservation.close();
     config.bind_address = "127.0.0.1";
 
     pqvpn::network::UDPListener listener(config);

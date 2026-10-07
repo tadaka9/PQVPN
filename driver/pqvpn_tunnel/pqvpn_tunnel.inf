@@ -1,0 +1,74 @@
+; SPDX-License-Identifier: MIT
+;
+; PQVPN Tunnel Driver — Phase 1 scaffold (see docs/windows-tunnel-adapter.md).
+; One virtual layer-3 adapter ("PQVPN Tunnel"); the data path is a user-mode
+; file object. No DHCP emulation, no L2: address and routes are managed in
+; user mode by the PQVPN node.
+
+[Version]
+Signature   = "$Windows NT$"
+Class       = Net
+ClassGUID   = {4D36E972-E325-11CE-BFC1-08002BE10318}
+Provider    = %PQVPN.CompanyName%
+CatalogFile.NT = pqvpn_tunnel.cat
+PnpLockdown  = 1
+
+[Manufacturer]
+%PQVPN.CompanyName% = %PQVPN.Name%, NT$ARCH$
+
+[SourceDisksNames]
+1 = %PQVPN.DiskDesc%, "", ,
+
+[SourceDisksFiles]
+pqvpn_tunnel.sys = 1
+
+[DestinationDirs]
+DefaultDestDir     = 12
+PQVPN.CopyFiles.Sys = 12
+
+[PQVPN.CopyFiles.Sys]
+pqvpn_tunnel.sys, , , 0x00004002 ; COPYFLG_IN_USE_RENAME | COPYFLG_NOSKIP
+
+; ------------------------------------------------------------------
+; Adapter installation: virtual NDIS layer-3 (NdisMediumIP) device.
+; *IfType 53 = IF_TYPE_PROP_VIRTUAL, matching the OID answer in the driver.
+; EnableDhcp=0: PQVPN assigns its own address and routes in user mode.
+; ------------------------------------------------------------------
+[PQVPN.NT$ARCH$]
+%PQVPN.DeviceDesc% = PQVPN.Install, PQVPN
+
+[PQVPN.Install]
+Characteristics    = 0x1 ; NCF_VIRTUAL
+AddReg             = PQVPN.Ndi
+CopyFiles          = PQVPN.CopyFiles.Sys
+*IfType            = 53 ; IF_TYPE_PROP_VIRTUAL
+*MediaType         = 19 ; NdisMediumIP (layer-3 TUN semantics)
+*PhysicalMediaType = 0  ; NdisPhysicalMediumUnspecified
+EnableDhcp         = 0
+
+[PQVPN.Install.Services]
+AddService = pqvpn_tunnel, 2, PQVPN.Service, PQVPN.EventLog ; 2=SPSVCINST_ASSOCSERVICE
+
+; ndis.sys binds as the upper protocol driver of this virtual device.
+[PQVPN.Ndi]
+HKR, Ndi, Service, 0, pqvpn_tunnel
+HKR, Ndi\Interfaces, UpperRange, , "ndis5"
+HKR, Ndi\Interfaces, LowerRange, , "nolower"
+
+[PQVPN.Service]
+DisplayName     = %PQVPN.Name%
+Description     = %PQVPN.DeviceDesc%
+ServiceType     = 1 ; SERVICE_KERNEL_DRIVER
+StartType       = 3 ; SERVICE_DEMAND_START
+ErrorControl    = 1 ; SERVICE_ERROR_NORMAL
+ServiceBinary   = %12%\pqvpn_tunnel.sys
+
+[PQVPN.EventLog]
+HKR, , EventMessageFile, 0x00020000, "%11%\IoLogMsg.dll;%12%\pqvpn_tunnel.sys"
+HKR, , TypesSupported, 0x00010001, 7
+
+[Strings]
+PQVPN.Name         = "PQVPN Tunnel"
+PQVPN.DiskDesc     = "PQVPN Tunnel Driver Install Disk"
+PQVPN.DeviceDesc   = "PQVPN Userspace Tunnel (Phase 1 scaffold)"
+PQVPN.CompanyName  = "PQVPN Project"

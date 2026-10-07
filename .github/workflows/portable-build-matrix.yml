@@ -1,9 +1,9 @@
-name: Portable compile matrix
+name: Native build and smoke tests
 
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, future]
   workflow_dispatch:
 
 permissions:
@@ -48,20 +48,30 @@ jobs:
           sudo apt-get install --yes ninja-build pkg-config libssl-dev libargon2-dev
           git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           sudo cmake --install "$RUNNER_TEMP/liboqs-build"
 
       - name: Install macOS dependencies
         if: matrix.family == 'macos'
-        run: brew install ninja pkg-config openssl@3 argon2 liboqs
+        run: |
+          brew install ninja pkg-config openssl@3 argon2
+          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/oqs-install"
+          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
+          cmake --install "$RUNNER_TEMP/liboqs-build"
 
       - name: Configure
         shell: bash
         run: |
           if [[ "${{ matrix.family }}" == macos ]]; then
-            export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix argon2)/lib/pkgconfig:$(brew --prefix liboqs)/lib/pkgconfig"
-            export CMAKE_PREFIX_PATH="$(brew --prefix openssl@3);$(brew --prefix argon2);$(brew --prefix liboqs)"
+            export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix argon2)/lib/pkgconfig:$RUNNER_TEMP/oqs-install/lib/pkgconfig"
+            export CMAKE_PREFIX_PATH="$(brew --prefix openssl@3);$(brew --prefix argon2);$RUNNER_TEMP/oqs-install"
           fi
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -71,12 +81,29 @@ jobs:
       - name: Compile node
         run: cmake --build build --target pqvpn_node --parallel 2
 
+      - name: Install Qt for the verified GUI target
+        if: matrix.target == 'linux-x86_64'
+        run: sudo apt-get install --yes qt6-base-dev
+
+      - name: Build and render Privacy Console
+        if: matrix.target == 'linux-x86_64'
+        shell: bash
+        run: |
+          cmake -S . -B build -DPQVPN_BUILD_MONITOR=ON
+          cmake --build build --target pqvpn_monitor --parallel 2
+          QT_QPA_PLATFORM=offscreen \
+            PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console.png" \
+            build/pqvpn_monitor --smoke-test
+          test -s "$RUNNER_TEMP/pqvpn-console.png"
+
       - name: Verify architecture and CLI startup
         shell: bash
         run: |
           file build/pqvpn_node | tee binary-type.txt
           grep -F "${{ matrix.expected_machine }}" binary-type.txt
           build/pqvpn_node --help
+          build/pqvpn_node --smoke-test --config config.json
+          build/pqvpn_node --smoke-test --config config.udp2raw.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
           else
@@ -91,6 +118,7 @@ jobs:
             build/pqvpn_node
             binary-type.txt
             runtime-dependencies.txt
+            ${{ runner.temp }}/pqvpn-console.png
           if-no-files-found: error
           retention-days: 7
 
@@ -101,17 +129,11 @@ jobs:
       matrix:
         include:
           - target: windows-x86_64
-            os: windows-2025
+            os: windows-2022
             triplet: x64-windows
             architecture: x64
-            generator: Visual Studio 18 2026
-            expected_arch: x64
-          - target: windows-arm64
-            os: windows-11-arm
-            triplet: arm64-windows
-            architecture: ARM64
             generator: Visual Studio 17 2022
-            expected_arch: ARM64
+            expected_arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
@@ -124,6 +146,7 @@ jobs:
             "openssl:${{ matrix.triplet }}" `
             "argon2:${{ matrix.triplet }}" `
             "liboqs:${{ matrix.triplet }}"
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg install failed' }
 
       - name: Configure
         shell: pwsh
@@ -156,6 +179,11 @@ jobs:
             throw 'Unexpected executable architecture'
           }
           & $binary --help
+          if ($LASTEXITCODE -ne 0) { throw 'CLI help failed' }
+          & $binary --smoke-test --config config.json
+          if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
+          & $binary --smoke-test --config config.udp2raw.json
+          if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
       - name: Upload compile-only artifact

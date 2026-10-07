@@ -19,7 +19,9 @@ TEST(PQVPNNodeTest, SendOnionEmptyPathReturnsFalse) {
 TEST(PQVPNNodeTest, SendOnionNoSessionReturnsFalse) {
     asio::io_context io_context;
     pqvpn::PQVPNNode node(io_context);
-    std::vector<std::vector<uint8_t>> path = {{0x01, 0x02, 0x03, 0x04}};
+    // Two hops so the test exercises the missing-session path rather than the
+    // short-path rejection.
+    std::vector<std::vector<uint8_t>> path = {{0x01, 0x02, 0x03, 0x04}, {0x05, 0x06, 0x07, 0x08}};
     std::vector<uint8_t> inner_frame = {0x01, 0x02};
 
     asio::co_spawn(io_context, node.send_onion(path, inner_frame), [](std::exception_ptr e, bool result) {

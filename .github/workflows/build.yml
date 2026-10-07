@@ -1,0 +1,74 @@
+name: Unit tests and hardening
+
+on:
+  push:
+    branches: [main, future]
+  pull_request:
+    branches: [main, future]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  driver-tests:
+    name: Compile Windows driver test utility (no HLK certification)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          choco install cmake ninja -y
+
+      - name: Build driver tests
+        shell: bash
+        working-directory: driver/pqvpn_tunnel
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake --build build --config Debug --target irp_fuzz_test
+
+      - name: Validate HLK configuration XML
+        shell: pwsh
+        run: |
+          # Verify HLK config file is valid XML
+          [xml]$config = Get-Content driver/pqvpn_tunnel/hlk_tests/pqvpn_tunnel.hlkx
+          Write-Host "HLK configuration validated successfully"
+          
+          # Check that all required test suites are present
+          $suites = $config.TestConfiguration.TestSuite | ForEach-Object { $_.Name }
+          if (-not ($suites -contains "NDIS_Miniport")) {
+            Write-Error "Missing NDIS_Miniport test suite"
+            exit 1
+          }
+          if (-not ($suites -contains "DDI_Compliance")) {
+            Write-Error "Missing DDI_Compliance test suite"
+            exit 1
+          }
+          Write-Host "All required HLK test suites present"
+
+  hardening-gate:
+    name: Security Hardening Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
+          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
+          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
+          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          # Ensure pkg-config and CMake can find the newly installed liboqs
+          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
+
+      - name: Run hardening gate
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+          ctest --test-dir build -L hardening --output-on-failure

@@ -1,6 +1,10 @@
 # CMake build trees and generated files
 /build/
 /build-*/
+# WDK driver build output (compiled .sys/.cat/stamped .inf); source stays in driver/pqvpn_tunnel/
+/driver/build/
+# installable test package (signed binaries + local cert) -- generated, not committed
+/driver/dist/
 /_deps/
 /CMakeFiles/
 /CMakeCache.txt
@@ -27,7 +31,9 @@
 # Runtime state and cryptographic material
 /keys/
 /keys.json
+/node_keys.json
 /known_peers.json
+/known_peers.yaml
 *.key
 *.p12
 *.pem
