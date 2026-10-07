@@ -20,6 +20,10 @@
     <ProjectGuid>{9A4C7DEF-F591-4ECB-9B39-C6FAE713550E}</ProjectGuid>
     <RootNamespace>pqvpntunnel</RootNamespace>
     <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+    <!-- VS 2022 restores native WDK PackageReference assets but its generic
+         NuGet resolver otherwise looks for a managed target framework. -->
+    <TargetFramework>native</TargetFramework>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
