@@ -81,6 +81,21 @@ jobs:
       - name: Compile node
         run: cmake --build build --target pqvpn_node --parallel 2
 
+      - name: Install Qt for the verified GUI target
+        if: matrix.target == 'linux-x86_64'
+        run: sudo apt-get install --yes qt6-base-dev
+
+      - name: Build and render Privacy Console
+        if: matrix.target == 'linux-x86_64'
+        shell: bash
+        run: |
+          cmake -S . -B build -DPQVPN_BUILD_MONITOR=ON
+          cmake --build build --target pqvpn_monitor --parallel 2
+          QT_QPA_PLATFORM=offscreen \
+            PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console.png" \
+            build/pqvpn_monitor --smoke-test
+          test -s "$RUNNER_TEMP/pqvpn-console.png"
+
       - name: Verify architecture and CLI startup
         shell: bash
         run: |
@@ -103,6 +118,7 @@ jobs:
             build/pqvpn_node
             binary-type.txt
             runtime-dependencies.txt
+            ${{ runner.temp }}/pqvpn-console.png
           if-no-files-found: error
           retention-days: 7
 

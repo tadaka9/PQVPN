@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="560" viewBox="0 0 1440 560">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#080b17"/><stop offset=".55" stop-color="#11163a"/><stop offset="1" stop-color="#210d35"/></linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#65e6ff"/><stop offset=".5" stop-color="#724cff"/><stop offset="1" stop-color="#f05db3"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#724cff" stop-opacity=".38"/><stop offset="1" stop-color="#724cff" stop-opacity="0"/></radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="38"/></filter>
+  </defs>
+  <rect width="1440" height="560" rx="30" fill="url(#bg)"/>
+  <circle cx="1160" cy="105" r="260" fill="url(#glow)" filter="url(#blur)"/>
+  <circle cx="170" cy="520" r="230" fill="#08bdd4" opacity=".10" filter="url(#blur)"/>
+  <g transform="translate(940 55) scale(.82)">
+    <path d="M256 35 455 128v135c0 124-79 194-199 232C136 457 57 387 57 263V128z" fill="#0b1024" stroke="url(#a)" stroke-width="25"/>
+    <path d="M144 268c38-52 75-77 112-77s74 25 112 77c-38 52-75 77-112 77s-74-25-112-77Z" fill="none" stroke="#fff" stroke-width="23"/>
+    <circle cx="256" cy="268" r="38" fill="url(#a)"/><circle cx="256" cy="268" r="10" fill="#fff"/>
+  </g>
+  <text x="92" y="175" fill="#65e6ff" font-family="Inter,Segoe UI,sans-serif" font-size="18" font-weight="700" letter-spacing="5">POST-QUANTUM PRIVACY</text>
+  <text x="88" y="265" fill="#fff" font-family="Inter,Segoe UI,sans-serif" font-size="78" font-weight="800">PQVPN</text>
+  <text x="92" y="326" fill="#c1c9e5" font-family="Inter,Segoe UI,sans-serif" font-size="27">C++23 mesh VPN with a clear, native privacy console.</text>
+  <g transform="translate(92 385)" font-family="Inter,Segoe UI,sans-serif" font-size="17" font-weight="600">
+    <rect width="210" height="48" rx="24" fill="#65e6ff" fill-opacity=".12" stroke="#65e6ff" stroke-opacity=".42"/><text x="25" y="31" fill="#a8f4ff">ML-KEM + ML-DSA</text>
+    <rect x="230" width="185" height="48" rx="24" fill="#9b6cff" fill-opacity=".13" stroke="#9b6cff" stroke-opacity=".5"/><text x="257" y="31" fill="#d1c3ff">Native C++23</text>
+    <rect x="435" width="210" height="48" rx="24" fill="#f05db3" fill-opacity=".11" stroke="#f05db3" stroke-opacity=".42"/><text x="462" y="31" fill="#ffc0e3">Ethical UX</text>
+  </g>
+</svg>

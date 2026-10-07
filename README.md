@@ -1,6 +1,6 @@
 <div align="center">
 
-![PQVPN abstract post-quantum network topology](docs/assets/pqvpn-cyberpunk-banner.png)
+![PQVPN — post-quantum privacy with a native C++23 console](assets/brand/readme-hero.svg)
 
 # PQVPN
 
@@ -48,6 +48,7 @@ everyone.
 | 🧅 **Onion relay paths** | Traffic can peel through several of your own nodes. Each layer is AEAD-bound to the exact forwarder identity allowed to unwrap it; replays and rogue injection fail closed. |
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
+| ✨ **Native privacy console** | A colorful Qt 6 interface validates configuration with the real node, starts and stops it, reports actual process output, explains transport limits, and can stay available in the system tray. Motion is optional and no metric is simulated. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -123,7 +124,7 @@ central party to trust?*
 
 ## Quickstart
 
-### Build (Ubuntu / WSL shown; the matrix covers all six targets)
+### Build (Ubuntu / WSL shown; the matrix covers five native targets)
 
 Install CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, pkg-config, and
 liboqs. CMake downloads pinned Asio and spdlog sources during the first
@@ -139,8 +140,57 @@ cmake -S . -B build -G Ninja \
 cmake --build build --target pqvpn_node
 ```
 
-Enable the optional monitor with `-DPQVPN_BUILD_MONITOR=ON` after installing
-the Qt 6 Core, Gui, Widgets, and Network development packages.
+### Privacy Console
+
+Install the Qt 6 Core, Gui and Widgets development packages, then build the
+native C++23 interface beside the node:
+
+```bash
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=OFF \
+  -DPQVPN_BUILD_MONITOR=ON
+cmake --build build --target pqvpn_node pqvpn_monitor
+./build/pqvpn_monitor
+```
+
+The console follows the same interaction model as DVX3 Backup Manager: a
+focused sidebar, command palette, progressive disclosure, validation before
+execution, plain-language feedback, session activity and remembered display
+preferences. PQVPN adds an animated aurora, live connection orb, transport
+capability view and system-tray controls. Close hides the window in the tray by
+default without changing the connection; **Exit PQVPN** shuts the node down
+first. Both behaviors are explicit and configurable.
+
+The interface applies ethical UX principles: one dominant action per task,
+no auto-connect, no telemetry, no urgency or fear prompts, no simulated
+success, and no inflated claims about traffic shaping. **Reduce motion** stops
+ambient, pulse and page animations. The Qt layer owns presentation and process
+control only; cryptography, sessions, routing and transport remain in the
+canonical `pqvpn_node` executable.
+
+<div align="center">
+
+![PQVPN Privacy Console overview](docs/assets/pqvpn-console.png)
+
+<sub>Overview rendered by the real Qt application in its offscreen smoke test.</sub>
+
+</div>
+
+The transport screen separates an available adapter from external-engine
+readiness, so an untested integration is never presented as working:
+
+![PQVPN transport capability view](docs/assets/pqvpn-console-transports.png)
+
+Linux x86_64 CI builds the GUI and renders the real window offscreen. Other
+platforms retain their verified node baseline until a native GUI job passes.
+For local visual verification:
+
+```bash
+QT_QPA_PLATFORM=offscreen \
+PQVPN_SMOKE_IMAGE=pqvpn-console.png \
+./build/pqvpn_monitor --smoke-test
+```
 
 ### Run the node
 

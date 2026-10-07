@@ -120,14 +120,22 @@ target_include_directories(crypto_kem_lib PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIBS})
 
 # ... (previous lines)
-if(PQVPN_BUILD_MONITOR AND NOT WIN32)
-    find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
-    set(CMAKE_AUTOMOC ON)
-
-    # Build the Monitor executable
-    add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp)
+if(PQVPN_BUILD_MONITOR)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+    # The privacy console controls the canonical pqvpn_node process; it does
+    # not implement a second VPN or cryptographic backend.
+    add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
+    set_target_properties(pqvpn_monitor PROPERTIES AUTOMOC ON AUTORCC ON)
     target_include_directories(pqvpn_monitor PRIVATE ${PQVPN_INCLUDE_DIRS})
-    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Network ${PQVPN_COMMON_LIBS})
+    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core)
+    target_compile_options(pqvpn_monitor PRIVATE
+      $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
+    if(BUILD_TESTING)
+      add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
+      set_tests_properties(pqvpn_gui_smoke PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        TIMEOUT 30 LABELS "gui;baseline")
+    endif()
 
 endif()
 
