@@ -146,9 +146,20 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v2
 
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-bincache
+          key: vcpkg-v1-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', '.github/workflows/portable-build-matrix.yml') }}
+          restore-keys: |
+            vcpkg-v1-${{ runner.os }}-${{ matrix.triplet }}-
+
       - name: Install dependencies with vcpkg
         shell: pwsh
+        env:
+          VCPKG_BINARY_SOURCES: clear;files,${{ runner.temp }}/vcpkg-bincache,readwrite
         run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}/vcpkg-bincache" | Out-Null
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install `
             "openssl:${{ matrix.triplet }}" `
             "argon2:${{ matrix.triplet }}" `
