@@ -25,7 +25,7 @@ jobs:
           msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /t:Restore /p:Configuration=Release /p:Platform=x64
           if ($LASTEXITCODE -ne 0) { throw 'WDK restore failed' }
           $wdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.wdk.x64\10.0.28000.2526\c"
-          $sdkPackage = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp.x64\10.0.28000.*" |
+          $sdkPackage = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp\10.0.28000.*" |
             Sort-Object Name -Descending | Select-Object -First 1
           if (-not $sdkPackage) { throw 'Matching Windows SDK NuGet package was not restored' }
           $sdk = Join-Path $sdkPackage.FullName 'c'
