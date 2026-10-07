@@ -260,7 +260,7 @@ static NTSTATUS pqvpn_dispatch_write(PDEVICE_OBJECT device, PIRP irp) {
         ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
         return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
     }
-    NET_BUFFER_LIST_SOURCE_HANDLE(nbl) = ctx->AdapterHandle;
+    nbl->SourceHandle = ctx->AdapterHandle;
     NdisMIndicateReceiveNetBufferLists(ctx->AdapterHandle, nbl, NDIS_DEFAULT_PORT_NUMBER,
                                        1, NDIS_RECEIVE_FLAGS_RESOURCES);
     NdisFreeNetBufferList(nbl);
@@ -292,7 +292,7 @@ static NDIS_STATUS pqvpn_initialize_ex(
     if (g_Context == NULL) return NDIS_STATUS_RESOURCES;
     {
         NDIS_MINIPORT_ADAPTER_REGISTRATION_ATTRIBUTES registration;
-        NDIS_NET_BUFFER_LIST_POOL_PARAMETERS pool_parameters;
+        NET_BUFFER_LIST_POOL_PARAMETERS pool_parameters;
         NDIS_MINIPORT_ADAPTER_GENERAL_ATTRIBUTES general;
         static const UCHAR permanent_address[6] = {0x02, 0x50, 0x51, 0x56, 0x50, 0x4e};
 
@@ -424,8 +424,9 @@ static VOID pqvpn_send_nbl(
             PNET_BUFFER nb;
             NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_SUCCESS;
             for (nb = NET_BUFFER_LIST_FIRST_NB(nbl); nb != NULL; nb = NET_BUFFER_NEXT_NB(nb)) {
-                ULONG length = NET_BUFFER_DATA_LENGTH(nb), copied = 0;
+                ULONG length = NET_BUFFER_DATA_LENGTH(nb);
                 PPQVPN_PACKET packet;
+                PUCHAR source;
                 KIRQL old_irql;
                 if (length < 20 || length > PQVPN_MAX_PACKET_SIZE) {
                     NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_INVALID_LENGTH;
@@ -433,11 +434,17 @@ static VOID pqvpn_send_nbl(
                 }
                 packet = ExAllocatePool2(POOL_FLAG_NON_PAGED,
                     FIELD_OFFSET(PQVPN_PACKET, Data) + length, PQVPN_PACKET_TAG);
-                if (packet == NULL ||
-                    NdisCopyFromNetBufferToMemory(nb, 0, length, packet->Data, &copied) != NDIS_STATUS_SUCCESS ||
-                    copied != length || !pqvpn_valid_ip_packet(packet->Data, length)) {
+                source = packet == NULL ? NULL :
+                    NdisGetDataBuffer(nb, length, packet->Data, 1, 0);
+                if (packet == NULL || source == NULL) {
                     if (packet != NULL) ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
                     NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_RESOURCES;
+                    continue;
+                }
+                if (source != packet->Data) RtlCopyMemory(packet->Data, source, length);
+                if (!pqvpn_valid_ip_packet(packet->Data, length)) {
+                    ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+                    NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_INVALID_DATA;
                     continue;
                 }
                 packet->Length = length;
