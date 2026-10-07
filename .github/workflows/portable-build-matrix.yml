@@ -182,7 +182,7 @@ jobs:
         include:
           - target: windows-x86_64
             os: windows-2025
-            triplet: x64-windows
+            triplet: x64-windows-static
             architecture: x64
             generator: Visual Studio 18 2026
             expected_arch: x64
