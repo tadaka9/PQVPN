@@ -5,6 +5,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <thread>
 
 #include "platform/adapter.hpp"
 #ifdef _WIN32
@@ -33,6 +34,8 @@ struct CliArgs {
     bool print_config = false;
     bool platform_info = false;
     bool version = false;
+    std::string strangenet_room;
+    std::string strangenet_peer;
     bool help = false;
 #ifdef _WIN32
     bool no_tunnel = false;
@@ -51,6 +54,8 @@ void print_usage(const char* program) {
         << "      --print-config      Print normalized configuration and exit\n"
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
+        << "      --strangenet-room NAME  Join a bounded peer conversation room\n"
+        << "      --strangenet-peer HEX  Authenticated peer identity for the room\n"
 #ifdef _WIN32
         << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
         << "      --no-tunnel          Run without the PQVPN tunnel adapter\n"
@@ -74,6 +79,10 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.platform_info = true;
         } else if (value == "--version") {
             args.version = true;
+        } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
+            if (++index >= argc) { std::cerr << value << " requires a value\n"; return std::nullopt; }
+            if (value == "--strangenet-room") args.strangenet_room = argv[index];
+            else args.strangenet_peer = argv[index];
 #ifdef _WIN32
         } else if (value == "--no-tunnel") {
             args.no_tunnel = true;
@@ -101,7 +110,29 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             return std::nullopt;
         }
     }
+    if (args.strangenet_room.empty() != args.strangenet_peer.empty()) {
+        std::cerr << "--strangenet-room and --strangenet-peer must be used together\n";
+        return std::nullopt;
+    }
     return args;
+}
+
+std::optional<std::vector<std::uint8_t>> decode_peer_id(const std::string& value) {
+    if (value.size() != 64) return std::nullopt;
+    std::vector<std::uint8_t> decoded;
+    decoded.reserve(32);
+    auto nibble = [](const char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    for (std::size_t index = 0; index < value.size(); index += 2) {
+        const int high = nibble(value[index]), low = nibble(value[index + 1]);
+        if (high < 0 || low < 0) return std::nullopt;
+        decoded.push_back(static_cast<std::uint8_t>((high << 4) | low));
+    }
+    return decoded;
 }
 
 void print_platform_info() {
@@ -376,6 +407,39 @@ int main(int argc, char** argv) {
         // drop the frame instead of unwinding the coroutine.
         if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
     });
+
+    if (!args.strangenet_room.empty()) {
+        const auto peer = decode_peer_id(args.strangenet_peer);
+        if (!peer || args.strangenet_room.size() > pqvpn::strangenet::kMaxRoomBytes) {
+            std::cerr << "Invalid StrangeNet room or peer identity\n";
+            return 2;
+        }
+        node->set_strangenet_handler([](const pqvpn::strangenet::Message& message,
+                                        const std::vector<std::uint8_t>&) {
+            std::cout << "\n[" << message.room << "] " << message.sender.substr(0, 12)
+                      << ": " << message.text << "\n> " << std::flush;
+        });
+        const auto room = args.strangenet_room;
+        std::thread([node, peer = *peer, room, &io] {
+            std::uint64_t sequence = 0;
+            std::string line;
+            std::cout << "StrangeNet room '" << room << "' ready; messages send after the peer session is established.\n> " << std::flush;
+            while (std::getline(std::cin, line)) {
+                if (line == "/quit") break;
+                if (line.empty() || line.size() > pqvpn::strangenet::kMaxMessageBytes) {
+                    std::cout << "Message must contain 1.." << pqvpn::strangenet::kMaxMessageBytes << " bytes\n> " << std::flush;
+                    continue;
+                }
+                const auto timestamp = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+                asio::post(io, [node, peer, room, text = line, value = ++sequence, timestamp] {
+                    if (!node->send_strangenet_message(peer, room, value, timestamp, text))
+                        std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
+                });
+                std::cout << "> " << std::flush;
+            }
+        }).detach();
+    }
 
 #ifdef _WIN32
     if (adapter_active) {

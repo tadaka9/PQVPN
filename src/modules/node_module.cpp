@@ -631,7 +631,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         co_return;
     }
 
-    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME) || payload_size < 28) {
+    const bool strangenet_frame = data[1] == STRANGENET_FRAME;
+    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME && !strangenet_frame) || payload_size < 28) {
         co_return;
     }
 
@@ -662,6 +663,20 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     session->last_activity = now;
     // Authenticated traffic from the peer is itself proof of liveness.
     session->last_peer_response = now;
+    if (strangenet_frame) {
+        auto message = strangenet::decode(*plaintext);
+        if (!message || !session->peer_id_ || message->sender != hex_id(*session->peer_id_) ||
+            !strangenet_replay_guard_.accept(*message)) co_return;
+        if (strangenet_handler_) {
+            try { strangenet_handler_(*message, *session->peer_id_); }
+            catch (const std::exception& error) {
+                pqvpn::logging::Logger::warn("StrangeNet handler failed: {}", error.what());
+            } catch (...) {
+                pqvpn::logging::Logger::warn("StrangeNet handler failed with an unknown exception");
+            }
+        }
+        co_return;
+    }
     // Explicit type: libc++ (macOS) cannot deduce the empty initializer in
     // optional::value_or; libstdc++ accepts it.
     invoke_tunnel_sink(tunnel_packet_handler_, *plaintext,
@@ -792,6 +807,44 @@ bool PQVPNNode::send_tunnel_packet(
     asio::error_code error;
     if (!transport_allows(transport, found->second->remote_addr)) return false;
     transport->send_to(asio::buffer(*datagram), found->second->remote_addr, 0, error);
+    return !error;
+}
+
+std::optional<std::vector<uint8_t>> PQVPNNode::build_strangenet_datagram(
+    const std::vector<uint8_t>& peer_id, const std::string& room,
+    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text) {
+    if (!my_id_) return std::nullopt;
+    const auto encoded = strangenet::encode({room, hex_id(*my_id_), sequence, timestamp_ms, text});
+    if (!encoded) return std::nullopt;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->state != SessionState::ESTABLISHED || found->second->session_id.size() < 8 ||
+        found->second->aead_send_key.empty() || found->second->session_iv.size() != 12 ||
+        found->second->nonce_send == std::numeric_limits<uint64_t>::max()) return std::nullopt;
+    auto& session = *found->second;
+    const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
+    const std::vector<uint8_t> hint(session.session_id.begin(), session.session_id.begin() + 8);
+    std::vector<uint8_t> reserved(nonce.size() + encoded->size() + 16);
+    auto frame = encode_outer_frame(STRANGENET_FRAME, hint, 0, reserved);
+    frame.resize(16);
+    const auto encrypted = tunnel_encrypt(*encoded, session.aead_send_key, nonce, std::span<const uint8_t>(frame));
+    frame.insert(frame.end(), nonce.begin(), nonce.end());
+    frame.insert(frame.end(), encrypted.begin(), encrypted.end());
+    session.bytes_sent += encoded->size();
+    return frame;
+}
+
+bool PQVPNNode::send_strangenet_message(
+    const std::vector<uint8_t>& peer_id, const std::string& room,
+    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text) {
+    const auto frame = build_strangenet_datagram(peer_id, room, sequence, timestamp_ms, text);
+    if (!frame || !transport) return false;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified() ||
+        !transport_allows(transport, found->second->remote_addr)) return false;
+    asio::error_code error;
+    transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
     return !error;
 }
 

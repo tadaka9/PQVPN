@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
             std::getline(std::cin, choice);
         } else if (choice == "4") {
             clear_screen();
-            std::cout << "StrangeNet\n──────────\nAuthenticated peer rooms use bounded 2 KiB frames and per-sender replay counters.\nInteractive room transport is disabled in this alpha until a PQVPN session exposes a consenting peer set.\n\nPress Enter to return.";
+            std::cout << "StrangeNet\n──────────\nAuthenticated peer rooms use bounded 2 KiB frames and per-sender replay counters.\nStart a room with pqvpn_node --strangenet-room NAME --strangenet-peer 64_HEX_DIGITS.\nOnly an established PQVPN session can carry messages; /quit leaves the console.\n\nPress Enter to return.";
             std::getline(std::cin, choice);
         }
     }

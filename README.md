@@ -237,6 +237,23 @@ The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
 Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
 available command-line options.
 
+### StrangeNet peer room
+
+Once the configured bootstrap handshake has established the target peer,
+start a direct conversation room with that peer's 32-byte identity in hex:
+
+```bash
+./build/pqvpn_node --config config.json \
+  --strangenet-room riemann-lab \
+  --strangenet-peer 64_HEX_DIGITS
+```
+
+Each message is carried in a dedicated AEAD-authenticated PQVPN frame. The
+sender field must match the peer identity bound to the session, and both the
+tunnel nonce window and StrangeNet's per-room sequence guard reject replays.
+Messages are limited to 2 KiB. Enter `/quit` to stop reading the room console;
+stop the node with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
 ### Join a network (operator view)
 
 ```jsonc

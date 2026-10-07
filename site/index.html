@@ -76,9 +76,9 @@
 
     <section class="section strange" id="strangenet">
       <div class="strange-mark reveal" aria-hidden="true">Σ<sub>peer</sub></div>
-      <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><h2>Enter StrangeNet.</h2><p>Two or more established PQVPN peers can share a bounded conversation room without a central chat service. Messages carry room and sender identity, monotonic anti-replay sequence and timestamp; the PQVPN session remains the authenticated transport boundary.</p></div>
+      <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><span class="strange-claim">The First Chat on Internet*</span><h2>Enter StrangeNet.</h2><p>Two or more established PQVPN peers can share a bounded conversation room without a central chat service. Messages carry room and sender identity, monotonic anti-replay sequence and timestamp; the PQVPN session remains the authenticated transport boundary.</p><small class="strange-joke">*According to the first peer who joined this room. The internet’s historians have declined to confirm.</small></div>
       <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB message limit and strict parsing keep conversation traffic predictable.</p></article><article><strong>Room replay defense</strong><p>Per-sender monotonic counters reject duplicate delivery inside each room.</p></article></div>
-      <p class="strange-note reveal">Protocol utility included in the alpha source and test suite. Public-room discovery and moderation remain disabled until their threat model is reviewed.</p>
+      <p class="strange-note reveal">Direct authenticated rooms are available from the node CLI. Public-room discovery remains disabled until its moderation and abuse model is reviewed.</p>
     </section>
 
     <section class="section console" id="console">
