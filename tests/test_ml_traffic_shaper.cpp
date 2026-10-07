@@ -28,7 +28,10 @@ TEST_CASE("Shaper queues in order, rejects overflow and stops without bypass") {
     config.max_delay_ms = 0;
     auto shaper = std::make_shared<MLTrafficShaper>(io, config);
     std::vector<int> delivered;
-    auto send = [&](const auto& packet) { delivered.push_back(packet.front()); return true; };
+    auto send = [&](const auto& packet) {
+        if (packet.front() != 0) delivered.push_back(packet.front());
+        return packet.front() != 0;
+    };
     REQUIRE(shaper->enqueue({1}, 1, send));
     REQUIRE(shaper->enqueue({2}, 1, send));
     REQUIRE_FALSE(shaper->enqueue({3}, 1, send));
@@ -36,6 +39,11 @@ TEST_CASE("Shaper queues in order, rejects overflow and stops without bypass") {
     REQUIRE(delivered == std::vector<int>{1, 2});
     REQUIRE(shaper->sent_packets() == 2);
     REQUIRE(shaper->dropped_packets() == 1);
+    io.restart();
+    REQUIRE(shaper->enqueue({0}, 1, send));
+    io.run();
+    REQUIRE(delivered.size() == 2);
+    REQUIRE(shaper->dropped_packets() == 2);
     io.restart();
     REQUIRE(shaper->enqueue({4}, 1, send));
     shaper->stop();
