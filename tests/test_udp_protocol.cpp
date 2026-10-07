@@ -1,45 +1,74 @@
 #include <catch2/catch_test_macros.hpp>
-#include <vector>
-#include <cstdint>
-#include <memory>
-#include "../src/modules/udp_protocol.hpp"
+#include "node_module.hpp"
+#include "udp_protocol.hpp"
 
-// Test that UDPProtocol class can be instantiated and has expected interface
-TEST_CASE("UDPProtocol instantiation", "[node][network]") {
-    SECTION("Constructor accepts shared_ptr to node") {
-        // Verify the class can be constructed with a null shared_ptr
-        std::shared_ptr<pqvpn::PQVPNNode> empty_node;
-        pqvpn::UDPProtocol protocol(empty_node);
-        // If we get here, construction succeeded
-    }
+TEST_CASE("UDP protocol schedules node validation and retains its lifetime", "[node][network]") {
+    asio::io_context io;
+    auto node = std::make_shared<pqvpn::PQVPNNode>(io);
+    std::weak_ptr<pqvpn::PQVPNNode> lifetime = node;
+    pqvpn::UDPProtocol protocol(node);
+    const asio::ip::udp::endpoint sender(asio::ip::make_address("127.0.0.1"), 9999);
+    // The node rejects this truncated outer frame inside its coroutine.
+    protocol.datagram_received({}, {1, pqvpn::PQVPNNode::HELLO_FRAME}, sender);
+    node.reset();
+    REQUIRE_FALSE(lifetime.expired());
+    REQUIRE(io.run() > 0);
+    REQUIRE(lifetime.expired());
 }
 
-// Test datagram parsing logic (version and type byte validation)
-TEST_CASE("UDPProtocol datagram format validation", "[node][network]") {
-    SECTION("Datagrams must have version byte 1") {
-        std::vector<uint8_t> wrong_version = {2, 1, 0};
-        REQUIRE(wrong_version[0] != 1);
-    }
+TEST_CASE("UDP protocol ignores transport errors and expired nodes", "[node][network]") {
+    asio::io_context io;
+    auto node = std::make_shared<pqvpn::PQVPNNode>(io);
+    pqvpn::UDPProtocol protocol(node);
+    const asio::ip::udp::endpoint sender(asio::ip::make_address("127.0.0.1"), 9999);
+    protocol.datagram_received(asio::error::operation_aborted, {1, 0}, sender);
+    REQUIRE(io.poll() == 0);
+    io.restart();
+    node.reset();
+    protocol.datagram_received({}, {1, 0}, sender);
+    REQUIRE(io.poll() == 0);
+}
 
-    SECTION("Datagram types are correctly identified") {
-        // Type 1 = RELAY/DATA
-        std::vector<uint8_t> relay_msg = {1, 1, 0};
-        REQUIRE(relay_msg[1] == 1);
+TEST_CASE("UDP protocol attaches and detaches the node transport", "[node][network]") {
+    asio::io_context io;
+    auto node = std::make_shared<pqvpn::PQVPNNode>(io);
+    pqvpn::UDPProtocol protocol(node);
+    asio::ip::udp::socket socket(io);
+    protocol.connection_made(socket);
+    REQUIRE(node->transport == &socket);
+    protocol.connection_lost({});
+    REQUIRE(node->transport == nullptr);
+}
 
-        // Type 2 = HELLO
-        std::vector<uint8_t> hello_msg = {1, 2, 0};
-        REQUIRE(hello_msg[1] == 2);
-
-        // Type 3 = GOSSIP
-        std::vector<uint8_t> gossip_msg = {1, 3, 0};
-        REQUIRE(gossip_msg[1] == 3);
-    }
-
-    SECTION("Datagrams must be at least 2 bytes") {
-        std::vector<uint8_t> too_short = {1};
-        REQUIRE(too_short.size() < 2);
-
-        std::vector<uint8_t> valid_size = {1, 1};
-        REQUIRE(valid_size.size() >= 2);
-    }
+TEST_CASE("UDP protocol preserves authenticated outer frames", "[node][network]") {
+    asio::io_context io;
+    pqvpn::PQVPNNode initiator(io);
+    auto responder = std::make_shared<pqvpn::PQVPNNode>(io);
+    const std::vector<uint8_t> initiator_id(32, 0x11), responder_id(32, 0x22);
+    const std::vector<uint8_t> classical(32, 0x33), post_quantum(32, 0x44);
+    const std::vector<uint8_t> transcript{'U', 'D', 'P'};
+    const asio::ip::udp::endpoint source(asio::ip::make_address("127.0.0.1"), 9101);
+    const asio::ip::udp::endpoint destination(asio::ip::make_address("127.0.0.1"), 9102);
+    initiator.establish_hybrid_session(responder_id, destination,
+        classical, post_quantum, transcript, true);
+    responder->establish_hybrid_session(initiator_id, source,
+        classical, post_quantum, transcript, false);
+    const std::vector<uint8_t> packet{0x45, 0, 0, 20, 0xde, 0xad};
+    std::vector<uint8_t> delivered;
+    responder->set_tunnel_packet_handler(
+        [&](std::vector<uint8_t> plaintext, const std::vector<uint8_t>& peer) {
+            REQUIRE(peer == initiator_id);
+            delivered = std::move(plaintext);
+        });
+    auto frame = initiator.build_tunnel_datagram(responder_id, packet);
+    REQUIRE(frame);
+    pqvpn::UDPProtocol protocol(responder);
+    protocol.datagram_received({}, *frame, source);
+    io.run();
+    REQUIRE(delivered == packet);
+    delivered.clear();
+    io.restart();
+    protocol.datagram_received({}, *frame, source);
+    io.run();
+    REQUIRE(delivered.empty());
 }

@@ -367,12 +367,8 @@ public:
         uint32_t circuit_id,
         const asio::ip::udp::endpoint& sender);
 
-    // New Gossip Update Handler
-    void handle_gossip_update(const std::vector<uint8_t>& peer_id, const std::string& nickname, bool is_relay);
-
     // Handlers from UDPProtocol
     asio::awaitable<void> handle_hello(std::vector<uint8_t> payload, const std::map<std::string, std::string>& extra_info, const std::vector<uint8_t>& signature, uint64_t nonce);
-    asio::awaitable<void> handle_gossip(std::vector<uint8_t> payload, asio::ip::udp::endpoint endpoint);
 
     // ---- Hybrid handshake control plane (HELLO / S1 / S2) -----------------
     // Wire contract (both sides are this implementation; the field set mirrors

@@ -56,7 +56,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev python3
+          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
           git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
@@ -71,4 +71,4 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           cmake --build build --parallel 2
-          python3 tools/pqvpn_hard_kernel.py || (cat .loop-engineering/hard_kernel_report.json; exit 1)
+          ctest --test-dir build -L hardening --output-on-failure

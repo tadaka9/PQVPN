@@ -204,14 +204,15 @@ if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-add_test(
-  NAME test_hard_kernel_runner
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_hard_kernel_runner.py
-)
+add_executable(pqvpn_hard_kernel tools/pqvpn_hard_kernel.cpp)
+target_include_directories(pqvpn_hard_kernel PRIVATE ${PQVPN_INCLUDE_DIRS})
+target_link_libraries(pqvpn_hard_kernel PRIVATE pqvpn_oqs_static)
+pqvpn_attach_oqs_runtime(pqvpn_hard_kernel)
 add_test(
   NAME pqvpn_hard_kernel
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/pqvpn_hard_kernel.py
+  COMMAND pqvpn_hard_kernel --source ${CMAKE_CURRENT_SOURCE_DIR}
+    --build ${CMAKE_CURRENT_BINARY_DIR} --ctest ${CMAKE_CTEST_COMMAND}
+    --config $<CONFIG>
 )
 set_tests_properties(pqvpn_hard_kernel PROPERTIES
   LABELS "hardening;security;production"

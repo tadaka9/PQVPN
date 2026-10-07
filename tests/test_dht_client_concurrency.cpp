@@ -20,7 +20,8 @@ asio::awaitable<void> drive_dht(DHTClient& c) {
     co_await c.start();
     try {
         co_await c.set("pqvpn/test", "value");
-        SUCCEED("Allowed prefix set succeeded");
+        const auto recovered = co_await c.get("pqvpn/test");
+        CHECK(recovered == "value");
     } catch (const std::exception& e) {
         FAIL(std::string("Allowed prefix set failed: ") + e.what());
     }

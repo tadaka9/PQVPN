@@ -2,7 +2,7 @@ name: CodeQL
 
 on:
   push:
-    branches: [main]
+    branches: [main, future]
   pull_request:
     branches: [main]
   schedule:
@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [c-cpp, python]
+        language: [c-cpp]
 
     steps:
       - name: Checkout repository

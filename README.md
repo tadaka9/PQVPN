@@ -260,8 +260,9 @@ authentication, hybrid session installation, HKDF-SHA3-512 combination,
 ML-DSA-87 round trips, relay replay defense, egress bridging (unit + two-node
 end-to-end), and the strict `pqvpn_hard_kernel` security gate.
 
-In CI, every pull request additionally runs the six-target compile matrix and
-CodeQL for both C/C++ and Python. A normal build or smoke-test does not imply
+In CI, every pull request additionally runs the five-target native build and smoke-test matrix and
+CodeQL for C/C++. Build, tests and hardening require no Python interpreter.
+A normal build or smoke-test does not imply
 that the hardening gate passes — treat every future gate finding as a release
 blocker.
 

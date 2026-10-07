@@ -178,12 +178,14 @@ std::uint16_t pseudo_checksum(const asio::ip::address& src, const asio::ip::addr
     std::uint32_t sum = 0;
     auto add16 = [&sum](std::uint16_t v) { sum += v; };
     for (const auto& addr : {src, dst}) {
-        const std::vector<uint8_t> b = addr.is_v4()
-            ? std::vector<uint8_t>(addr.to_v4().to_bytes().begin(), addr.to_v4().to_bytes().end())
-            : std::vector<uint8_t>(addr.to_v6().to_bytes().begin(), addr.to_v6().to_bytes().end());
-        for (std::size_t i = 0; i + 1 < b.size(); i += 2)
-            add16(static_cast<std::uint16_t>((b[i] << 8) | b[i + 1]));
-        if (b.size() & 1u) add16(static_cast<std::uint16_t>(b.back() << 8));
+        // Both iterators must refer to the same byte array. Separate calls to
+        // to_bytes() yield distinct temporaries and an invalid iterator range.
+        const auto add_address = [&](const auto& bytes) {
+            for (std::size_t i = 0; i + 1 < bytes.size(); i += 2)
+                add16(static_cast<std::uint16_t>((bytes[i] << 8) | bytes[i + 1]));
+        };
+        if (addr.is_v4()) add_address(addr.to_v4().to_bytes());
+        else add_address(addr.to_v6().to_bytes());
     }
     sum += proto; // the reserved/zero bytes contribute nothing
     const auto len = static_cast<std::uint32_t>(l4_len);
