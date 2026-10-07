@@ -37,7 +37,9 @@ if(TARGET OQS::oqs)
 else()
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.12)
-  target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS)
+  # A static liboqs .pc lists OpenSSL in Requires.private, which the regular
+  # imported pkg-config target omits. Carry it explicitly for static installs.
+  target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS OpenSSL::Crypto)
 endif()
 find_package(Threads REQUIRED)
 

@@ -49,7 +49,7 @@ jobs:
 
   hardening-gate:
     name: Security Hardening Gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
