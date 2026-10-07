@@ -154,7 +154,7 @@ endif()
 
 # Build node module as a library first
 add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
-  src/modules/egress_forwarder.cpp src/modules/ml_traffic_shaper.cpp
+  src/modules/egress_forwarder.cpp src/modules/ml_traffic_shaper.cpp src/modules/adaptive_transport.cpp
   src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 # node_module verifies peer ML-DSA signatures (pq_sig_verify) in the handshake
@@ -241,6 +241,7 @@ set_tests_properties(pqvpn_hard_kernel PROPERTIES
 set(CATCH_TESTS
   discovery_test
   test_audit_module
+  test_adaptive_transport
   test_config
   test_crypto_kem
   test_crypto_signature

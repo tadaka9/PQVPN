@@ -49,6 +49,7 @@ everyone.
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
 | ✨ **Native privacy console** | A colorful Qt 6 interface validates configuration with the real node, starts and stops it, reports actual process output, explains transport limits, and can stay available in the system tray. Motion is optional and no metric is simulated. |
+| 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -83,8 +84,9 @@ flowchart LR
     C --> E["Ed25519 + ML-DSA-87"]
     D --> F["HKDF-SHA3-512 session material"]
     E --> F
-    F --> G["Encrypted UDP transport"]
-    G --> H["Peer / relay path"]
+    F --> G["Authenticated PQVPN datagram"]
+    G --> P["PQTP policy: UDP preferred / TCP fallback"]
+    P --> H["Peer / relay path"]
     I["Replay, malformed input, or partial auth"] -. "fail closed" .-> X["Rejected"]
     B -. "bounded parsing" .-> X
 
