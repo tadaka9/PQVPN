@@ -90,10 +90,14 @@ jobs:
           path: ${{ runner.temp }}/pqvpn-deps
           key: hardening-deps-v3-linux-x86_64-${{ hashFiles('.github/dependencies.env') }}
 
-      - name: Install build tools
+      - name: Verify runner build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ pkg-config perl make
+          command -v cmake
+          command -v ninja
+          command -v g++
+          command -v pkg-config
+          command -v perl
+          command -v make
 
       - name: Build official upstream dependencies
         if: steps.upstream-deps.outputs.cache-hit != 'true'
