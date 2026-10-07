@@ -22,9 +22,10 @@ jobs:
       - name: Build PQVPN tunnel driver with supported WDK
         shell: pwsh
         run: |
+          $wdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.wdk.x64\10.0.26100.6584\c"
           msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /restore `
             /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off `
-            /p:SkipPackageVerification=true /m
+            /p:SkipPackageVerification=true "/p:WindowsSdkDir=$wdk\" "/p:WDKContentRoot=$wdk\" /m
           if ($LASTEXITCODE -ne 0) { throw 'PQVPN tunnel driver build failed' }
           if (-not (Test-Path driver/build/x64/Release/pqvpn_tunnel.sys)) {
             throw 'Driver build did not produce pqvpn_tunnel.sys'
