@@ -30,13 +30,13 @@ if(NOT ARGON2_FOUND AND NOT HAVE_ARGON2)
 endif()
 
 # Use liboqs' exported usage requirements instead of guessing a static path.
-find_package(liboqs 0.12 CONFIG QUIET)
+find_package(liboqs 0.16 CONFIG QUIET)
 add_library(pqvpn_oqs_static INTERFACE)
 if(TARGET OQS::oqs)
   target_link_libraries(pqvpn_oqs_static INTERFACE OQS::oqs)
 else()
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.12)
+  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.16)
   # A static liboqs .pc lists OpenSSL in Requires.private, which the regular
   # imported pkg-config target omits. Carry it explicitly for static installs.
   target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS OpenSSL::Crypto)

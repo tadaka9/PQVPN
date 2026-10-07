@@ -127,8 +127,8 @@ central party to trust?*
 ### Build (Ubuntu / WSL shown; the matrix covers five native targets)
 
 Install CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, pkg-config, and
-liboqs. CMake downloads pinned Asio and spdlog sources during the first
-configure.
+liboqs 0.16.0 or newer. The native CI pins liboqs 0.16.0 on every platform;
+CMake downloads pinned Asio and spdlog sources during the first configure.
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git

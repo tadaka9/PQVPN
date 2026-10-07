@@ -47,18 +47,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes ninja-build pkg-config libssl-dev libargon2-dev
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          git clone --depth 1 --branch 0.16.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
             -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          test "$(pkg-config --modversion liboqs)" = 0.16.0
 
       - name: Install macOS dependencies
         if: matrix.family == 'macos'
         run: |
           brew install ninja pkg-config openssl@3 argon2
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          git clone --depth 1 --branch 0.16.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
             -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
@@ -66,6 +67,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/oqs-install"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           cmake --install "$RUNNER_TEMP/liboqs-build"
+          test "$(PKG_CONFIG_PATH="$RUNNER_TEMP/oqs-install/lib/pkgconfig" pkg-config --modversion liboqs)" = 0.16.0
 
       - name: Configure
         shell: bash
@@ -163,8 +165,13 @@ jobs:
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install `
             "openssl:${{ matrix.triplet }}" `
             "argon2:${{ matrix.triplet }}" `
-            "liboqs:${{ matrix.triplet }}"
+            "liboqs:${{ matrix.triplet }}" `
+            "--overlay-ports=$env:GITHUB_WORKSPACE\cmake\vcpkg-overlay"
           if ($LASTEXITCODE -ne 0) { throw 'vcpkg install failed' }
+          $oqsVersion = & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" list "liboqs:${{ matrix.triplet }}" | Out-String
+          if ($oqsVersion -notmatch 'liboqs:${{ matrix.triplet }}\s+0\.16\.0') {
+            throw "Expected liboqs 0.16.0, got: $oqsVersion"
+          }
 
       - name: Configure
         shell: pwsh

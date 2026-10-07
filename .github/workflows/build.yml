@@ -88,12 +88,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          git clone --depth 1 --branch 0.16.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
             -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          test "$(pkg-config --modversion liboqs)" = 0.16.0
           # Ensure pkg-config and CMake can find the newly installed liboqs
           echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
