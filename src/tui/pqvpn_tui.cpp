@@ -94,7 +94,8 @@ void render(const pqvpn::config::Config& config, const std::string& path) {
               << "Bootstrap peers " << config.bootstrap.size() << "\n"
               << "────────────────────────────────────────────────────────\n"
               << "[1] Refresh and validate   [2] Start node\n"
-              << "[3] Show platform details  [q] Quit\n> " << std::flush;
+              << "[3] Show platform details  [4] StrangeNet utility\n"
+              << "[q] Quit\n> " << std::flush;
 }
 
 int run_node(const Options& options) {
@@ -156,6 +157,10 @@ int main(int argc, char** argv) {
             clear_screen();
             std::cout << "Operating system: " << os_name() << "\nTunnel integration: " << tunnel_name()
                       << "\nPQTP policy: UDP preferred with measured TCP fallback\n\nPress Enter to return.";
+            std::getline(std::cin, choice);
+        } else if (choice == "4") {
+            clear_screen();
+            std::cout << "StrangeNet\n──────────\nAuthenticated peer rooms use bounded 2 KiB frames and per-sender replay counters.\nInteractive room transport is disabled in this alpha until a PQVPN session exposes a consenting peer set.\n\nPress Enter to return.";
             std::getline(std::cin, choice);
         }
     }
