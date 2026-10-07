@@ -31,8 +31,8 @@ struct CliArgs {
     bool smoke_test = false;
     bool help = false;
 #ifdef _WIN32
-    bool no_tap = false;
-    std::string tap_guid;
+    bool no_tunnel = false;
+    std::string tunnel_device;
 #endif
 };
 
@@ -44,8 +44,8 @@ void print_usage(const char* program) {
         << "      --log-level LEVEL   spdlog level hint (default: info)\n"
         << "      --smoke-test        Load/serialize config and exit\n"
 #ifdef _WIN32
-        << "      --tap-guid GUID     Use this TAP-Windows adapter (default: auto-detect)\n"
-        << "      --no-tap            Run without a TAP-Windows adapter\n"
+        << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
+        << "      --no-tunnel          Run without the PQVPN tunnel adapter\n"
 #endif
         << "  -h, --help              Show this help\n";
 }
@@ -59,14 +59,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
         } else if (value == "--smoke-test") {
             args.smoke_test = true;
 #ifdef _WIN32
-        } else if (value == "--no-tap") {
-            args.no_tap = true;
-        } else if (value == "--tap-guid") {
+        } else if (value == "--no-tunnel") {
+            args.no_tunnel = true;
+        } else if (value == "--tunnel-device") {
             if (++index >= argc) {
-                std::cerr << value << " requires an adapter GUID\n";
+                std::cerr << value << " requires a device path\n";
                 return std::nullopt;
             }
-            args.tap_guid = argv[index];
+            args.tunnel_device = argv[index];
 #endif
         } else if (value == "-c" || value == "--config") {
             if (++index >= argc) {
@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Per-OS tunnel adapter: TAP on Windows, /dev/net/tun on Linux, and the
+    // Per-OS tunnel adapter: PQVPN's driver on Windows, /dev/net/tun on Linux, and the
     // Network Extension boundary on macOS (see src/platform/adapter.hpp).
     std::unique_ptr<pqvpn::platform::Adapter> adapter;
 #ifdef _WIN32
@@ -257,17 +257,10 @@ int main(int argc, char** argv) {
     pqvpn::platform::WindowsRouteBackend route_backend;
     // Declared with the other route state (not inside the TAP block) so the
     // signal handler can roll back peer exclusions on shutdown. Safe to leave
-    // unused when no_tap is set: remove_all() on an empty manager succeeds.
+    // unused when no_tunnel is set: remove_all() on an empty manager succeeds.
     pqvpn::routing::PeerRouteManager peer_routes(route_backend);
-    const pqvpn::platform::WindowsTap* tap = nullptr;
-    if (!args.no_tap) {
-        // CLI --tap-guid wins; otherwise config "tunnel.interface_name" may
-        // supply the TAP GUID (empty = auto-detect).
-        const std::string tap_hint =
-            !args.tap_guid.empty() ? args.tap_guid : config->tunnel.interface_name;
-        adapter = pqvpn::platform::make_adapter(tap_hint);
-        auto* tap_adapter = dynamic_cast<pqvpn::platform::WindowsTapAdapter*>(adapter.get());
-        tap = tap_adapter ? &tap_adapter->device() : nullptr;
+    if (!args.no_tunnel) {
+        adapter = pqvpn::platform::make_adapter(args.tunnel_device);
     }
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
@@ -333,7 +326,7 @@ int main(int argc, char** argv) {
     });
 
 #ifdef _WIN32
-    if (adapter_active && tap) {
+    if (adapter_active) {
         try {
 
             // Route traffic through the adapter only when it actually has an
@@ -342,18 +335,18 @@ int main(int argc, char** argv) {
             // mask (prefix length 0, matching every destination) and the
             // adapter address as next hop. A /32 here would match only the
             // literal 0.0.0.0 address and send no real traffic to the TAP.
-            const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid());
+            const auto adapter_route = pqvpn::platform::find_adapter_ipv4("PQVPN Tunnel");
             if (!adapter_route) {
-                std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";
+                std::cerr << "PQVPN Tunnel has no IPv4 address; skipping route installation\n";
             } else {
-                // The TAP default route would also capture this node's own UDP
+                    // The tunnel default route would also capture this node's own UDP
                 // transport: peer datagrams would enter the adapter, get
                 // re-encrypted by the data path, and loop. Before it can win,
                 // pin every known tunnel peer (and control-plane destination)
                 // to the pre-VPN physical gateway with /32 host routes.
                 const auto physical = pqvpn::platform::find_default_route(adapter_route->interface_index);
                 if (!physical) {
-                    std::cerr << "no pre-VPN default route found; skipping TAP default route "
+                        std::cerr << "no pre-VPN default route found; skipping tunnel default route "
                               << "(installing it without peer exclusions would loop tunnel traffic)\n";
                 } else {
                     peer_routes.set_physical_gateway(
@@ -414,7 +407,7 @@ int main(int argc, char** argv) {
                             adapter_route->ipv4, adapter_route->interface_index});
 
                         if (const auto report = route_plan.commit(route_backend); report.committed) {
-                            std::cout << "default route installed through the TAP-Windows adapter\n";
+                            std::cout << "default route installed through the PQVPN Tunnel adapter\n";
                         } else {
                             // The default is down; drop the exclusions we just
                             // created so no owned routes survive a failed setup, and
@@ -426,7 +419,7 @@ int main(int argc, char** argv) {
                             }
                             node->set_peer_route_hook(nullptr);
                             std::cerr << "route installation failed (" << report.error
-                                      << "); continuing without VPN routes\n";
+                                << "); continuing without VPN routes\n";
                         }
                     }
                 }
@@ -448,7 +441,7 @@ int main(int argc, char** argv) {
     asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait([&](const asio::error_code&, int) {
 #ifdef _WIN32
-        if (adapter_active && tap) {
+        if (adapter_active) {
             // Remove the installed routes before taking the adapter down, in
             // reverse build order: peer exclusions first, then the default.
             // Removal is idempotent, so this is safe even on partial installs.

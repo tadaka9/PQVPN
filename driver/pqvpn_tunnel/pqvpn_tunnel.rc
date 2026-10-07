@@ -19,7 +19,7 @@ VS_VERSION_INFO VERSIONINFO
       BLOCK "040904B0"
       BEGIN
         VALUE "CompanyName",      "PQVPN Project\0"
-        VALUE "FileDescription",  "PQVPN Tunnel Driver (Phase 1 scaffold)\0"
+        VALUE "FileDescription",  "PQVPN Tunnel Driver\0"
         VALUE "FileVersion",      "0.1.0.0\0"
         VALUE "LegalCopyright",   "MIT License\0"
         VALUE "OriginalFilename", "pqvpn_tunnel.sys\0"

@@ -20,7 +20,7 @@ struct AdapterRouteInfo {
     std::uint32_t interface_index = 0;
 };
 
-// Finds the first IPv4 unicast address on the named adapter (GUID). Returns
+// Finds the first IPv4 unicast address on the adapter GUID or friendly name. Returns
 // nullopt when the adapter has no IPv4 configured.
 std::optional<AdapterRouteInfo> find_adapter_ipv4(const std::string& guid);
 

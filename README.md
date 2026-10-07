@@ -118,7 +118,7 @@ central party to trust?*
 |---|---|---|---|---|---|
 | Post-quantum key exchange | ✅ X25519 + ML-KEM-1024, fused | — classical only (X25519) | — classical (RSA/ECDH) | — WireGuard-based | — WireGuard fork |
 | Central coordination required | ❌ peers you configure | optional, self-managed | usually a server operator | ✅ control plane (self-hostable) | optional |
-| Elevation for typical use | ❌ egress runs unprivileged; one-time TAP setup on Windows | kernel module / often root for routing | frequently root | managed clients | similar to WireGuard |
+| Elevation for typical use | relay/exit runs unprivileged; full tunnel needs adapter setup | kernel module / often root for routing | frequently root | managed clients | similar to WireGuard |
 | Multi-hop relay paths | ✅ onion relay through your nodes | via third-party tooling | via third-party tooling | — | — |
 | Openness | MIT, fully open source | BSD-2-Clause, open | mostly open (OpenSSL) | core open; full product centers on their service | open source |
 
@@ -222,18 +222,15 @@ control plane: two files on disk that you own.
 
 Build with the supplied [`mingw-toolchain.cmake`](mingw-toolchain.cmake).
 
-- **Driver-free (works today):** run `pqvpn_node.exe --no-tap`. The node is a
+- **Relay/exit without a local adapter:** run `pqvpn_node.exe --no-tunnel`. The node is a
   full relay/exit — UDP transport, hybrid handshake, onion paths, egress exit —
   with no virtual adapter and no third-party driver in the data path.
-- **PQVPN's own NDIS tunnel driver (Phase 2):** user-mode backend implemented
-  (`WindowsOwnTunnel`), communicates via `\\.\PQVPN_TUN0`. Select with
-  `--tap-guid own` or config `"tunnel": { "interface_name": "own" }`. Kernel
-  driver Phase 1 scaffold complete; data path (Phase 2) in progress.
-- **Transitional backends:** TAP-Windows6 (one-time setup via
-  [`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1) from an
-elevated PowerShell session, then `--tap-guid {GUID}`) or Wintun (place
-  `wintun.dll` next to the binary). See [`docs/windows-tunnel-adapter.md`](docs/windows-tunnel-adapter.md)
-and the roadmap.
+- **PQVPN's own NDIS tunnel driver:** `WindowsOwnTunnel` communicates with
+  `\\.\PQVPN_TUN0`; its bounded layer-3 queues bridge NDIS packets to the C++23
+  node. Install a locally or publicly signed driver package with
+  [`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1). TAP-Windows
+  and Wintun are disabled and are not runtime fallbacks. See
+  [`docs/windows-tunnel-adapter.md`](docs/windows-tunnel-adapter.md).
 
 ## Project status
 
@@ -270,13 +267,14 @@ The matrix follows Dvx3-Backup-Manager: Linux x86_64/ARM64, macOS Intel/ARM64, a
 | `windows-x86_64` | windows-2022 | MSVC (VS 2022) + vcpkg |
 
 Windows ARM64 is outside this baseline and is not claimed as verified.
-The Windows driver workflow compiles a user-mode test utility and validates
-HLK configuration XML; it does not build/sign a kernel driver or certify HLK.
-Driver signing and release qualification require the separate WDK/native gates.
+The Windows driver workflow restores Microsoft's supported WDK package, builds
+the x64 kernel driver, compiles the IRP test utility, and validates the HLK plan.
+The CI artifact is unsigned; public Windows loading still requires Microsoft
+attestation signing and the native release gate.
 
-Each job verifies the binary's architecture and CLI smoke test, then uploads a
-compile-only artifact. These artifacts are **not** release builds — see the
-release criteria in [`ROADMAP.md`](ROADMAP.md).
+Each job verifies the binary architecture, `--help`, and both configuration
+smoke tests. A `v*` tag creates an immutable GitHub prerelease only after all
+five native matrix entries succeed; ordinary branch runs retain CI artifacts.
 
 ## Platform adapters
 
@@ -287,7 +285,7 @@ device code:
 
 | OS | Adapter | When it cannot attach |
 |---|---|---|
-| Windows x64 / ARM64 | Driver-free relay/exit mode (`--no-tap`); transitional TAP-Windows (`--tap-guid`) or Wintun backends; destination is PQVPN's own NDIS tunnel driver ([design](docs/windows-tunnel-adapter.md)); transactional route installation in user mode | explicit `--no-tap`: relay/exit only, no local full tunnel. Adapter requested but unavailable: fail closed (exit 1) — a VPN node without its adapter is useless here |
+| Windows x64 | PQVPN's own NDIS layer-3 tunnel driver ([design](docs/windows-tunnel-adapter.md)); transactional route installation in user mode | explicit `--no-tunnel`: relay/exit only. Adapter requested but unavailable: fail closed (exit 1) |
 | Linux | `/dev/net/tun` layer-3 interface (root or CAP_NET_ADMIN); address/route/DNS left to a network manager | warn and continue UDP-only |
 | macOS | Network Extension boundary; an `NEPacketTunnelProvider` host plugs in the packet flow via `attach_extension()` | core-to-device writes drop until attached; node runs UDP-only |
 

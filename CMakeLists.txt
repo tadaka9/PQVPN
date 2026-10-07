@@ -151,13 +151,11 @@ target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 # control plane, so it needs the signature library as well.
 target_link_libraries(node_module_lib PUBLIC crypto_utils_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
 
-# Per-OS tunnel adapter layer (see src/platform/adapter.hpp): TAP-Windows on
+# Per-OS tunnel adapter layer (see src/platform/adapter.hpp): PQVPN TUN on
 # Windows, /dev/net/tun on Linux, and the Network Extension boundary on macOS.
 set(PQVPN_PLATFORM_SOURCES "")
 if(WIN32)
   list(APPEND PQVPN_PLATFORM_SOURCES
-    src/platform/windows_tap.cpp
-    src/platform/windows_wintun.cpp
     src/platform/windows_own_tunnel.cpp
     src/platform/windows_routes.cpp
     src/platform/windows_adapter.cpp

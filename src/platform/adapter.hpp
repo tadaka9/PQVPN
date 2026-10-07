@@ -10,7 +10,7 @@
 namespace pqvpn::platform {
 
 // Uniform tunnel-device boundary for the portable PQVPN core. Each supported
-// OS provides one implementation through make_adapter(): a TAP-Windows device
+// OS provides one implementation through make_adapter(): PQVPN's Windows TUN
 // on Windows, a /dev/net/tun layer-3 interface on Linux, and the Network
 // Extension bridge on macOS.
 //
@@ -45,7 +45,7 @@ public:
 };
 
 // Per-OS factory (defined by the host OS's platform sources). device_hint
-// selects a specific device where the OS supports it — a TAP-Windows GUID on
+// selects a specific device where the OS supports it — a driver path on
 // Windows, an interface name on Linux — and is ignored on macOS. Construction
 // must not touch any device; only open() may do that.
 std::unique_ptr<Adapter> make_adapter(std::string_view device_hint = {});

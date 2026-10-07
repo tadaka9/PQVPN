@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main, future]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -110,15 +111,19 @@ jobs:
             ldd build/pqvpn_node | tee runtime-dependencies.txt
           fi
 
-      - name: Upload compile-only artifact
+      - name: Package verified native build
+        shell: bash
+        run: |
+          stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir -p "$stage"
+          cp build/pqvpn_node config.json config.udp2raw.json LICENSE README.md "$stage/"
+          tar -czf "$stage.tar.gz" "$stage"
+
+      - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
-          name: compile-only-${{ matrix.target }}
-          path: |
-            build/pqvpn_node
-            binary-type.txt
-            runtime-dependencies.txt
-            ${{ runner.temp }}/pqvpn-console.png
+          name: release-candidate-${{ matrix.target }}
+          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -138,6 +143,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
+
+      - uses: microsoft/setup-msbuild@v2
 
       - name: Install dependencies with vcpkg
         shell: pwsh
@@ -161,6 +168,17 @@ jobs:
 
       - name: Compile node
         run: cmake --build build --config Release --target pqvpn_node --parallel 2
+
+      - name: Compile PQVPN x64 tunnel driver
+        shell: pwsh
+        run: |
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /restore `
+            /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off `
+            /p:SkipPackageVerification=true /m
+          if ($LASTEXITCODE -ne 0) { throw 'PQVPN tunnel driver build failed' }
+          if (-not (Test-Path driver/build/x64/Release/pqvpn_tunnel.sys)) {
+            throw 'Driver build did not produce pqvpn_tunnel.sys'
+          }
 
       - name: Verify architecture and CLI startup
         shell: pwsh
@@ -186,20 +204,25 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
-      - name: Upload compile-only artifact
+      - name: Package verified native build
+        shell: pwsh
+        run: |
+          $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item build/Release/pqvpn_node.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
+          Get-ChildItem build/Release/*.dll -ErrorAction SilentlyContinue | Copy-Item -Destination $stage
+          Compress-Archive -Path $stage -DestinationPath "$stage.zip"
+
+      - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
-          name: compile-only-${{ matrix.target }}
-          path: |
-            build/Release/pqvpn_node.exe
-            build/Release/*.dll
-            binary-headers.txt
-            runtime-dependencies.txt
+          name: release-candidate-${{ matrix.target }}
+          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.zip
           if-no-files-found: error
           retention-days: 7
 
   compile-matrix-complete:
-    name: Compile matrix complete (not release-qualified)
+    name: Native matrix complete
     if: always()
     needs: [unix, windows]
     runs-on: ubuntu-24.04
@@ -211,4 +234,38 @@ jobs:
         run: |
           test "$UNIX_RESULT" = success
           test "$WINDOWS_RESULT" = success
-          echo 'Compile-only artifacts are not functional VPN releases.'
+          echo 'Every native configure, compile, help and smoke test passed.'
+
+  publish-tagged-release:
+    name: Publish matrix-verified prerelease
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [compile-matrix-complete]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download every matrix artifact
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-candidate-*
+          path: release
+          merge-multiple: true
+      - name: Verify complete release set and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find release -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)" = 5
+          (cd release && sha256sum *.zip *.tar.gz 2>/dev/null | sort -k2 > SHA256SUMS)
+      - name: Create immutable GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 && {
+            echo "Release ${GITHUB_REF_NAME} already exists; refusing to mutate it." >&2
+            exit 1
+          }
+          gh release create "${GITHUB_REF_NAME}" release/* \
+            --repo "${GITHUB_REPOSITORY}" --verify-tag --prerelease --generate-notes \
+            --title "PQVPN ${GITHUB_REF_NAME}"

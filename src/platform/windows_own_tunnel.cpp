@@ -12,7 +12,6 @@ namespace pqvpn::platform {
 namespace {
 
 constexpr LPCWSTR kDefaultDeviceName = L"\\\\.\\PQVPN_TUN0";
-constexpr DWORD kReadTimeoutMs = 100;
 constexpr size_t kMaxPacketSize = 65536;
 
 std::runtime_error windows_error(const std::string& operation, DWORD code = GetLastError()) {
@@ -33,8 +32,16 @@ bool WindowsOwnTunnel::open(InboundHandler inbound) {
         inbound_handler_ = std::move(inbound);
 
         // Open the device file created by our NDIS driver
-        LPCWSTR name = (device_name_.empty()) ? kDefaultDeviceName : 
-            reinterpret_cast<LPCWSTR>(device_name_.c_str());
+        std::wstring custom_name;
+        if (!device_name_.empty()) {
+            const int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                device_name_.c_str(), -1, nullptr, 0);
+            if (count <= 1) return false;
+            custom_name.resize(static_cast<std::size_t>(count));
+            MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                device_name_.c_str(), -1, custom_name.data(), count);
+        }
+        LPCWSTR name = device_name_.empty() ? kDefaultDeviceName : custom_name.c_str();
         
         handle_ = CreateFileW(
             name,
@@ -42,7 +49,7 @@ bool WindowsOwnTunnel::open(InboundHandler inbound) {
             0,                    // No sharing (exclusive access)
             nullptr,              // Default security attributes
             OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
             nullptr);
 
         if (handle_ == INVALID_HANDLE_VALUE) {
@@ -50,12 +57,6 @@ bool WindowsOwnTunnel::open(InboundHandler inbound) {
             // Failed to open device - caller will handle logging
             return false;
         }
-
-        // Configure timeouts for non-blocking reads
-        COMMTIMEOUTS timeouts = {};
-        timeouts.ReadIntervalTimeout = kReadTimeoutMs;
-        timeouts.ReadTotalTimeoutConstant = kReadTimeoutMs;
-        SetCommTimeouts(handle_, &timeouts);
 
         open_.store(true);
 
@@ -75,38 +76,46 @@ bool WindowsOwnTunnel::open(InboundHandler inbound) {
 
 void WindowsOwnTunnel::receive_loop() {
     std::vector<uint8_t> buffer(kMaxPacketSize);
+    OVERLAPPED overlapped{};
+    overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!overlapped.hEvent) return;
 
     while (!stopping_.load()) {
+        ResetEvent(overlapped.hEvent);
         DWORD bytes_read = 0;
         BOOL success = ReadFile(
             handle_,
             buffer.data(),
             static_cast<DWORD>(buffer.size()),
-            &bytes_read,
-            nullptr);
+            nullptr,
+            &overlapped);
 
         if (!success) {
             const DWORD error = GetLastError();
-            if (error == ERROR_TIMEOUT || error == ERROR_IO_PENDING) {
-                // Timeout or pending I/O - continue polling
+            if (error == ERROR_NO_MORE_ITEMS) {
+                Sleep(2);
                 continue;
             }
-
-            break;
+            if (error != ERROR_IO_PENDING) break;
+            const DWORD wait = WaitForSingleObject(overlapped.hEvent, 250);
+            if (wait == WAIT_TIMEOUT) {
+                CancelIoEx(handle_, &overlapped);
+                GetOverlappedResult(handle_, &overlapped, &bytes_read, TRUE);
+                continue;
+            }
+            if (wait != WAIT_OBJECT_0 ||
+                !GetOverlappedResult(handle_, &overlapped, &bytes_read, FALSE)) {
+                if (stopping_.load() && GetLastError() == ERROR_OPERATION_ABORTED) break;
+                break;
+            }
         }
 
         if (bytes_read > 0 && bytes_read <= kMaxPacketSize) {
             Packet packet(buffer.begin(), buffer.begin() + bytes_read);
-            
-            // Enqueue with backpressure
-            if (!enqueue_packet(std::move(packet))) {
-
-            }
+            try { inbound_handler_(std::move(packet)); } catch (...) { break; }
         }
     }
-
-    // Drain remaining packets on exit
-    drain_queues();
+    CloseHandle(overlapped.hEvent);
 }
 
 bool WindowsOwnTunnel::write(const Packet& packet) noexcept {
@@ -122,13 +131,19 @@ bool WindowsOwnTunnel::write(const Packet& packet) noexcept {
         }
 
         DWORD bytes_written = 0;
+        OVERLAPPED overlapped{};
+        overlapped.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!overlapped.hEvent) return false;
         BOOL success = WriteFile(
             handle_,
             packet.data(),
             static_cast<DWORD>(packet.size()),
-            &bytes_written,
-            nullptr);
-
+            nullptr,
+            &overlapped);
+        if (!success && GetLastError() == ERROR_IO_PENDING) {
+            success = GetOverlappedResult(handle_, &overlapped, &bytes_written, TRUE);
+        }
+        CloseHandle(overlapped.hEvent);
         return success && static_cast<size_t>(bytes_written) == packet.size();
 
     } catch (...) {
@@ -141,6 +156,8 @@ void WindowsOwnTunnel::close() noexcept {
         if (!open_.load()) return;
 
         stopping_.store(true);
+
+        if (handle_ != INVALID_HANDLE_VALUE) CancelIoEx(handle_, nullptr);
 
         // Wait for receiver thread to finish
         if (receiver_thread_.joinable()) {
@@ -169,38 +186,6 @@ std::string WindowsOwnTunnel::describe() const {
         return "PQVPN tunnel driver (default device)";
     }
     return "PQVPN tunnel driver (" + device_name_ + ")";
-}
-
-bool WindowsOwnTunnel::enqueue_packet(Packet&& packet) {
-    size_t current_size = queue_size_.load();
-    if (current_size >= kQueueCapacity) {
-        return false; // Queue full - backpressure
-    }
-
-    size_t tail = queue_tail_.fetch_add(1);
-    receive_queue_[tail % kQueueCapacity] = std::move(packet);
-    queue_size_.store(current_size + 1);
-    return current_size < kQueueCapacity;
-}
-
-std::vector<uint8_t> WindowsOwnTunnel::dequeue_packet() {
-    size_t head = queue_head_.fetch_add(1);
-    Packet packet = std::move(receive_queue_[head % kQueueCapacity]);
-    queue_size_.store(queue_size_.load() - 1);
-    return packet;
-}
-
-void WindowsOwnTunnel::drain_queues() {
-    while (queue_size_.load() > 0) {
-        Packet packet = dequeue_packet();
-        try {
-            if (inbound_handler_) {
-                inbound_handler_(std::move(packet));
-            }
-        } catch (...) {
-            // Best-effort delivery during drain
-        }
-    }
 }
 
 } // namespace pqvpn::platform
