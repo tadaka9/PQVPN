@@ -24,6 +24,7 @@ jobs:
           test -s site/index.html
           test -s site/styles.css
           test -s site/app.js
+          test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
       - name: Stage the Pages root
