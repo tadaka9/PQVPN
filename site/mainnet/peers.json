@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "network": "pqvpn-mainnet-alpha",
+  "updated_at": "2026-10-07",
+  "registry_url": "https://tadaka9.github.io/PQVPN/mainnet/peers.json",
+  "notice": "Opt-in discovery registry. An entry does not guarantee availability, safety, capacity, egress access or endorsement.",
+  "peers": []
+}

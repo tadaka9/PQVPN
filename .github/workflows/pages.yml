@@ -1,0 +1,55 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: [site/**, assets/brand/**, docs/assets/**, .github/workflows/pages.yml]
+  pull_request:
+    branches: [main]
+    paths: [site/**, assets/brand/**, docs/assets/**, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate static site and Mainnet registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s site/index.html
+          test -s site/styles.css
+          test -s site/app.js
+          jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
+          grep -F 'id="mainnet"' site/index.html >/dev/null
+      - name: Stage the Pages root
+        shell: bash
+        run: |
+          mkdir -p public/assets/brand public/docs/assets
+          cp -R site/. public/
+          cp -R assets/brand/. public/assets/brand/
+          cp docs/assets/pqvpn-console.png public/docs/assets/
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: public
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
