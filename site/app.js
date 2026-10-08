@@ -6,8 +6,103 @@ function escapeText(value){const node=document.createElement('span');node.textCo
 function safeHref(value){try{const url=new URL(String(value),location.href);return url.protocol==='https:'?escapeText(url.href):'#'}catch{return'#'}}
 document.querySelector('#open-registry')?.addEventListener('click',event=>{const details=document.querySelector('#registry-details');const open=event.currentTarget.getAttribute('aria-expanded')==='true';event.currentTarget.setAttribute('aria-expanded',String(!open));event.currentTarget.textContent=open?'Open peer registry':'Close peer registry';details.hidden=open});
 
-const downloadButtons=[...document.querySelectorAll('[data-platform-download]')];const downloadButton=document.querySelector('#platform-download');const detectedLabel=document.querySelector('#platform-detected');
-async function configurePlatformDownload(){const ua=navigator.userAgent.toLowerCase();const platform=(navigator.userAgentData?.platform||navigator.platform||'').toLowerCase();let target='';let label='your platform';if(platform.includes('win')||ua.includes('windows')){target='windows-x86_64.zip';label='Windows x86_64'}else if(platform.includes('mac')||ua.includes('mac os')){const arm=ua.includes('arm64')||ua.includes('aarch64')||navigator.userAgentData?.architecture==='arm';target=arm?'macos-arm64.tar.gz':'macos-x86_64.tar.gz';label=arm?'macOS Apple Silicon':'macOS Intel'}else if(platform.includes('linux')||ua.includes('linux')){const arm=ua.includes('aarch64')||ua.includes('arm64')||navigator.userAgentData?.architecture==='arm';target=arm?'linux-arm64.tar.gz':'linux-x86_64.tar.gz';label=arm?'Linux ARM64':'Linux x86_64'}else{detectedLabel.textContent='Platform could not be identified · use the release archive';return}detectedLabel.textContent=`Detected ${label} · checking verified builds`;try{const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{headers:{Accept:'application/vnd.github+json'}});if(!response.ok)throw new Error(`GitHub API ${response.status}`);const releases=await response.json();const release=releases.find(item=>!item.draft&&item.assets?.some(asset=>asset.name.endsWith(target)));const asset=release?.assets.find(item=>item.name.endsWith(target));if(!asset)throw new Error('No matching verified build is published yet');for(const button of downloadButtons){button.href=asset.browser_download_url;button.setAttribute('download','')}downloadButton.textContent=`Download for ${label}`;detectedLabel.textContent=`${label} · ${release.tag_name} · direct matrix-verified download`}catch(error){const tag='v0.0.1-alpha-10072026-David0';const direct=`https://github.com/tadaka9/PQVPN/releases/download/${tag}/pqvpn-${tag}-${target}`;for(const button of downloadButtons){button.href=direct;button.setAttribute('download','')}downloadButton.textContent=`Download for ${label}`;detectedLabel.textContent=`Detected ${label} · direct ${tag} download`}}
+const releasePage='https://github.com/tadaka9/PQVPN/releases';
+const downloadButtons=[...document.querySelectorAll('[data-platform-download]')];
+const downloadButton=document.querySelector('#platform-download');
+const detectedLabel=document.querySelector('#platform-detected');
+const releaseLabel=document.querySelector('#download-release');
+const downloadLinks=new Map([...document.querySelectorAll('[data-download-key]')].map(link=>[link.dataset.downloadKey,link]));
+const assetMatchers={
+  'windows-x64':name=>name.endsWith('windows-x86_64.zip'),
+  'macos-arm64':name=>name.endsWith('macos-arm64.tar.gz'),
+  'macos-x64':name=>name.endsWith('macos-x86_64.tar.gz'),
+  'deb-x64':name=>name.endsWith('_amd64.deb'),
+  'deb-arm64':name=>name.endsWith('_arm64.deb'),
+  'rpm-x64':name=>name.endsWith('.x86_64.rpm'),
+  'rpm-arm64':name=>name.endsWith('.aarch64.rpm'),
+  arch:name=>name==='PKGBUILD',
+  'linux-x64':name=>name.endsWith('linux-x86_64.tar.gz'),
+  'linux-arm64':name=>name.endsWith('linux-arm64.tar.gz')
+};
+async function platformFacts(){
+  const ua=navigator.userAgent.toLowerCase();
+  const basicPlatform=(navigator.userAgentData?.platform||navigator.platform||'').toLowerCase();
+  let architecture='';
+  let bitness='';
+  if(navigator.userAgentData?.getHighEntropyValues){
+    try{const hints=await navigator.userAgentData.getHighEntropyValues(['architecture','bitness']);architecture=(hints.architecture||'').toLowerCase();bitness=(hints.bitness||'').toLowerCase()}catch{}
+  }
+  if(!architecture){
+    if(/aarch64|arm64/.test(ua))architecture='arm';
+    else if(/x86_64|x64|win64|amd64/.test(ua))architecture='x86';
+  }
+  const arm64=architecture==='arm'&&bitness!=='32';
+  const x64=architecture==='x86'&&bitness!=='32';
+  let os='unknown';
+  if(/android/.test(ua))os='android';
+  else if(/iphone|ipad|ipod/.test(ua))os='ios';
+  else if(basicPlatform.includes('win')||ua.includes('windows'))os='windows';
+  else if(basicPlatform.includes('mac')||ua.includes('mac os'))os='macos';
+  else if(basicPlatform.includes('linux')||ua.includes('linux'))os='linux';
+  let distro='';
+  if(/arch linux|manjaro/.test(ua))distro='arch';
+  else if(/fedora|rhel|red hat|centos|opensuse|suse/.test(ua))distro='rpm';
+  else if(/ubuntu|debian|linux mint|pop!_os/.test(ua))distro='deb';
+  return{os,arm64,x64,distro,architectureKnown:arm64||x64};
+}
+function recommendationFor(facts){
+  const arch=facts.arm64?'arm64':'x64';
+  if(facts.os==='windows')return facts.arm64?null:'windows-x64';
+  if(facts.os==='macos')return facts.architectureKnown?`macos-${arch}`:null;
+  if(facts.os==='linux'){
+    if(facts.distro==='arch')return'arch';
+    if(facts.distro==='deb')return`deb-${arch}`;
+    if(facts.distro==='rpm')return`rpm-${arch}`;
+    return facts.architectureKnown?`linux-${arch}`:null;
+  }
+  return null;
+}
+function platformDescription(facts){
+  const arch=facts.arm64?'ARM64':facts.x64?'x86-64':'architecture unknown';
+  const names={windows:'Windows',macos:'macOS',linux:'Linux',android:'Android',ios:'iOS',unknown:'unknown system'};
+  return`${names[facts.os]} · ${arch}`;
+}
+async function configurePlatformDownload(){
+  const facts=await platformFacts();
+  const recommendation=recommendationFor(facts);
+  detectedLabel.textContent=`Detected ${platformDescription(facts)} · checking published packages`;
+  try{
+    const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{headers:{Accept:'application/vnd.github+json'}});
+    if(!response.ok)throw new Error(`GitHub API ${response.status}`);
+    const releases=(await response.json()).filter(release=>!release.draft);
+    const release=releases.find(candidate=>Object.values(assetMatchers).some(match=>candidate.assets?.some(asset=>match(asset.name))));
+    if(!release)throw new Error('No package release is published yet');
+    for(const[key,link]of downloadLinks){
+      const asset=release.assets.find(item=>assetMatchers[key](item.name));
+      if(asset){link.href=asset.browser_download_url;link.removeAttribute('aria-disabled');link.setAttribute('download','')}
+      else{link.href=release.html_url;link.setAttribute('aria-disabled','true')}
+    }
+    releaseLabel.textContent=`${release.tag_name} · SHA256SUMS is included with every published format`;
+    const recommendedLink=recommendation?downloadLinks.get(recommendation):null;
+    if(recommendedLink&&recommendedLink.getAttribute('aria-disabled')!=='true'){
+      recommendedLink.classList.add('recommended');
+      for(const button of downloadButtons){button.href=recommendedLink.href;button.setAttribute('download','')}
+      downloadButton.textContent=`Download ${recommendedLink.textContent.trim()}`;
+      detectedLabel.textContent=`Detected ${platformDescription(facts)} · recommended package selected`;
+    }else{
+      for(const button of downloadButtons)button.href=release.html_url;
+      downloadButton.textContent='Choose a verified build';
+      document.querySelector('#download-panel').open=true;
+      const reason=(facts.os==='android'||facts.os==='ios')?'Mobile platforms are not supported':'Choose your architecture or package manager';
+      detectedLabel.textContent=`${platformDescription(facts)} · ${reason}`;
+    }
+  }catch(error){
+    for(const button of downloadButtons)button.href=releasePage;
+    downloadButton.textContent='Open verified releases';
+    detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;
+    releaseLabel.textContent=error.message;
+  }
+}
 configurePlatformDownload();
 
 const strangeForm=document.querySelector('#strangenet-connect');const strangeRoom=document.querySelector('#strangenet-room');const strangePeer=document.querySelector('#strangenet-peer');const strangeStatus=document.querySelector('#strangenet-status');

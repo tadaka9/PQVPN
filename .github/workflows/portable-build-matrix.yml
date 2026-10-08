@@ -435,7 +435,7 @@ jobs:
       - name: Download every matrix artifact
         uses: actions/download-artifact@v7
         with:
-          pattern: release-candidate-*
+          pattern: '*'
           path: release
           merge-multiple: true
       - name: Verify complete release set and checksums
@@ -443,7 +443,10 @@ jobs:
         run: |
           set -euo pipefail
           test "$(find release -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)" = 5
-          (cd release && sha256sum *.zip *.tar.gz 2>/dev/null | sort -k2 > SHA256SUMS)
+          test "$(find release -maxdepth 1 -type f -name '*.deb' | wc -l)" = 2
+          test "$(find release -maxdepth 1 -type f -name '*.rpm' | wc -l)" = 2
+          test -s release/PKGBUILD
+          (cd release && sha256sum *.zip *.tar.gz *.deb *.rpm PKGBUILD | sort -k2 > SHA256SUMS)
       - name: Create immutable GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}

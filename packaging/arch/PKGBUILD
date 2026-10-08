@@ -1,5 +1,5 @@
 pkgname=pqvpn
-pkgver=0.0.2.alpha.20261008.relay
+pkgver=0.0.2.alpha.20261008.packages
 pkgrel=1
 pkgdesc='Post-quantum peer-to-peer VPN node and consoles'
 arch=('x86_64' 'aarch64')
@@ -7,11 +7,12 @@ url='https://tadaka9.github.io/PQVPN/'
 license=('MIT')
 depends=('argon2' 'liboqs' 'openssl' 'qt6-base')
 makedepends=('cmake' 'git' 'ninja')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/tadaka9/PQVPN/archive/refs/tags/v0.0.2-alpha-20261008-relay.tar.gz")
-sha256sums=('de7c55266f64f70b871adc65c3b89d9c4ef61f3c9f92a0510dc16fd8d7c56615')
+_commit='eb80e7aeb5c51e7ff26eaf3c8c4c969e5bc27cf2'
+source=("$pkgname-$pkgver.tar.gz::https://github.com/tadaka9/PQVPN/archive/$_commit.tar.gz")
+sha256sums=('c055603f62645c9b839de15e2cc092fdc09a7a7c52eb13e4226ccaa8bd974586')
 
 build() {
-  cmake -S "PQVPN-0.0.2-alpha-20261008-relay" -B build -G Ninja \
+  cmake -S "PQVPN-$_commit" -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_TESTING=OFF \
@@ -21,7 +22,7 @@ build() {
 
 check() {
   build/pqvpn_node --smoke-test \
-    --config "PQVPN-0.0.2-alpha-20261008-relay/config.json"
+    --config "PQVPN-$_commit/config.json"
   QT_QPA_PLATFORM=offscreen build/pqvpn_monitor --smoke-test
 }
 
@@ -29,12 +30,12 @@ package() {
   install -Dm755 build/pqvpn_node "$pkgdir/usr/bin/pqvpn_node"
   install -Dm755 build/pqvpn_tui "$pkgdir/usr/bin/pqvpn_tui"
   install -Dm755 build/pqvpn_monitor "$pkgdir/usr/bin/pqvpn_monitor"
-  install -Dm644 "PQVPN-0.0.2-alpha-20261008-relay/config.json" \
+  install -Dm644 "PQVPN-$_commit/config.json" \
     "$pkgdir/usr/share/pqvpn/examples/config.json"
-  install -Dm644 "PQVPN-0.0.2-alpha-20261008-relay/config.udp2raw.json" \
+  install -Dm644 "PQVPN-$_commit/config.udp2raw.json" \
     "$pkgdir/usr/share/pqvpn/examples/config.udp2raw.json"
-  install -Dm644 "PQVPN-0.0.2-alpha-20261008-relay/README.md" \
+  install -Dm644 "PQVPN-$_commit/README.md" \
     "$pkgdir/usr/share/doc/pqvpn/README.md"
-  install -Dm644 "PQVPN-0.0.2-alpha-20261008-relay/LICENSE" \
+  install -Dm644 "PQVPN-$_commit/LICENSE" \
     "$pkgdir/usr/share/licenses/pqvpn/LICENSE"
 }
