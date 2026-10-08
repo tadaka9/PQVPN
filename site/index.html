@@ -19,7 +19,7 @@
       <button class="menu" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <div class="nav-links" id="nav-links">
         <a href="#features">Features</a><a href="#architecture">Architecture</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#ethics">Trust</a>
-        <a class="nav-cta" href="https://github.com/tadaka9/PQVPN/releases">Download</a>
+        <a class="nav-cta" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/latest/download/pqvpn-linux-x86_64.tar.gz">Download</a>
       </div>
     </nav>
   </header>
@@ -30,7 +30,7 @@
         <p class="eyebrow"><span class="pulse"></span> Experimental public alpha · C++23</p>
         <h1>Paths change.<br><span>Trust stays yours.</span></h1>
         <p class="lead">Build a private network between machines you control, with hybrid post-quantum identity, auditable peer discovery and native tools for desktop, terminal and automation.</p>
-        <div class="actions"><a class="button primary" id="platform-download" href="https://github.com/tadaka9/PQVPN/releases">Find my verified build</a><a class="button ghost" href="#mainnet">Explore Mainnet</a></div>
+        <div class="actions"><a class="button primary" id="platform-download" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/latest/download/pqvpn-linux-x86_64.tar.gz">Find my verified build</a><a class="button ghost" href="#mainnet">Explore Mainnet</a></div>
         <p class="detected" id="platform-detected" aria-live="polite">Detecting your platform · all downloads remain selectable</p>
         <div class="proof" aria-label="Project facts"><span>MIT licensed</span><span>No account</span><span>No telemetry</span><span>5 native targets</span></div>
       </div>
@@ -70,7 +70,8 @@
       <div class="network-panel reveal">
         <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading registry</strong><p id="registry-meta">Checking the versioned peer list…</p></div><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div>
         <div class="peer-list" id="peer-list" aria-live="polite"><p class="empty">Loading declared peers…</p></div>
-        <div class="network-actions"><a class="button primary" href="mainnet/peers.json">Open peer registry</a><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
+        <div class="network-actions"><button class="button primary" id="open-registry" type="button" aria-expanded="false" aria-controls="registry-details">Open peer registry</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
+        <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download signed registry JSON</a></div>
       </div>
     </section>
 
@@ -78,6 +79,13 @@
       <div class="strange-mark reveal" aria-hidden="true">Σ<sub>peer</sub></div>
       <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><span class="strange-claim">The First Chat on Internet*</span><h2>Enter StrangeNet.</h2><p>Two or more established PQVPN peers can share a bounded conversation room without a central chat service. Messages carry room and sender identity, monotonic anti-replay sequence and timestamp; the PQVPN session remains the authenticated transport boundary.</p><small class="strange-joke">*According to the first peer who joined this room. The internet’s historians have declined to confirm.</small></div>
       <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB message limit and strict parsing keep conversation traffic predictable.</p></article><article><strong>Room replay defense</strong><p>Per-sender monotonic counters reject duplicate delivery inside each room.</p></article></div>
+      <form class="strange-connect reveal" id="strangenet-connect" novalidate>
+        <div class="strange-connect-copy"><span class="connection-index">LOCAL CLIENT BRIDGE / 01</span><h3>Open an authenticated room</h3><p>The page prepares a local <code>pqvpn://</code> request. Your installed PQVPN client validates the peer and opens the room; no room secret is sent to this website.</p></div>
+        <label>Room name<input id="strangenet-room" name="room" autocomplete="off" maxlength="128" placeholder="riemann-lab" required></label>
+        <label>Peer identity<input id="strangenet-peer" name="peer" autocomplete="off" inputmode="text" minlength="64" maxlength="64" pattern="[0-9A-Fa-f]{64}" placeholder="64 hexadecimal characters" required></label>
+        <div class="strange-connect-actions"><button class="button primary" type="submit">Connect with PQVPN</button><button class="button ghost" id="copy-strangenet-command" type="button">Copy CLI command</button></div>
+        <p class="connection-status" id="strangenet-status" aria-live="polite">Waiting for a room and an authenticated peer identity.</p>
+      </form>
       <p class="strange-note reveal">Direct authenticated rooms are available from the node CLI. Public-room discovery remains disabled until its moderation and abuse model is reviewed.</p>
     </section>
 
