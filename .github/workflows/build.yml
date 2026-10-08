@@ -88,7 +88,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: hardening-deps-v3-linux-x86_64-${{ hashFiles('.github/dependencies.env') }}
+          key: hardening-deps-v4-portable-linux-x86_64-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Verify runner build tools
         run: |
@@ -113,8 +113,11 @@ jobs:
           popd
 
           git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
-          make -C "$RUNNER_TEMP/argon2" -j2
-          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+          # Cached artifacts can run on a different CPU than the runner that
+          # built them. Disable Argon2's default -march=native selection so a
+          # cache hit cannot introduce unsupported instructions (SIGILL).
+          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none -j2
+          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none PREFIX="$prefix" install
           mkdir -p "$prefix/lib/pkgconfig"
           cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
           prefix=$prefix

@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+          key: native-deps-v4-portable-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Install build tools on Linux
         if: matrix.family == 'linux'
@@ -79,8 +79,11 @@ jobs:
           popd
 
           git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
-          make -C "$RUNNER_TEMP/argon2" -j2
-          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+          # GitHub may restore this cache on a runner with a different CPU.
+          # Use Argon2's portable reference implementation instead of the
+          # default -march=native build to prevent illegal instructions.
+          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none -j2
+          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none PREFIX="$prefix" install
           mkdir -p "$prefix/lib/pkgconfig"
           cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
           prefix=$prefix
