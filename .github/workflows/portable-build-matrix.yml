@@ -398,7 +398,7 @@ jobs:
           New-Item -ItemType Directory -Path $stage | Out-Null
           Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
-          if (-not (Test-Path "$stage\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
+          if (-not (Test-Path "$stage\bin\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
 
       - name: Upload release candidate
