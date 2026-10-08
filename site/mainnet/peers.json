@@ -1,8 +1,26 @@
 {
   "schema_version": 1,
   "network": "pqvpn-mainnet-alpha",
-  "updated_at": "2026-10-07",
+  "updated_at": "2026-10-08",
   "registry_url": "https://tadaka9.github.io/PQVPN/mainnet/peers.json",
   "notice": "Opt-in discovery registry. An entry does not guarantee availability, safety, capacity, egress access or endorsement.",
-  "peers": []
+  "peers": [
+    {
+      "name": "PQVPN Helsinki Community Exit",
+      "endpoint": "static.110.251.108.65.clients.your-server.de:9090",
+      "ipv4": "65.108.251.110",
+      "ipv6": "2a01:4f9:c012:add9::1",
+      "region": "Helsinki, Finland",
+      "roles": ["bootstrap", "relay", "egress"],
+      "transports": ["udp", "tcp"],
+      "internal_dns": ["10.8.0.1", "fd00::1"],
+      "ed25519_fingerprint": "SHA256:7795134473ee185052473c863ea0b9f7f1bc083fe84642babef6a013448d53d7",
+      "ml_dsa_87_fingerprint": "SHA256:52d9248df6e19405da12d88f616d7cdcc08778a950ab105ff8e002114bedb773",
+      "policy_url": "https://tadaka9.github.io/PQVPN/mainnet/hel1-exit-policy.html",
+      "abuse_contact": "https://github.com/tadaka9/PQVPN/issues/new?labels=abuse",
+      "consent_recorded_at": "2026-10-08",
+      "release": "v0.0.2-alpha-20261008-relay",
+      "status": "experimental"
+    }
+  ]
 }

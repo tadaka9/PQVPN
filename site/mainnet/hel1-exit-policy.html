@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>PQVPN Helsinki exit policy</title>
+  <style>
+    body{max-width:760px;margin:0 auto;padding:3rem 1.5rem;background:#060713;color:#eef4ff;font:16px/1.65 system-ui,sans-serif}a{color:#19e6ff}h1,h2{line-height:1.15}code{background:#12172e;padding:.15rem .35rem;border-radius:.25rem}.notice{border:1px solid #35406b;border-radius:.75rem;padding:1rem 1.2rem;background:#0c1024}
+  </style>
+</head>
+<body>
+  <p><a href="../">← PQVPN Mainnet</a></p>
+  <h1>Helsinki community exit policy</h1>
+  <p class="notice"><strong>Experimental service.</strong> PQVPN has not received an independent security audit. Availability, capacity and fitness for any purpose are not guaranteed.</p>
+
+  <h2>Endpoint</h2>
+  <p><code>static.110.251.108.65.clients.your-server.de:9090</code> provides bootstrap, relay and user-space egress service over the published PQVPN protocol. IPv4 and IPv6 are enabled. Internal filtered DNS is available to connected clients at <code>10.8.0.1</code> and <code>fd00::1</code>.</p>
+
+  <h2>Acceptable use</h2>
+  <p>Do not use this node for malware delivery, phishing, credential theft, unauthorized access, denial of service, spam, exploitation, harassment, distribution of illegal material, or infringement of third-party rights. Automated high-volume scanning and deliberate attempts to degrade the service are prohibited.</p>
+
+  <h2>DNS filtering</h2>
+  <p>The optional internal Pi-hole resolver blocks known malicious and phishing domains using OISD, URLhaus and Phishing Army sources. Filtering is a risk-reduction measure and cannot guarantee that a destination is safe. The resolver is not exposed as a public Internet DNS service.</p>
+
+  <h2>Operations and abuse</h2>
+  <p>The operator may rate-limit, block or remove access when necessary to protect the node or respond to credible abuse. Report suspected abuse through the <a href="https://github.com/tadaka9/PQVPN/issues/new?labels=abuse">PQVPN issue tracker</a>. Include timestamps, destination addresses and enough technical detail to investigate without publishing secrets or personal data.</p>
+
+  <p>Policy published October 8, 2026.</p>
+</body>
+</html>
