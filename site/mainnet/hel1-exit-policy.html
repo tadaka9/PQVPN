@@ -15,7 +15,7 @@
   <p class="notice"><strong>Experimental service.</strong> PQVPN has not received an independent security audit. Availability, capacity and fitness for any purpose are not guaranteed.</p>
 
   <h2>Endpoint</h2>
-  <p><code>static.110.251.108.65.clients.your-server.de:9090</code> provides bootstrap, relay and user-space egress service over the published PQVPN protocol. IPv4 and IPv6 are enabled. Internal filtered DNS is available to connected clients at <code>10.8.0.1</code> and <code>fd00::1</code>.</p>
+  <p><code>static.110.251.108.65.clients.your-server.de:9090</code> provides bootstrap, relay and user-space egress service over the published PQVPN UDP protocol. IPv4 and IPv6 are enabled. TCP port 9090 is reserved at the firewall but is not advertised as an active transport until a release implements a public TCP listener. Internal filtered DNS is available to connected clients at <code>10.8.0.1</code> and <code>fd00::1</code>.</p>
 
   <h2>Acceptable use</h2>
   <p>Do not use this node for malware delivery, phishing, credential theft, unauthorized access, denial of service, spam, exploitation, harassment, distribution of illegal material, or infringement of third-party rights. Automated high-volume scanning and deliberate attempts to degrade the service are prohibited.</p>
