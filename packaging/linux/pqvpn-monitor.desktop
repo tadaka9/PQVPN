@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=PQVPN Privacy Console
+Name=PQVPN
 Comment=Control and inspect the PQVPN node
 Exec=pqvpn_monitor
 Icon=pqvpn

@@ -170,7 +170,7 @@ class Window final : public QMainWindow {
     Q_OBJECT
 public:
     Window() {
-        setWindowTitle("PQVPN — Privacy Console");
+        setWindowTitle("PQVPN");
         setWindowIcon(QIcon(":/brand/logo.svg"));
         setMinimumSize(940,650); resize(1240,800); setAcceptDrops(true);
         process_.setProcessChannelMode(QProcess::MergedChannels);
