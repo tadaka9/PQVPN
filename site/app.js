@@ -75,7 +75,8 @@ async function configurePlatformDownload(){
     const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{headers:{Accept:'application/vnd.github+json'}});
     if(!response.ok)throw new Error(`GitHub API ${response.status}`);
     const releases=(await response.json()).filter(release=>!release.draft);
-    const release=releases.find(candidate=>Object.values(assetMatchers).some(match=>candidate.assets?.some(asset=>match(asset.name))));
+    const ranked=releases.map(release=>({release,score:Object.values(assetMatchers).filter(match=>release.assets?.some(asset=>match(asset.name))).length})).filter(item=>item.score>0).sort((a,b)=>b.score-a.score||new Date(b.release.published_at)-new Date(a.release.published_at));
+    const release=ranked[0]?.release;
     if(!release)throw new Error('No package release is published yet');
     for(const[key,link]of downloadLinks){
       const asset=release.assets.find(item=>assetMatchers[key](item.name));
