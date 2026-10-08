@@ -435,6 +435,8 @@ int main(int argc, char** argv) {
                 asio::post(io, [node, peer, room, text = line, value = ++sequence, timestamp] {
                     if (!node->send_strangenet_message(peer, room, value, timestamp, text))
                         std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
+                    else
+                        std::cout << "StrangeNet message accepted\n";
                 });
                 std::cout << "> " << std::flush;
             }
