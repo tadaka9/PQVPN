@@ -7,21 +7,29 @@
   "peers": [
     {
       "name": "PQVPN Helsinki Community Exit",
-      "endpoint": "static.110.251.108.65.clients.your-server.de:9090",
-      "ipv4": "65.108.251.110",
-      "ipv6": "2a01:4f9:c012:add9::1",
+      "endpoint": "45.248.37.87:9090",
+      "ipv4": "45.248.37.87",
+      "ipv6": null,
       "region": "Helsinki, Finland",
-      "roles": ["bootstrap", "relay", "egress"],
-      "transports": ["udp"],
-      "tcp_port_reserved": 9090,
-      "internal_dns": ["10.8.0.1", "fd00::1"],
-      "ed25519_fingerprint": "SHA256:7795134473ee185052473c863ea0b9f7f1bc083fe84642babef6a013448d53d7",
+      "roles": [
+        "bootstrap",
+        "relay",
+        "egress"
+      ],
+      "transports": [
+        "udp"
+      ],
+      "internal_dns": [
+        "10.8.0.1",
+        "fd00::1"
+      ],
+      "ed25519_fingerprint": "SHA256:f7600c85ada9d60230d2e7b6d3d596272789e64e5aac6ab98ba7bece286bbf99",
       "ml_dsa_87_fingerprint": "SHA256:52d9248df6e19405da12d88f616d7cdcc08778a950ab105ff8e002114bedb773",
       "policy_url": "https://tadaka9.github.io/PQVPN/mainnet/hel1-exit-policy.html",
       "abuse_contact": "https://github.com/tadaka9/PQVPN/issues/new?labels=abuse",
       "consent_recorded_at": "2026-10-08",
-      "release": "v0.0.2-alpha-20261008-relay",
-      "status": "experimental"
+      "release": "v0.0.2-alpha-20261008-packages",
+      "status": "online \u00b7 experimental"
     }
   ]
 }
