@@ -142,14 +142,28 @@ namespace pqvpn::config {
     // (empty = auto-detect). CLI flags still take precedence where they exist.
     struct TunnelConfig {
         std::string interface_name;
+        // Optional external tunnel backend. The native PQVPN backend remains
+        // the default; external backends are explicit and never fall back
+        // silently because they have different trust and privilege models.
+        std::string plugin = "pqvpn";
+        std::string config_path;
 
         friend void from_json(const nlohmann::json& j, TunnelConfig& value) {
             if (j.contains("interface_name") && j.at("interface_name").is_string()) {
                 value.interface_name = j.at("interface_name").get<std::string>();
             }
+            value.plugin = j.value("plugin", value.plugin);
+            value.config_path = j.value("config_path", value.config_path);
+            if (value.plugin != "pqvpn" && value.plugin != "wireguard" && value.plugin != "openvpn") {
+                throw std::invalid_argument("tunnel.plugin must be pqvpn, wireguard or openvpn");
+            }
+            if ((value.plugin == "wireguard" || value.plugin == "openvpn") && value.config_path.empty()) {
+                throw std::invalid_argument("external tunnel plugins require tunnel.config_path");
+            }
         }
         friend void to_json(nlohmann::json& j, const TunnelConfig& value) {
-            j = {{"interface_name", value.interface_name}};
+            j = {{"interface_name", value.interface_name}, {"plugin", value.plugin}};
+            if (!value.config_path.empty()) j["config_path"] = value.config_path;
         }
     };
 

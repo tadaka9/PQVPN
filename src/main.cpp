@@ -23,6 +23,7 @@
 #include "network_module.hpp"
 #include "node_module.hpp"
 #include "serialization_module.hpp"
+#include "external_tunnel_process.hpp"
 
 namespace {
 
@@ -294,6 +295,18 @@ int main(int argc, char** argv) {
         std::cerr << "warning: no node identity established (no ed25519 key); "
                   << "onion relay and local delivery will be rejected\n";
     }
+    std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> external_tunnel;
+    if (config->tunnel.plugin != "pqvpn") {
+        try {
+            const auto backend = pqvpn::tunnel::backend_from_string(config->tunnel.plugin);
+            auto spec = pqvpn::tunnel::make_external_process_spec(backend, config->tunnel.config_path);
+            external_tunnel = std::make_unique<pqvpn::tunnel::ExternalTunnelProcess>(std::move(spec));
+            external_tunnel->start();
+        } catch (const std::exception& error) {
+            std::cerr << "Failed to start tunnel plugin: " << error.what() << "\n";
+            return 1;
+        }
+    }
     pqvpn::network::UdpListener listener(io, config->network);
     listener.set_receive_handler([&io, node](std::vector<uint8_t> packet, const asio::ip::udp::endpoint& sender) {
         asio::co_spawn(io, node->datagram_received(std::move(packet), sender), asio::detached);
@@ -435,6 +448,8 @@ int main(int argc, char** argv) {
                 asio::post(io, [node, peer, room, text = line, value = ++sequence, timestamp] {
                     if (!node->send_strangenet_message(peer, room, value, timestamp, text))
                         std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
+                    else
+                        std::cout << "StrangeNet message accepted\n";
                 });
                 std::cout << "> " << std::flush;
             }

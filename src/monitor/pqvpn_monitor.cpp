@@ -33,6 +33,7 @@
 #include <QProcess>
 #include <QPropertyAnimation>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QSaveFile>
 #include <QSignalBlocker>
@@ -48,7 +49,7 @@
 #include <cmath>
 
 namespace {
-enum Page { Overview, Connection, Transports, Activity, Privacy, About };
+enum Page { Overview, Connection, Transports, StrangeNet, Activity, Privacy, About };
 
 const char* theme = R"CSS(
 * { font-family: "Inter", "SF Pro Display", "Segoe UI", sans-serif; }
@@ -178,7 +179,7 @@ public:
     }
     void prepareSmokePage(const QString& request) {
         QSignalBlocker guard(reduceMotion_); reduceMotion_->setChecked(true); setMotion(false);
-        const QHash<QString,int> pages{{"connection",Connection},{"transports",Transports},{"activity",Activity},{"privacy",Privacy},{"about",About}};
+        const QHash<QString,int> pages{{"connection",Connection},{"transports",Transports},{"strangenet",StrangeNet},{"activity",Activity},{"privacy",Privacy},{"about",About}};
         switchPage(pages.value(request,Overview)); QApplication::processEvents();
     }
 protected:
@@ -208,9 +209,11 @@ private:
     QLineEdit *configPath_=nullptr,*executablePath_=nullptr; QComboBox *logLevel_=nullptr,*adaptiveMode_=nullptr;
     QPushButton *connectButton_=nullptr,*validateButton_=nullptr; QLabel *stateLabel_=nullptr,*statusText_=nullptr,*endpointMetric_=nullptr,*verificationMetric_=nullptr,*shapingMetric_=nullptr,*transportMetric_=nullptr,*transportDetails_=nullptr,*configHealth_=nullptr;
     QCheckBox* adaptiveEnabled_=nullptr; QLabel* adaptiveMetric_=nullptr; QPushButton* saveTransportButton_=nullptr;
+    QLineEdit *strangeRoom_=nullptr,*strangePeer_=nullptr,*strangeMessage_=nullptr;
+    QPlainTextEdit* strangeTranscript_=nullptr; QPushButton *strangeJoin_=nullptr,*strangeSend_=nullptr;
     QPlainTextEdit* activity_=nullptr; QAction *reduceMotion_=nullptr,*compactSidebar_=nullptr,*minimizeToTray_=nullptr;
     QSystemTrayIcon* tray_=nullptr; QMenu* trayMenu_=nullptr; QAction *trayStatus_=nullptr,*trayToggle_=nullptr;
-    bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false;
+    bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false,strangeActive_=false;
 
     void buildMenus() {
         auto* file=menuBar()->addMenu("File"); file->addAction("Choose configuration…",QKeySequence::Open,this,&Window::chooseConfig); file->addAction("Validate configuration",QKeySequence("Ctrl+Shift+V"),this,&Window::validateConfig); file->addSeparator(); file->addAction("Exit PQVPN",QKeySequence::Quit,this,&Window::quitApplication);
@@ -223,14 +226,14 @@ private:
     void buildUi() {
         auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
         auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new QStackedWidget; pages_->setStyleSheet("background:transparent"); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout()); row->addWidget(pages_,1);
+        pages_=new QStackedWidget; pages_->setStyleSheet("background:transparent"); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout()); row->addWidget(pages_,1);
         stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
     }
     void buildSidebar(QHBoxLayout* shell) {
         sidebar_=new QWidget; sidebar_->setObjectName("sidebar"); sidebar_->setMinimumWidth(238); sidebar_->setMaximumWidth(238);
         auto* layout=new QVBoxLayout(sidebar_); layout->setContentsMargins(18,24,18,20); layout->setSpacing(8);
         auto* brand=new QHBoxLayout; auto* icon=new QLabel; icon->setPixmap(QIcon(":/brand/logo.svg").pixmap(46,46)); brandWords_=new QWidget; auto* words=new QVBoxLayout(brandWords_); words->setContentsMargins(0,0,0,0); words->setSpacing(0); words->addWidget(text("PQVPN","wordmark")); words->addWidget(text("PRIVACY CONSOLE","brandSub")); brand->addWidget(icon); brand->addWidget(brandWords_,1); layout->addLayout(brand); layout->addSpacing(24);
-        auto* group=new QButtonGroup(this); group->setExclusive(true); const QList<QPair<QString,int>> items{{"Overview",Overview},{"Connect",Connection},{"Transports",Transports},{"Activity",Activity},{"Privacy",Privacy},{"About",About}};
+        auto* group=new QButtonGroup(this); group->setExclusive(true); const QList<QPair<QString,int>> items{{"Overview",Overview},{"Connect",Connection},{"Transports",Transports},{"StrangeNet",StrangeNet},{"Activity",Activity},{"Privacy",Privacy},{"About",About}};
         for (const auto& [name,page]:items) { auto* button=new QPushButton(QString("%1   %2").arg(page+1,2,10,QChar('0')).arg(name)); button->setProperty("fullText",button->text()); button->setProperty("nav",true); button->setCheckable(true); group->addButton(button,page); pageButtons_[page]=button; navButtons_.append(button); layout->addWidget(button); connect(button,&QPushButton::clicked,this,[this,page]{switchPage(page);}); }
         layout->addStretch(); auto* ethics=text("YOU CHOOSE WHEN TO CONNECT\nNO TRACKING · NO DARK PATTERNS"); ethics->setObjectName("eyebrow"); layout->addWidget(ethics); shell->addWidget(sidebar_);
     }
@@ -257,6 +260,14 @@ private:
         auto* adaptive=new QVBoxLayout; adaptive->setContentsMargins(20,18,20,18); adaptive->addWidget(text("PQTP ADAPTIVE PATH","eyebrow")); adaptiveMetric_=text("Disabled","sectionTitle"); adaptive->addWidget(adaptiveMetric_); auto* adaptiveRow=new QHBoxLayout; adaptiveEnabled_=new QCheckBox("Enable automatic UDP/TCP failover"); adaptiveMode_=new QComboBox; adaptiveMode_->addItem("Automatic · prefer UDP", "auto"); adaptiveMode_->addItem("UDP only", "udp"); adaptiveMode_->addItem("TCP only", "tcp"); saveTransportButton_=new QPushButton("Save transport policy"); saveTransportButton_->setProperty("quiet",true); adaptiveRow->addWidget(adaptiveEnabled_); adaptiveRow->addWidget(adaptiveMode_); adaptiveRow->addStretch(); adaptiveRow->addWidget(saveTransportButton_); adaptive->addLayout(adaptiveRow); auto* adaptiveCopy=text("Automatic mode preserves the authenticated PQVPN frame, uses UDP for low latency, falls back to TCP after measured loss, jitter or blocking, and probes UDP before returning."); adaptiveCopy->setProperty("muted",true); adaptive->addWidget(adaptiveCopy); body->addWidget(card(adaptive)); connect(saveTransportButton_,&QPushButton::clicked,this,&Window::saveTransportSettings);
         auto* grid=new QHBoxLayout; grid->addWidget(capability("udp2raw","External UDP forwarder","Attach mode",true),1); grid->addWidget(capability("obfs4","External SOCKS transport","TCP relay required",false),1); grid->addWidget(capability("Xray / V2Ray","External SOCKS transport","TCP relay required",false),1); grid->addWidget(capability("Shadowsocks","External SOCKS transport","TCP relay required",false),1); body->addLayout(grid); auto* truth=text("Available means the PQVPN adapter exists. It does not prove an external engine is installed, running or interoperable; the authenticated handshake remains the runtime check."); truth->setProperty("muted",true); body->addWidget(truth); body->addStretch(); return page;
     }
+    QWidget* buildStrangeNet() {
+        QVBoxLayout* body; auto* page=pageShell("StrangeNet","A bounded conversation carried by an authenticated PQVPN peer session.",&body);
+        auto* intro=new QVBoxLayout; intro->setContentsMargins(24,21,24,21); intro->addWidget(text("THE FIRST CHAT ON INTERNET*","eyebrow")); intro->addWidget(text("A direct room. No public history.","heroTitle")); auto* note=text("*A project joke, not a historical claim. Room and sender identity remain bound to the authenticated tunnel; messages are limited to 2 KiB."); note->setProperty("muted",true); intro->addWidget(note); body->addWidget(card(intro,true));
+        auto* form=new QVBoxLayout; form->setContentsMargins(20,18,20,18); auto* fields=new QHBoxLayout; strangeRoom_=new QLineEdit; strangeRoom_->setPlaceholderText("Room · riemann-lab"); strangeRoom_->setMaxLength(64); strangePeer_=new QLineEdit; strangePeer_->setPlaceholderText("Authenticated peer · 64 hexadecimal characters"); strangePeer_->setMaxLength(64); fields->addWidget(strangeRoom_,1); fields->addWidget(strangePeer_,2); form->addLayout(fields); auto* actions=new QHBoxLayout; strangeJoin_=new QPushButton("Join authenticated room"); actions->addWidget(strangeJoin_); actions->addStretch(); form->addLayout(actions); body->addWidget(card(form));
+        strangeTranscript_=new QPlainTextEdit; strangeTranscript_->setReadOnly(true); strangeTranscript_->setPlaceholderText("Room state and authenticated messages appear here."); body->addWidget(strangeTranscript_,1); auto* composer=new QHBoxLayout; strangeMessage_=new QLineEdit; strangeMessage_->setPlaceholderText("Write a message · 2048 bytes maximum"); strangeMessage_->setMaxLength(2048); strangeSend_=new QPushButton("Send"); strangeSend_->setEnabled(false); composer->addWidget(strangeMessage_,1); composer->addWidget(strangeSend_); body->addLayout(composer);
+        connect(strangeJoin_,&QPushButton::clicked,this,&Window::toggleStrangeNet); connect(strangeSend_,&QPushButton::clicked,this,&Window::sendStrangeMessage); connect(strangeMessage_,&QLineEdit::returnPressed,this,&Window::sendStrangeMessage);
+        return page;
+    }
     QWidget* buildActivity() {
         QVBoxLayout* body; auto* page=pageShell("Activity","This session only. Output comes from the actual node process.",&body); activity_=new QPlainTextEdit; activity_->setReadOnly(true); activity_->setPlaceholderText("Validation, node output and process events will appear here."); body->addWidget(activity_,1); auto* row=new QHBoxLayout; auto* copy=new QPushButton("Copy activity"); copy->setProperty("quiet",true); auto* clear=new QPushButton("Clear"); clear->setProperty("quiet",true); row->addStretch(); row->addWidget(copy); row->addWidget(clear); body->addLayout(row); connect(copy,&QPushButton::clicked,this,[this]{QApplication::clipboard()->setText(activity_->toPlainText());}); connect(clear,&QPushButton::clicked,activity_,&QPlainTextEdit::clear); return page;
     }
@@ -278,8 +289,8 @@ private:
 #endif
         const QString sibling=QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(name); return QFileInfo::exists(sibling)?sibling:QDir::current().absoluteFilePath("build/"+name); }
     void connectProcess() {
-        connect(&process_,&QProcess::readyReadStandardOutput,this,[this]{const QString out=QString::fromUtf8(process_.readAllStandardOutput()).trimmed();if(!out.isEmpty())log(out);});
-        connect(&process_,&QProcess::stateChanged,this,[this](QProcess::ProcessState state){const bool active=state!=QProcess::NotRunning,running=state==QProcess::Running; stateLabel_->setText(stateName(state)); orb_->setConnected(running); connectButton_->setText(active?"Disconnect":"Connect securely"); connectButton_->setProperty("danger",active); connectButton_->style()->unpolish(connectButton_);connectButton_->style()->polish(connectButton_); validateButton_->setEnabled(!active); configPath_->setEnabled(!active);executablePath_->setEnabled(!active);logLevel_->setEnabled(!active);adaptiveEnabled_->setEnabled(!active);adaptiveMode_->setEnabled(!active);saveTransportButton_->setEnabled(!active); trayStatus_->setText(stateName(state));trayToggle_->setText(active?"Disconnect":"Connect securely");tray_->setToolTip("PQVPN · "+stateName(state));if(running)statusText_->setText("Node running. Activity shows handshake and route details.");else if(!stopping_)statusText_->setText("Disconnected. No node process is running from this console.");});
+        connect(&process_,&QProcess::readyReadStandardOutput,this,[this]{const QString out=QString::fromUtf8(process_.readAllStandardOutput()).trimmed();if(out.isEmpty())return;log(out);if(strangeActive_&&strangeTranscript_){strangeTranscript_->appendPlainText(out);if(out.contains("StrangeNet message accepted")){strangeMessage_->clear();strangeSend_->setEnabled(true);}else if(out.contains("StrangeNet send deferred")){strangeSend_->setEnabled(true);strangeMessage_->setFocus();}}});
+        connect(&process_,&QProcess::stateChanged,this,[this](QProcess::ProcessState state){const bool active=state!=QProcess::NotRunning,running=state==QProcess::Running; stateLabel_->setText(stateName(state)); orb_->setConnected(running); connectButton_->setText(active?"Disconnect":"Connect securely"); connectButton_->setProperty("danger",active); connectButton_->style()->unpolish(connectButton_);connectButton_->style()->polish(connectButton_); validateButton_->setEnabled(!active); configPath_->setEnabled(!active);executablePath_->setEnabled(!active);logLevel_->setEnabled(!active);adaptiveEnabled_->setEnabled(!active);adaptiveMode_->setEnabled(!active);saveTransportButton_->setEnabled(!active); trayStatus_->setText(stateName(state));trayToggle_->setText(active?"Disconnect":"Connect securely");tray_->setToolTip("PQVPN · "+stateName(state));if(strangeJoin_){strangeJoin_->setText(strangeActive_&&active?"Leave room":"Join authenticated room");strangeSend_->setEnabled(strangeActive_&&running);strangeRoom_->setEnabled(!active);strangePeer_->setEnabled(!active);}if(!active)strangeActive_=false;if(running)statusText_->setText("Node running. Activity shows handshake and route details.");else if(!stopping_)statusText_->setText("Disconnected. No node process is running from this console.");});
         connect(&process_,&QProcess::started,this,[this]{log("Node process started");}); connect(&process_,&QProcess::errorOccurred,this,[this](QProcess::ProcessError){log("Process error · "+process_.errorString());statusText_->setText("The node could not continue: "+process_.errorString());});
         connect(&process_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus status){log(QString("Node stopped · exit %1 · %2").arg(code).arg(status==QProcess::NormalExit?"normal":"crashed"));statusText_->setText(stopping_&&status==QProcess::NormalExit?"Disconnected cleanly.":QString("Node stopped with exit code %1. Review Activity.").arg(code));stopping_=false;connectButton_->setEnabled(configValid_);if(pendingQuit_){pendingQuit_=false;quitting_=true;savePreferences();qApp->quit();}});
     }
@@ -310,6 +321,9 @@ private:
         check->start(executablePath_->text(),{"--smoke-test","--config",configPath_->text()}); switchPage(Connection);
     }
     void toggleConnection(){if(process_.state()==QProcess::NotRunning){if(!configValid_)return;stopping_=false;log(QString("Connect requested · config %1 · log %2").arg(configPath_->text(),logLevel_->currentText()));process_.start(executablePath_->text(),{"--config",configPath_->text(),"--log-level",logLevel_->currentText()});}else requestStop();}
+    bool validStrangeRoom() { const QString room=strangeRoom_->text().trimmed(),peer=strangePeer_->text().trimmed();const bool valid=QRegularExpression("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$").match(room).hasMatch()&&QRegularExpression("^[0-9A-Fa-f]{64}$").match(peer).hasMatch();if(!valid)strangeTranscript_->appendPlainText("Use a safe 1–64 character room name and a 64-digit hexadecimal peer identity.");return valid; }
+    void toggleStrangeNet(){if(process_.state()!=QProcess::NotRunning){if(strangeActive_)requestStop();else{strangeTranscript_->appendPlainText("Disconnect the current node before joining a room; PQVPN uses one managed listener.");switchPage(Connection);}return;}if(!validStrangeRoom())return;const QString room=strangeRoom_->text().trimmed(),peer=strangePeer_->text().trimmed().toLower();strangeActive_=true;stopping_=false;strangeTranscript_->appendPlainText("Opening authenticated room '"+room+"'…");process_.start(executablePath_->text(),{"--config",configPath_->text(),"--strangenet-room",room,"--strangenet-peer",peer});}
+    void sendStrangeMessage(){const QByteArray message=strangeMessage_->text().toUtf8();if(!strangeActive_||process_.state()!=QProcess::Running||message.isEmpty()||message.size()>2048)return;process_.write(message+'\n');strangeSend_->setEnabled(false);}
     void requestStop(){if(process_.state()==QProcess::NotRunning)return;stopping_=true;statusText_->setText("Disconnecting cleanly…");log("Disconnect requested");process_.terminate();QTimer::singleShot(5000,this,[this]{if(process_.state()!=QProcess::NotRunning){log("Clean shutdown timed out; process termination escalated");process_.kill();}});}
     void quitApplication(){quitting_=true;if(process_.state()!=QProcess::NotRunning){pendingQuit_=true;requestStop();}else{savePreferences();qApp->quit();}}
     void restoreFromTray(){showNormal();raise();activateWindow();}
