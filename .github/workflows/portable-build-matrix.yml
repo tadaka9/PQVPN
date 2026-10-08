@@ -112,34 +112,31 @@ jobs:
           test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
           test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
 
-      - name: Configure
-        shell: bash
-        run: |
-          export PKG_CONFIG_PATH="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
-          export PKG_CONFIG_LIBDIR="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
-          export CMAKE_PREFIX_PATH="$RUNNER_TEMP/pqvpn-deps"
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_TESTING=OFF \
-            -DPQVPN_BUILD_MONITOR=OFF
-
-      - name: Compile node and terminal console
-        run: cmake --build build --target pqvpn_node pqvpn_tui --parallel 2
-
-      - name: Install upstream Qt for the verified GUI target
-        if: matrix.target == 'linux-x86_64'
+      - name: Install upstream Qt for the native GUI
         uses: jurplel/install-qt-action@v4
         with:
           version: '${{ env.QT_VERSION }}'
           cache: true
 
-      - name: Build and render Privacy Console
-        if: matrix.target == 'linux-x86_64'
+      - name: Configure
         shell: bash
         run: |
-          cmake -S . -B build -DPQVPN_BUILD_MONITOR=ON
-          cmake --build build --target pqvpn_monitor --parallel 2
+          export PKG_CONFIG_PATH="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
+          export CMAKE_PREFIX_PATH="$QT_ROOT_DIR;$RUNNER_TEMP/pqvpn-deps"
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DPQVPN_BUILD_MONITOR=ON
+
+      - name: Compile node, terminal console and native GUI
+        run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor --parallel 2
+
+      - name: Build and render Privacy Console
+        shell: bash
+        run: |
           QT_QPA_PLATFORM=offscreen \
+            PQVPN_SMOKE_PAGE=strangenet \
             PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console.png" \
             build/pqvpn_monitor --smoke-test
           test -s "$RUNNER_TEMP/pqvpn-console.png"
@@ -167,7 +164,8 @@ jobs:
           stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$stage"
           cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
-          if [ -x build/pqvpn_monitor ]; then cp build/pqvpn_monitor "$stage/"; fi
+          cmake --install build --prefix "$stage"
+          test -e "$stage/pqvpn_monitor" -o -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           tar -czf "$stage.tar.gz" "$stage"
 
       - name: Upload release candidate
@@ -272,21 +270,36 @@ jobs:
             throw "Expected upstream Argon2 $env:ARGON2_VERSION, got: $argonVersion"
           }
 
+      - name: Install upstream Qt for the native GUI
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ env.QT_VERSION }}'
+          cache: true
+
       - name: Configure
         shell: pwsh
         run: |
           cmake -S . -B build -G "${{ matrix.generator }}" `
             -A ${{ matrix.architecture }} `
             -DBUILD_TESTING=OFF `
-            -DPQVPN_BUILD_MONITOR=OFF `
-            "-DCMAKE_PREFIX_PATH=$env:RUNNER_TEMP\pqvpn-deps" `
+            -DPQVPN_BUILD_MONITOR=ON `
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR;$env:RUNNER_TEMP\pqvpn-deps" `
             "-DOPENSSL_ROOT_DIR=$env:RUNNER_TEMP\pqvpn-deps" `
             "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_MANIFEST_MODE=OFF `
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
 
-      - name: Compile node and terminal console
-        run: cmake --build build --config Release --target pqvpn_node pqvpn_tui --parallel 2
+      - name: Compile node, terminal console and native GUI
+        run: cmake --build build --config Release --target pqvpn_node pqvpn_tui pqvpn_monitor --parallel 2
+
+      - name: Render Privacy Console
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $env:PQVPN_SMOKE_PAGE = 'strangenet'
+          $env:PQVPN_SMOKE_IMAGE = "$env:RUNNER_TEMP\pqvpn-console.png"
+          & build/Release/pqvpn_monitor.exe --smoke-test
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw 'GUI smoke test failed' }
 
       - name: Compile PQVPN x64 tunnel driver
         shell: pwsh
@@ -343,7 +356,8 @@ jobs:
           $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $stage | Out-Null
           Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
-          Get-ChildItem build/Release/*.dll -ErrorAction SilentlyContinue | Copy-Item -Destination $stage
+          cmake --install build --config Release --prefix $stage
+          if (-not (Test-Path "$stage\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
 
       - name: Upload release candidate

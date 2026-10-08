@@ -140,6 +140,12 @@ if(PQVPN_BUILD_MONITOR)
     target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core)
     target_compile_options(pqvpn_monitor PRIVATE
       $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
+    install(TARGETS pqvpn_monitor BUNDLE DESTINATION . RUNTIME DESTINATION .)
+    qt_generate_deploy_app_script(
+      TARGET pqvpn_monitor
+      OUTPUT_SCRIPT pqvpn_monitor_deploy_script
+      NO_UNSUPPORTED_PLATFORM_ERROR)
+    install(SCRIPT ${pqvpn_monitor_deploy_script})
     if(BUILD_TESTING)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
       set_tests_properties(pqvpn_gui_smoke PROPERTIES
