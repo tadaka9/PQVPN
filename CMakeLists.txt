@@ -26,7 +26,14 @@ else()
         if(ARGON2_FOUND)
             message(STATUS "Argon2 found via pkg-config: libargon2 ${ARGON2_VERSION}")
             set(HAVE_ARGON2 TRUE)
-            set(ARGON2_TARGET PkgConfig::ARGON2)
+            # Prefer the concrete archive for the hermetic static CI prefix.
+            # The generated .pc target can otherwise degrade to `-largon2`
+            # without retaining its -L flag on transitive static links.
+            if(ARGON2_LIBRARY_DIRS AND EXISTS "${ARGON2_LIBRARY_DIRS}/libargon2.a")
+                set(ARGON2_TARGET "${ARGON2_LIBRARY_DIRS}/libargon2.a")
+            else()
+                set(ARGON2_TARGET PkgConfig::ARGON2)
+            endif()
             # pkg-config's imported target may expose only -largon2 when the
             # library is installed in the CI dependency prefix. Preserve its
             # library directory explicitly so static links remain portable.
