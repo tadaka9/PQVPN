@@ -155,6 +155,12 @@ if(PQVPN_BUILD_MONITOR)
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
     set_target_properties(pqvpn_monitor PROPERTIES AUTOMOC ON AUTORCC ON)
+    # Keep the packaged Qt runtime ahead of any older system Qt.  The deploy
+    # script installs libraries under lib/ beside bin/pqvpn_monitor; without
+    # this RPATH the dynamic loader may select an incompatible system Qt.
+    if(UNIX AND NOT APPLE)
+      set_target_properties(pqvpn_monitor PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+    endif()
     target_include_directories(pqvpn_monitor PRIVATE ${PQVPN_INCLUDE_DIRS})
     target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core)
     target_compile_options(pqvpn_monitor PRIVATE
