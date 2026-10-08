@@ -210,10 +210,15 @@ jobs:
 
       - name: Upload Arch Linux build recipe
         if: matrix.target == 'linux-x86_64'
+        shell: bash
+        run: packaging/arch/generate-pkgbuild.sh "$GITHUB_SHA" generated-arch/PKGBUILD
+
+      - name: Publish Arch Linux build recipe artifact
+        if: matrix.target == 'linux-x86_64'
         uses: actions/upload-artifact@v6
         with:
           name: arch-linux-pkgbuild
-          path: packaging/arch/PKGBUILD
+          path: generated-arch/PKGBUILD
           if-no-files-found: error
           retention-days: 7
 

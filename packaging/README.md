@@ -25,8 +25,13 @@ commit and target being released.
 
 The native Linux build workflow also publishes installable `.deb` and `.rpm`
 artifacts for both supported architectures. Arch Linux users can build the
-package with `makepkg -si` from `packaging/arch`; the PKGBUILD compiles the
-same node, terminal console, and Qt privacy console from the tagged source.
+package with `makepkg -si` from the generated `arch-linux-pkgbuild` artifact;
+the recipe compiles the same node, terminal console, and Qt privacy console
+from the exact workflow commit.
+
+`VERSION` is the single package-version source. Changing it updates CMake,
+DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag publishes
+those artifacts together in the corresponding GitHub prerelease.
 
 An AppImage still requires the tunnel and routing privileges needed by a VPN.
 It must not use setuid. Debian packages must document and test their service,

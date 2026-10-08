@@ -160,17 +160,20 @@ sudo apt install ./pqvpn_*.deb
 sudo rpm -U ./pqvpn-*.rpm
 ```
 
-For Arch Linux, download `packaging/arch/PKGBUILD` together with the tagged
-source recipe and build it as an unprivileged user:
+For Arch Linux, download `PKGBUILD` from the release or the
+`arch-linux-pkgbuild` workflow artifact and build it as an unprivileged user:
 
 ```bash
-cd packaging/arch
 makepkg -si
 ```
 
 Packages install `pqvpn_node`, `pqvpn_tui`, and `pqvpn_monitor` plus example
 configuration files. They do not start a network service automatically; copy
 and review an example configuration before starting a node.
+
+Maintainers update the package version once in [`VERSION`](VERSION). The
+native workflow propagates it automatically to DEB, RPM, PKGBUILD and tagged
+release assets.
 
 ### CLI and terminal console
 
