@@ -27,6 +27,12 @@ else()
             message(STATUS "Argon2 found via pkg-config: libargon2 ${ARGON2_VERSION}")
             set(HAVE_ARGON2 TRUE)
             set(ARGON2_TARGET PkgConfig::ARGON2)
+            # pkg-config's imported target may expose only -largon2 when the
+            # library is installed in the CI dependency prefix. Preserve its
+            # library directory explicitly so static links remain portable.
+            if(ARGON2_LIBRARY_DIRS)
+                link_directories(${ARGON2_LIBRARY_DIRS})
+            endif()
             add_compile_definitions(HAVE_ARGON2=1 PQVPN_HAVE_ARGON2=1)
         endif()
     endif()

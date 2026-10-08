@@ -164,7 +164,7 @@ jobs:
           stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$stage"
           cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
-          cmake --install build --prefix "$stage"
+          cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
           test -e "$stage/pqvpn_monitor" -o -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           tar -czf "$stage.tar.gz" "$stage"
 
@@ -356,7 +356,7 @@ jobs:
           $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $stage | Out-Null
           Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
-          cmake --install build --config Release --prefix $stage
+          cmake --install build --config Release --prefix (Resolve-Path $stage).Path
           if (-not (Test-Path "$stage\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
 
