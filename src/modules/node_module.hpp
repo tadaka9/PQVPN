@@ -26,6 +26,7 @@
 #include <chrono>
 #include <cstdint>
 #include "ml_traffic_shaper.hpp"
+#include "strangenet.hpp"
 
 namespace pqvpn {
 
@@ -55,6 +56,8 @@ public:
     // the originating client, so one exit node can serve several clients.
     using TunnelPacketHandler =
         std::function<void(std::vector<uint8_t>, const std::vector<uint8_t>&)>;
+    using StrangeNetHandler =
+        std::function<void(const strangenet::Message&, const std::vector<uint8_t>&)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
     // tunnel transport traffic is not captured by the VPN default route. The
@@ -71,6 +74,7 @@ public:
     static inline constexpr uint8_t DATA_FRAME = 3;      // FT_DATA
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
     static inline constexpr uint8_t PADDED_TUNNEL_DATA_FRAME = 9;
+    static inline constexpr uint8_t STRANGENET_FRAME = 10;
     static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
     // Tunnel liveness (post-migration addition, ROADMAP peer selection):
     // same AEAD layout as TUNNEL_DATA_FRAME with an empty plaintext, so the
@@ -235,6 +239,12 @@ public:
     void set_tunnel_packet_handler(TunnelPacketHandler handler) {
         tunnel_packet_handler_ = std::move(handler);
     }
+    void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
+    std::optional<std::vector<uint8_t>> build_strangenet_datagram(
+        const std::vector<uint8_t>& peer_id, const std::string& room,
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
+    bool send_strangenet_message(const std::vector<uint8_t>& peer_id, const std::string& room,
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
 
     // Installs the peer-route exclusion hook (see PeerRouteHook). Called with
     // add=true when a peer address becomes known (HELLO registration, session
@@ -423,6 +433,8 @@ private:
     std::string config_path_;
     std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
+    StrangeNetHandler strangenet_handler_;
+    strangenet::ReplayGuard strangenet_replay_guard_;
     PeerRouteHook peer_route_hook_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
 };

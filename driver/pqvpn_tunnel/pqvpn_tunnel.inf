@@ -1,6 +1,6 @@
 ; SPDX-License-Identifier: MIT
 ;
-; PQVPN Tunnel Driver — Phase 1 scaffold (see docs/windows-tunnel-adapter.md).
+; PQVPN Tunnel Driver — bounded layer-3 data path.
 ; One virtual layer-3 adapter ("PQVPN Tunnel"); the data path is a user-mode
 ; file object. No DHCP emulation, no L2: address and routes are managed in
 ; user mode by the PQVPN node.
@@ -70,5 +70,5 @@ HKR, , TypesSupported, 0x00010001, 7
 [Strings]
 PQVPN.Name         = "PQVPN Tunnel"
 PQVPN.DiskDesc     = "PQVPN Tunnel Driver Install Disk"
-PQVPN.DeviceDesc   = "PQVPN Userspace Tunnel (Phase 1 scaffold)"
+PQVPN.DeviceDesc   = "PQVPN Userspace Tunnel"
 PQVPN.CompanyName  = "PQVPN Project"

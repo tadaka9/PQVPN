@@ -2,8 +2,10 @@ name: Native build and smoke tests
 
 on:
   pull_request:
+    branches: [main]
   push:
-    branches: [main, future]
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -41,49 +43,95 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Linux dependencies
+      - name: Load dependency versions
+        shell: bash
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+
+      - name: Restore upstream dependency cache
+        id: upstream-deps
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pqvpn-deps
+          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+
+      - name: Install build tools on Linux
         if: matrix.family == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ninja-build pkg-config libssl-dev libargon2-dev
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
-          cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
-            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
-          cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
-          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
+          sudo apt-get install --yes ninja-build pkg-config perl make
 
-      - name: Install macOS dependencies
+      - name: Install build tools on macOS
         if: matrix.family == 'macos'
+        run: brew install ninja pkg-config
+
+      - name: Build official upstream dependencies
+        if: steps.upstream-deps.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          brew install ninja pkg-config openssl@3 argon2
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          mkdir -p "$prefix"
+
+          git clone --depth 1 --branch "openssl-$OPENSSL_VERSION" https://github.com/openssl/openssl.git "$RUNNER_TEMP/openssl"
+          pushd "$RUNNER_TEMP/openssl"
+          ./Configure --prefix="$prefix" --libdir=lib no-shared no-tests
+          make -j2
+          make install_sw
+          popd
+
+          git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
+          make -C "$RUNNER_TEMP/argon2" -j2
+          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+          mkdir -p "$prefix/lib/pkgconfig"
+          cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
+          prefix=$prefix
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: libargon2
+          Description: Upstream Argon2 password hashing library
+          Version: $ARGON2_VERSION
+          Libs: -L\${libdir} -largon2
+          Cflags: -I\${includedir}
+          EOF
+
+          git clone --depth 1 --branch "$LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
             -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
-            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
-            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/oqs-install"
+            -DOPENSSL_ROOT_DIR="$prefix" \
+            -DCMAKE_INSTALL_PREFIX="$prefix"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
           cmake --install "$RUNNER_TEMP/liboqs-build"
+
+      - name: Verify upstream dependency versions
+        shell: bash
+        run: |
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          test "$($prefix/bin/openssl version | awk '{print $2}')" = "$OPENSSL_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
 
       - name: Configure
         shell: bash
         run: |
-          if [[ "${{ matrix.family }}" == macos ]]; then
-            export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix argon2)/lib/pkgconfig:$RUNNER_TEMP/oqs-install/lib/pkgconfig"
-            export CMAKE_PREFIX_PATH="$(brew --prefix openssl@3);$(brew --prefix argon2);$RUNNER_TEMP/oqs-install"
-          fi
+          export PKG_CONFIG_PATH="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$RUNNER_TEMP/pqvpn-deps/lib/pkgconfig"
+          export CMAKE_PREFIX_PATH="$RUNNER_TEMP/pqvpn-deps"
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_TESTING=OFF \
             -DPQVPN_BUILD_MONITOR=OFF
 
-      - name: Compile node
-        run: cmake --build build --target pqvpn_node --parallel 2
+      - name: Compile node and terminal console
+        run: cmake --build build --target pqvpn_node pqvpn_tui --parallel 2
 
-      - name: Install Qt for the verified GUI target
+      - name: Install upstream Qt for the verified GUI target
         if: matrix.target == 'linux-x86_64'
-        run: sudo apt-get install --yes qt6-base-dev
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ env.QT_VERSION }}'
+          cache: true
 
       - name: Build and render Privacy Console
         if: matrix.target == 'linux-x86_64'
@@ -102,23 +150,31 @@ jobs:
           file build/pqvpn_node | tee binary-type.txt
           grep -F "${{ matrix.expected_machine }}" binary-type.txt
           build/pqvpn_node --help
+          build/pqvpn_node --validate-config --config config.json
+          build/pqvpn_node --platform-info
           build/pqvpn_node --smoke-test --config config.json
           build/pqvpn_node --smoke-test --config config.udp2raw.json
+          build/pqvpn_tui --smoke-test --config config.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
           else
             ldd build/pqvpn_node | tee runtime-dependencies.txt
           fi
 
-      - name: Upload compile-only artifact
+      - name: Package verified native build
+        shell: bash
+        run: |
+          stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir -p "$stage"
+          cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
+          if [ -x build/pqvpn_monitor ]; then cp build/pqvpn_monitor "$stage/"; fi
+          tar -czf "$stage.tar.gz" "$stage"
+
+      - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
-          name: compile-only-${{ matrix.target }}
-          path: |
-            build/pqvpn_node
-            binary-type.txt
-            runtime-dependencies.txt
-            ${{ runner.temp }}/pqvpn-console.png
+          name: release-candidate-${{ matrix.target }}
+          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 7
 
@@ -129,24 +185,92 @@ jobs:
       matrix:
         include:
           - target: windows-x86_64
-            os: windows-2022
-            triplet: x64-windows
+            os: windows-2025
+            triplet: x64-windows-static
             architecture: x64
-            generator: Visual Studio 17 2022
+            generator: Visual Studio 18 2026
             expected_arch: x64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install dependencies with vcpkg
+      - name: Load dependency versions
+        shell: bash
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore upstream dependency cache
+        id: windows-upstream-deps
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pqvpn-deps
+          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+
+      - name: Build official OpenSSL and liboqs releases
+        if: steps.windows-upstream-deps.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
+          $prefix = "$env:RUNNER_TEMP\pqvpn-deps"
+          New-Item -ItemType Directory -Force -Path $prefix | Out-Null
+
+          git clone --depth 1 --branch "openssl-$env:OPENSSL_VERSION" https://github.com/openssl/openssl.git "$env:RUNNER_TEMP\openssl"
+          Push-Location "$env:RUNNER_TEMP\openssl"
+          perl Configure VC-WIN64A no-shared no-tests "--prefix=$prefix" "--openssldir=$prefix\ssl"
+          if ($LASTEXITCODE -ne 0) { throw 'OpenSSL configure failed' }
+          nmake /NOLOGO
+          if ($LASTEXITCODE -ne 0) { throw 'OpenSSL build failed' }
+          nmake /NOLOGO install_sw
+          if ($LASTEXITCODE -ne 0) { throw 'OpenSSL install failed' }
+          Pop-Location
+
+          git clone --depth 1 --branch "$env:LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$env:RUNNER_TEMP\liboqs"
+          cmake -S "$env:RUNNER_TEMP\liboqs" -B "$env:RUNNER_TEMP\liboqs-build" `
+            -G "${{ matrix.generator }}" -A ${{ matrix.architecture }} `
+            -DCMAKE_INSTALL_PREFIX="$prefix" -DOPENSSL_ROOT_DIR="$prefix" `
+            -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON `
+            "-DOQS_MINIMAL_BUILD=KEM_ml_kem_1024;SIG_ml_dsa_87"
+          if ($LASTEXITCODE -ne 0) { throw 'liboqs configure failed' }
+          cmake --build "$env:RUNNER_TEMP\liboqs-build" --config Release --parallel 2
+          if ($LASTEXITCODE -ne 0) { throw 'liboqs build failed' }
+          cmake --install "$env:RUNNER_TEMP\liboqs-build" --config Release
+          if ($LASTEXITCODE -ne 0) { throw 'liboqs install failed' }
+
+      - name: Verify official upstream dependency versions
+        shell: pwsh
+        run: |
+          $prefix = "$env:RUNNER_TEMP\pqvpn-deps"
+          $opensslVersion = & "$prefix\bin\openssl.exe" version
+          if ($opensslVersion -notmatch "^OpenSSL $([regex]::Escape($env:OPENSSL_VERSION)) ") { throw "Unexpected OpenSSL version: $opensslVersion" }
+          $oqsConfig = Get-Content "$prefix\include\oqs\oqsconfig.h" | Out-String
+          if ($oqsConfig -notmatch "OQS_VERSION_TEXT\s+`"$([regex]::Escape($env:LIBOQS_VERSION))`"") { throw 'Unexpected liboqs version' }
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-bincache
+          key: vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('.github/dependencies.env', 'CMakeLists.txt', '.github/workflows/portable-build-matrix.yml') }}
+          restore-keys: |
+            vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-
+
+      - name: Install dependencies with vcpkg
+        shell: pwsh
+        env:
+          VCPKG_BINARY_SOURCES: clear;files,${{ runner.temp }}/vcpkg-bincache,readwrite
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}/vcpkg-bincache" | Out-Null
           & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install `
-            "openssl:${{ matrix.triplet }}" `
-            "argon2:${{ matrix.triplet }}" `
-            "liboqs:${{ matrix.triplet }}"
+            "argon2:${{ matrix.triplet }}"
           if ($LASTEXITCODE -ne 0) { throw 'vcpkg install failed' }
+          $argonVersion = & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" list "argon2:${{ matrix.triplet }}" | Out-String
+          if ($argonVersion -notmatch "argon2:${{ matrix.triplet }}\s+$([regex]::Escape($env:ARGON2_VERSION))") {
+            throw "Expected upstream Argon2 $env:ARGON2_VERSION, got: $argonVersion"
+          }
 
       - name: Configure
         shell: pwsh
@@ -155,12 +279,33 @@ jobs:
             -A ${{ matrix.architecture }} `
             -DBUILD_TESTING=OFF `
             -DPQVPN_BUILD_MONITOR=OFF `
+            "-DCMAKE_PREFIX_PATH=$env:RUNNER_TEMP\pqvpn-deps" `
+            "-DOPENSSL_ROOT_DIR=$env:RUNNER_TEMP\pqvpn-deps" `
             "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_MANIFEST_MODE=OFF `
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }}
 
-      - name: Compile node
-        run: cmake --build build --config Release --target pqvpn_node --parallel 2
+      - name: Compile node and terminal console
+        run: cmake --build build --config Release --target pqvpn_node pqvpn_tui --parallel 2
+
+      - name: Compile PQVPN x64 tunnel driver
+        shell: pwsh
+        run: |
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /t:Restore /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'WDK restore failed' }
+          $wdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.wdk.x64\10.0.28000.2526\c"
+          $env:PATH = "$wdk\bin\10.0.28000.0\x64;$env:PATH"
+          $sdkPackage = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp\10.0.28000.*" |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdkPackage) { throw 'Matching Windows SDK NuGet package was not restored' }
+          $sdk = Join-Path $sdkPackage.FullName 'c'
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj `
+            /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off `
+            /p:SkipPackageVerification=true "/p:WindowsSdkDir=$sdk\" "/p:WDKContentRoot=$wdk\" /m
+          if ($LASTEXITCODE -ne 0) { throw 'PQVPN tunnel driver build failed' }
+          if (-not (Test-Path driver/build/x64/Release/pqvpn_tunnel.sys)) {
+            throw 'Driver build did not produce pqvpn_tunnel.sys'
+          }
 
       - name: Verify architecture and CLI startup
         shell: pwsh
@@ -180,26 +325,37 @@ jobs:
           }
           & $binary --help
           if ($LASTEXITCODE -ne 0) { throw 'CLI help failed' }
+          & $binary --validate-config --config config.json
+          if ($LASTEXITCODE -ne 0) { throw 'CLI configuration validation failed' }
+          & $binary --platform-info
+          if ($LASTEXITCODE -ne 0) { throw 'CLI platform inspection failed' }
           & $binary --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
           & $binary --smoke-test --config config.udp2raw.json
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
+          & build/Release/pqvpn_tui.exe --smoke-test --config config.json
+          if ($LASTEXITCODE -ne 0) { throw 'TUI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
-      - name: Upload compile-only artifact
+      - name: Package verified native build
+        shell: pwsh
+        run: |
+          $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
+          Get-ChildItem build/Release/*.dll -ErrorAction SilentlyContinue | Copy-Item -Destination $stage
+          Compress-Archive -Path $stage -DestinationPath "$stage.zip"
+
+      - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
-          name: compile-only-${{ matrix.target }}
-          path: |
-            build/Release/pqvpn_node.exe
-            build/Release/*.dll
-            binary-headers.txt
-            runtime-dependencies.txt
+          name: release-candidate-${{ matrix.target }}
+          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.zip
           if-no-files-found: error
           retention-days: 7
 
   compile-matrix-complete:
-    name: Compile matrix complete (not release-qualified)
+    name: Native matrix complete
     if: always()
     needs: [unix, windows]
     runs-on: ubuntu-24.04
@@ -211,4 +367,38 @@ jobs:
         run: |
           test "$UNIX_RESULT" = success
           test "$WINDOWS_RESULT" = success
-          echo 'Compile-only artifacts are not functional VPN releases.'
+          echo 'Every native configure, compile, help and smoke test passed.'
+
+  publish-tagged-release:
+    name: Publish matrix-verified prerelease
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [compile-matrix-complete]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download every matrix artifact
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-candidate-*
+          path: release
+          merge-multiple: true
+      - name: Verify complete release set and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find release -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)" = 5
+          (cd release && sha256sum *.zip *.tar.gz 2>/dev/null | sort -k2 > SHA256SUMS)
+      - name: Create immutable GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 && {
+            echo "Release ${GITHUB_REF_NAME} already exists; refusing to mutate it." >&2
+            exit 1
+          }
+          gh release create "${GITHUB_REF_NAME}" release/* \
+            --repo "${GITHUB_REPOSITORY}" --verify-tag --prerelease --generate-notes \
+            --title "PQVPN ${GITHUB_REF_NAME}"

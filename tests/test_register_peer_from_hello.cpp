@@ -8,7 +8,7 @@ TEST(PQVPNNodeTest, RegisterPeerFromHello) {
     pqvpn::PQVPNNode node("test_config.yaml");
 
     // Set up a mock endpoint address
-    asio::ip::udp::endpoint addr(asio::ip::address::from_string("127.0.0.1"), 9000);
+    asio::ip::udp::endpoint addr(asio::ip::make_address("127.0.0.1"), 9000);
 
     // Test case 1: Valid peer with all fields
     std::map<std::string, std::string> valid_hello = {

@@ -14,6 +14,7 @@
 #include <string_view>
 #include "ml_traffic_shaper.hpp"
 #include "external_transport.hpp"
+#include "adaptive_transport.hpp"
 
 namespace pqvpn::config {
     struct KDFConfig {
@@ -174,6 +175,7 @@ namespace pqvpn::config {
         TuningConfig tuning;
         TunnelConfig tunnel;
         EgressConfig egress;
+        transport::AdaptiveConfig adaptive_transport;
         traffic::ShapingConfig traffic_shaping;
         std::optional<ExternalTransport> external_transport;
 
@@ -189,6 +191,18 @@ namespace pqvpn::config {
             if (j.contains("tuning")) value.tuning = j.at("tuning").get<TuningConfig>();
             if (j.contains("tunnel")) value.tunnel = j.at("tunnel").get<TunnelConfig>();
             if (j.contains("egress")) value.egress = j.at("egress").get<EgressConfig>();
+            if (j.contains("adaptive_transport")) {
+                const auto& adaptive = j.at("adaptive_transport");
+                value.adaptive_transport.enabled = adaptive.value("enabled", false);
+                const auto mode = transport::mode_from_string(adaptive.value("mode", std::string{"auto"}));
+                if (!mode) throw std::runtime_error("adaptive_transport.mode must be auto, udp or tcp");
+                value.adaptive_transport.mode = *mode;
+                value.adaptive_transport.loss_switch_percent = adaptive.value("loss_switch_percent", 12.0);
+                value.adaptive_transport.jitter_switch_ms = adaptive.value("jitter_switch_ms", 45.0);
+                value.adaptive_transport.failure_switch_count = adaptive.value("failure_switch_count", 3u);
+                value.adaptive_transport.recovery_probe_count = adaptive.value("recovery_probe_count", 4u);
+                value.adaptive_transport.minimum_dwell_ms = adaptive.value("minimum_dwell_ms", 5000u);
+            }
             if (j.contains("traffic_shaping")) {
                 const auto& shape = j.at("traffic_shaping");
                 value.traffic_shaping.enabled = shape.value("enabled", false);
@@ -210,6 +224,15 @@ namespace pqvpn::config {
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;
+            if (value.adaptive_transport.enabled || value.adaptive_transport.mode != transport::Mode::Auto) {
+                const auto& adaptive = value.adaptive_transport;
+                j["adaptive_transport"] = {{"enabled", adaptive.enabled}, {"mode", transport::to_string(adaptive.mode)},
+                    {"loss_switch_percent", adaptive.loss_switch_percent},
+                    {"jitter_switch_ms", adaptive.jitter_switch_ms},
+                    {"failure_switch_count", adaptive.failure_switch_count},
+                    {"recovery_probe_count", adaptive.recovery_probe_count},
+                    {"minimum_dwell_ms", adaptive.minimum_dwell_ms}};
+            }
             if (value.traffic_shaping.enabled) {
                 const auto& shape = value.traffic_shaping;
                 j["traffic_shaping"] = {{"enabled", shape.enabled}, {"max_padding_bytes", shape.max_padding_bytes},
@@ -239,6 +262,14 @@ namespace pqvpn::config {
             shape.max_queue_packets == 0 || shape.max_queue_packets > 4096 ||
             shape.max_queue_bytes < 1200 || shape.max_queue_bytes > 16 * 1024 * 1024)
             return ConfigError{"traffic_shaping limits are out of range"};
+        const auto& adaptive = cfg.adaptive_transport;
+        if (adaptive.loss_switch_percent <= 0.0 || adaptive.loss_switch_percent > 100.0 ||
+            adaptive.jitter_switch_ms <= 0.0 || adaptive.jitter_switch_ms > 5000.0 ||
+            adaptive.failure_switch_count == 0 || adaptive.failure_switch_count > 100 ||
+            adaptive.recovery_probe_count == 0 || adaptive.recovery_probe_count > 100 ||
+            adaptive.minimum_dwell_ms > 600000) {
+            return ConfigError{"adaptive_transport limits are out of range"};
+        }
         if (cfg.network.port <= 0 || cfg.network.port > 65535) {
             return ConfigError{"Invalid network port: " + std::to_string(cfg.network.port)};
         }

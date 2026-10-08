@@ -13,5 +13,14 @@
   "network": {
     "port": 9090,
     "bind_address": "127.0.0.1"
+  },
+  "adaptive_transport": {
+    "enabled": false,
+    "mode": "auto",
+    "loss_switch_percent": 12.0,
+    "jitter_switch_ms": 45.0,
+    "failure_switch_count": 3,
+    "recovery_probe_count": 4,
+    "minimum_dwell_ms": 5000
   }
 }

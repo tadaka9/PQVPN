@@ -2,9 +2,9 @@ name: Unit tests and hardening
 
 on:
   push:
-    branches: [main, future]
+    branches: [main]
   pull_request:
-    branches: [main, future]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,20 +12,37 @@ permissions:
 
 jobs:
   driver-tests:
-    name: Compile Windows driver test utility (no HLK certification)
-    runs-on: windows-2022
+    name: Compile PQVPN Windows driver and test utility
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install dependencies
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build PQVPN tunnel driver with supported WDK
+        shell: pwsh
         run: |
-          choco install cmake ninja -y
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj /t:Restore /p:Configuration=Release /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'WDK restore failed' }
+          $wdk = "$env:USERPROFILE\.nuget\packages\microsoft.windows.wdk.x64\10.0.28000.2526\c"
+          $env:PATH = "$wdk\bin\10.0.28000.0\x64;$env:PATH"
+          $sdkPackage = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.cpp\10.0.28000.*" |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $sdkPackage) { throw 'Matching Windows SDK NuGet package was not restored' }
+          $sdk = Join-Path $sdkPackage.FullName 'c'
+          msbuild driver/pqvpn_tunnel/pqvpn_tunnel.vcxproj `
+            /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off `
+            /p:SkipPackageVerification=true "/p:WindowsSdkDir=$sdk\" "/p:WDKContentRoot=$wdk\" /m
+          if ($LASTEXITCODE -ne 0) { throw 'PQVPN tunnel driver build failed' }
+          if (-not (Test-Path driver/build/x64/Release/pqvpn_tunnel.sys)) {
+            throw 'Driver build did not produce pqvpn_tunnel.sys'
+          }
 
       - name: Build driver tests
         shell: bash
         working-directory: driver/pqvpn_tunnel
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          cmake -S . -B build -G "Visual Studio 18 2026" -A x64
           cmake --build build --config Debug --target irp_fuzz_test
 
       - name: Validate HLK configuration XML
@@ -47,25 +64,88 @@ jobs:
           }
           Write-Host "All required HLK test suites present"
 
+      - name: Upload unsigned driver build
+        uses: actions/upload-artifact@v6
+        with:
+          name: pqvpn-tunnel-driver-unsigned-x64
+          path: |
+            driver/build/x64/Release/pqvpn_tunnel.sys
+            driver/build/x64/Release/pqvpn_tunnel.inf
+          if-no-files-found: error
+          retention-days: 7
+
   hardening-gate:
     name: Security Hardening Gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install dependencies
+      - name: Load dependency versions
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+
+      - name: Restore upstream dependency cache
+        id: upstream-deps
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pqvpn-deps
+          key: hardening-deps-v3-linux-x86_64-${{ hashFiles('.github/dependencies.env') }}
+
+      - name: Verify runner build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libssl-dev pkg-config libargon2-dev
-          git clone --depth 1 --branch 0.12.0 https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
+          command -v cmake
+          command -v ninja
+          command -v g++
+          command -v pkg-config
+          command -v perl
+          command -v make
+
+      - name: Build official upstream dependencies
+        if: steps.upstream-deps.outputs.cache-hit != 'true'
+        run: |
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          mkdir -p "$prefix"
+
+          git clone --depth 1 --branch "openssl-$OPENSSL_VERSION" https://github.com/openssl/openssl.git "$RUNNER_TEMP/openssl"
+          pushd "$RUNNER_TEMP/openssl"
+          ./Configure --prefix="$prefix" --libdir=lib no-shared no-tests
+          make -j2
+          make install_sw
+          popd
+
+          git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
+          make -C "$RUNNER_TEMP/argon2" -j2
+          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
+          mkdir -p "$prefix/lib/pkgconfig"
+          cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
+          prefix=$prefix
+          exec_prefix=\${prefix}
+          libdir=\${exec_prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: libargon2
+          Description: Upstream Argon2 password hashing library
+          Version: $ARGON2_VERSION
+          Libs: -L\${libdir} -largon2
+          Cflags: -I\${includedir}
+          EOF
+
+          git clone --depth 1 --branch "$LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$RUNNER_TEMP/liboqs"
           cmake -S "$RUNNER_TEMP/liboqs" -B "$RUNNER_TEMP/liboqs-build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DOQS_BUILD_ONLY_LIB=ON \
-            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87"
+            -DOQS_MINIMAL_BUILD="KEM_ml_kem_1024;SIG_ml_dsa_87" \
+            -DOPENSSL_ROOT_DIR="$prefix" -DCMAKE_INSTALL_PREFIX="$prefix"
           cmake --build "$RUNNER_TEMP/liboqs-build" --parallel 2
-          sudo cmake --install "$RUNNER_TEMP/liboqs-build"
-          # Ensure pkg-config and CMake can find the newly installed liboqs
-          echo "PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" | tee -a $GITHUB_ENV
-          echo "CMAKE_PREFIX_PATH=/usr/local:$CMAKE_PREFIX_PATH" | tee -a $GITHUB_ENV
+          cmake --install "$RUNNER_TEMP/liboqs-build"
+
+      - name: Verify official upstream dependency versions
+        run: |
+          prefix="$RUNNER_TEMP/pqvpn-deps"
+          test "$($prefix/bin/openssl version | awk '{print $2}')" = "$OPENSSL_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
+          test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
+          echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$prefix" >> "$GITHUB_ENV"
 
       - name: Run hardening gate
         run: |

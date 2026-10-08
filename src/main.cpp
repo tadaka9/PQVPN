@@ -5,6 +5,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <thread>
 
 #include "platform/adapter.hpp"
 #ifdef _WIN32
@@ -29,10 +30,16 @@ struct CliArgs {
     std::string config_path = "config.json";
     std::string log_level = "info";
     bool smoke_test = false;
+    bool validate_config = false;
+    bool print_config = false;
+    bool platform_info = false;
+    bool version = false;
+    std::string strangenet_room;
+    std::string strangenet_peer;
     bool help = false;
 #ifdef _WIN32
-    bool no_tap = false;
-    std::string tap_guid;
+    bool no_tunnel = false;
+    std::string tunnel_device;
 #endif
 };
 
@@ -43,9 +50,15 @@ void print_usage(const char* program) {
         << "  -c, --config PATH       Configuration file path (default: config.json)\n"
         << "      --log-level LEVEL   spdlog level hint (default: info)\n"
         << "      --smoke-test        Load/serialize config and exit\n"
+        << "      --validate-config   Validate configuration and exit\n"
+        << "      --print-config      Print normalized configuration and exit\n"
+        << "      --platform-info     Show OS-specific tunnel capabilities\n"
+        << "      --version           Show the PQVPN build version\n"
+        << "      --strangenet-room NAME  Join a bounded peer conversation room\n"
+        << "      --strangenet-peer HEX  Authenticated peer identity for the room\n"
 #ifdef _WIN32
-        << "      --tap-guid GUID     Use this TAP-Windows adapter (default: auto-detect)\n"
-        << "      --no-tap            Run without a TAP-Windows adapter\n"
+        << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
+        << "      --no-tunnel          Run without the PQVPN tunnel adapter\n"
 #endif
         << "  -h, --help              Show this help\n";
 }
@@ -58,15 +71,27 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.help = true;
         } else if (value == "--smoke-test") {
             args.smoke_test = true;
+        } else if (value == "--validate-config") {
+            args.validate_config = true;
+        } else if (value == "--print-config") {
+            args.print_config = true;
+        } else if (value == "--platform-info") {
+            args.platform_info = true;
+        } else if (value == "--version") {
+            args.version = true;
+        } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
+            if (++index >= argc) { std::cerr << value << " requires a value\n"; return std::nullopt; }
+            if (value == "--strangenet-room") args.strangenet_room = argv[index];
+            else args.strangenet_peer = argv[index];
 #ifdef _WIN32
-        } else if (value == "--no-tap") {
-            args.no_tap = true;
-        } else if (value == "--tap-guid") {
+        } else if (value == "--no-tunnel") {
+            args.no_tunnel = true;
+        } else if (value == "--tunnel-device") {
             if (++index >= argc) {
-                std::cerr << value << " requires an adapter GUID\n";
+                std::cerr << value << " requires a device path\n";
                 return std::nullopt;
             }
-            args.tap_guid = argv[index];
+            args.tunnel_device = argv[index];
 #endif
         } else if (value == "-c" || value == "--config") {
             if (++index >= argc) {
@@ -85,7 +110,42 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             return std::nullopt;
         }
     }
+    if (args.strangenet_room.empty() != args.strangenet_peer.empty()) {
+        std::cerr << "--strangenet-room and --strangenet-peer must be used together\n";
+        return std::nullopt;
+    }
     return args;
+}
+
+std::optional<std::vector<std::uint8_t>> decode_peer_id(const std::string& value) {
+    if (value.size() != 64) return std::nullopt;
+    std::vector<std::uint8_t> decoded;
+    decoded.reserve(32);
+    auto nibble = [](const char c) -> int {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
+    };
+    for (std::size_t index = 0; index < value.size(); index += 2) {
+        const int high = nibble(value[index]), low = nibble(value[index + 1]);
+        if (high < 0 || low < 0) return std::nullopt;
+        decoded.push_back(static_cast<std::uint8_t>((high << 4) | low));
+    }
+    return decoded;
+}
+
+void print_platform_info() {
+#if defined(_WIN32)
+    std::cout << "os=windows\ntunnel=pqvpn-native-ndis\nminimum=windows-10\n";
+#elif defined(__APPLE__)
+    std::cout << "os=macos\ntunnel=network-extension-boundary\n";
+#elif defined(__linux__)
+    std::cout << "os=linux\ntunnel=/dev/net/tun\n";
+#else
+    std::cout << "os=unknown\ntunnel=unsupported\n";
+#endif
+    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n";
 }
 
 int run_smoke_test(const CliArgs& args) {
@@ -143,6 +203,29 @@ int main(int argc, char** argv) {
     const CliArgs args = *parsed;
     if (args.help) {
         print_usage(argv[0]);
+        return 0;
+    }
+
+    if (args.version) {
+        std::cout << "PQVPN 0.0.1-alpha\n";
+        return 0;
+    }
+    if (args.platform_info) {
+        print_platform_info();
+        return 0;
+    }
+
+    if (args.validate_config || args.print_config) {
+        auto checked = pqvpn::config::load_config(args.config_path);
+        if (!checked) {
+            std::cerr << "Invalid PQVPN configuration: " << args.config_path << "\n";
+            return 1;
+        }
+        if (args.print_config) {
+            std::cout << pqvpn::serialization::JsonSerializer::serialize(*checked) << "\n";
+        } else {
+            std::cout << "Configuration valid: " << args.config_path << "\n";
+        }
         return 0;
     }
 
@@ -249,7 +332,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Per-OS tunnel adapter: TAP on Windows, /dev/net/tun on Linux, and the
+    // Per-OS tunnel adapter: PQVPN's driver on Windows, /dev/net/tun on Linux, and the
     // Network Extension boundary on macOS (see src/platform/adapter.hpp).
     std::unique_ptr<pqvpn::platform::Adapter> adapter;
 #ifdef _WIN32
@@ -257,17 +340,10 @@ int main(int argc, char** argv) {
     pqvpn::platform::WindowsRouteBackend route_backend;
     // Declared with the other route state (not inside the TAP block) so the
     // signal handler can roll back peer exclusions on shutdown. Safe to leave
-    // unused when no_tap is set: remove_all() on an empty manager succeeds.
+    // unused when no_tunnel is set: remove_all() on an empty manager succeeds.
     pqvpn::routing::PeerRouteManager peer_routes(route_backend);
-    const pqvpn::platform::WindowsTap* tap = nullptr;
-    if (!args.no_tap) {
-        // CLI --tap-guid wins; otherwise config "tunnel.interface_name" may
-        // supply the TAP GUID (empty = auto-detect).
-        const std::string tap_hint =
-            !args.tap_guid.empty() ? args.tap_guid : config->tunnel.interface_name;
-        adapter = pqvpn::platform::make_adapter(tap_hint);
-        auto* tap_adapter = dynamic_cast<pqvpn::platform::WindowsTapAdapter*>(adapter.get());
-        tap = tap_adapter ? &tap_adapter->device() : nullptr;
+    if (!args.no_tunnel) {
+        adapter = pqvpn::platform::make_adapter(args.tunnel_device);
     }
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
@@ -332,8 +408,41 @@ int main(int argc, char** argv) {
         if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
     });
 
+    if (!args.strangenet_room.empty()) {
+        const auto peer = decode_peer_id(args.strangenet_peer);
+        if (!peer || args.strangenet_room.size() > pqvpn::strangenet::kMaxRoomBytes) {
+            std::cerr << "Invalid StrangeNet room or peer identity\n";
+            return 2;
+        }
+        node->set_strangenet_handler([](const pqvpn::strangenet::Message& message,
+                                        const std::vector<std::uint8_t>&) {
+            std::cout << "\n[" << message.room << "] " << message.sender.substr(0, 12)
+                      << ": " << message.text << "\n> " << std::flush;
+        });
+        const auto room = args.strangenet_room;
+        std::thread([node, peer = *peer, room, &io] {
+            std::uint64_t sequence = 0;
+            std::string line;
+            std::cout << "StrangeNet room '" << room << "' ready; messages send after the peer session is established.\n> " << std::flush;
+            while (std::getline(std::cin, line)) {
+                if (line == "/quit") break;
+                if (line.empty() || line.size() > pqvpn::strangenet::kMaxMessageBytes) {
+                    std::cout << "Message must contain 1.." << pqvpn::strangenet::kMaxMessageBytes << " bytes\n> " << std::flush;
+                    continue;
+                }
+                const auto timestamp = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+                asio::post(io, [node, peer, room, text = line, value = ++sequence, timestamp] {
+                    if (!node->send_strangenet_message(peer, room, value, timestamp, text))
+                        std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
+                });
+                std::cout << "> " << std::flush;
+            }
+        }).detach();
+    }
+
 #ifdef _WIN32
-    if (adapter_active && tap) {
+    if (adapter_active) {
         try {
 
             // Route traffic through the adapter only when it actually has an
@@ -342,18 +451,18 @@ int main(int argc, char** argv) {
             // mask (prefix length 0, matching every destination) and the
             // adapter address as next hop. A /32 here would match only the
             // literal 0.0.0.0 address and send no real traffic to the TAP.
-            const auto adapter_route = pqvpn::platform::find_adapter_ipv4(tap->guid());
+            const auto adapter_route = pqvpn::platform::find_adapter_ipv4("PQVPN Tunnel");
             if (!adapter_route) {
-                std::cerr << "TAP-Windows adapter has no IPv4 address; skipping route installation\n";
+                std::cerr << "PQVPN Tunnel has no IPv4 address; skipping route installation\n";
             } else {
-                // The TAP default route would also capture this node's own UDP
+                    // The tunnel default route would also capture this node's own UDP
                 // transport: peer datagrams would enter the adapter, get
                 // re-encrypted by the data path, and loop. Before it can win,
                 // pin every known tunnel peer (and control-plane destination)
                 // to the pre-VPN physical gateway with /32 host routes.
                 const auto physical = pqvpn::platform::find_default_route(adapter_route->interface_index);
                 if (!physical) {
-                    std::cerr << "no pre-VPN default route found; skipping TAP default route "
+                        std::cerr << "no pre-VPN default route found; skipping tunnel default route "
                               << "(installing it without peer exclusions would loop tunnel traffic)\n";
                 } else {
                     peer_routes.set_physical_gateway(
@@ -414,7 +523,7 @@ int main(int argc, char** argv) {
                             adapter_route->ipv4, adapter_route->interface_index});
 
                         if (const auto report = route_plan.commit(route_backend); report.committed) {
-                            std::cout << "default route installed through the TAP-Windows adapter\n";
+                            std::cout << "default route installed through the PQVPN Tunnel adapter\n";
                         } else {
                             // The default is down; drop the exclusions we just
                             // created so no owned routes survive a failed setup, and
@@ -426,7 +535,7 @@ int main(int argc, char** argv) {
                             }
                             node->set_peer_route_hook(nullptr);
                             std::cerr << "route installation failed (" << report.error
-                                      << "); continuing without VPN routes\n";
+                                << "); continuing without VPN routes\n";
                         }
                     }
                 }
@@ -448,7 +557,7 @@ int main(int argc, char** argv) {
     asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait([&](const asio::error_code&, int) {
 #ifdef _WIN32
-        if (adapter_active && tap) {
+        if (adapter_active) {
             // Remove the installed routes before taking the adapter down, in
             // reverse build order: peer exclusions first, then the default.
             // Removal is idempotent, so this is safe even on partial installs.

@@ -929,10 +929,14 @@ void EgressForwarder::start_udp_recv(std::weak_ptr<UdpFlow> w) {
     // asio::buffer() snapshots the vector, the move would leave a zero-length
     // receive buffer and Windows silently discards the datagram (n=0).
     auto buf = std::make_shared<std::vector<uint8_t>>(65536);
-    asio::ip::udp::endpoint from;
+    // Asio also retains the endpoint reference until completion. Keeping it
+    // on the heap prevents a use-after-scope when the receive completes on a
+    // later io_context turn (most visible with IPv6 under CI scheduling).
+    auto from = std::make_shared<asio::ip::udp::endpoint>();
     f->sock->async_receive_from(
-        asio::buffer(*buf), from, [this, w, buf](const asio::error_code& ec,
-                                                 std::size_t n) {
+        asio::buffer(*buf), *from, [this, w, buf, from](const asio::error_code& ec,
+                                                        std::size_t n) {
+            (void)from; // owns async_receive_from's endpoint storage
             auto ff = w.lock();
             if (!ff || ff->closed) return;
             if (ec == asio::error::eof) {

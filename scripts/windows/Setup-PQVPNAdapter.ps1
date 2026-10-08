@@ -1,77 +1,38 @@
-<#
-.SYNOPSIS
-    Setup-PQVPNAdapter.ps1 - Installa e configura l'interfaccia TAP per PQVPN su Windows.
-#>
+<# Installs and configures the repository-owned PQVPN layer-3 adapter. #>
+[CmdletBinding()]
+param(
+    [string]$DriverDirectory = (Join-Path $PSScriptRoot '..\..\driver\build\x64\Release'),
+    [string]$Address = '10.8.0.2',
+    [int]$PrefixLength = 24
+)
 
-$ErrorActionPreference = "Stop"
-
-function Test-IsAdmin {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$ErrorActionPreference = 'Stop'
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = [Security.Principal.WindowsPrincipal]::new($identity)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Setup-PQVPNAdapter.ps1 must run as Administrator.'
 }
 
-if (-not (Test-IsAdmin)) {
-    Write-Error "Questo script deve essere eseguito come AMMINISTRATORE."
-    exit 1
+$inf = Join-Path $DriverDirectory 'pqvpn_tunnel.inf'
+$sys = Join-Path $DriverDirectory 'pqvpn_tunnel.sys'
+if (-not (Test-Path $inf) -or -not (Test-Path $sys)) {
+    throw "PQVPN driver package is incomplete in $DriverDirectory"
 }
 
-Write-Host "--- PQVPN Windows Adapter Setup ---" -ForegroundColor Cyan
+Write-Host 'Installing the PQVPN-owned tunnel driver...' -ForegroundColor Cyan
+& pnputil.exe /add-driver $inf /install
+if ($LASTEXITCODE -ne 0) { throw "pnputil failed with exit code $LASTEXITCODE" }
 
-# 1. Verifica driver TAP esistente
-Write-Host "[1/4] Verificando presenza driver TAP..." -NoNewline
-$tapAdapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*TAP-Windows*" }
+$adapter = Get-NetAdapter -IncludeHidden | Where-Object InterfaceDescription -Like 'PQVPN Tunnel*' |
+    Select-Object -First 1
+if (-not $adapter) { throw 'The PQVPN Tunnel adapter did not appear after driver installation.' }
 
-if ($null -eq $tapAdapter) {
-    Write-Host " [MANCANTE]" -ForegroundColor Red
-    Write-Host "[*] Scaricamento e installazione TAP-Windows..." -ForegroundColor Yellow
-
-    $url = "https://build.openvpn.net/downloads/releases/tap-windows-9.24.7-bundle-oss.exe"
-    $dest = "$env:TEMP\tap_installer.exe"
-
-    Invoke-WebRequest -Uri $url -OutFile $dest
-    Start-Process -FilePath $dest -ArgumentList "/S" -Wait
-
-    # Ricarica lista adapter
-    $tapAdapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*TAP-Windows*" }
-    if ($null -eq $tapAdapter) {
-        Write-Error "Installazione fallita. Assicurati che il driver sia compatibile."
-        exit 1
-    }
-    Write-Host " [OK]" -ForegroundColor Green
-} else {
-    Write_Host " [PRESENTE]" -ForegroundColor Green
+Rename-NetAdapter -Name $adapter.Name -NewName 'PQVPN Tunnel' -ErrorAction SilentlyContinue
+$adapter = Get-NetAdapter -Name 'PQVPN Tunnel'
+$existing = Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object IPAddress -EQ $Address
+if (-not $existing) {
+    New-NetIPAddress -InterfaceIndex $adapter.ifIndex -IPAddress $Address -PrefixLength $PrefixLength | Out-Null
 }
-
-# 2. Configurazione IP
-Write-Host "[2/4] Configurando indirizzo IP (10.8.0.2)..." -NoNewline
-$interfaceName = $tapAdapter.Name
-try {
-    # Reset e configurazione IP statico per il tunnel PQVPN
-    New-NetIPAddress -InterfaceAlias $interfaceName -IPAddress "10.8.0.2" -PrefixLength 24 -ErrorAction SilentlyContinue | Out-Null
-    Write-Host " [OK]" -ForegroundColor Green
-} catch {
-    Write-Host " [GIÀ CONFIGURATO O ERRORE]" -ForegroundColor Yellow
-}
-
-# 3. Configurazione Routing
-Write-Host "[3/4] Configurando rotte di rete..." -NoNewline
-try {
-    # Aggiungiamo una rotta per la rete interna del tunnel PQVPN
-    New-NetRoute -InterfaceAlias $interfaceName -DestinationPrefix "10.8.0.0/24" -ErrorAction SilentlyContinue | Out-Null
-    Write-Host " [OK]" -ForegroundColor Green
-} catch {
-    Write-Host " [ERRORE]" -ForegroundColor Red
-}
-
-# 4. Verifica Finale
-Write-Host "[4/4] Verifica stato interfaccia..." -NoNewline
-$status = Get-NetAdapter -Name $interfaceName | Select-Object -ExpandProperty Status
-if ($status -eq "Up") {
-    Write-Host " [PRONTO]" -ForegroundColor Green
-    Write-Host "`nConfigurazione completata con successo!" -ForegroundColor Cyan
-    Write-Host "L'interfaccia '$interfaceName' è pronta per ricevere pacchetti PQVPN."
-} else {
-    Write-Host " [ERRORE: $status]" -                ForegroundColor Red
-    exit 1
-}
+Enable-NetAdapter -InterfaceIndex $adapter.ifIndex -Confirm:$false
+Write-Host "PQVPN Tunnel is ready on $Address/$PrefixLength." -ForegroundColor Green

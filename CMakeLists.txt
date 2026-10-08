@@ -1,10 +1,17 @@
 cmake_minimum_required(VERSION 3.28)
-project(PQVPN VERSION 0.1.0 LANGUAGES CXX)
+project(PQVPN VERSION 0.0.1 LANGUAGES CXX)
+
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/.github/dependencies.env" PQVPN_DEPENDENCY_LINES
+     REGEX "^[A-Z0-9_]+=[^=]+$")
+foreach(PQVPN_DEPENDENCY_LINE IN LISTS PQVPN_DEPENDENCY_LINES)
+  string(REGEX MATCH "^([^=]+)=(.+)$" _ "${PQVPN_DEPENDENCY_LINE}")
+  set("PQVPN_${CMAKE_MATCH_1}" "${CMAKE_MATCH_2}")
+endforeach()
 
 include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL ${PQVPN_OPENSSL_VERSION} REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
 if(TARGET unofficial::argon2::libargon2)
     message(STATUS "Argon2 found via vcpkg: unofficial::argon2::libargon2")
@@ -30,13 +37,13 @@ if(NOT ARGON2_FOUND AND NOT HAVE_ARGON2)
 endif()
 
 # Use liboqs' exported usage requirements instead of guessing a static path.
-find_package(liboqs 0.12 CONFIG QUIET)
+find_package(liboqs ${PQVPN_LIBOQS_VERSION} CONFIG QUIET)
 add_library(pqvpn_oqs_static INTERFACE)
 if(TARGET OQS::oqs)
   target_link_libraries(pqvpn_oqs_static INTERFACE OQS::oqs)
 else()
   find_package(PkgConfig REQUIRED)
-  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=0.12)
+  pkg_check_modules(LIBOQS REQUIRED IMPORTED_TARGET liboqs>=${PQVPN_LIBOQS_VERSION})
   # A static liboqs .pc lists OpenSSL in Requires.private, which the regular
   # imported pkg-config target omits. Carry it explicitly for static installs.
   target_link_libraries(pqvpn_oqs_static INTERFACE PkgConfig::LIBOQS OpenSSL::Crypto)
@@ -53,6 +60,9 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+if(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 include(CheckCXXSourceCompiles)
 check_cxx_source_compiles("#include <expected>
@@ -66,18 +76,18 @@ include(FetchContent)
 
 FetchContent_Declare(spdlog
   GIT_REPOSITORY https://github.com/gabime/spdlog.git
-  GIT_TAG v1.14.1)
+  GIT_TAG ${PQVPN_SPDLOG_TAG})
 FetchContent_Declare(asio
   GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-  GIT_TAG asio-1-30-2)
+  GIT_TAG ${PQVPN_ASIO_TAG})
 FetchContent_MakeAvailable(spdlog asio)
 if(BUILD_TESTING)
   FetchContent_Declare(Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.4.0)
+    GIT_TAG ${PQVPN_CATCH2_TAG})
   FetchContent_Declare(googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.15.2)
+    GIT_TAG ${PQVPN_GOOGLETEST_TAG})
   set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
   FetchContent_MakeAvailable(Catch2 googletest)
 endif()
@@ -99,7 +109,7 @@ endif()
 list(APPEND PQVPN_COMMON_LIBS pqvpn_oqs_static)
 list(APPEND PQVPN_COMMON_LIBS OpenSSL::Crypto)
 if(WIN32)
-  list(APPEND PQVPN_COMMON_LIBS ws2_32 mswsock iphlpapi advapi32)
+  list(APPEND PQVPN_COMMON_LIBS ws2_32 mswsock iphlpapi advapi32 crypt32)
 endif()
 
 # Build crypto utilities library
@@ -121,7 +131,7 @@ target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIB
 
 # ... (previous lines)
 if(PQVPN_BUILD_MONITOR)
-    find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Widgets)
+    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets)
     # The privacy console controls the canonical pqvpn_node process; it does
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
@@ -144,20 +154,18 @@ endif()
 
 # Build node module as a library first
 add_library(node_module_lib src/modules/node_module.cpp src/modules/udp_protocol.cpp
-  src/modules/egress_forwarder.cpp src/modules/ml_traffic_shaper.cpp
+  src/modules/egress_forwarder.cpp src/modules/ml_traffic_shaper.cpp src/modules/adaptive_transport.cpp src/modules/strangenet.cpp
   src/routing/route_transaction.cpp src/routing/peer_route_manager.cpp)
 target_include_directories(node_module_lib PUBLIC ${PQVPN_INCLUDE_DIRS})
 # node_module verifies peer ML-DSA signatures (pq_sig_verify) in the handshake
 # control plane, so it needs the signature library as well.
 target_link_libraries(node_module_lib PUBLIC crypto_utils_lib crypto_signature_lib ${PQVPN_COMMON_LIBS})
 
-# Per-OS tunnel adapter layer (see src/platform/adapter.hpp): TAP-Windows on
+# Per-OS tunnel adapter layer (see src/platform/adapter.hpp): PQVPN TUN on
 # Windows, /dev/net/tun on Linux, and the Network Extension boundary on macOS.
 set(PQVPN_PLATFORM_SOURCES "")
 if(WIN32)
   list(APPEND PQVPN_PLATFORM_SOURCES
-    src/platform/windows_tap.cpp
-    src/platform/windows_wintun.cpp
     src/platform/windows_own_tunnel.cpp
     src/platform/windows_routes.cpp
     src/platform/windows_adapter.cpp
@@ -184,6 +192,10 @@ add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
 
+add_executable(pqvpn_tui src/tui/pqvpn_tui.cpp)
+target_include_directories(pqvpn_tui PRIVATE ${PQVPN_INCLUDE_DIRS})
+target_link_libraries(pqvpn_tui PRIVATE node_module_lib ${PQVPN_COMMON_LIBS})
+
 # MinGW/Windows: the executables import the shared oqs.dll. Copy it next to
 # the binaries so the loader finds them without a modified PATH (every target
 # in this project is placed in CMAKE_BINARY_DIR).
@@ -209,12 +221,17 @@ function(pqvpn_attach_oqs_runtime target)
 endfunction()
 
 pqvpn_attach_oqs_runtime(pqvpn_node)
+pqvpn_attach_oqs_runtime(pqvpn_tui)
 
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 add_test(NAME pqvpn_cli_udp2raw_config COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.udp2raw.json)
+add_test(NAME pqvpn_cli_validate COMMAND pqvpn_node --validate-config --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
+add_test(NAME pqvpn_cli_platform COMMAND pqvpn_node --platform-info)
+add_test(NAME pqvpn_tui_smoke COMMAND pqvpn_tui --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
+set_tests_properties(pqvpn_cli_validate pqvpn_cli_platform pqvpn_tui_smoke PROPERTIES TIMEOUT 30 LABELS "baseline;console")
 add_executable(pqvpn_hard_kernel tools/pqvpn_hard_kernel.cpp)
 target_include_directories(pqvpn_hard_kernel PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_hard_kernel PRIVATE pqvpn_oqs_static)
@@ -233,6 +250,7 @@ set_tests_properties(pqvpn_hard_kernel PROPERTIES
 set(CATCH_TESTS
   discovery_test
   test_audit_module
+  test_adaptive_transport
   test_config
   test_crypto_kem
   test_crypto_signature
@@ -265,6 +283,7 @@ set(CATCH_TESTS
   test_plugin_manager_hooks
   test_plugin_manager
   test_serialization
+  test_strangenet
   test_string_utils
   test_traffic_obfuscation
   test_zk_auth_init

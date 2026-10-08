@@ -88,3 +88,44 @@ TEST_CASE("Config validation kdf zero", "[config]") {
     REQUIRE_FALSE(result.has_value());
     std::remove(config_path.c_str());
 }
+
+TEST_CASE("Config loads adaptive UDP TCP policy", "[config][transport]") {
+    const std::string config_path = temp_config_path("pqvpn_test_config_adaptive.json");
+    {
+        std::ofstream ofs(config_path);
+        ofs << R"({
+            "network": {"port": 9090},
+            "adaptive_transport": {
+                "enabled": true,
+                "mode": "auto",
+                "loss_switch_percent": 8.5,
+                "jitter_switch_ms": 30.0,
+                "failure_switch_count": 2,
+                "recovery_probe_count": 5,
+                "minimum_dwell_ms": 2500
+            }
+        })";
+    }
+
+    auto result = pqvpn::config::load_config(config_path);
+    REQUIRE(result.has_value());
+    CHECK(result->adaptive_transport.enabled);
+    CHECK(result->adaptive_transport.mode == pqvpn::transport::Mode::Auto);
+    CHECK(result->adaptive_transport.loss_switch_percent == 8.5);
+    CHECK(result->adaptive_transport.failure_switch_count == 2);
+    std::remove(config_path.c_str());
+}
+
+TEST_CASE("Config rejects invalid adaptive policy", "[config][transport]") {
+    const std::string config_path = temp_config_path("pqvpn_test_config_adaptive_invalid.json");
+    {
+        std::ofstream ofs(config_path);
+        ofs << R"({
+            "network": {"port": 9090},
+            "adaptive_transport": {"enabled": true, "mode": "sctp"}
+        })";
+    }
+
+    CHECK_FALSE(pqvpn::config::load_config(config_path).has_value());
+    std::remove(config_path.c_str());
+}

@@ -127,9 +127,18 @@ std::optional<AdapterRouteInfo> find_adapter_ipv4(const std::string& guid) {
         return std::nullopt;
     }
 
-    // This toolchain reports AdapterName as an ANSI string.
+    const auto friendly_matches = [&guid](const wchar_t* value) {
+        if (!value) return false;
+        const int size = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
+        if (size <= 1) return false;
+        std::string utf8(static_cast<std::size_t>(size), '\0');
+        WideCharToMultiByte(CP_UTF8, 0, value, -1, utf8.data(), size, nullptr, nullptr);
+        utf8.resize(static_cast<std::size_t>(size - 1));
+        return utf8 == guid;
+    };
     for (auto* adapter = adapters; adapter; adapter = adapter->Next) {
-        if (!adapter->AdapterName || std::string(adapter->AdapterName) != guid) continue;
+        const bool guid_matches = adapter->AdapterName && std::string(adapter->AdapterName) == guid;
+        if (!guid_matches && !friendly_matches(adapter->FriendlyName)) continue;
         for (auto* unicast = adapter->FirstUnicastAddress; unicast; unicast = unicast->Next) {
             const auto ipv4 = unicast_ipv4(unicast);
             if (ipv4.is_v4()) return AdapterRouteInfo{ipv4, adapter->IfIndex};

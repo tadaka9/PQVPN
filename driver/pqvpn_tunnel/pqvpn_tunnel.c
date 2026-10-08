@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * PQVPN Tunnel Driver — Phase 1 scaffold (see docs/windows-tunnel-adapter.md).
+ * PQVPN Tunnel Driver — bounded layer-3 data path.
  *
  * A WDM NDIS miniport that creates ONE virtual layer-3 adapter ("PQVPN
  * Tunnel") whose data path is a user-mode file object. This phase delivers:
@@ -8,8 +8,9 @@
  *   - the adapter registered with ndis.sys (NdisMRegisterMiniportDriver) with
  *     safe no-op handlers;
  *   - \\.\PQVPN_TUN0 with a default-deny DACL (SYSTEM + Administrators only);
- *   - CREATE/CLOSE lifecycle; READ/WRITE fail closed with STATUS_NOT_SUPPORTED
- *     until Phase 2 lands the bounded packet queues.
+ *   - a bounded kernel-to-user packet queue;
+ *   - one IP datagram per READ/WRITE operation;
+ *   - NDIS send completion and receive indication with strict ownership.
  *
  * No protocol logic, no crypto, no DHCP emulation: by design this driver is a
  * dumb pipe and everything interpretable stays in user space where the CTest
@@ -23,13 +24,28 @@
 #define PQVPN_TUN_DEVICE_NAME L"\\Device\\PQVPN_TUN0"
 #define PQVPN_TUN_DOS_NAME    L"\\DosDevices\\PQVPN_TUN0"
 
-/* Phase 1 does not forward packets yet; user mode must treat READ/WRITE as
- * "data path not available" and fall back (fail closed) to UDP-only mode. */
-#define PQVPN_PHASE 1
+#define PQVPN_PHASE 2
+#define PQVPN_MAX_PACKET_SIZE 65536UL
+#define PQVPN_MAX_QUEUED_PACKETS 1024UL
+#define PQVPN_MAX_QUEUED_BYTES (16UL * 1024UL * 1024UL)
+#define PQVPN_PACKET_TAG 'pkqP'
+
+typedef struct _PQVPN_PACKET {
+    LIST_ENTRY Link;
+    ULONG Length;
+    UCHAR Data[1];
+} PQVPN_PACKET, *PPQVPN_PACKET;
 
 typedef struct _PQVPN_CONTEXT {
     PDEVICE_OBJECT DeviceObject;
     BOOLEAN        Closing; /* set on IRP_MJ_CLEANUP, checked by late IRPs   */
+    BOOLEAN        AdapterReady;
+    NDIS_HANDLE    AdapterHandle;
+    NDIS_HANDLE    ReceivePool;
+    KSPIN_LOCK     QueueLock;
+    LIST_ENTRY     OutboundQueue;
+    ULONG          QueuedPackets;
+    ULONG          QueuedBytes;
 } PQVPN_CONTEXT, *PPQVPN_CONTEXT;
 
 /* The DOS device name is created with the I/O manager API (IoCreateSymbolicLink /
@@ -146,11 +162,8 @@ static NTSTATUS pqvpn_complete(PIRP irp, NTSTATUS status) {
 
 static NTSTATUS pqvpn_dispatch_create_close(PDEVICE_OBJECT device, PIRP irp) {
     PPQVPN_CONTEXT ctx = (PPQVPN_CONTEXT)device->DeviceExtension;
-
-    if (ctx && ctx->Closing) {
-        return pqvpn_complete(irp, STATUS_DEVICE_NOT_READY);
-    }
-    /* Phase 1: no per-handle state to allocate. */
+    PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(irp);
+    if (ctx && stack->MajorFunction == IRP_MJ_CREATE) ctx->Closing = FALSE;
     return pqvpn_complete(irp, STATUS_SUCCESS);
 }
 
@@ -158,7 +171,7 @@ static NTSTATUS pqvpn_dispatch_cleanup(PDEVICE_OBJECT device, PIRP irp) {
     PPQVPN_CONTEXT ctx = (PPQVPN_CONTEXT)device->DeviceExtension;
 
     if (ctx) {
-        ctx->Closing = TRUE; /* late READ/WRITE must fail closed            */
+        ctx->Closing = TRUE;
     }
     return pqvpn_complete(irp, STATUS_SUCCESS);
 }
@@ -167,18 +180,103 @@ static NTSTATUS pqvpn_dispatch_cleanup(PDEVICE_OBJECT device, PIRP irp) {
  * object after cleanup. The context is therefore released in DriverUnload,
  * where all IRPs are guaranteed to have completed. */
 
-static NTSTATUS pqvpn_dispatch_not_supported(PDEVICE_OBJECT device, PIRP irp) {
-    /* Phase 1 has no data path: fail closed with an unambiguous status so a
-     * user-mode backend can distinguish "not built yet" from I/O errors. */
-    (void)device;
-    return pqvpn_complete(irp, STATUS_NOT_SUPPORTED);
+static BOOLEAN pqvpn_valid_ip_packet(const UCHAR* data, ULONG length) {
+    UCHAR version;
+    if (data == NULL || length < 20 || length > PQVPN_MAX_PACKET_SIZE) return FALSE;
+    version = (UCHAR)(data[0] >> 4);
+    return (version == 4 && length >= 20) || (version == 6 && length >= 40);
+}
+
+static VOID pqvpn_free_outbound_queue(PPQVPN_CONTEXT ctx) {
+    LIST_ENTRY local;
+    KIRQL old_irql;
+    InitializeListHead(&local);
+    KeAcquireSpinLock(&ctx->QueueLock, &old_irql);
+    while (!IsListEmpty(&ctx->OutboundQueue)) {
+        InsertTailList(&local, RemoveHeadList(&ctx->OutboundQueue));
+    }
+    ctx->QueuedPackets = 0;
+    ctx->QueuedBytes = 0;
+    KeReleaseSpinLock(&ctx->QueueLock, old_irql);
+    while (!IsListEmpty(&local)) {
+        PPQVPN_PACKET packet = CONTAINING_RECORD(RemoveHeadList(&local), PQVPN_PACKET, Link);
+        ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+    }
+}
+
+static NTSTATUS pqvpn_dispatch_read(PDEVICE_OBJECT device, PIRP irp) {
+    PPQVPN_CONTEXT ctx = (PPQVPN_CONTEXT)device->DeviceExtension;
+    PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(irp);
+    PPQVPN_PACKET packet = NULL;
+    KIRQL old_irql;
+    if (ctx == NULL || ctx->Closing || !ctx->AdapterReady) {
+        return pqvpn_complete(irp, STATUS_DEVICE_NOT_READY);
+    }
+    KeAcquireSpinLock(&ctx->QueueLock, &old_irql);
+    if (!IsListEmpty(&ctx->OutboundQueue)) {
+        packet = CONTAINING_RECORD(RemoveHeadList(&ctx->OutboundQueue), PQVPN_PACKET, Link);
+        ctx->QueuedPackets--;
+        ctx->QueuedBytes -= packet->Length;
+    }
+    KeReleaseSpinLock(&ctx->QueueLock, old_irql);
+    if (packet == NULL) return pqvpn_complete(irp, STATUS_NO_MORE_ENTRIES);
+    if (stack->Parameters.Read.Length < packet->Length) {
+        ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+        return pqvpn_complete(irp, STATUS_BUFFER_TOO_SMALL);
+    }
+    RtlCopyMemory(irp->AssociatedIrp.SystemBuffer, packet->Data, packet->Length);
+    irp->IoStatus.Status = STATUS_SUCCESS;
+    irp->IoStatus.Information = packet->Length;
+    ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+    IoCompleteRequest(irp, IO_NETWORK_INCREMENT);
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS pqvpn_dispatch_write(PDEVICE_OBJECT device, PIRP irp) {
+    PPQVPN_CONTEXT ctx = (PPQVPN_CONTEXT)device->DeviceExtension;
+    PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(irp);
+    ULONG length = stack->Parameters.Write.Length;
+    PVOID data = NULL;
+    PMDL mdl = NULL;
+    PNET_BUFFER_LIST nbl = NULL;
+    if (ctx == NULL || ctx->Closing || !ctx->AdapterReady || ctx->ReceivePool == NULL) {
+        return pqvpn_complete(irp, STATUS_DEVICE_NOT_READY);
+    }
+    if (!pqvpn_valid_ip_packet((const UCHAR*)irp->AssociatedIrp.SystemBuffer, length)) {
+        return pqvpn_complete(irp, STATUS_INVALID_BUFFER_SIZE);
+    }
+    data = ExAllocatePool2(POOL_FLAG_NON_PAGED, length, PQVPN_PACKET_TAG);
+    if (data == NULL) return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
+    RtlCopyMemory(data, irp->AssociatedIrp.SystemBuffer, length);
+    mdl = IoAllocateMdl(data, length, FALSE, FALSE, NULL);
+    if (mdl == NULL) {
+        ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
+        return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
+    }
+    MmBuildMdlForNonPagedPool(mdl);
+    nbl = NdisAllocateNetBufferAndNetBufferList(ctx->ReceivePool, 0, 0, mdl, 0, length);
+    if (nbl == NULL) {
+        IoFreeMdl(mdl);
+        ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
+        return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
+    }
+    nbl->SourceHandle = ctx->AdapterHandle;
+    NdisMIndicateReceiveNetBufferLists(ctx->AdapterHandle, nbl, NDIS_DEFAULT_PORT_NUMBER,
+                                       1, NDIS_RECEIVE_FLAGS_RESOURCES);
+    NdisFreeNetBufferList(nbl);
+    IoFreeMdl(mdl);
+    ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
+    irp->IoStatus.Status = STATUS_SUCCESS;
+    irp->IoStatus.Information = length;
+    IoCompleteRequest(irp, IO_NETWORK_INCREMENT);
+    return STATUS_SUCCESS;
 }
 
 /* ------------------------------------------------------------------ */
 /* NDIS miniport handlers                                              */
 /*                                                                     */
 /* Signatures follow the NDIS 6.x miniport contract in ndis.h          */
-/* (NDIS_MINIPORT_DRIVER_CHARACTERISTICS). Phase 1 contract: the       */
+/* (NDIS_MINIPORT_DRIVER_CHARACTERISTICS).                            */
 /* adapter registers and binds cleanly; all data movement is refused   */
 /* safely — SendNetBufferLists frees what it is given (never leaks),   */
 /* OIDs answer a minimal set, everything else returns                  */
@@ -189,16 +287,85 @@ static NDIS_STATUS pqvpn_initialize_ex(
     NDIS_HANDLE adapter_handle,
     NDIS_HANDLE miniport_driver_context,
     PNDIS_MINIPORT_INIT_PARAMETERS init_parameters) {
-    (void)adapter_handle;
     (void)miniport_driver_context;
     (void)init_parameters;
-    /* Phase 1: nothing to allocate per adapter. */
+    if (g_Context == NULL) return NDIS_STATUS_RESOURCES;
+    {
+        NDIS_MINIPORT_ADAPTER_REGISTRATION_ATTRIBUTES registration;
+        NET_BUFFER_LIST_POOL_PARAMETERS pool_parameters;
+        NDIS_MINIPORT_ADAPTER_GENERAL_ATTRIBUTES general;
+        static const UCHAR permanent_address[6] = {0x02, 0x50, 0x51, 0x56, 0x50, 0x4e};
+
+        RtlZeroMemory(&registration, sizeof(registration));
+        registration.Header.Type = NDIS_OBJECT_TYPE_MINIPORT_ADAPTER_REGISTRATION_ATTRIBUTES;
+        registration.Header.Revision = NDIS_MINIPORT_ADAPTER_REGISTRATION_ATTRIBUTES_REVISION_1;
+        registration.Header.Size = NDIS_SIZEOF_MINIPORT_ADAPTER_REGISTRATION_ATTRIBUTES_REVISION_1;
+        registration.MiniportAdapterContext = g_Context;
+        registration.AttributeFlags = NDIS_MINIPORT_ATTRIBUTES_NO_HALT_ON_SUSPEND;
+        registration.CheckForHangTimeInSeconds = 0;
+        registration.InterfaceType = NdisInterfaceInternal;
+        if (NdisMSetMiniportAttributes(adapter_handle,
+                (PNDIS_MINIPORT_ADAPTER_ATTRIBUTES)&registration) != NDIS_STATUS_SUCCESS) {
+            return NDIS_STATUS_FAILURE;
+        }
+
+        RtlZeroMemory(&pool_parameters, sizeof(pool_parameters));
+        pool_parameters.Header.Type = NDIS_OBJECT_TYPE_DEFAULT;
+        pool_parameters.Header.Revision = NET_BUFFER_LIST_POOL_PARAMETERS_REVISION_1;
+        pool_parameters.Header.Size = NDIS_SIZEOF_NET_BUFFER_LIST_POOL_PARAMETERS_REVISION_1;
+        pool_parameters.ProtocolId = NDIS_PROTOCOL_ID_DEFAULT;
+        pool_parameters.fAllocateNetBuffer = TRUE;
+        pool_parameters.PoolTag = PQVPN_PACKET_TAG;
+        g_Context->ReceivePool = NdisAllocateNetBufferListPool(adapter_handle, &pool_parameters);
+        if (g_Context->ReceivePool == NULL) return NDIS_STATUS_RESOURCES;
+
+        RtlZeroMemory(&general, sizeof(general));
+        general.Header.Type = NDIS_OBJECT_TYPE_MINIPORT_ADAPTER_GENERAL_ATTRIBUTES;
+        general.Header.Revision = NDIS_MINIPORT_ADAPTER_GENERAL_ATTRIBUTES_REVISION_2;
+        general.Header.Size = NDIS_SIZEOF_MINIPORT_ADAPTER_GENERAL_ATTRIBUTES_REVISION_2;
+        general.MediaType = NdisMediumIP;
+        general.PhysicalMediumType = NdisPhysicalMediumUnspecified;
+        general.MtuSize = 65535;
+        general.MaxXmitLinkSpeed = general.MaxRcvLinkSpeed = NDIS_LINK_SPEED_UNKNOWN;
+        general.XmitLinkSpeed = general.RcvLinkSpeed = NDIS_LINK_SPEED_UNKNOWN;
+        general.MediaConnectState = MediaConnectStateConnected;
+        general.MediaDuplexState = MediaDuplexStateFull;
+        general.LookaheadSize = 65535;
+        general.MacOptions = NDIS_MAC_OPTION_NO_LOOPBACK;
+        general.SupportedPacketFilters = 0;
+        general.MaxMulticastListSize = 0;
+        general.MacAddressLength = sizeof(permanent_address);
+        RtlCopyMemory(general.PermanentMacAddress, permanent_address, sizeof(permanent_address));
+        RtlCopyMemory(general.CurrentMacAddress, permanent_address, sizeof(permanent_address));
+        general.AccessType = NET_IF_ACCESS_BROADCAST;
+        general.DirectionType = NET_IF_DIRECTION_SENDRECEIVE;
+        general.ConnectionType = NET_IF_CONNECTION_DEDICATED;
+        general.IfType = IF_TYPE_TUNNEL;
+        general.IfConnectorPresent = FALSE;
+        if (NdisMSetMiniportAttributes(adapter_handle,
+                (PNDIS_MINIPORT_ADAPTER_ATTRIBUTES)&general) != NDIS_STATUS_SUCCESS) {
+            NdisFreeNetBufferListPool(g_Context->ReceivePool);
+            g_Context->ReceivePool = NULL;
+            return NDIS_STATUS_FAILURE;
+        }
+    }
+    g_Context->AdapterHandle = adapter_handle;
+    g_Context->AdapterReady = TRUE;
     return NDIS_STATUS_SUCCESS;
 }
 
 static VOID pqvpn_halt(NDIS_HANDLE adapter_handle, NDIS_HALT_ACTION halt_action) {
     (void)adapter_handle;
     (void)halt_action;
+    if (g_Context != NULL) {
+        g_Context->AdapterReady = FALSE;
+        pqvpn_free_outbound_queue(g_Context);
+        if (g_Context->ReceivePool != NULL) {
+            NdisFreeNetBufferListPool(g_Context->ReceivePool);
+            g_Context->ReceivePool = NULL;
+        }
+        g_Context->AdapterHandle = NULL;
+    }
 }
 
 static NDIS_STATUS pqvpn_reset(NDIS_HANDLE adapter_handle, PBOOLEAN addressing_reset) {
@@ -234,7 +401,7 @@ static NDIS_STATUS pqvpn_oid_request(
         if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
             return NDIS_STATUS_BUFFER_TOO_SHORT;
         }
-        *value = 65536; /* generous ceiling; Phase 2 enforces real bounds */
+        *value = 65535;
         request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
         return NDIS_STATUS_SUCCESS;
     }
@@ -245,19 +412,63 @@ static NDIS_STATUS pqvpn_oid_request(
     }
 }
 
-/* Free everything the stack handed us: a miniport that queues nothing must
- * still release every NetBufferList it receives (no leaks, no BSOD). */
 static VOID pqvpn_send_nbl(
     NDIS_HANDLE adapter_handle,
     PNET_BUFFER_LIST net_buffer_list,
     NDIS_PORT_NUMBER port_number,
     ULONG send_flags) {
-    (void)adapter_handle;
     (void)port_number;
-    (void)send_flags;
-    if (net_buffer_list != NULL) {
-        NdisFreeNetBufferList(net_buffer_list); /* one argument in this SDK */
+    if (g_Context != NULL && g_Context->AdapterReady) {
+        PNET_BUFFER_LIST nbl;
+        for (nbl = net_buffer_list; nbl != NULL; nbl = NET_BUFFER_LIST_NEXT_NBL(nbl)) {
+            PNET_BUFFER nb;
+            NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_SUCCESS;
+            for (nb = NET_BUFFER_LIST_FIRST_NB(nbl); nb != NULL; nb = NET_BUFFER_NEXT_NB(nb)) {
+                ULONG length = NET_BUFFER_DATA_LENGTH(nb);
+                PPQVPN_PACKET packet;
+                PUCHAR source;
+                KIRQL old_irql;
+                if (length < 20 || length > PQVPN_MAX_PACKET_SIZE) {
+                    NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_INVALID_LENGTH;
+                    continue;
+                }
+                packet = ExAllocatePool2(POOL_FLAG_NON_PAGED,
+                    FIELD_OFFSET(PQVPN_PACKET, Data) + length, PQVPN_PACKET_TAG);
+                source = packet == NULL ? NULL :
+                    NdisGetDataBuffer(nb, length, packet->Data, 1, 0);
+                if (packet == NULL || source == NULL) {
+                    if (packet != NULL) ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+                    NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_RESOURCES;
+                    continue;
+                }
+                if (source != packet->Data) RtlCopyMemory(packet->Data, source, length);
+                if (!pqvpn_valid_ip_packet(packet->Data, length)) {
+                    ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+                    NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_INVALID_DATA;
+                    continue;
+                }
+                packet->Length = length;
+                KeAcquireSpinLock(&g_Context->QueueLock, &old_irql);
+                if (g_Context->QueuedPackets >= PQVPN_MAX_QUEUED_PACKETS ||
+                    g_Context->QueuedBytes + length > PQVPN_MAX_QUEUED_BYTES) {
+                    KeReleaseSpinLock(&g_Context->QueueLock, old_irql);
+                    ExFreePoolWithTag(packet, PQVPN_PACKET_TAG);
+                    NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_RESOURCES;
+                } else {
+                    InsertTailList(&g_Context->OutboundQueue, &packet->Link);
+                    g_Context->QueuedPackets++;
+                    g_Context->QueuedBytes += length;
+                    KeReleaseSpinLock(&g_Context->QueueLock, old_irql);
+                }
+            }
+        }
+    } else {
+        PNET_BUFFER_LIST nbl;
+        for (nbl = net_buffer_list; nbl != NULL; nbl = NET_BUFFER_LIST_NEXT_NBL(nbl))
+            NET_BUFFER_LIST_STATUS(nbl) = NDIS_STATUS_ADAPTER_NOT_READY;
     }
+    NdisMSendNetBufferListsComplete(adapter_handle, net_buffer_list,
+        NDIS_TEST_SEND_AT_DISPATCH_LEVEL(send_flags) ? NDIS_SEND_COMPLETE_FLAGS_DISPATCH_LEVEL : 0);
 }
 
 static VOID pqvpn_unload(PDRIVER_OBJECT driver_object) {
@@ -288,7 +499,7 @@ DriverEntry(
     /* Default-deny DACL: only SYSTEM and Administrators may open the pipe. */
     pqvpn_build_security_descriptor();
 
-    status = IoCreateDevice(DriverObject, 0, &device_name, FILE_DEVICE_UNKNOWN,
+    status = IoCreateDevice(DriverObject, sizeof(PQVPN_CONTEXT), &device_name, FILE_DEVICE_UNKNOWN,
                             0, FALSE, &device_object);
     if (!NT_SUCCESS(status)) {
         return status;
@@ -297,26 +508,28 @@ DriverEntry(
     device_object->SecurityDescriptor = (PSECURITY_DESCRIPTOR)g_SecurityDescriptor;
     device_object->Flags |= DO_BUFFERED_IO | DO_DEVICE_INITIALIZING;
 
-    ctx = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(PQVPN_CONTEXT), 'nvqP');
-    if (ctx == NULL) {
-        IoDeleteDevice(device_object);
-        return STATUS_INSUFFICIENT_RESOURCES;
-    }
+    ctx = (PPQVPN_CONTEXT)device_object->DeviceExtension;
+    RtlZeroMemory(ctx, sizeof(*ctx));
     ctx->DeviceObject = device_object;
     ctx->Closing = FALSE;
-    device_object->DeviceExtension = ctx;
+    ctx->AdapterReady = FALSE;
+    ctx->AdapterHandle = NULL;
+    ctx->ReceivePool = NULL;
+    KeInitializeSpinLock(&ctx->QueueLock);
+    InitializeListHead(&ctx->OutboundQueue);
+    ctx->QueuedPackets = 0;
+    ctx->QueuedBytes = 0;
 
     /* Dispatch table. */
     DriverObject->MajorFunction[IRP_MJ_CREATE] = pqvpn_dispatch_create_close;
     DriverObject->MajorFunction[IRP_MJ_CLOSE] = pqvpn_dispatch_create_close;
     DriverObject->MajorFunction[IRP_MJ_CLEANUP] = pqvpn_dispatch_cleanup;
-    DriverObject->MajorFunction[IRP_MJ_READ] = pqvpn_dispatch_not_supported;
-    DriverObject->MajorFunction[IRP_MJ_WRITE] = pqvpn_dispatch_not_supported;
+    DriverObject->MajorFunction[IRP_MJ_READ] = pqvpn_dispatch_read;
+    DriverObject->MajorFunction[IRP_MJ_WRITE] = pqvpn_dispatch_write;
 
     status = IoCreateSymbolicLink(&dos_name, &device_name);
     if (!NT_SUCCESS(status)) {
         IoDeleteDevice(device_object);
-        ExFreePoolWithTag(ctx, 'nvqP');
         return status;
     }
 
@@ -343,20 +556,21 @@ DriverEntry(
     characteristics.OidRequestHandler = pqvpn_oid_request;
     characteristics.SendNetBufferListsHandler = pqvpn_send_nbl;
 
+    /* InitializeEx may be called before registration returns. */
+    g_DeviceObject = device_object;
+    g_Context = ctx;
     status = NdisMRegisterMiniportDriver(DriverObject, RegistryPath, NULL,
                                          &characteristics,
                                          &g_NdisMiniportDriverHandle);
     if (!NT_SUCCESS(status)) {
+        g_DeviceObject = NULL;
+        g_Context = NULL;
         IoDeleteSymbolicLink(&dos_name);
         IoDeleteDevice(device_object);
-        ExFreePoolWithTag(ctx, 'nvqP');
         return status;
     }
 
     /* All fallible steps are done: hand the objects to DriverUnload. */
-    g_DeviceObject = device_object;
-    g_Context = ctx;
-
     DriverObject->DriverUnload = pqvpn_driver_unload;
 
     device_object->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -379,7 +593,7 @@ static void pqvpn_driver_unload(PDRIVER_OBJECT driver_object) {
     /* All IRPs have completed by unload time: release the context and the
      * device object. */
     if (g_Context != NULL) {
-        ExFreePoolWithTag(g_Context, 'nvqP');
+        pqvpn_free_outbound_queue(g_Context);
         g_Context = NULL;
     }
     if (g_DeviceObject != NULL) {

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="PQVPN is an experimental C++23 peer network with hybrid post-quantum handshakes, native clients and auditable public peer discovery.">
+  <meta name="theme-color" content="#070817">
+  <title>PQVPN — Post-quantum paths you control</title>
+  <link rel="icon" href="../assets/brand/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="nav-shell">
+    <nav class="nav" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="PQVPN home"><img src="../assets/brand/logo.svg" alt=""><span>PQVPN</span></a>
+      <button class="menu" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
+      <div class="nav-links" id="nav-links">
+        <a href="#features">Features</a><a href="#architecture">Architecture</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#ethics">Trust</a>
+        <a class="nav-cta" href="https://github.com/tadaka9/PQVPN/releases">Download</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="content">
+    <section class="hero" id="top">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="pulse"></span> Experimental public alpha · C++23</p>
+        <h1>Paths change.<br><span>Trust stays yours.</span></h1>
+        <p class="lead">Build a private network between machines you control, with hybrid post-quantum identity, auditable peer discovery and native tools for desktop, terminal and automation.</p>
+        <div class="actions"><a class="button primary" id="platform-download" href="https://github.com/tadaka9/PQVPN/releases">Find my verified build</a><a class="button ghost" href="#mainnet">Explore Mainnet</a></div>
+        <p class="detected" id="platform-detected" aria-live="polite">Detecting your platform · all downloads remain selectable</p>
+        <div class="proof" aria-label="Project facts"><span>MIT licensed</span><span>No account</span><span>No telemetry</span><span>5 native targets</span></div>
+      </div>
+      <div class="hero-art reveal" aria-label="Animated PQVPN network visualization">
+        <canvas id="quantum-field" width="180" height="180" aria-hidden="true"></canvas>
+        <div class="riemann-sheet sheet-a" aria-hidden="true"></div><div class="riemann-sheet sheet-b" aria-hidden="true"></div>
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <img src="../assets/brand/logo.svg" alt="PQVPN mark" class="core">
+        <span class="node n1"></span><span class="node n2"></span><span class="node n3"></span><span class="node n4"></span>
+        <p>ℂ → Σ<sub>g</sub> · HYBRID IDENTITY<br><strong>X25519 + ML-KEM-1024</strong></p>
+      </div>
+    </section>
+
+    <section class="ticker" aria-label="Protocol highlights"><div>ML-DSA-87 · ED25519 · HKDF-SHA3-512 · ONION RELAYS · PQTP ADAPTIVE POLICY · NATIVE NDIS · UDP2RAW ADAPTER ·</div></section>
+
+    <section class="section" id="features">
+      <div class="section-head reveal"><p class="eyebrow">Built as a system</p><h2>One engine. Every surface.</h2><p>The GUI, CLI and TUI operate the same configuration and canonical node. No second crypto stack, no simulated status.</p></div>
+      <div class="feature-grid">
+        <article class="feature reveal accent-cyan"><b>01</b><h3>Hybrid post-quantum handshake</h3><p>X25519 and ML-KEM-1024 establish secrets; Ed25519 and ML-DSA-87 authenticate the same transcript.</p></article>
+        <article class="feature reveal accent-violet"><b>02</b><h3>Private relay paths</h3><p>Authenticated onion layers move traffic through peers you selected, with replay windows and bounded parsing.</p></article>
+        <article class="feature reveal accent-pink"><b>03</b><h3>Adaptive transport policy</h3><p>PQTP observes loss, jitter and failure thresholds, preferring UDP and applying hysteresis before lane changes.</p></article>
+        <article class="feature reveal accent-green"><b>04</b><h3>External transport plugins</h3><p>Attach isolated engines such as udp2raw. External processes keep their own privileges, lifecycle and updates.</p></article>
+        <article class="feature reveal accent-blue"><b>05</b><h3>Native operating-system boundary</h3><p>Linux TUN, a macOS Network Extension boundary and the PQVPN Windows NDIS tunnel use target-specific code.</p></article>
+        <article class="feature reveal accent-gold"><b>06</b><h3>Verified release grid</h3><p>Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 must configure, compile and start before release.</p></article>
+      </div>
+    </section>
+
+    <section class="section architecture" id="architecture">
+      <div class="section-head reveal"><p class="eyebrow">Signal path</p><h2>Encrypted before the route begins.</h2></div>
+      <div class="flow reveal" role="img" aria-label="Application to PQVPN node, hybrid handshake, encrypted datagram, adaptive policy, and selected peer path">
+        <div><small>01</small><strong>Application</strong><span>IP traffic</span></div><i>→</i><div><small>02</small><strong>PQVPN node</strong><span>identity + policy</span></div><i>→</i><div><small>03</small><strong>Hybrid session</strong><span>PQ + classical</span></div><i>→</i><div><small>04</small><strong>Selected path</strong><span>peer / relay / exit</span></div>
+      </div>
+    </section>
+
+    <section class="section mainnet" id="mainnet">
+      <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This signed-in-code registry lists only operators who deliberately publish a reachable bootstrap peer. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
+      <div class="network-panel reveal">
+        <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading registry</strong><p id="registry-meta">Checking the versioned peer list…</p></div><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div>
+        <div class="peer-list" id="peer-list" aria-live="polite"><p class="empty">Loading declared peers…</p></div>
+        <div class="network-actions"><a class="button primary" href="mainnet/peers.json">Open peer registry</a><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
+      </div>
+    </section>
+
+    <section class="section strange" id="strangenet">
+      <div class="strange-mark reveal" aria-hidden="true">Σ<sub>peer</sub></div>
+      <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><span class="strange-claim">The First Chat on Internet*</span><h2>Enter StrangeNet.</h2><p>Two or more established PQVPN peers can share a bounded conversation room without a central chat service. Messages carry room and sender identity, monotonic anti-replay sequence and timestamp; the PQVPN session remains the authenticated transport boundary.</p><small class="strange-joke">*According to the first peer who joined this room. The internet’s historians have declined to confirm.</small></div>
+      <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB message limit and strict parsing keep conversation traffic predictable.</p></article><article><strong>Room replay defense</strong><p>Per-sender monotonic counters reject duplicate delivery inside each room.</p></article></div>
+      <p class="strange-note reveal">Direct authenticated rooms are available from the node CLI. Public-room discovery remains disabled until its moderation and abuse model is reviewed.</p>
+    </section>
+
+    <section class="section console" id="console">
+      <div class="console-copy reveal"><p class="eyebrow">Native privacy console</p><h2>Calm controls. Honest state.</h2><p>Validate before connecting, inspect the selected transport, operate from the system tray, or reduce motion. The SSH-ready TUI and automation CLI expose the same configuration on every supported OS.</p><ul><li>GUI with tray and minimize-on-close</li><li>Cross-platform terminal dashboard</li><li>Scriptable validation and platform inspection</li><li>No telemetry or artificial urgency</li></ul></div>
+      <figure class="screenshot reveal"><img src="../docs/assets/pqvpn-console.png" alt="PQVPN Privacy Console overview"><figcaption>Real Qt interface rendered by the CI smoke test.</figcaption></figure>
+    </section>
+
+    <section class="section ethics" id="ethics">
+      <div class="section-head reveal"><p class="eyebrow">Professional means verifiable</p><h2>Security claims carry evidence.</h2></div>
+      <div class="ethics-grid reveal"><div><strong>Experimental</strong><p>This alpha has no independent audit. Use it for evaluation and controlled networks.</p></div><div><strong>Operator consent</strong><p>Mainnet entries are opt-in, reviewable and removable through repository history.</p></div><div><strong>Abuse boundaries</strong><p>Operators define access and egress policy. Privacy does not remove responsibility.</p></div><div><strong>Reproducible status</strong><p>Platform support appears only after its native workflow succeeds.</p></div></div>
+    </section>
+  </main>
+
+  <footer><img src="../assets/brand/logo.svg" alt=""><div><strong>PQVPN</strong><p>Post-quantum paths you control.</p></div><span>MIT · Experimental alpha · <a href="https://github.com/tadaka9/PQVPN">Source on GitHub</a></span></footer>
+</body>
+</html>

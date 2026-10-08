@@ -17,6 +17,8 @@ hasn't been built yet.
 [![Test suite](https://img.shields.io/badge/test%20suite-verified-00d084?style=for-the-badge)](#verification-grid)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#project-status)
 
+[Project site](https://tadaka9.github.io/PQVPN/) · [Mainnet peer registry](https://tadaka9.github.io/PQVPN/mainnet/peers.json) · [Verified releases](https://github.com/tadaka9/PQVPN/releases)
+
 </div>
 
 ---
@@ -49,6 +51,8 @@ everyone.
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
 | ✨ **Native privacy console** | A colorful Qt 6 interface validates configuration with the real node, starts and stops it, reports actual process output, explains transport limits, and can stay available in the system tray. Motion is optional and no metric is simulated. |
+| 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
+| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. Public discovery stays disabled until its moderation and abuse model is reviewed. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -83,8 +87,9 @@ flowchart LR
     C --> E["Ed25519 + ML-DSA-87"]
     D --> F["HKDF-SHA3-512 session material"]
     E --> F
-    F --> G["Encrypted UDP transport"]
-    G --> H["Peer / relay path"]
+    F --> G["Authenticated PQVPN datagram"]
+    G --> P["PQTP policy: UDP preferred / TCP fallback"]
+    P --> H["Peer / relay path"]
     I["Replay, malformed input, or partial auth"] -. "fail closed" .-> X["Rejected"]
     B -. "bounded parsing" .-> X
 
@@ -118,7 +123,7 @@ central party to trust?*
 |---|---|---|---|---|---|
 | Post-quantum key exchange | ✅ X25519 + ML-KEM-1024, fused | — classical only (X25519) | — classical (RSA/ECDH) | — WireGuard-based | — WireGuard fork |
 | Central coordination required | ❌ peers you configure | optional, self-managed | usually a server operator | ✅ control plane (self-hostable) | optional |
-| Elevation for typical use | ❌ egress runs unprivileged; one-time TAP setup on Windows | kernel module / often root for routing | frequently root | managed clients | similar to WireGuard |
+| Elevation for typical use | relay/exit runs unprivileged; full tunnel needs adapter setup | kernel module / often root for routing | frequently root | managed clients | similar to WireGuard |
 | Multi-hop relay paths | ✅ onion relay through your nodes | via third-party tooling | via third-party tooling | — | — |
 | Openness | MIT, fully open source | BSD-2-Clause, open | mostly open (OpenSSL) | core open; full product centers on their service | open source |
 
@@ -126,9 +131,13 @@ central party to trust?*
 
 ### Build (Ubuntu / WSL shown; the matrix covers five native targets)
 
-Install CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, pkg-config, and
-liboqs. CMake downloads pinned Asio and spdlog sources during the first
-configure.
+Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config, and the upstream
+dependency versions listed in [`.github/dependencies.env`](.github/dependencies.env).
+The native CI builds the official OpenSSL, Argon2 and liboqs releases on every
+platform. CMake fetches Asio, spdlog, Catch2 and GoogleTest from their upstream
+repositories, while the Privacy Console uses the official upstream Qt package.
+An automated daily check proposes new stable releases and merges them only
+after the complete protected CI matrix succeeds.
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git
@@ -138,6 +147,30 @@ cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTING=OFF
 cmake --build build --target pqvpn_node
+```
+
+### CLI and terminal console
+
+The node executable is also the canonical automation interface. Its commands
+use the same parser and validation rules as the runtime:
+
+```bash
+./build/pqvpn_node --validate-config --config config.json
+./build/pqvpn_node --print-config --config config.json
+./build/pqvpn_node --platform-info
+./build/pqvpn_node --version
+```
+
+`pqvpn_tui` is a dependency-light C++23 terminal console for SSH sessions,
+servers and systems without Qt. It shows the selected endpoint, verification,
+traffic shaping, external transport, adaptive PQTP policy and native tunnel
+integration, then starts the same `pqvpn_node` binary. It detects Windows,
+macOS and Linux at compile time and describes only the adapter implemented for
+that target.
+
+```bash
+cmake --build build --target pqvpn_node pqvpn_tui
+./build/pqvpn_tui --config config.json
 ```
 
 ### Privacy Console
@@ -204,6 +237,23 @@ The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
 Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
 available command-line options.
 
+### StrangeNet peer room
+
+Once the configured bootstrap handshake has established the target peer,
+start a direct conversation room with that peer's 32-byte identity in hex:
+
+```bash
+./build/pqvpn_node --config config.json \
+  --strangenet-room riemann-lab \
+  --strangenet-peer 64_HEX_DIGITS
+```
+
+Each message is carried in a dedicated AEAD-authenticated PQVPN frame. The
+sender field must match the peer identity bound to the session, and both the
+tunnel nonce window and StrangeNet's per-room sequence guard reject replays.
+Messages are limited to 2 KiB. Enter `/quit` to stop reading the room console;
+stop the node with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
 ### Join a network (operator view)
 
 ```jsonc
@@ -222,18 +272,15 @@ control plane: two files on disk that you own.
 
 Build with the supplied [`mingw-toolchain.cmake`](mingw-toolchain.cmake).
 
-- **Driver-free (works today):** run `pqvpn_node.exe --no-tap`. The node is a
+- **Relay/exit without a local adapter:** run `pqvpn_node.exe --no-tunnel`. The node is a
   full relay/exit — UDP transport, hybrid handshake, onion paths, egress exit —
   with no virtual adapter and no third-party driver in the data path.
-- **PQVPN's own NDIS tunnel driver (Phase 2):** user-mode backend implemented
-  (`WindowsOwnTunnel`), communicates via `\\.\PQVPN_TUN0`. Select with
-  `--tap-guid own` or config `"tunnel": { "interface_name": "own" }`. Kernel
-  driver Phase 1 scaffold complete; data path (Phase 2) in progress.
-- **Transitional backends:** TAP-Windows6 (one-time setup via
-  [`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1) from an
-elevated PowerShell session, then `--tap-guid {GUID}`) or Wintun (place
-  `wintun.dll` next to the binary). See [`docs/windows-tunnel-adapter.md`](docs/windows-tunnel-adapter.md)
-and the roadmap.
+- **PQVPN's own NDIS tunnel driver:** `WindowsOwnTunnel` communicates with
+  `\\.\PQVPN_TUN0`; its bounded layer-3 queues bridge NDIS packets to the C++23
+  node. Install a locally or publicly signed driver package with
+  [`Setup-PQVPNAdapter.ps1`](scripts/windows/Setup-PQVPNAdapter.ps1). TAP-Windows
+  and Wintun are disabled and are not runtime fallbacks. See
+  [`docs/windows-tunnel-adapter.md`](docs/windows-tunnel-adapter.md).
 
 ## Project status
 
@@ -267,16 +314,17 @@ The matrix follows Dvx3-Backup-Manager: Linux x86_64/ARM64, macOS Intel/ARM64, a
 | `linux-arm64` | ubuntu-24.04-arm | GCC + Ninja, liboqs from source |
 | `macos-x86_64` | macos-15-intel | AppleClang + Homebrew deps |
 | `macos-arm64` | macos-15 | AppleClang + Homebrew deps |
-| `windows-x86_64` | windows-2022 | MSVC (VS 2022) + vcpkg |
+| `windows-x86_64` | windows-2025 | MSVC (VS 2026) + vcpkg; Windows 10+ target |
 
 Windows ARM64 is outside this baseline and is not claimed as verified.
-The Windows driver workflow compiles a user-mode test utility and validates
-HLK configuration XML; it does not build/sign a kernel driver or certify HLK.
-Driver signing and release qualification require the separate WDK/native gates.
+The Windows driver workflow restores Microsoft's supported WDK package, builds
+the x64 kernel driver, compiles the IRP test utility, and validates the HLK plan.
+The CI artifact is unsigned; public Windows loading still requires Microsoft
+attestation signing and the native release gate.
 
-Each job verifies the binary's architecture and CLI smoke test, then uploads a
-compile-only artifact. These artifacts are **not** release builds — see the
-release criteria in [`ROADMAP.md`](ROADMAP.md).
+Each job verifies the binary architecture, `--help`, and both configuration
+smoke tests. A `v*` tag creates an immutable GitHub prerelease only after all
+five native matrix entries succeed; ordinary branch runs retain CI artifacts.
 
 ## Platform adapters
 
@@ -287,7 +335,7 @@ device code:
 
 | OS | Adapter | When it cannot attach |
 |---|---|---|
-| Windows x64 / ARM64 | Driver-free relay/exit mode (`--no-tap`); transitional TAP-Windows (`--tap-guid`) or Wintun backends; destination is PQVPN's own NDIS tunnel driver ([design](docs/windows-tunnel-adapter.md)); transactional route installation in user mode | explicit `--no-tap`: relay/exit only, no local full tunnel. Adapter requested but unavailable: fail closed (exit 1) — a VPN node without its adapter is useless here |
+| Windows x64 | PQVPN's own NDIS layer-3 tunnel driver ([design](docs/windows-tunnel-adapter.md)); transactional route installation in user mode | explicit `--no-tunnel`: relay/exit only. Adapter requested but unavailable: fail closed (exit 1) |
 | Linux | `/dev/net/tun` layer-3 interface (root or CAP_NET_ADMIN); address/route/DNS left to a network manager | warn and continue UDP-only |
 | macOS | Network Extension boundary; an `NEPacketTunnelProvider` host plugs in the packet flow via `attach_extension()` | core-to-device writes drop until attached; node runs UDP-only |
 
@@ -329,7 +377,8 @@ blocker.
 | `tuning` | `handshake_timeout_seconds` | `30` | In-flight handshakes without an S2 are pruned after this. |
 | `tuning` | `replay_window_size` | `1024` | Per-session nonce replay window (minimum 2). |
 | `tuning` | `bootstrap_retry_seconds` | `10` | Seconds between bootstrap contact rounds. |
-| `tunnel` | `interface_name` | empty | TUN name on Linux / TAP GUID on Windows; empty keeps the platform default (kernel-selected / auto-detect). CLI flags still win where they exist. |
+| `tunnel` | `interface_name` | empty | TUN name on Linux / native PQVPN NDIS device on Windows; empty keeps the platform default. CLI flags still win where they exist. |
+| `adaptive_transport` | `enabled`, `mode`, thresholds | disabled, `auto` | PQTP UDP/TCP lane policy, loss/jitter limits, failure count, recovery probes and minimum dwell time. |
 
 Every `tuning` field is optional and must be positive when present; omitted
 fields keep the built-in protocol defaults, so existing configs are unaffected.

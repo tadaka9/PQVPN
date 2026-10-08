@@ -17,7 +17,7 @@ namespace pqvpn::platform {
 
 // Adapter implementation backed by PQVPN's own NDIS tunnel driver.
 // Communicates with the kernel via \\.\PQVPN_TUN0 using CreateFile/ReadFile/WriteFile.
-// Phase 2: bounded packet queues, backpressure, teardown drain.
+// The kernel owns the bounded queue; this reader delivers one IP datagram at a time.
 class WindowsOwnTunnel final : public Adapter {
 public:
     explicit WindowsOwnTunnel(std::string device_name = {})
@@ -34,7 +34,6 @@ public:
 
 private:
     void receive_loop();
-    void drain_queues();
 
     std::string device_name_;
     HANDLE handle_ = INVALID_HANDLE_VALUE;
@@ -44,16 +43,6 @@ private:
     std::thread receiver_thread_;
     std::mutex write_mutex_;
 
-    // Bounded receive queue (kernel -> user)
-    static constexpr size_t kQueueCapacity = 1024;
-    Packet receive_queue_[kQueueCapacity];
-    std::atomic<size_t> queue_head_{0};
-    std::atomic<size_t> queue_tail_{0};
-    std::atomic<size_t> queue_size_{0};
-
-    // Backpressure: block writes when queue is full
-    bool enqueue_packet(std::vector<uint8_t>&& packet);
-    std::vector<uint8_t> dequeue_packet();
 };
 
 } // namespace pqvpn::platform
