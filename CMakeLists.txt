@@ -262,6 +262,10 @@ install(FILES config.json config.udp2raw.json
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pqvpn/examples)
 install(FILES README.md LICENSE
   DESTINATION ${CMAKE_INSTALL_DOCDIR})
+if(UNIX AND NOT APPLE)
+  install(FILES packaging/linux/pqvpn-monitor.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+endif()
 
 set(CPACK_PACKAGE_NAME "pqvpn")
 set(CPACK_PACKAGE_VENDOR "PQVPN contributors")
