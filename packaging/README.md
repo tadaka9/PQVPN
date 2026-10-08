@@ -19,6 +19,14 @@ commit and target being released.
 | `appimage-x86_64` | Linux x64 | x86-64 AppImage |
 | `deb-arm64` | Debian-compatible ARM64 | `.deb` (`Architecture: arm64`) |
 | `deb-x86_64` | Debian-compatible x64 | `.deb` (`Architecture: amd64`) |
+| `rpm-arm64` | RPM-compatible ARM64 | `.rpm` (`Architecture: aarch64`) |
+| `rpm-x86_64` | RPM-compatible x64 | `.rpm` (`Architecture: x86_64`) |
+| `arch-x86_64` | Arch Linux x64 | package built from `packaging/arch/PKGBUILD` |
+
+The native Linux build workflow also publishes installable `.deb` and `.rpm`
+artifacts for both supported architectures. Arch Linux users can build the
+package with `makepkg -si` from `packaging/arch`; the PKGBUILD compiles the
+same node, terminal console, and Qt privacy console from the tagged source.
 
 An AppImage still requires the tunnel and routing privileges needed by a VPN.
 It must not use setuid. Debian packages must document and test their service,

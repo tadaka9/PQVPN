@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
-project(PQVPN VERSION 0.0.1 LANGUAGES CXX)
+project(PQVPN VERSION 0.0.2 LANGUAGES CXX)
+
+include(GNUInstallDirs)
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/.github/dependencies.env" PQVPN_DEPENDENCY_LINES
      REGEX "^[A-Z0-9_]+=[^=]+$")
@@ -153,7 +155,9 @@ if(PQVPN_BUILD_MONITOR)
     target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core)
     target_compile_options(pqvpn_monitor PRIVATE
       $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
-    install(TARGETS pqvpn_monitor BUNDLE DESTINATION . RUNTIME DESTINATION .)
+    install(TARGETS pqvpn_monitor
+      BUNDLE DESTINATION .
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     qt_generate_deploy_app_script(
       TARGET pqvpn_monitor
       OUTPUT_SCRIPT pqvpn_monitor_deploy_script
@@ -241,6 +245,30 @@ endfunction()
 
 pqvpn_attach_oqs_runtime(pqvpn_node)
 pqvpn_attach_oqs_runtime(pqvpn_tui)
+
+install(TARGETS pqvpn_node pqvpn_tui
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES config.json config.udp2raw.json
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/pqvpn/examples)
+install(FILES README.md LICENSE
+  DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
+set(CPACK_PACKAGE_NAME "pqvpn")
+set(CPACK_PACKAGE_VENDOR "PQVPN contributors")
+set(CPACK_PACKAGE_CONTACT "https://github.com/tadaka9/PQVPN/issues")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Post-quantum peer-to-peer VPN node and consoles")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://tadaka9.github.io/PQVPN/")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+set(CPACK_DEBIAN_PACKAGE_SECTION "net")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
+set(CPACK_RPM_PACKAGE_AUTOREQPROV ON)
+include(CPack)
 
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)

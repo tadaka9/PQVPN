@@ -149,6 +149,29 @@ cmake -S . -B build -G Ninja \
 cmake --build build --target pqvpn_node
 ```
 
+### Linux distribution packages
+
+Every native Linux CI run produces `.deb` and `.rpm` packages for x86-64 and
+ARM64. Download the matching `distribution-packages-linux-*` artifact from the
+successful workflow run, then install it with the platform package manager:
+
+```bash
+sudo apt install ./pqvpn_*.deb
+sudo rpm -U ./pqvpn-*.rpm
+```
+
+For Arch Linux, download `packaging/arch/PKGBUILD` together with the tagged
+source recipe and build it as an unprivileged user:
+
+```bash
+cd packaging/arch
+makepkg -si
+```
+
+Packages install `pqvpn_node`, `pqvpn_tui`, and `pqvpn_monitor` plus example
+configuration files. They do not start a network service automatically; copy
+and review an example configuration before starting a node.
+
 ### CLI and terminal console
 
 The node executable is also the canonical automation interface. Its commands
