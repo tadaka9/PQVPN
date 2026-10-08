@@ -108,6 +108,11 @@ jobs:
         shell: bash
         run: |
           prefix="$RUNNER_TEMP/pqvpn-deps"
+          argon_archive="$(find "$prefix" -type f -name 'libargon2.a' -print -quit)"
+          test -n "$argon_archive"
+          if [ "$argon_archive" != "$prefix/lib/libargon2.a" ]; then
+            cp "$argon_archive" "$prefix/lib/libargon2.a"
+          fi
           test "$($prefix/bin/openssl version | awk '{print $2}')" = "$OPENSSL_VERSION"
           test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion libargon2)" = "$ARGON2_VERSION"
           test "$(PKG_CONFIG_LIBDIR="$prefix/lib/pkgconfig" pkg-config --modversion liboqs)" = "$LIBOQS_VERSION"
