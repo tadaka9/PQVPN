@@ -171,7 +171,7 @@ Packages install `pqvpn_node`, `pqvpn_tui`, and `pqvpn_monitor` plus example
 configuration files. They do not start a network service automatically; copy
 and review an example configuration before starting a node.
 
-Maintainers update the package version once in [`VERSION`](VERSION). The
+Maintainers update the package version once in [`PQVPN_VERSION.txt`](PQVPN_VERSION.txt). The
 native workflow propagates it automatically to DEB, RPM, PKGBUILD and tagged
 release assets.
 

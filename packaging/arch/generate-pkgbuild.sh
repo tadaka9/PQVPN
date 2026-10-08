@@ -3,10 +3,10 @@ set -euo pipefail
 
 commit="${1:-$(git rev-parse HEAD)}"
 output="${2:-packaging/arch/PKGBUILD}"
-version="$(tr -d '[:space:]' < VERSION)"
+version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
 
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "VERSION must contain one semantic version such as 0.0.2" >&2
+  echo "PQVPN_VERSION.txt must contain one semantic version such as 0.0.2" >&2
   exit 1
 fi
 if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then

@@ -29,7 +29,7 @@ package with `makepkg -si` from the generated `arch-linux-pkgbuild` artifact;
 the recipe compiles the same node, terminal console, and Qt privacy console
 from the exact workflow commit.
 
-`VERSION` is the single package-version source. Changing it updates CMake,
+`PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
 DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag publishes
 those artifacts together in the corresponding GitHub prerelease.
 

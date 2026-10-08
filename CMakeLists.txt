@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
 if(NOT PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-  message(FATAL_ERROR "VERSION must contain one semantic version such as 0.0.2")
+  message(FATAL_ERROR "PQVPN_VERSION.txt must contain one semantic version such as 0.0.2")
 endif()
 project(PQVPN VERSION ${PQVPN_PROJECT_VERSION} LANGUAGES CXX)
 
