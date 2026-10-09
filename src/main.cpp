@@ -542,15 +542,18 @@ int main(int argc, char** argv) {
                         });
 
                     if (!exclusions_ok) {
-                        // Incomplete exclusions are an aborted transaction: roll
-                        // back the ones that did install and lift the admission
-                        // gate, since no VPN default is active to protect against.
+                        // Incomplete exclusions mean we cannot install the full
+                        // tunnel safely. Continuing would leave the host running
+                        // with the physical network exposed, so fail closed.
                         const auto cleanup = peer_routes.remove_all();
                         if (!cleanup.complete) {
                             std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
                         }
-                        node->set_peer_route_hook(nullptr); // nothing left to gate on
-                        std::cerr << "peer route exclusions incomplete; skipping TAP default route\n";
+                        node->set_peer_route_hook(nullptr);
+                        std::cerr
+                            << "peer route exclusions incomplete; refusing to run without VPN routes\n";
+                        listener.stop();
+                        return 1;
                     } else {
                         route_plan.add(pqvpn::routing::RouteEntry{
                             asio::ip::make_address_v4("0.0.0.0"), 0,
@@ -577,17 +580,18 @@ int main(int argc, char** argv) {
                         if (const auto report = route_plan.commit(route_backend); report.committed) {
                             std::cout << "default route installed through the PQVPN Tunnel adapter\n";
                         } else {
-                            // The default is down; drop the exclusions we just
-                            // created so no owned routes survive a failed setup, and
-                            // lift the admission gate — with no VPN default active
-                            // there is nothing to protect against.
+                            // The full-tunnel default could not be established.
+                            // Continuing would leak traffic on the physical
+                            // network, so fail closed.
                             const auto cleanup = peer_routes.remove_all();
                             if (!cleanup.complete) {
                                 std::cerr << "peer route cleanup incomplete: " << cleanup.error << "\n";
                             }
                             node->set_peer_route_hook(nullptr);
                             std::cerr << "route installation failed (" << report.error
-                                << "); continuing without VPN routes\n";
+                                << "); refusing to continue without VPN routes\n";
+                            listener.stop();
+                            return 1;
                         }
                     }
                 }

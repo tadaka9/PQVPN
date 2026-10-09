@@ -96,15 +96,17 @@ routing::OperationResult apply_v6(const bool install, const routing::RouteEntry&
         return {false, false, false, "IPv6 gateway is not on any local interface"};
     }
 
-    MIB_IPFORWARD_ROW2 row;
-    INITIALIZE_MIB_IPFORWARD_ROW(&row);
+    MIB_IPFORWARD_ROW2 row{};
     row.InterfaceIndex = interface_index;
-    row.DestinationPrefix.Ipv6.sin6_family = AF_INET6;
+    // iphlpapi's IPv6 ROW2 shape: DestinationPrefix is an IP_ADDRESS_PREFIX
+    // (its own Prefix {SOCKADDR_INET} + PrefixLength), NextHop is a
+    // SOCKADDR_INET.
+    row.DestinationPrefix.Prefix.si_family = AF_INET6;
     const auto prefix_bytes = entry.prefix.to_v6().to_bytes();
     std::copy(prefix_bytes.begin(), prefix_bytes.end(),
-              row.DestinationPrefix.Ipv6.sin6_addr.s6_addr);
-    row.DestinationPrefixLength = entry.prefix_length;
-    row.NextHop.Ipv6.sin6_family = AF_INET6;
+              row.DestinationPrefix.Prefix.Ipv6.sin6_addr.s6_addr);
+    row.DestinationPrefix.PrefixLength = entry.prefix_length;
+    row.NextHop.si_family = AF_INET6;
     if (entry.gateway.is_v6()) {
         const auto hop_bytes = entry.gateway.to_v6().to_bytes();
         std::copy(hop_bytes.begin(), hop_bytes.end(), row.NextHop.Ipv6.sin6_addr.s6_addr);
@@ -256,12 +258,12 @@ std::optional<AdapterRouteInfo> find_adapter_ipv6(const std::string& guid) {
 // peer transport out of a full-tunnel IPv6 default. Scans the IPv6 forward
 // table (GetIpForwardTable2) for the lowest-metric non-excluded default row.
 std::optional<AdapterRouteInfo> find_default_route_v6(const std::uint32_t excluded_ifindex) {
-    MIB_IPFORWARDTABLE2* table = nullptr;
+    PMIB_IPFORWARD_TABLE2 table = nullptr;
     if (GetIpForwardTable2(AF_INET6, &table) != NO_ERROR || !table) {
         return std::nullopt;
     }
     struct TableGuard {
-        MIB_IPFORWARDTABLE2* t;
+        PMIB_IPFORWARD_TABLE2 t;
         ~TableGuard() { if (t) FreeMibTable(t); }
     } guard{table};
 
@@ -270,8 +272,8 @@ std::optional<AdapterRouteInfo> find_default_route_v6(const std::uint32_t exclud
     for (ULONG i = 0; i < table->NumEntries; ++i) {
         const auto& row = table->Table[i];
         if (excluded_ifindex != 0 && row.InterfaceIndex == excluded_ifindex) continue;
-        if (row.DestinationPrefix.si_family != AF_INET6) continue;
-        if (row.DestinationPrefixLength != 0) continue;   // not a default route
+        if (row.DestinationPrefix.Prefix.si_family != AF_INET6) continue;
+        if (row.DestinationPrefix.PrefixLength != 0) continue;  // not a default route
         if (!best || row.Metric < best_metric) {
             best = &row;
             best_metric = row.Metric;

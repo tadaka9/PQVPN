@@ -26,6 +26,7 @@ constexpr bool kRouteHookOk = true;
 struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
     std::vector<std::string> calls;
     std::vector<pqvpn::routing::RouteEntry> installed_entries;
+    std::vector<pqvpn::routing::RouteEntry> removed_entries;
     int failing_remove = -1; // 0-based index of the remove call that hard-fails
     bool always_already_present = false;   // report every install as already present (a pre-existing OS route)
     std::set<int> already_present_installs; // specific install indices reported as pre-existing
@@ -47,6 +48,7 @@ struct ScriptedRouteBackend : pqvpn::routing::RouteBackend {
 
     pqvpn::routing::OperationResult remove(const pqvpn::routing::RouteEntry& entry) override {
         calls.push_back("remove " + key(entry));
+        removed_entries.push_back(entry);
         if (removals++ == failing_remove) return {false, false, false, "scripted failure"};
         return {true, false, false, ""};
     }
@@ -251,6 +253,20 @@ TEST_CASE("remove_all unwinds mixed IPv4 and IPv6 exclusions in reverse insertio
     REQUIRE(backend.calls == std::vector<std::string>{
         "install 203.0.113.10/32", "install 2001:db8::10/128",
         "remove 2001:db8::10/128", "remove 203.0.113.10/32"});
+
+    // Cleanup entries must reuse the same family-aware prefix and egress used
+    // at install time, otherwise the OS cannot match and remove the route.
+    REQUIRE(backend.removed_entries.size() == 2);
+    const auto& first = backend.removed_entries[0]; // IPv6 (reverse order)
+    REQUIRE(first.prefix.to_string() == "2001:db8::10");
+    REQUIRE(first.prefix_length == 128);
+    REQUIRE(first.gateway.to_string() == "fe80::1");
+    REQUIRE(first.interface_index == 9);
+    const auto& second = backend.removed_entries[1]; // IPv4
+    REQUIRE(second.prefix.to_string() == "203.0.113.10");
+    REQUIRE(second.prefix_length == 32);
+    REQUIRE(second.gateway.to_string() == "192.168.1.1");
+    REQUIRE(second.interface_index == 7);
 }
 
 TEST_CASE("admin-owned routes are never deleted by cleanup", "[routing][peerroutes]") {

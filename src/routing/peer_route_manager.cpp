@@ -9,7 +9,8 @@ RouteEntry PeerRouteManager::entry_for(const asio::ip::udp::endpoint& peer,
     // Host route: /32 for IPv4 and /128 for IPv6, pinned through the physical
     // egress of the matching family.
     const bool is_v6 = peer.address().is_v6();
-    const std::uint8_t prefix_length = is_v6 ? 128 : 32;
+    const std::uint8_t prefix_length =
+        is_v6 ? static_cast<std::uint8_t>(128) : static_cast<std::uint8_t>(32);
     return {peer.address(), prefix_length, gateway.gateway_for(peer.address()),
             gateway.interface_for(peer.address())};
 }
@@ -107,7 +108,15 @@ RemovalReport PeerRouteManager::remove_all() {
         const auto owned_it = owned_.find(address);
         if (owned_it == owned_.end()) continue;
 
-        const RouteEntry entry{address, 32, gateway_.gateway, gateway_.interface_index};
+        // Family-aware: an IPv4 address is pinned with a /32 through the IPv4
+        // egress, an IPv6 address with a /128 through the IPv6 egress. Using
+        // the wrong prefix length or gateway here would make removal fail and
+        // strand the exclusion after shutdown.
+        const bool is_v6 = address.is_v6();
+        const RouteEntry entry{
+            address,
+            is_v6 ? static_cast<std::uint8_t>(128) : static_cast<std::uint8_t>(32),
+            gateway_.gateway_for(address), gateway_.interface_for(address)};
         const auto result = backend_.remove(entry);
         if (!result.ok) {
             // Hard failure: ownership and references stay for a later retry.
