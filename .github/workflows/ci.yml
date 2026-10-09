@@ -415,12 +415,16 @@ jobs:
           $build = '1'
           if ($ver -match '\d{4}') { $build = $matches[0].Substring(0,4) }
           $msiVersion = "$base.$build"
-          # Stage the install tree (bin/share/etc) and deploy the Qt runtime
-          # next to the GUI so the harvested MSI bundle is self-contained.
+          # Stage the install tree. cmake --install also runs the Qt deploy
+          # script (install(SCRIPT pqvpn_monitor_deploy_script)) which deploys
+          # the Qt runtime next to the GUI. The prefix MUST be absolute: with a
+          # relative prefix the Qt deploy script aborts (Qt6CoreDeploySupport
+          # CMake error) and cmake --install stops after the monitor exe, leaving
+          # node/tui and Qt out of the harvested bundle.
           $stage = 'msi-stage'
-          cmake --install build --config Release --prefix $stage
-          $wdq = Get-ChildItem "$env:RUNNER_TEMP\Qt" -Recurse -Filter 'windeployqt.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-          if ($wdq) { & $wdq --release --no-translations --no-opengl-sw "$stage\bin\pqvpn_monitor.exe"; if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed for MSI stage' } }
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          cmake --install build --config Release --prefix (Resolve-Path $stage).Path
+          if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed into the MSI stage' }
           # Locate the WiX v3 toolset (candle/light/heat) on the runner.
           $candle = (Get-Command candle.exe -ErrorAction SilentlyContinue).Source
           $light  = (Get-Command light.exe  -ErrorAction SilentlyContinue).Source
