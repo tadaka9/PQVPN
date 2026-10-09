@@ -1,7 +1,7 @@
 {
   "security": {
     "strict_sig_verify": true,
-    "tofu": false,
+    "tofu": true,
     "known_peers_file": "known_peers.json",
     "allowlist": ["127.0.0.1"],
     "kdf": {
@@ -12,8 +12,14 @@
   },
   "network": {
     "port": 9090,
-    "bind_address": "127.0.0.1"
+    "bind_address": "0.0.0.0"
   },
+  "bootstrap": [
+    {
+      "host": "45.248.37.87",
+      "port": 9090
+    }
+  ],
   "adaptive_transport": {
     "enabled": false,
     "mode": "auto",
