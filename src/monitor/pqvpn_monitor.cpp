@@ -176,7 +176,7 @@ public:
         process_.setProcessChannelMode(QProcess::MergedChannels);
         buildMenus(); buildUi(); buildTray(); connectProcess(); applyPreferences(); loadConfig(configPath_->text());
         statusBar()->showMessage("Ready — no connection starts without your action");
-        QTimer::singleShot(0,this,[this]{ if(!configValid_) validateConfig(false); });
+        QTimer::singleShot(0,this,[this]{ if(!configValid_ && !QApplication::arguments().contains("--smoke-test")) validateConfig(false); });
     }
     void prepareSmokePage(const QString& request) {
         QSignalBlocker guard(reduceMotion_); reduceMotion_->setChecked(true); setMotion(false);
