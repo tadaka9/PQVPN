@@ -167,9 +167,16 @@ jobs:
         run: |
           stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$stage"
-          cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
           cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
-          test -e "$stage/pqvpn_monitor" -o -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
+          # GNUInstallDirs puts the executables under bin/; the macOS GUI is a
+          # bundle installed next to the prefix root instead.
+          test -e "$stage/bin/pqvpn_node"
+          test -e "$stage/bin/pqvpn_tui"
+          if [[ "${{ matrix.family }}" == macos ]]; then
+            test -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
+          else
+            test -e "$stage/bin/pqvpn_monitor"
+          fi
           tar -czf "$stage.tar.gz" "$stage"
 
       - name: Build deb package (Linux only)
@@ -374,15 +381,15 @@ jobs:
           if (-not $version) { throw 'PQVPN_VERSION.txt is empty' }
           "PQVPN_VERSION=$version" >> $env:GITHUB_ENV
 
-      - name: Package verified native build
+      - name: Verify install layout
         shell: pwsh
         run: |
           $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
-          New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
-          if (-not (Test-Path "$stage\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
-          Compress-Archive -Path $stage -DestinationPath "$stage.zip"
+          if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed under bin' }
+          if (-not (Test-Path "$stage\bin\pqvpn_tui.exe")) { throw 'TUI was not installed under bin' }
+          if (-not (Test-Path "$stage\bin\pqvpn_monitor.exe")) { throw 'GUI was not installed under bin' }
 
       - name: Build portable package
         shell: pwsh
@@ -394,9 +401,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: release-candidate-${{ matrix.target }}
-          path: |
-            pqvpn-${{ github.ref_name }}-${{ matrix.target }}.zip
-            artifacts/*.zip
+          path: artifacts/*.zip
           if-no-files-found: error
           retention-days: 7
 

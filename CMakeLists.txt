@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.28)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
-if(NOT PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-  message(FATAL_ERROR "PQVPN_VERSION.txt must contain one semantic version such as 0.0.2")
+string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
+if(NOT PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$")
+  message(FATAL_ERROR
+    "PQVPN_VERSION.txt must contain one semantic version, optionally with a prerelease suffix "
+    "such as 0.0.2 or 0.0.5-alpha-10092026-David0")
 endif()
-project(PQVPN VERSION ${PQVPN_PROJECT_VERSION} LANGUAGES CXX)
+# project() accepts only numeric dotted components, so the prerelease suffix is
+# carried separately in PQVPN_PROJECT_VERSION for artifacts and package names.
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PQVPN_NUMERIC_VERSION "${PQVPN_PROJECT_VERSION}")
+project(PQVPN VERSION ${PQVPN_NUMERIC_VERSION} LANGUAGES CXX)
 
 include(GNUInstallDirs)
 

@@ -86,6 +86,11 @@ Description: Post-quantum VPN node with ML-KEM-1024 key exchange
  console (pqvpn_tui), and the Qt privacy console when available.
 EOF
 
+# Configuration examples receive conffile protection so local edits
+# survive package upgrades.
+printf '/etc/pqvpn/config.json.example\n/etc/pqvpn/config.udp2raw.json.example\n' \
+    > "$PKG_ROOT/DEBIAN/conffiles"
+
 dpkg-deb --build --root-owner-group "$PKG_ROOT" "$DEB_FILE"
 rm -rf "$PKG_ROOT"
 dpkg-deb --info "$DEB_FILE" > /dev/null
