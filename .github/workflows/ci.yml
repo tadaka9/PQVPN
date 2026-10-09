@@ -407,11 +407,52 @@ jobs:
           packaging/windows/build-installer.ps1 -BuildDir build/Release -OutputDir artifacts -Version $env:PQVPN_VERSION
           if (-not (Get-ChildItem artifacts -Filter '*.zip')) { throw 'portable zip was not produced' }
 
+      - name: Build MSI installer
+        shell: pwsh
+        run: |
+          $ver = $env:PQVPN_VERSION
+          $base = ($ver -split '-')[0]
+          $build = '1'
+          if ($ver -match '\d{4}') { $build = $matches[0].Substring(0,4) }
+          $msiVersion = "$base.$build"
+          # Stage the install tree. cmake --install also runs the Qt deploy
+          # script (install(SCRIPT pqvpn_monitor_deploy_script)) which deploys
+          # the Qt runtime next to the GUI. The prefix MUST be absolute: with a
+          # relative prefix the Qt deploy script aborts (Qt6CoreDeploySupport
+          # CMake error) and cmake --install stops after the monitor exe, leaving
+          # node/tui and Qt out of the harvested bundle.
+          $stage = 'msi-stage'
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          cmake --install build --config Release --prefix (Resolve-Path $stage).Path
+          if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed into the MSI stage' }
+          # Locate the WiX v3 toolset (candle/light/heat) on the runner.
+          $candle = (Get-Command candle.exe -ErrorAction SilentlyContinue).Source
+          $light  = (Get-Command light.exe  -ErrorAction SilentlyContinue).Source
+          if (-not $candle -or -not $light) {
+            $found = Get-ChildItem 'C:\Program Files*\WiX*\bin\candle.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $candle = $found.FullName; $light = Join-Path (Split-Path $found.FullName) 'light.exe' }
+          }
+          if (-not (Test-Path $candle) -or -not (Test-Path $light)) { throw 'WiX candle/light not found on runner' }
+          $heat = Join-Path (Split-Path $candle) 'heat.exe'
+          New-Item -ItemType Directory -Path msi-build -Force | Out-Null
+          & $heat dir $stage -dr INSTALLDIR -cg ProductComponents -sreg -sfrag -gg -ke -out msi-build/files.wxs
+          if ($LASTEXITCODE -ne 0) { throw 'heat failed' }
+          & $candle -arch x64 -dMsiVersion="$msiVersion" packaging/windows/pqvpn.wxs msi-build/files.wxs -o msi-build/
+          if ($LASTEXITCODE -ne 0) { throw 'candle failed' }
+          # ICE38/43/57 fire for common (All Users) Start Menu shortcuts in a
+          # per-machine install with a per-machine KeyPath; this is the
+          # well-known false-positive pattern, so suppress those specific ICEs.
+          & $light -ext WixUIExtension -ext WixUtilExtension -sice:ICE38 -sice:ICE43 -sice:ICE57 -b $stage msi-build/pqvpn.wixobj msi-build/files.wixobj -o "artifacts/PQVPN-$ver-windows-x64.msi"
+          if ($LASTEXITCODE -ne 0) { throw 'light failed' }
+          if (-not (Get-ChildItem artifacts -Filter '*.msi')) { throw 'MSI was not produced' }
+
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
           name: release-candidate-${{ matrix.target }}
-          path: artifacts/*.zip
+          path: |
+            artifacts/*.zip
+            artifacts/*.msi
           if-no-files-found: error
           retention-days: 7
 
@@ -449,9 +490,10 @@ jobs:
         run: |
           set -euo pipefail
           test "$(find release -maxdepth 1 -type f -name '*.zip' | wc -l)" = 1
+          test "$(find release -maxdepth 1 -type f -name '*.msi' | wc -l)" = 1
           test "$(find release -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" = 4
           test "$(find release -maxdepth 1 -type f -name '*.deb' | wc -l)" = 2
-          (cd release && sha256sum *.zip *.tar.gz *.deb | sort -k2 > SHA256SUMS)
+          (cd release && sha256sum *.zip *.msi *.tar.gz *.deb | sort -k2 > SHA256SUMS)
       - name: Create immutable GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
