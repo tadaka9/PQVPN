@@ -42,6 +42,7 @@ typedef struct _PQVPN_CONTEXT {
     BOOLEAN        AdapterReady;
     NDIS_HANDLE    AdapterHandle;
     NDIS_HANDLE    ReceivePool;
+    ULONG          PacketFilter; /* last OID_GEN_CURRENT_PACKET_FILTER value */
     KSPIN_LOCK     QueueLock;
     LIST_ENTRY     OutboundQueue;
     ULONG          QueuedPackets;
@@ -261,8 +262,14 @@ static NTSTATUS pqvpn_dispatch_write(PDEVICE_OBJECT device, PIRP irp) {
         return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
     }
     nbl->SourceHandle = ctx->AdapterHandle;
+    // Receive flags must be zero: with NDIS_RECEIVE_FLAGS_RESOURCES set, NDIS
+    // would later hand the NBLs back to MiniportReturnNetBufferLists (a handler
+    // this driver does not register), on buffers it has already freed — a
+    // use-after-free in the receive data path. Without the flag the miniport
+    // keeps ownership, so freeing right after the synchronous indication is
+    // exactly the correct TUN pattern.
     NdisMIndicateReceiveNetBufferLists(ctx->AdapterHandle, nbl, NDIS_DEFAULT_PORT_NUMBER,
-                                       1, NDIS_RECEIVE_FLAGS_RESOURCES);
+                                       1, 0);
     NdisFreeNetBufferList(nbl);
     IoFreeMdl(mdl);
     ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
@@ -376,40 +383,70 @@ static NDIS_STATUS pqvpn_reset(NDIS_HANDLE adapter_handle, PBOOLEAN addressing_r
     return NDIS_STATUS_SUCCESS;
 }
 
+/* Handles the OIDs Windows actually needs a layer-3 (NdisMediumIP) interface
+ * to be enabled and usable. Everything else is refused; ndis.sys tolerates
+ * NOT_SUPPORTED for an inactive virtual adapter.
+ *
+ * OID_GEN_CURRENT_PACKET_FILTER is special-cased for both query and set: the
+ * kernel sets it when the interface is enabled and a TUN that only responds
+ * NOT_SUPPORTED can be left in a not-ready/error state and never pass packets.
+ */
 static NDIS_STATUS pqvpn_oid_request(
     NDIS_HANDLE adapter_handle,
     PNDIS_OID_REQUEST request) {
     (void)adapter_handle;
 
-    if (request->RequestType != NdisRequestQueryInformation) {
+    if (request->RequestType == NdisRequestQueryInformation) {
+        switch (request->DATA.QUERY_INFORMATION.Oid) {
+        case OID_GEN_MEDIA_IN_USE: {
+            /* Must match *MediaType in the INF (NdisMediumIP, layer-3 TUN). */
+            PULONG value = (PULONG)request->DATA.QUERY_INFORMATION.InformationBuffer;
+            if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
+                return NDIS_STATUS_BUFFER_TOO_SHORT;
+            }
+            *value = NdisMediumIP;
+            request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
+            return NDIS_STATUS_SUCCESS;
+        }
+        case OID_GEN_MAXIMUM_FRAME_SIZE: {
+            PULONG value = (PULONG)request->DATA.QUERY_INFORMATION.InformationBuffer;
+            if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
+                return NDIS_STATUS_BUFFER_TOO_SHORT;
+            }
+            *value = 65535;
+            request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
+            return NDIS_STATUS_SUCCESS;
+        }
+        case OID_GEN_CURRENT_PACKET_FILTER: {
+            PULONG value = (PULONG)request->DATA.QUERY_INFORMATION.InformationBuffer;
+            if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
+                return NDIS_STATUS_BUFFER_TOO_SHORT;
+            }
+            *value = (g_Context != NULL) ? g_Context->PacketFilter : 0UL;
+            request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
+            return NDIS_STATUS_SUCCESS;
+        }
+        default:
+            return NDIS_STATUS_NOT_SUPPORTED;
+        }
+    }
+
+    if (request->RequestType == NdisRequestSetInformation) {
+        if (request->DATA.SET_INFORMATION.Oid == OID_GEN_CURRENT_PACKET_FILTER) {
+            if (request->DATA.SET_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
+                return NDIS_STATUS_BUFFER_TOO_SHORT;
+            }
+            if (g_Context != NULL) {
+                g_Context->PacketFilter =
+                    *(PULONG)request->DATA.SET_INFORMATION.InformationBuffer;
+            }
+            request->DATA.SET_INFORMATION.BytesRead = sizeof(ULONG);
+            return NDIS_STATUS_SUCCESS;
+        }
         return NDIS_STATUS_NOT_SUPPORTED;
     }
 
-    switch (request->DATA.QUERY_INFORMATION.Oid) {
-    case OID_GEN_MEDIA_IN_USE: {
-        /* Must match *MediaType in the INF (NdisMediumIP, layer-3 TUN). */
-        PULONG value = (PULONG)request->DATA.QUERY_INFORMATION.InformationBuffer;
-        if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
-            return NDIS_STATUS_BUFFER_TOO_SHORT;
-        }
-        *value = NdisMediumIP;
-        request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
-        return NDIS_STATUS_SUCCESS;
-    }
-    case OID_GEN_MAXIMUM_FRAME_SIZE: {
-        PULONG value = (PULONG)request->DATA.QUERY_INFORMATION.InformationBuffer;
-        if (request->DATA.QUERY_INFORMATION.InformationBufferLength < sizeof(ULONG)) {
-            return NDIS_STATUS_BUFFER_TOO_SHORT;
-        }
-        *value = 65535;
-        request->DATA.QUERY_INFORMATION.BytesWritten = sizeof(ULONG);
-        return NDIS_STATUS_SUCCESS;
-    }
-    default:
-        /* Unknown OIDs are refused; ndis.sys tolerates NOT_SUPPORTED for a
-         * virtual adapter whose data path is not active yet. */
-        return NDIS_STATUS_NOT_SUPPORTED;
-    }
+    return NDIS_STATUS_NOT_SUPPORTED;
 }
 
 static VOID pqvpn_send_nbl(
