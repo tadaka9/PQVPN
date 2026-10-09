@@ -162,10 +162,16 @@ jobs:
             ldd build/pqvpn_node | tee runtime-dependencies.txt
           fi
 
+      - name: Resolve package version
+        shell: bash
+        run: |
+          ver="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+          echo "PQVPN_VERSION=$ver" >> "$GITHUB_ENV"
+
       - name: Package verified native build
         shell: bash
         run: |
-          stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          stage="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           mkdir -p "$stage"
           cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
           # GNUInstallDirs installs the executables under bin/. A macOS app
@@ -177,15 +183,14 @@ jobs:
             monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           fi
           test -e "$monitor"
-          tar -czf "$stage.tar.gz" "$stage"
+          tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
       - name: Build deb package (Linux only)
         if: matrix.family == 'linux'
         shell: bash
         run: |
-          PQVPN_VERSION="$(cat PQVPN_VERSION.txt)"
           chmod +x packaging/linux/build-package.sh
-          ./packaging/linux/build-package.sh build artifacts "$PQVPN_VERSION"
+          ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
           test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
 
       - name: Upload release candidate
@@ -193,7 +198,7 @@ jobs:
         with:
           name: release-candidate-${{ matrix.target }}
           path: |
-            pqvpn-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+            PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz
             artifacts/*.deb
           if-no-files-found: error
           retention-days: 7
@@ -384,7 +389,7 @@ jobs:
       - name: Verify install layout
         shell: pwsh
         run: |
-          $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          $stage = "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
           if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed under bin' }

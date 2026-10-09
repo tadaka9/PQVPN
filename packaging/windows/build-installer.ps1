@@ -20,7 +20,7 @@ if (-not (Test-Path (Join-Path $BuildDir "pqvpn_node.exe"))) {
     throw "pqvpn_node.exe not found in $BuildDir"
 }
 
-$package_name = "pqvpn-windows-x64-$Version"
+$package_name = "PQVPN-windows-x64-$Version-portable"
 $package_path = Join-Path $OutputDir $package_name
 $zip_path = Join-Path $OutputDir "$package_name.zip"
 
