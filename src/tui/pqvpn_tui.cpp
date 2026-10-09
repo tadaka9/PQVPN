@@ -278,7 +278,9 @@ public:
             running_.store(false);
         });
 #endif
-        return true;
+        // start() set running_ on entry and reset it on every early failure, so
+        // reflecting the flag avoids a hard-coded success return here.
+        return running_.load();
     }
 
     void stop() {
