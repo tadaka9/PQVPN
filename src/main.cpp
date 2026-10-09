@@ -480,8 +480,27 @@ int main(int argc, char** argv) {
                         std::cerr << "no pre-VPN default route found; skipping tunnel default route "
                               << "(installing it without peer exclusions would loop tunnel traffic)\n";
                 } else {
-                    peer_routes.set_physical_gateway(
-                        {physical->ipv4, physical->interface_index});
+                    pqvpn::routing::PeerRouteManager::PhysicalGateway gateway;
+                    gateway.gateway = physical->ipv4;
+                    gateway.interface_index = physical->interface_index;
+
+                    // Optional IPv6 full tunnel: only when the adapter actually
+                    // carries a usable (non-link-local) IPv6 address AND a
+                    // physical IPv6 gateway exists to pin IPv6 peers out of the
+                    // virtual default. Otherwise IPv6 is blackholed below.
+                    const auto adapter6 =
+                        pqvpn::platform::find_adapter_ipv6("PQVPN Tunnel");
+                    bool full_tunnel_v6 = false;
+                    if (adapter6) {
+                        const auto physical6 = pqvpn::platform::find_default_route_v6(
+                            adapter6->interface_index);
+                        if (physical6) {
+                            gateway.gateway6 = physical6->ipv4;
+                            gateway.interface6 = physical6->interface_index;
+                            full_tunnel_v6 = true;
+                        }
+                    }
+                    peer_routes.set_physical_gateway(std::move(gateway));
 
                     // Exclude every address already known at startup...
                     bool exclusions_ok = true;
@@ -536,6 +555,24 @@ int main(int argc, char** argv) {
                         route_plan.add(pqvpn::routing::RouteEntry{
                             asio::ip::make_address_v4("0.0.0.0"), 0,
                             adapter_route->ipv4, adapter_route->interface_index});
+
+                        if (full_tunnel_v6) {
+                            // Route IPv6 through the adapter too, using its
+                            // own global/ULA address as next hop.
+                            route_plan.add(pqvpn::routing::RouteEntry{
+                                asio::ip::make_address_v6("::"), 0,
+                                adapter6->ipv4, adapter6->interface_index});
+                            std::cout << "IPv6 default route installed through the PQVPN Tunnel adapter\n";
+                        } else {
+                            // No IPv6 in the tunnel: blackhole the IPv6 default
+                            // through loopback so the host's global IPv6 address
+                            // cannot keep leaking past the VPN.
+                            route_plan.add(pqvpn::routing::RouteEntry{
+                                asio::ip::make_address_v6("::"), 0,
+                                asio::ip::make_address_v6("::1"), 0});
+                            std::cout
+                                << "IPv6 default route blackholed to prevent leakage\n";
+                        }
 
                         if (const auto report = route_plan.commit(route_backend); report.committed) {
                             std::cout << "default route installed through the PQVPN Tunnel adapter\n";

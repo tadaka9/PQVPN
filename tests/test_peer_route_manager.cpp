@@ -61,6 +61,16 @@ pqvpn::routing::PeerRouteManager::PhysicalGateway gateway(
     return {asio::ip::make_address(address), ifindex};
 }
 
+// Builds a PhysicalGateway that carries only an IPv6 egress path (the modern
+// shape used when the VPN also claims IPv6).
+pqvpn::routing::PeerRouteManager::PhysicalGateway gateway_v6(
+        const std::string& address, const std::uint32_t ifindex = 9) {
+    pqvpn::routing::PeerRouteManager::PhysicalGateway g;
+    g.gateway6 = asio::ip::make_address(address);
+    g.interface6 = ifindex;
+    return g;
+}
+
 } // namespace
 
 TEST_CASE("add_peer installs a /32 host route through the physical gateway", "[routing][peerroutes]") {
@@ -193,6 +203,54 @@ TEST_CASE("a hard remove failure keeps the exclusion tracked so remove_all retri
     const auto report = manager.remove_all();
     REQUIRE(report.complete);
     REQUIRE(report.removed == 1);
+}
+
+TEST_CASE("add_peer installs a /128 host route for an IPv6 peer through the IPv6 gateway", "[routing][peerroutes][ipv6]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::PeerRouteManager manager(backend);
+    manager.set_physical_gateway(gateway_v6("fe80::1"));
+    REQUIRE(manager.has_physical_gateway());
+
+    const auto peer = peer_endpoint("2001:db8::20", 443);
+    REQUIRE(manager.add_peer(peer).ok);
+
+    REQUIRE(backend.calls == std::vector<std::string>{"install 2001:db8::20/128"});
+    REQUIRE(backend.installed_entries.size() == 1);
+    const auto& entry = backend.installed_entries.front();
+    REQUIRE(entry.prefix.to_string() == "2001:db8::20");
+    REQUIRE(entry.prefix_length == 128); // IPv6 host route, not a network prefix
+    REQUIRE(entry.gateway.to_string() == "fe80::1");
+    REQUIRE(entry.interface_index == 9);
+}
+
+TEST_CASE("an IPv6 peer is rejected when the captured gateway has no IPv6 egress", "[routing][peerroutes][ipv6]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::PeerRouteManager manager(backend);
+    manager.set_physical_gateway(gateway("192.168.1.1")); // IPv4 egress only
+
+    REQUIRE_FALSE(manager.add_peer(peer_endpoint("2001:db8::20", 443)).ok);
+    REQUIRE(backend.calls.empty()); // no backend call without an IPv6 egress
+}
+
+TEST_CASE("remove_all unwinds mixed IPv4 and IPv6 exclusions in reverse insertion order", "[routing][peerroutes][ipv6]") {
+    ScriptedRouteBackend backend;
+    pqvpn::routing::PeerRouteManager manager(backend);
+    pqvpn::routing::PeerRouteManager::PhysicalGateway g;
+    g.gateway = asio::ip::make_address("192.168.1.1");
+    g.interface_index = 7;
+    g.gateway6 = asio::ip::make_address("fe80::1");
+    g.interface6 = 9;
+    manager.set_physical_gateway(std::move(g));
+
+    REQUIRE(manager.add_peer(peer_endpoint("203.0.113.10", 443)).ok);
+    REQUIRE(manager.add_peer(peer_endpoint("2001:db8::10", 443)).ok);
+
+    const auto report = manager.remove_all();
+    REQUIRE(report.complete);
+    REQUIRE(report.removed == 2);
+    REQUIRE(backend.calls == std::vector<std::string>{
+        "install 203.0.113.10/32", "install 2001:db8::10/128",
+        "remove 2001:db8::10/128", "remove 203.0.113.10/32"});
 }
 
 TEST_CASE("admin-owned routes are never deleted by cleanup", "[routing][peerroutes]") {

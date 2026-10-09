@@ -6,15 +6,24 @@ namespace pqvpn::routing {
 
 RouteEntry PeerRouteManager::entry_for(const asio::ip::udp::endpoint& peer,
                                        const PhysicalGateway& gateway) {
-    return RouteEntry{peer.address(), 32, gateway.gateway, gateway.interface_index};
+    // Host route: /32 for IPv4 and /128 for IPv6, pinned through the physical
+    // egress of the matching family.
+    const bool is_v6 = peer.address().is_v6();
+    const std::uint8_t prefix_length = is_v6 ? 128 : 32;
+    return {peer.address(), prefix_length, gateway.gateway_for(peer.address()),
+            gateway.interface_for(peer.address())};
 }
 
 OperationResult PeerRouteManager::add_peer(const asio::ip::udp::endpoint& peer) {
     if (!gateway_.valid()) {
         return {false, false, false, "no physical gateway captured; refusing to add a peer exclusion"};
     }
-    if (!peer.address().is_v4() || !gateway_.gateway.is_v4()) {
-        return {false, false, false, "peer exclusions are IPv4-only in this backend"};
+    const asio::ip::address egress = gateway_.gateway_for(peer.address());
+    if (egress.is_unspecified()) {
+        return {false, false, false,
+                (peer.address().is_v6()
+                     ? "no IPv6 physical gateway captured; refusing to add an IPv6 peer exclusion"
+                     : "no IPv4 physical gateway captured; refusing to add an IPv4 peer exclusion")};
     }
 
     // The backend install is idempotent by contract (an existing entry counts
