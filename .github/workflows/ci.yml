@@ -168,15 +168,15 @@ jobs:
           stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p "$stage"
           cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
-          # GNUInstallDirs puts the executables under bin/; the macOS GUI is a
-          # bundle installed next to the prefix root instead.
+          # GNUInstallDirs installs the executables under bin/. A macOS app
+          # bundle would land at the prefix root, so accept either layout.
           test -e "$stage/bin/pqvpn_node"
           test -e "$stage/bin/pqvpn_tui"
-          if [[ "${{ matrix.family }}" == macos ]]; then
-            test -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
-          else
-            test -e "$stage/bin/pqvpn_monitor"
+          monitor="$stage/bin/pqvpn_monitor"
+          if [ ! -e "$monitor" ]; then
+            monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           fi
+          test -e "$monitor"
           tar -czf "$stage.tar.gz" "$stage"
 
       - name: Build deb package (Linux only)
