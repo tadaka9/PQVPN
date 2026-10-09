@@ -113,8 +113,10 @@ routing::OperationResult apply_v6(const bool install, const routing::RouteEntry&
         row.NextHop.Ipv6.sin6_scope_id =
             static_cast<DWORD>(entry.gateway.to_v6().scope_id());
     }
-    row.Protocol = MIB_IPPROTO_NETMGMT;
-    row.Type = MIB_IPFORWARD_TYPE_INDIRECT;
+    // This SDK types Protocol as NL_ROUTE_PROTOCOL; MIB_IPPROTO_NETMGMT (=3)
+    // is exactly the netmgmt/manual value iphlpapi expects. This Row2 struct
+    // has no Type member (removed in newer headers), so it is not set.
+    row.Protocol = static_cast<NL_ROUTE_PROTOCOL>(MIB_IPPROTO_NETMGMT);
 
     const auto status =
         install ? CreateIpForwardEntry2(&row) : DeleteIpForwardEntry2(&row);
