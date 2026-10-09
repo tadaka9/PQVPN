@@ -176,6 +176,7 @@ public:
         process_.setProcessChannelMode(QProcess::MergedChannels);
         buildMenus(); buildUi(); buildTray(); connectProcess(); applyPreferences(); loadConfig(configPath_->text());
         statusBar()->showMessage("Ready — no connection starts without your action");
+        QTimer::singleShot(0,this,[this]{ if(!configValid_ && !QApplication::arguments().contains("--smoke-test")) validateConfig(false); });
     }
     void prepareSmokePage(const QString& request) {
         QSignalBlocker guard(reduceMotion_); reduceMotion_->setChecked(true); setMotion(false);
@@ -249,7 +250,7 @@ private:
         QVBoxLayout* body; auto* page=pageShell("Connect","A short, reversible flow with validation before execution.",&body); auto* form=new QVBoxLayout; form->setContentsMargins(23,21,23,21); form->setSpacing(12);
         form->addWidget(text("CONFIGURATION","eyebrow")); auto* cr=new QHBoxLayout; configPath_=new QLineEdit(QDir::current().absoluteFilePath("config.json")); auto* cb=new QPushButton("Choose…"); cb->setProperty("quiet",true); cr->addWidget(configPath_,1); cr->addWidget(cb); form->addLayout(cr);
         form->addWidget(text("NODE EXECUTABLE","eyebrow")); auto* er=new QHBoxLayout; executablePath_=new QLineEdit(defaultExecutable()); auto* eb=new QPushButton("Choose…"); eb->setProperty("quiet",true); er->addWidget(executablePath_,1); er->addWidget(eb); form->addLayout(er);
-        auto* options=new QHBoxLayout; options->addWidget(text("LOG DETAIL","eyebrow")); logLevel_=new QComboBox; logLevel_->addItems({"info","debug","warning","error"}); options->addWidget(logLevel_); noTunnel_=new QCheckBox("No tunnel (UDP-only)"); noTunnel_->setToolTip("Run without the PQVPN TAP adapter — use this to test peer connectivity when the driver is not installed. Your traffic is NOT tunneled in this mode."); options->addWidget(noTunnel_); options->addStretch(); form->addLayout(options); configHealth_=text("Configuration has not been validated."); configHealth_->setProperty("muted",true); form->addWidget(configHealth_); body->addWidget(card(form));
+        auto* options=new QHBoxLayout; options->addWidget(text("LOG DETAIL","eyebrow")); logLevel_=new QComboBox; logLevel_->addItems({"info","debug","warning","error"}); options->addWidget(logLevel_); noTunnel_=new QCheckBox("No tunnel (UDP-only)"); noTunnel_->setToolTip("Run without the PQVPN TAP adapter — use this to test peer connectivity when the driver is not installed. Your traffic is NOT tunneled in this mode."); noTunnel_->setChecked(true); options->addWidget(noTunnel_); options->addStretch(); form->addLayout(options); configHealth_=text("Configuration has not been validated."); configHealth_->setProperty("muted",true); form->addWidget(configHealth_); body->addWidget(card(form));
         auto* actions=new QHBoxLayout; validateButton_=new QPushButton("Validate first"); validateButton_->setProperty("quiet",true); connectButton_=new QPushButton("Connect securely"); connectButton_->setEnabled(false); actions->addWidget(validateButton_); actions->addStretch(); actions->addWidget(connectButton_); body->addLayout(actions); auto* consent=text("Starting may create a tunnel adapter or change routes according to your configuration and OS permissions. Closing the window can keep PQVPN in the tray without changing the connection."); consent->setProperty("muted",true); body->addWidget(consent); body->addStretch();
         connect(cb,&QPushButton::clicked,this,&Window::chooseConfig); connect(eb,&QPushButton::clicked,this,&Window::chooseExecutable); connect(validateButton_,&QPushButton::clicked,this,&Window::validateConfig); connect(connectButton_,&QPushButton::clicked,this,&Window::toggleConnection);
         connect(configPath_,&QLineEdit::textChanged,this,[this](const QString& path){invalidate("Configuration changed. Validate before connecting.");loadConfig(path);}); connect(executablePath_,&QLineEdit::textChanged,this,[this]{invalidate("Executable changed. Validate before connecting.");}); return page;
@@ -302,7 +303,7 @@ private:
     void invalidate(const QString& reason){configValid_=false;connectButton_->setEnabled(false);configHealth_->setText(reason);}
     void chooseConfig(){const QString path=QFileDialog::getOpenFileName(this,"Choose PQVPN configuration",QFileInfo(configPath_->text()).absolutePath(),"JSON configuration (*.json)");if(!path.isEmpty())configPath_->setText(path);}
     void chooseExecutable(){const QString path=QFileDialog::getOpenFileName(this,"Choose pqvpn_node",QFileInfo(executablePath_->text()).absolutePath());if(!path.isEmpty())executablePath_->setText(path);}
-    void validateConfig() {
+    void validateConfig(bool switchToConnection=true) {
         if(process_.state()!=QProcess::NotRunning) return;
         const QFileInfo binary(executablePath_->text());
         if(!binary.exists()||!binary.isExecutable()) {
@@ -318,7 +319,7 @@ private:
             configHealth_->setText(configValid_?"Validated by pqvpn_node. Ready to connect.":QString("Validation failed with exit code %1. Review Activity.").arg(code));
             connectButton_->setEnabled(configValid_); validateButton_->setEnabled(true); log(configValid_?"Configuration validation passed":"Configuration validation failed"); check->deleteLater();
         });
-        check->start(executablePath_->text(),{"--smoke-test","--config",configPath_->text()}); switchPage(Connection);
+        check->start(executablePath_->text(),{"--smoke-test","--config",configPath_->text()}); if(switchToConnection) switchPage(Connection);
     }
     void toggleConnection(){if(process_.state()==QProcess::NotRunning){if(!configValid_)return;stopping_=false;const bool noTunnel=noTunnel_&&noTunnel_->isChecked();log(QString("Connect requested · config %1 · log %2%3").arg(configPath_->text(),logLevel_->currentText(),noTunnel?" · no-tunnel":""));QStringList args={"--config",configPath_->text(),"--log-level",logLevel_->currentText()};if(noTunnel)args<<"--no-tunnel";process_.start(executablePath_->text(),args);}else requestStop();}
     bool validStrangeRoom() { const QString room=strangeRoom_->text().trimmed(),peer=strangePeer_->text().trimmed();const bool valid=QRegularExpression("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$").match(room).hasMatch()&&QRegularExpression("^[0-9A-Fa-f]{64}$").match(peer).hasMatch();if(!valid)strangeTranscript_->appendPlainText("Use a safe 1–64 character room name and a 64-digit hexadecimal peer identity.");return valid; }
