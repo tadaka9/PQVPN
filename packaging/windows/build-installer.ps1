@@ -1,25 +1,29 @@
-# PQVPN Windows Installer Builder
-# Builds a portable zip package with all required dependencies
+# PQVPN Windows portable package builder
+# Produces a portable zip with binaries, config examples, launchers,
+# and the Qt runtime deployed next to the GUI executable.
+#
+# Security boundary: this package never ships the tunnel driver.
+# Kernel drivers must come from a qualified release pipeline with a
+# valid signature (see packaging/gates and publish-qualified-release.yml).
 
 param(
     [string]$BuildDir = "build",
-    [string]$OutputDir = "../artifacts",
-    [string]$Version = "0.0.5-alpha"
+    [string]$OutputDir = "artifacts",
+    [string]$Version = "0.0.0"
 )
 
-Write-Host "Building PQVPN Windows installer package..." -ForegroundColor Cyan
+$ErrorActionPreference = 'Stop'
 
-# Create output directory
-if (-not (Test-Path $OutputDir)) {
-    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+Write-Host "Building PQVPN Windows portable package..." -ForegroundColor Cyan
+
+if (-not (Test-Path (Join-Path $BuildDir "pqvpn_node.exe"))) {
+    throw "pqvpn_node.exe not found in $BuildDir"
 }
 
-# Package name
 $package_name = "pqvpn-windows-x64-$Version"
 $package_path = Join-Path $OutputDir $package_name
 $zip_path = Join-Path $OutputDir "$package_name.zip"
 
-# Clean previous package
 if (Test-Path $package_path) {
     Remove-Item -Recurse -Force $package_path
 }
@@ -28,107 +32,76 @@ New-Item -ItemType Directory -Path $package_path -Force | Out-Null
 Write-Host "Copying binaries..." -ForegroundColor Yellow
 Copy-Item (Join-Path $BuildDir "pqvpn_node.exe") $package_path
 Copy-Item (Join-Path $BuildDir "pqvpn_tui.exe") $package_path
-if (Test-Path (Join-Path $BuildDir "pqvpn_monitor.exe")) {
+$has_gui = Test-Path (Join-Path $BuildDir "pqvpn_monitor.exe")
+if ($has_gui) {
     Copy-Item (Join-Path $BuildDir "pqvpn_monitor.exe") $package_path
 }
 
 Write-Host "Copying configuration..." -ForegroundColor Yellow
 Copy-Item "config.json" $package_path
 Copy-Item "config.udp2raw.json" $package_path
+Copy-Item "LICENSE", "README.md" $package_path
 
-Write-Host "Copying driver..." -ForegroundColor Yellow
-if (Test-Path "driver/build/x64/Release/pqvpn_tunnel.inf") {
-    New-Item -ItemType Directory -Path "$package_path/driver" -Force | Out-Null
-    Copy-Item "driver/build/x64/Release/pqvpn_tunnel.sys" $package_path/driver
-    Copy-Item "driver/build/x64/Release/pqvpn_tunnel.inf" $package_path/driver
-}
-
-Write-Host "Copying Qt dependencies (for GUI)..." -ForegroundColor Yellow
-if (Test-Path "$package_path/pqvpn_monitor.exe") {
-    # Find Qt installation
-    $qt_dir = $env:QTDIR
+if ($has_gui) {
+    Write-Host "Deploying Qt runtime with windeployqt..." -ForegroundColor Yellow
+    $qt_dir = $env:QT_ROOT_DIR
     if (-not $qt_dir) {
-        Write-Host "Warning: QTDIR not set, skipping Qt dependencies" -ForegroundColor Red
+        $candidate = Get-ChildItem "$env:RUNNER_TEMP\Qt" -Recurse -Filter "windeployqt.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+        if ($candidate) { $qt_dir = Split-Path (Split-Path $candidate) }
+    }
+    if ($qt_dir -and (Test-Path (Join-Path $qt_dir "bin\windeployqt.exe"))) {
+        $gui = Join-Path $package_path "pqvpn_monitor.exe"
+        & (Join-Path $qt_dir "bin\windeployqt.exe") --release --no-translations --no-opengl-sw $gui
+        if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed' }
     } else {
-        New-Item -ItemType Directory -Path "$package_path/qt" -Force | Out-Null
-        Copy-Item "$qt_dir/bin/Qt6Core.dll" $package_path/qt -ErrorAction SilentlyContinue
-        Copy-Item "$qt_dir/bin/Qt6Gui.dll" $package_path/qt -ErrorAction SilentlyContinue
-        Copy-Item "$qt_dir/bin/Qt6Widgets.dll" $package_path/qt -ErrorAction SilentlyContinue
-        Copy-Item "$qt_dir/bin/platforms/qwindows.dll" "$package_path/qt/platforms/" -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Warning: windeployqt not found; the GUI may not start without Qt DLLs." -ForegroundColor Red
     }
 }
 
 Write-Host "Creating launcher scripts..." -ForegroundColor Yellow
-$launcher_content = @"
+$launchers = @{
+    "run-node.bat" = "pqvpn_node.exe"
+    "run-tui.bat"  = "pqvpn_tui.exe"
+    "run-gui.bat"  = "pqvpn_monitor.exe"
+}
+foreach ($entry in $launchers.GetEnumerator()) {
+    if (-not (Test-Path (Join-Path $package_path $entry.Value))) { continue }
+    @"
 @echo off
 setlocal
 set PQVPN_DIR=%~dp0
-if exist "%PQVPN_DIR%qt\platforms" (
-    set PATH=%PQVPN_DIR%qt;%PQVPN_DIR%qt\platforms;%PATH%
-)
-"%PQVPN_DIR%\pqvpn_node.exe" --config "%PQVPN_DIR%\config.json" %*
-"@
-Set-Content -Path "$package_path/run-node.bat" -Value $launcher_content
-
-$tui_launcher = @"
-@echo off
-setlocal
-set PQVPN_DIR=%~dp0
-if exist "%PQVPN_DIR%qt\platforms" (
-    set PATH=%PQVPN_DIR%qt;%PQVPN_DIR%qt\platforms;%PATH%
-)
-"%PQVPN_DIR%\pqvpn_tui.exe" --config "%PQVPN_DIR%\config.json" %*
-"@
-Set-Content -Path "$package_path/run-tui.bat" -Value $tui_launcher
-
-$gui_launcher = @"
-@echo off
-setlocal
-set PQVPN_DIR=%~dp0
-if exist "%PQVPN_DIR%qt\platforms" (
-    set PATH=%PQVPN_DIR%qt;%PQVPN_DIR%qt\platforms;%PATH%
-)
-"%PQVPN_DIR%\pqvpn_monitor.exe" %*
-"@
-Set-Content -Path "$package_path/run-gui.bat" -Value $gui_launcher
+"%PQVPN_DIR%$($entry.Value)" %*
+exit /b %ERRORLEVEL%
+"@ | Set-Content -Path (Join-Path $package_path $entry.Key)
+}
 
 Write-Host "Creating README..." -ForegroundColor Yellow
 $readme = @"
-# PQVPN for Windows
+# PQVPN for Windows (portable)
 
 ## Quick Start
 
-### Node (CLI)
-```bash
-run-node.bat
-```
-
-### Terminal UI
-```bash
-run-tui.bat
-```
-
-### Graphical Console (requires Qt)
-```bash
-run-gui.bat
-```
-
-## Install Tunnel Driver
-
-Run as Administrator:
-```powershell
-pnputil /add-driver driver\pqvpn_tunnel.inf /install
-```
+- Node daemon:      run-node.bat
+- Terminal console: run-tui.bat
+- Privacy Console:  run-gui.bat
 
 ## Configuration
 
-Edit config.json before starting the node.
-"@
-Set-Content -Path "$package_path/README.txt" -Value $readme
+Edit config.json next to the executables before starting the node.
+A hardened mainnet example is provided as config.udp2raw.json.
 
-# Create zip archive
+## Tunnel driver
+
+This portable package does not include the Windows tunnel driver.
+The driver is installed by the qualified installer produced by the
+release pipeline, which requires a signed kernel binary.
+"@
+Set-Content -Path (Join-Path $package_path "README.txt") -Value $readme
+
 Write-Host "Creating zip archive..." -ForegroundColor Yellow
-Compress-Archive -Path "$package_path/*" -DestinationPath $zip_path -Force
+Compress-Archive -Path (Join-Path $package_path '*') -DestinationPath $zip_path -Force
+Remove-Item -Recurse -Force $package_path
 
 Write-Host ""
 Write-Host "Package created: $zip_path" -ForegroundColor Green

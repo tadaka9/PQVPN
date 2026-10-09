@@ -1,52 +1,53 @@
 #!/bin/bash
-# PQVPN Linux Package Builder
-# Builds .deb and .rpm packages with proper file placement
+# PQVPN Linux package builder (DEB)
+# Produces a policy-compliant .deb with binaries under /usr/bin,
+# configuration examples under /etc/pqvpn, the systemd unit under
+# /usr/lib/systemd/system, and the desktop entry under /usr/share.
 
-set -e
+set -euo pipefail
 
 BUILD_DIR="${1:-build}"
-OUTPUT_DIR="${2:-../artifacts}"
-VERSION="${3:-0.0.5-alpha}"
-ARCH="$(dpkg --print-architecture 2>/dev/null || echo x86_64)"
+OUTPUT_DIR="${2:-artifacts}"
+VERSION="${3:-0.0.0}"
 
-echo "Building PQVPN Linux package..."
-echo "Build dir: $BUILD_DIR"
-echo "Output dir: $OUTPUT_DIR"
-echo "Version: $VERSION"
-echo "Arch: $ARCH"
-
-mkdir -p "$OUTPUT_DIR"
-
-# Create package structure
-PKG_ROOT="pqvpn-pkg-root"
-rm -rf "$PKG_ROOT"
-mkdir -p "$PKG_ROOT/usr/bin"
-mkdir -p "$PKG_ROOT/etc/pqvpn"
-mkdir -p "$PKG_ROOT/usr/share/pqvpn"
-mkdir -p "$PKG_ROOT/usr/share/applications"
-mkdir -p "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
-
-# Copy binaries
-echo "Copying binaries..."
-cp "$BUILD_DIR/pqvpn_node" "$PKG_ROOT/usr/bin/"
-cp "$BUILD_DIR/pqvpn_tui" "$PKG_ROOT/usr/bin/"
-if [ -f "$BUILD_DIR/pqvpn_monitor" ]; then
-    cp "$BUILD_DIR/pqvpn_monitor" "$PKG_ROOT/usr/bin/"
+if [ ! -f "$BUILD_DIR/pqvpn_node" ]; then
+    echo "error: $BUILD_DIR/pqvpn_node not found" >&2
+    exit 1
 fi
 
-# Copy configuration
-echo "Copying configuration..."
-cp config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
-cp config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
+ARCH="$(dpkg --print-architecture)"
+PKG_ROOT="$OUTPUT_DIR/pqvpn-$VERSION/deb-root"
+DEB_FILE="$OUTPUT_DIR/pqvpn_${VERSION}_${ARCH}.deb"
 
-# Copy documentation
-echo "Copying documentation..."
-cp README.md "$PKG_ROOT/usr/share/pqvpn/"
-cp LICENSE "$PKG_ROOT/usr/share/pqvpn/"
+echo "Building PQVPN deb package"
+echo "  build dir: $BUILD_DIR"
+echo "  output:    $DEB_FILE"
+echo "  arch:      $ARCH"
 
-# Create systemd service file
-echo "Creating systemd service..."
-cat > "$PKG_ROOT/etc/systemd/system/pqvpn.service" << 'EOF'
+rm -rf "$PKG_ROOT"
+mkdir -p \
+    "$PKG_ROOT/DEBIAN" \
+    "$PKG_ROOT/usr/bin" \
+    "$PKG_ROOT/etc/pqvpn" \
+    "$PKG_ROOT/usr/share/pqvpn" \
+    "$PKG_ROOT/usr/lib/systemd/system" \
+    "$PKG_ROOT/usr/share/applications" \
+    "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
+
+install -m 0755 "$BUILD_DIR/pqvpn_node" "$PKG_ROOT/usr/bin/"
+install -m 0755 "$BUILD_DIR/pqvpn_tui" "$PKG_ROOT/usr/bin/"
+if [ -f "$BUILD_DIR/pqvpn_monitor" ]; then
+    install -m 0755 "$BUILD_DIR/pqvpn_monitor" "$PKG_ROOT/usr/bin/"
+fi
+
+install -m 0644 config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
+install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
+install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
+
+if [ -f "packaging/linux/pqvpn.service" ]; then
+    install -m 0644 packaging/linux/pqvpn.service "$PKG_ROOT/usr/lib/systemd/system/"
+else
+    cat > "$PKG_ROOT/usr/lib/systemd/system/pqvpn.service" << 'EOF'
 [Unit]
 Description=PQVPN Post-Quantum VPN Node
 After=network-online.target
@@ -62,34 +63,30 @@ LimitNOFILE=65536
 [Install]
 WantedBy=multi-user.target
 EOF
+fi
 
-# Create desktop entry for GUI
-if [ -f "$BUILD_DIR/pqvpn_monitor" ]; then
-    echo "Creating desktop entry..."
-    cat > "$PKG_ROOT/usr/share/applications/pqvpn-monitor.desktop" << 'EOF'
-[Desktop Entry]
-Name=PQVPN Privacy Console
-Comment=Post-quantum VPN management console
-Exec=pqvpn_monitor
-Icon=pqvpn
-Terminal=false
-Type=Application
-Categories=Network;Security;
+if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desktop" ]; then
+    install -m 0644 packaging/linux/pqvpn-monitor.desktop "$PKG_ROOT/usr/share/applications/"
+fi
+
+cat > "$PKG_ROOT/DEBIAN/control" << EOF
+Package: pqvpn
+Version: $VERSION
+Architecture: $ARCH
+Maintainer: PQVPN <noreply@pqvpn.invalid>
+Depends: libc6, libstdc++6, libssl3t64 | libssl3
+Section: net
+Priority: optional
+Homepage: https://tadaka9.github.io/PQVPN/
+Description: Post-quantum VPN node with ML-KEM-1024 key exchange
+ PQVPN is an experimental post-quantum VPN that pairs classical
+ encryption with ML-KEM-1024 and ML-DSA-87 signatures.
+ .
+ This package installs the node daemon (pqvpn_node), the terminal
+ console (pqvpn_tui), and the Qt privacy console when available.
 EOF
-fi
 
-# Create deb package
-echo "Building .deb package..."
-cd "$PKG_ROOT"
-dpkg-deb --build --root-owner-group .. pqvpn_"$VERSION"_"$ARCH".deb 2>/dev/null || true
-cd ..
-
-if [ -f "pqvpn_$VERSION_$ARCH.deb" ]; then
-    mv "pqvpn_$VERSION_$ARCH.deb" "$OUTPUT_DIR/"
-    echo "Debian package created: $OUTPUT_DIR/pqvpn_$VERSION_$ARCH.deb"
-fi
-
-# Clean up
+dpkg-deb --build --root-owner-group "$PKG_ROOT" "$DEB_FILE"
 rm -rf "$PKG_ROOT"
-
-echo "Done!"
+dpkg-deb --info "$DEB_FILE" > /dev/null
+echo "Debian package created: $DEB_FILE"
