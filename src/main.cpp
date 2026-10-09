@@ -394,7 +394,11 @@ int main(int argc, char** argv) {
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
         } else {
 #ifdef _WIN32
-            // A VPN node without its TAP device is useless on Windows; fail closed.
+            // A VPN node without its TAP device is useless on Windows; fail
+            // closed. The adapter open() already logged the Windows error.
+            std::cerr << "Cannot open the PQVPN tunnel adapter. Install the PQVPN "
+                         "driver (and run this node elevated), or start with "
+                         "--no-tunnel to test peer connectivity without tunneling.\n";
             listener.stop();
             return 1;
 #else
