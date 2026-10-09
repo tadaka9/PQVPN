@@ -192,6 +192,11 @@ jobs:
           chmod +x packaging/linux/build-package.sh
           ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
           test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          # Place the deb next to the tar.gz at the workspace root so the
+          # release-candidate artifact stores it at its root (not under
+          # artifacts/). The publish gate counts *.deb at release/ root after
+          # merge-multiple download; a nested artifacts/ prefix would hide them.
+          cp artifacts/pqvpn_*.deb ./
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
@@ -199,7 +204,7 @@ jobs:
           name: release-candidate-${{ matrix.target }}
           path: |
             PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz
-            artifacts/*.deb
+            pqvpn_*.deb
           if-no-files-found: error
           retention-days: 7
 
