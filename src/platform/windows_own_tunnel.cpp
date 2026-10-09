@@ -56,9 +56,10 @@ bool WindowsOwnTunnel::open(InboundHandler inbound) {
         if (handle_ == INVALID_HANDLE_VALUE) {
             const DWORD error = GetLastError();
             // Surface the real reason (access denied, device missing, etc.) so a
-            // fail-closed exit in main is diagnosable instead of silent.
+            // fail-closed exit in main is diagnosable instead of silent. The
+            // device name is wide; the default is \\.\PQVPN_TUN0.
             std::cerr << "PQVPN tunnel device open failed (Windows error " << error
-                      << "): " << name << "\n";
+                      << "); is the driver installed and this process elevated?\n";
             return false;
         }
 

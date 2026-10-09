@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PQVPN Windows MSI installer definition (WiX v3 schema).
+
+  Installs the node, TUI and GUI plus their Qt runtime and the example
+  configurations into Program Files, with Start Menu shortcuts. The kernel
+  tunnel driver is deliberately NOT included: it must come from a qualified,
+  signed release pipeline (see packaging/gates and publish-qualified-release.yml).
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="PQVPN"
+           Language="1033" Codepage="1252"
+           Version="$(var.MsiVersion)"
+           Manufacturer="PQVPN"
+           UpgradeCode="{7A3B9C2E-1F4D-4E2A-9B8C-1234567890AB}">
+    <Package Id="*" Keywords="Installer" Description="PQVPN $(var.MsiVersion) Installer"
+             Manufacturer="PQVPN" InstallerVersion="500" Languages="1033"
+             Compressed="yes" InstallScope="perMachine" Platform="x64" />
+    <Media Id="1" Cabinet="pqvpn.cab" EmbedCab="yes" />
+    <MajorUpgrade AllowSameVersion="yes"
+                  DowngradeErrorMessage="A newer version of PQVPN is already installed." />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="ARPCOMMENTS" Value="Post-quantum privacy node and console" />
+    <Property Id="ARPURLINFOABOUT" Value="https://tadaka9.github.io/PQVPN/" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="PQVPN" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="StartMenuDir" Name="PQVPN" />
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="StartMenuDir">
+      <Component Id="StartMenuShortcuts" Guid="{7A3B9C2E-1F4D-4E2A-9B8C-ABCDEF012345}" Win64="yes">
+        <Shortcut Id="GuiShortcut" Name="PQVPN Privacy Console"
+                  Target="[INSTALLDIR]bin\pqvpn_monitor.exe" WorkingDirectory="INSTALLDIR" />
+        <Shortcut Id="TuiShortcut" Name="PQVPN Terminal Console"
+                  Target="[INSTALLDIR]bin\pqvpn_tui.exe" WorkingDirectory="INSTALLDIR" />
+        <Shortcut Id="NodeShortcut" Name="PQVPN Node"
+                  Target="[INSTALLDIR]bin\pqvpn_node.exe" WorkingDirectory="INSTALLDIR" />
+        <RemoveFolder Id="RemoveStartMenuDir" On="uninstall" Directory="StartMenuDir" />
+        <RegistryValue Root="HKLM" Key="Software\PQVPN" Name="StartMenuShortcuts"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="ProductFeature" Title="PQVPN" Level="1"
+             Description="PQVPN node, terminal console and privacy console.">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="StartMenuShortcuts" />
+    </Feature>
+  </Product>
+</Wix>
