@@ -4796,14 +4796,13 @@ class PQVPNNode:
                 family = socket.AF_INET if is_ipv4 else socket.AF_INET6
                 with socket.socket(family, socket.SOCK_DGRAM) as s:
                     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    # try to bind to same port if possible (helps replies), otherwise ephemeral
+                    # Only bind to a loopback interface when the destination is
+                    # itself loopback. Never open a wildcard 0.0.0.0/:: socket on
+                    # every interface; otherwise the OS chooses an ephemeral source.
                     try:
-                        if is_ipv4:
-                            s.bind(("0.0.0.0", int(self.port)))
-                        else:
-                            s.bind(("::", int(self.port)))
+                        if addr[0] in ("127.0.0.1", "::1", "localhost"):
+                            s.bind(("127.0.0.1" if is_ipv4 else "::1", int(self.port)))
                     except Exception:
-                        # ignore bind failure; will use ephemeral
                         pass
                     s.sendto(data, addr)
                     used_branch = "temporary_socket"

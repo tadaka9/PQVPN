@@ -1,10 +1,9 @@
-name: Native build and smoke tests
+name: CI
 
 on:
   pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches: [main, future]
     tags: ['v*']
   workflow_dispatch:
 
@@ -12,12 +11,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: portable-build-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   unix:
-    name: Compile ${{ matrix.target }}
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,13 +51,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: native-deps-v4-portable-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+          key: ci-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Install build tools on Linux
         if: matrix.family == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ninja-build pkg-config perl make rpm
+          sudo apt-get install --yes ninja-build pkg-config perl make
 
       - name: Install build tools on macOS
         if: matrix.family == 'macos'
@@ -79,11 +78,8 @@ jobs:
           popd
 
           git clone --depth 1 --branch "$ARGON2_VERSION" https://github.com/P-H-C/phc-winner-argon2.git "$RUNNER_TEMP/argon2"
-          # GitHub may restore this cache on a runner with a different CPU.
-          # Use Argon2's portable reference implementation instead of the
-          # default -march=native build to prevent illegal instructions.
-          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none -j2
-          make -C "$RUNNER_TEMP/argon2" OPTTARGET=none PREFIX="$prefix" install
+          make -C "$RUNNER_TEMP/argon2" -j2
+          make -C "$RUNNER_TEMP/argon2" PREFIX="$prefix" install
           mkdir -p "$prefix/lib/pkgconfig"
           cat > "$prefix/lib/pkgconfig/libargon2.pc" <<EOF
           prefix=$prefix
@@ -166,64 +162,49 @@ jobs:
             ldd build/pqvpn_node | tee runtime-dependencies.txt
           fi
 
+      - name: Resolve package version
+        shell: bash
+        run: |
+          ver="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+          echo "PQVPN_VERSION=$ver" >> "$GITHUB_ENV"
+
       - name: Package verified native build
         shell: bash
         run: |
-          stage="pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
+          stage="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           mkdir -p "$stage"
-          cp build/pqvpn_node build/pqvpn_tui config.json config.udp2raw.json LICENSE README.md "$stage/"
           cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
-          test -e "$stage/bin/pqvpn_monitor" -o -e "$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
-          tar -czf "$stage.tar.gz" "$stage"
+          # GNUInstallDirs installs the executables under bin/. A macOS app
+          # bundle would land at the prefix root, so accept either layout.
+          test -e "$stage/bin/pqvpn_node"
+          test -e "$stage/bin/pqvpn_tui"
+          monitor="$stage/bin/pqvpn_monitor"
+          if [ ! -e "$monitor" ]; then
+            monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
+          fi
+          test -e "$monitor"
+          tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
-      - name: Build Debian and RPM packages
+      - name: Build deb package (Linux only)
         if: matrix.family == 'linux'
         shell: bash
         run: |
-          package_dir="$GITHUB_WORKSPACE/native-packages-${{ matrix.target }}"
-          mkdir -p "$package_dir"
-          cpack --config build/CPackConfig.cmake -G DEB -B "$package_dir"
-          cpack --config build/CPackConfig.cmake -G RPM -B "$package_dir"
-          test "$(find "$package_dir" -maxdepth 1 -name '*.deb' | wc -l)" -eq 1
-          test "$(find "$package_dir" -maxdepth 1 -name '*.rpm' | wc -l)" -eq 1
-          dpkg-deb --info "$package_dir"/*.deb
-          rpm -qip "$package_dir"/*.rpm
+          chmod +x packaging/linux/build-package.sh
+          ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
+          test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
           name: release-candidate-${{ matrix.target }}
-          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload Linux distribution packages
-        if: matrix.family == 'linux'
-        uses: actions/upload-artifact@v6
-        with:
-          name: distribution-packages-${{ matrix.target }}
           path: |
-            native-packages-${{ matrix.target }}/*.deb
-            native-packages-${{ matrix.target }}/*.rpm
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload Arch Linux build recipe
-        if: matrix.target == 'linux-x86_64'
-        shell: bash
-        run: packaging/arch/generate-pkgbuild.sh "$GITHUB_SHA" generated-arch/PKGBUILD
-
-      - name: Publish Arch Linux build recipe artifact
-        if: matrix.target == 'linux-x86_64'
-        uses: actions/upload-artifact@v6
-        with:
-          name: arch-linux-pkgbuild
-          path: generated-arch/PKGBUILD
+            PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz
+            artifacts/*.deb
           if-no-files-found: error
           retention-days: 7
 
   windows:
-    name: Compile ${{ matrix.target }}
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -254,7 +235,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/pqvpn-deps
-          key: native-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
+          key: ci-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
 
       - name: Build official OpenSSL and liboqs releases
         if: steps.windows-upstream-deps.outputs.cache-hit != 'true'
@@ -273,6 +254,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'OpenSSL install failed' }
           Pop-Location
 
+          # liboqs is unsupported by vcpkg for windows-static triplets, so the
+          # official release is built from source here instead.
           git clone --depth 1 --branch "$env:LIBOQS_VERSION" https://github.com/open-quantum-safe/liboqs.git "$env:RUNNER_TEMP\liboqs"
           cmake -S "$env:RUNNER_TEMP\liboqs" -B "$env:RUNNER_TEMP\liboqs-build" `
             -G "${{ matrix.generator }}" -A ${{ matrix.architecture }} `
@@ -298,7 +281,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/vcpkg-bincache
-          key: vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('.github/dependencies.env', 'CMakeLists.txt', '.github/workflows/portable-build-matrix.yml') }}
+          key: vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('.github/dependencies.env', 'CMakeLists.txt', '.github/workflows/ci.yml') }}
           restore-keys: |
             vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-
 
@@ -396,31 +379,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'TUI smoke test failed' }
           & $dumpbin /dependents $binary | Set-Content runtime-dependencies.txt
 
-      - name: Package verified native build
+      - name: Read package version
         shell: pwsh
         run: |
-          $stage = "pqvpn-${{ github.ref_name }}-${{ matrix.target }}"
-          New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item build/Release/pqvpn_node.exe, build/Release/pqvpn_tui.exe, config.json, config.udp2raw.json, LICENSE, README.md $stage
+          $version = (Get-Content PQVPN_VERSION.txt -Raw).Trim()
+          if (-not $version) { throw 'PQVPN_VERSION.txt is empty' }
+          "PQVPN_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Verify install layout
+        shell: pwsh
+        run: |
+          $stage = "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
-          if (-not (Test-Path "$stage\bin\pqvpn_monitor.exe")) { throw 'GUI was not installed into the release package' }
-          Compress-Archive -Path $stage -DestinationPath "$stage.zip"
+          if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed under bin' }
+          if (-not (Test-Path "$stage\bin\pqvpn_tui.exe")) { throw 'TUI was not installed under bin' }
+          if (-not (Test-Path "$stage\bin\pqvpn_monitor.exe")) { throw 'GUI was not installed under bin' }
+
+      - name: Build portable package
+        shell: pwsh
+        run: |
+          packaging/windows/build-installer.ps1 -BuildDir build/Release -OutputDir artifacts -Version $env:PQVPN_VERSION
+          if (-not (Get-ChildItem artifacts -Filter '*.zip')) { throw 'portable zip was not produced' }
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
           name: release-candidate-${{ matrix.target }}
-          path: pqvpn-${{ github.ref_name }}-${{ matrix.target }}.zip
+          path: artifacts/*.zip
           if-no-files-found: error
           retention-days: 7
 
-  compile-matrix-complete:
-    name: Native matrix complete
+  ci-matrix-complete:
+    name: CI matrix complete
     if: always()
     needs: [unix, windows]
     runs-on: ubuntu-24.04
     steps:
-      - name: Require every native compile
+      - name: Require every native build
         env:
           UNIX_RESULT: ${{ needs.unix.result }}
           WINDOWS_RESULT: ${{ needs.windows.result }}
@@ -432,7 +428,7 @@ jobs:
   publish-tagged-release:
     name: Publish matrix-verified prerelease
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [compile-matrix-complete]
+    needs: [ci-matrix-complete]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -440,18 +436,17 @@ jobs:
       - name: Download every matrix artifact
         uses: actions/download-artifact@v7
         with:
-          pattern: '*'
+          pattern: release-candidate-*
           path: release
           merge-multiple: true
       - name: Verify complete release set and checksums
         shell: bash
         run: |
           set -euo pipefail
-          test "$(find release -maxdepth 1 -type f \( -name '*.zip' -o -name '*.tar.gz' \) | wc -l)" = 5
+          test "$(find release -maxdepth 1 -type f -name '*.zip' | wc -l)" = 1
+          test "$(find release -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" = 4
           test "$(find release -maxdepth 1 -type f -name '*.deb' | wc -l)" = 2
-          test "$(find release -maxdepth 1 -type f -name '*.rpm' | wc -l)" = 2
-          test -s release/PKGBUILD
-          (cd release && sha256sum *.zip *.tar.gz *.deb *.rpm PKGBUILD | sort -k2 > SHA256SUMS)
+          (cd release && sha256sum *.zip *.tar.gz *.deb | sort -k2 > SHA256SUMS)
       - name: Create immutable GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -462,6 +457,9 @@ jobs:
             echo "Release ${GITHUB_REF_NAME} already exists; refusing to mutate it." >&2
             exit 1
           }
+          # Experimental prerelease: matrix-verified compile and smoke evidence only.
+          # Fully qualified releases are published exclusively by
+          # publish-qualified-release.yml after the native functional gates pass.
           gh release create "${GITHUB_REF_NAME}" release/* \
             --repo "${GITHUB_REPOSITORY}" --verify-tag --prerelease --generate-notes \
-            --title "PQVPN ${GITHUB_REF_NAME}"
+            --title "PQVPN ${GITHUB_REF_NAME} (experimental prerelease)"
