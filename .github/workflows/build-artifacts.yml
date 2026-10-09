@@ -1,0 +1,126 @@
+name: Build Artifacts
+
+on:
+  push:
+    branches: [ main, future ]
+  pull_request:
+    branches: [ main, future ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          vcpkg install openssl:x64-windows-static liboqs:x64-windows-static argon2:x64-windows-static spdlog:x64-windows-static --triplet=x64-windows-static
+          echo "${{ runner.workspace }}\\.vcpkg" >> $env:GITHUB_PATH
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DPQVPN_BUILD_MONITOR=ON -DCMAKE_TOOLCHAIN_FILE="${{ runner.workspace }}\\.vcpkg\\scripts\\buildsystems\\vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor
+
+      - name: Build driver
+        run: |
+          msbuild driver\pqvpn_tunnel\pqvpn_tunnel.vcxproj /restore /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off
+
+      - name: Create installer package
+        run: |
+          powershell -ExecutionPolicy Bypass -File packaging/windows/build-installer.ps1 -BuildDir build -OutputDir artifacts -Version "${{ github.sha }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pqvpn-windows-x64
+          path: artifacts/
+
+  build-linux-x64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libssl-dev liboqs-dev libargon2-dev pkg-config
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DPQVPN_BUILD_MONITOR=ON
+
+      - name: Build
+        run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor
+
+      - name: Create package
+        run: |
+          mkdir -p artifacts
+          chmod +x packaging/linux/build-package.sh
+          ./packaging/linux/build-package.sh build artifacts ${{ github.sha }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pqvpn-linux-x64
+          path: artifacts/
+
+  build-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake ninja openssl liboqs argon2 pkg-config
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DPQVPN_BUILD_MONITOR=ON
+
+      - name: Build
+        run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor
+
+      - name: Create tarball
+        run: |
+          mkdir -p artifacts
+          mkdir pqvpn-mac
+          cp build/pqvpn_node pqvpn-mac/
+          cp build/pqvpn_tui pqvpn-mac/
+          cp build/pqvpn_monitor pqvpn-mac/
+          tar -czf artifacts/pqvpn-macos-${{ github.sha }}.tar.gz pqvpn-mac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pqvpn-macos
+          path: artifacts/
+
+  release:
+    needs: [build-windows, build-linux-x64, build-macos]
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'release'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pqvpn-windows-x64
+          path: artifacts/windows
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pqvpn-linux-x64
+          path: artifacts/linux
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pqvpn-macos
+          path: artifacts/macos
+
+      - name: Upload release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for file in artifacts/*/*.{zip,deb,tar.gz}; do
+            if [ -f "$file" ]; then
+              gh release upload "${{ github.ref_name }}" "$file" --clobber
+            fi
+          done
