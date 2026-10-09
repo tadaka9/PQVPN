@@ -18,8 +18,7 @@
              Manufacturer="PQVPN" InstallerVersion="500" Languages="1033"
              Compressed="yes" InstallScope="perMachine" Platform="x64" />
     <Media Id="1" Cabinet="pqvpn.cab" EmbedCab="yes" />
-    <MajorUpgrade AllowSameVersion="yes"
-                  DowngradeErrorMessage="A newer version of PQVPN is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of PQVPN is already installed." />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
     <UIRef Id="WixUI_InstallDir" />
     <Property Id="ARPCOMMENTS" Value="Post-quantum privacy node and console" />
