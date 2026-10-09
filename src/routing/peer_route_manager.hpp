@@ -38,11 +38,35 @@ class PeerRouteManager {
 public:
     /** The pre-VPN egress path that peer traffic must keep using. */
     struct PhysicalGateway {
+        // IPv4 egress path (previous single-gateway shape; kept for
+        // compatibility). Empty when the host has no IPv4 default.
         asio::ip::address gateway;
         std::uint32_t interface_index = 0; // 0 lets the backend resolve it
+        // Optional IPv6 egress path. A VPN that also claims IPv6 must pin
+        // IPv6 peers out of the virtual default the same way it pins IPv4
+        // ones, otherwise IPv6 peer transport loops through the adapter.
+        asio::ip::address gateway6;
+        std::uint32_t interface6 = 0;
 
+        [[nodiscard]] bool has_v4() const noexcept {
+            return gateway.is_v4() && !gateway.is_unspecified();
+        }
+        [[nodiscard]] bool has_v6() const noexcept {
+            return gateway6.is_v6() && !gateway6.is_unspecified();
+        }
         [[nodiscard]] bool valid() const noexcept {
-            return !gateway.is_unspecified();
+            return has_v4() || has_v6();
+        }
+
+        // The egress gateway for a peer of the given family, or an empty
+        // address when that family is not supported on this host.
+        [[nodiscard]] asio::ip::address gateway_for(
+            const asio::ip::address& address) const noexcept {
+            return address.is_v6() ? gateway6 : gateway;
+        }
+        [[nodiscard]] std::uint32_t interface_for(
+            const asio::ip::address& address) const noexcept {
+            return address.is_v6() ? interface6 : interface_index;
         }
     };
 
