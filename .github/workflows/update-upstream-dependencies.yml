@@ -79,7 +79,7 @@ jobs:
             pr_number="${pr_url##*/}"
           fi
 
-          gh workflow run portable-build-matrix.yml --ref "$branch"
+          gh workflow run ci.yml --ref "$branch"
           gh workflow run build.yml --ref "$branch"
           gh workflow run codeql.yml --ref "$branch"
           gh pr merge "$pr_number" --auto --squash
