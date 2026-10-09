@@ -262,14 +262,15 @@ static NTSTATUS pqvpn_dispatch_write(PDEVICE_OBJECT device, PIRP irp) {
         return pqvpn_complete(irp, STATUS_INSUFFICIENT_RESOURCES);
     }
     nbl->SourceHandle = ctx->AdapterHandle;
-    // Receive flags must be zero: with NDIS_RECEIVE_FLAGS_RESOURCES set, NDIS
-    // would later hand the NBLs back to MiniportReturnNetBufferLists (a handler
-    // this driver does not register), on buffers it has already freed — a
-    // use-after-free in the receive data path. Without the flag the miniport
-    // keeps ownership, so freeing right after the synchronous indication is
-    // exactly the correct TUN pattern.
+    // NDIS_RECEIVE_FLAGS_RESOURCES means the miniport regains ownership of the
+    // NBL/NB list immediately when NdisMIndicateReceiveNetBufferLists returns
+    // and NDIS will NOT call MiniportReturnNetBufferLists. That matches this
+    // synchronous allocate-and-free pattern exactly, so freeing right after the
+    // indication is correct. (With flags zero NDIS would instead return the
+    // buffers later via MiniportReturnNetBufferLists, which is not registered,
+    // so the immediate free would be a use-after-free.)
     NdisMIndicateReceiveNetBufferLists(ctx->AdapterHandle, nbl, NDIS_DEFAULT_PORT_NUMBER,
-                                       1, 0);
+                                       1, NDIS_RECEIVE_FLAGS_RESOURCES);
     NdisFreeNetBufferList(nbl);
     IoFreeMdl(mdl);
     ExFreePoolWithTag(data, PQVPN_PACKET_TAG);
@@ -339,7 +340,15 @@ static NDIS_STATUS pqvpn_initialize_ex(
         general.MediaDuplexState = MediaDuplexStateFull;
         general.LookaheadSize = 65535;
         general.MacOptions = NDIS_MAC_OPTION_NO_LOOPBACK;
-        general.SupportedPacketFilters = 0;
+        // The tunnel passes every IPv4/IPv6 datagram regardless of MAC filter
+        // bits, so advertise the standard L3 filter set we are willing to
+        // accept. Keeping this at zero while OID_GEN_CURRENT_PACKET_FILTER
+        // accepts nonzero values would be inconsistent (query would report a
+        // filter the adapter advertises as unsupported).
+        general.SupportedPacketFilters =
+            NDIS_PACKET_TYPE_DIRECTED | NDIS_PACKET_TYPE_BROADCAST |
+            NDIS_PACKET_TYPE_MULTICAST | NDIS_PACKET_TYPE_ALL_MULTICAST |
+            NDIS_PACKET_TYPE_PROMISCUOUS;
         general.MaxMulticastListSize = 0;
         general.MacAddressLength = sizeof(permanent_address);
         RtlCopyMemory(general.PermanentMacAddress, permanent_address, sizeof(permanent_address));
@@ -372,6 +381,9 @@ static VOID pqvpn_halt(NDIS_HANDLE adapter_handle, NDIS_HALT_ACTION halt_action)
             g_Context->ReceivePool = NULL;
         }
         g_Context->AdapterHandle = NULL;
+        // NDIS can halt and reinitialize without unloading: never let the new
+        // adapter inherit the previous one's packet filter.
+        g_Context->PacketFilter = 0U;
     }
 }
 
