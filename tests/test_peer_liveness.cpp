@@ -325,9 +325,7 @@ TEST_CASE("maintenance never swaps keys unilaterally when the rekey threshold is
 
     REQUIRE_FALSE(failure);
     REQUIRE(ticked);
-    // The authenticated channel must be intact: perform_rekey derives keys
-    // from local entropy the peer cannot know, so a unilateral swap would
-    // destroy every later frame. Keeping the working keys is the contract.
+    // Maintenance must preserve the authenticated channel keys.
     REQUIRE(session.aead_send_key == send_key_before);
     REQUIRE(session.aead_recv_key == recv_key_before);
     REQUIRE(session.session_iv == iv_before);

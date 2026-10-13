@@ -13,7 +13,7 @@ namespace pqvpn {
 
 // Tunnel AEAD primitives shared by the direct data path (build_tunnel_datagram /
 // datagram_received) and the relay onion path (handle_relay). The wire contract
-// mirrors main.py: a 12-byte nonce is the session's random 4-byte IV prefix
+// mirrors the legacy Python prototype: a 12-byte nonce is the session's random 4-byte IV prefix
 // followed by an 8-byte big-endian counter, and payloads are sealed with
 // AES-128-GCM or AES-256-GCM (selected by key size) with the 16-byte tag
 // appended to the ciphertext. Known-answer vectors for these exact functions

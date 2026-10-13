@@ -40,7 +40,7 @@ struct RelayChain {
 
         // The destination is known to the relay through discovery (mesh) but
         // carries no session: forwarding only needs its network address. This
-        // is exactly the topology main.py's handle_relay resolves — it looks
+        // is exactly the topology the legacy Python prototype's handle_relay resolves — it looks
         // up the next hop in mesh.peers, not in its own sessions.
         pqvpn::PQVPNNode::PeerInfo dest_info;
         dest_info.peer_id = destination_id;
@@ -63,7 +63,7 @@ struct RelayChain {
         return asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 9152);
     }
 
-    // One outer RELAY frame split into its dispatchable parts (main.py
+    // One outer RELAY frame split into its dispatchable parts (the legacy Python prototype
     // _process_outer_datagram FT_RELAY branch).
     struct RelayLayer {
         std::vector<uint8_t> next_hash;
@@ -123,7 +123,7 @@ struct RelayChain {
 
 // Three-node chain for the multi-peel boundary: source builds an onion whose
 // outer layer is peeled by `first`, which then forwards the inner (raw) layer
-// to `second`. This mirrors main.py's [A,B,C] relay scenario.
+// to `second`. This mirrors the legacy Python prototype's [A,B,C] relay scenario.
 struct MultiPeelChain {
     asio::io_context io;
     pqvpn::PQVPNNode source{io};
@@ -155,7 +155,7 @@ struct MultiPeelChain {
         source.establish_hybrid_session(second_id, endpoint_second(), x_second, ml_kem_secret, transcript, false);
 
         // first learns second's address through discovery (mesh) so it can
-        // forward to it — the topology main.py's handle_relay resolves via mesh.peers.
+        // forward to it — the topology the legacy Python prototype's handle_relay resolves via mesh.peers.
         pqvpn::PQVPNNode::PeerInfo s_info;
         s_info.peer_id = second_id;
         s_info.address = endpoint_second();
@@ -320,8 +320,8 @@ TEST(HandleRelay, RelaysPeeledLayerToTheNextHop) {
     ASSERT_TRUE(got_datagram) << "destination never received the forwarded datagram";
     const std::vector<uint8_t> got(received.begin(), received.begin() + bytes);
     // The forward is wrapped in a RELAY_FRAME (version/type/next-hop/circuit/
-    // length header) so any dispatcher can route it; main.py's raw forward
-    // would be undeliverable at the next hop. Recorded in MIGRATION_MANIFEST.md.
+    // length header) so any dispatcher can route it; the legacy Python prototype's raw forward
+    // would be undeliverable at the next hop. Recorded in historical migration notes.
     const auto expected = chain.source.make_outer_frame(
         pqvpn::PQVPNNode::RELAY_FRAME, chain.relay.peer_hash8(chain.destination_id), 0, innermost);
     EXPECT_EQ(got, expected);
@@ -480,12 +480,12 @@ TEST(HandleRelay, LocalDeliveryRejectsShortDeclaredBody) {
 
 TEST(HandleRelay, LocalDeliveryRejectsDataFramesWithForeignLayout) {
     RelayChain chain;
-    // main.py's FT_DATA body carries its own session id first; this codebase
+    // the legacy Python prototype's FT_DATA body carries its own session id first; this codebase
     // has no builder for that shape, so a type-3 inner frame must be rejected
     // by policy even when it is well-formed and long enough.
     std::vector<uint8_t> inner(16 + 28, 0x5A);
     inner[0] = 1;                            // version
-    inner[1] = pqvpn::PQVPNNode::DATA_FRAME; // FT_DATA per main.py constants
+    inner[1] = pqvpn::PQVPNNode::DATA_FRAME; // FT_DATA per the legacy Python prototype constants
     const auto hint = chain.relay.sessions_by_peer_id.at(chain.source_id)->session_id;
     std::copy(hint.begin(), hint.begin() + 8, inner.begin() + 2);
     inner[14] = 0;

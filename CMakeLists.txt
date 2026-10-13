@@ -207,9 +207,7 @@ if(WIN32)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/windows_own_tunnel.cpp
     src/platform/windows_routes.cpp
-    src/platform/windows_adapter.cpp
-    src/platform/windows_control/vpn_state_machine.cpp
-    src/platform/windows_control/control_channel.cpp)
+    src/platform/windows_adapter.cpp)
 elseif(APPLE)
   list(APPEND PQVPN_PLATFORM_SOURCES
     src/platform/macos/network_extension_bridge.cpp
@@ -315,19 +313,13 @@ set_tests_properties(pqvpn_hard_kernel PROPERTIES
 )
 
 set(CATCH_TESTS
-  discovery_test
-  test_audit_module
   test_adaptive_transport
   test_config
   test_crypto_kem
   test_crypto_signature
   test_crypto_signature_keygen
   test_crypto_signature_verify
-  test_dht_client_concurrency
-  test_dht_factory
-  test_geographic_failover
   test_json_utils
-  test_load_balancer
   test_logger_init
   test_logging_expanded
   test_logging
@@ -347,21 +339,14 @@ set(CATCH_TESTS
   test_tunnel_forward
   test_tunnel_sink_resilience
   test_route_transaction
-  test_plugin_manager_hooks
-  test_plugin_manager
   test_serialization
   test_strangenet
   test_string_utils
   test_traffic_obfuscation
-  test_zk_auth_init
-  test_zk_auth_module
   adhoc_verify_send_onion
   test_crypto_kem_keygen
   test_crypto_serialization
-  test_key_rotation_init
   test_network_analytics
-  test_topology_module
-  test_discovery_build_record
   test_build_onion_frame
   test_build_onion_frame_with_circuit
   test_udp_protocol)
@@ -376,11 +361,6 @@ set(GTEST_TESTS
 )
 foreach(target IN LISTS CATCH_TESTS)
   set(sources tests/${target}.cpp)
-  if(target STREQUAL "test_audit_module")
-    list(APPEND sources src/modules/audit_module.cpp)
-  elseif(target STREQUAL "test_dht_client_concurrency")
-    list(APPEND sources src/modules/dht_module.cpp)
-  endif()
   add_executable(${target} ${sources})
   target_include_directories(${target} PRIVATE ${PQVPN_INCLUDE_DIRS})
   target_link_libraries(${target} PRIVATE Catch2::Catch2WithMain node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
@@ -415,8 +395,6 @@ target_link_libraries(test_handle_relay PRIVATE node_module_lib)
 # New tests/test_*.cpp files are automatically added to CTest so the
 # deterministic validator cannot fail with evidence_test_registered=false.
 set(PQVPN_WINDOWS_TESTS
-  test_control_channel_commands
-  test_vpn_state_machine
   test_windows_own_tunnel)
 file(GLOB PQVPN_AUTO_TEST_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")

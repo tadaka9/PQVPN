@@ -14,7 +14,7 @@
 /**
  * @brief Advanced Traffic Obfuscation and DPI Evasion.
  *
- * Ported from main.py:1674-1740
+ * Ported from the legacy Python prototype:1674-1740
  */
 class TrafficObfuscation {
 public:

@@ -59,8 +59,8 @@ void print_usage(const char* program) {
         << "      --print-config      Print normalized configuration and exit\n"
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
-        << "      --strangenet-room NAME  Join a bounded peer conversation room\n"
-        << "      --strangenet-peer HEX  Authenticated peer identity for the room\n"
+        << "      --strangenet-room NAME  Join a bounded room; broadcasts to authenticated peers\n"
+        << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
         << "      --no-tunnel          Run as a UDP relay/exit without a local tunnel\n"
 #ifdef _WIN32
@@ -118,8 +118,8 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             return std::nullopt;
         }
     }
-    if (args.strangenet_room.empty() != args.strangenet_peer.empty()) {
-        std::cerr << "--strangenet-room and --strangenet-peer must be used together\n";
+    if (args.strangenet_room.empty() && !args.strangenet_peer.empty()) {
+        std::cerr << "--strangenet-peer requires --strangenet-room\n";
         return std::nullopt;
     }
     return args;
@@ -471,11 +471,11 @@ int main(int argc, char** argv) {
     });
 
     if (!args.strangenet_room.empty() || args.control_stdin) {
-        const auto initial_peer = args.strangenet_peer.empty()
+        const auto initial_peer = args.strangenet_peer.empty() || args.strangenet_peer == "auto"
             ? std::optional<std::vector<std::uint8_t>>{}
             : decode_peer_id(args.strangenet_peer);
         if ((!args.strangenet_room.empty() && !valid_strangenet_room(args.strangenet_room)) ||
-            (!args.strangenet_peer.empty() && !initial_peer)) {
+            (!args.strangenet_peer.empty() && args.strangenet_peer != "auto" && !initial_peer)) {
             std::cerr << "Invalid StrangeNet room or peer identity\n";
             return 2;
         }
@@ -531,7 +531,7 @@ int main(int argc, char** argv) {
 
         if (!strange->room.empty()) {
             emit_console_event({{"event", "strangenet.joined"}, {"room", strange->room},
-                                {"peer", args.strangenet_peer}});
+                                {"peer", args.strangenet_peer.empty() ? "auto" : args.strangenet_peer}});
         }
         std::thread([node, strange, control = args.control_stdin, &io] {
             std::string line;

@@ -502,15 +502,6 @@ asio::awaitable<void> PQVPNNode::maintenance_tick() {
         if (sess.state == SessionState::ESTABLISHED) {
             ++active;
             live_sessions.push_back(it->second);
-            // Rekey is deliberately NOT performed here. main.py's maintenance
-            // installs freshly derived keys at this point, but perform_rekey
-            // derives them from LOCAL random entropy the peer can never know:
-            // swapping them in unilaterally destroys an authenticated channel
-            // (every later frame fails AEAD at the peer) with no security gain.
-            // Until an authenticated key exchange exists, keep the working
-            // keys rather than break traffic. RekeyManager remains available
-            // as a tested primitive for that future exchange. Recorded in
-            // MIGRATION_MANIFEST.md.
         }
         ++it;
     }
@@ -1092,9 +1083,9 @@ std::vector<uint8_t> PQVPNNode::session_salt(const std::vector<uint8_t>& peer_id
 bool PQVPNNode::establish_identity() {
     // Keep an identity that was set explicitly (tests, or a future key loader).
     // Otherwise derive it from the ed25519 public key — the node's primary
-    // authentication/identity key. main.py derives my_id from the brainpoolP512r1
-    // key instead (main.py:2193-2209); using ed25519 keeps identity tied to the
-    // auth key and is recorded in MIGRATION_MANIFEST.md. Deriving it here lets a
+    // authentication/identity key. the legacy Python prototype derives my_id from the brainpoolP512r1
+    // key instead (the legacy Python prototype:2193-2209); using ed25519 keeps identity tied to the
+    // auth key and is recorded in historical migration notes. Deriving it here lets a
     // production node relay and deliver locally, since handle_relay binds its AAD
     // to peer_hash8(my_id) and needs it set.
     if (!my_id_.has_value()) {
@@ -1178,23 +1169,23 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
     const std::vector<std::vector<uint8_t>>& path,
     const std::vector<uint8_t>& inner_frame,
     const uint32_t circuit_id) {
-    // main.py accepts a one-element path and emits a RELAY frame whose payload
+    // the legacy Python prototype accepts a one-element path and emits a RELAY frame whose payload
     // is raw content, because its encryption loop never runs for such paths.
     // Every RELAY receiver parses its payload as session hint + nonce +
     // ciphertext, so that shape can never be delivered — and send_onion would
     // report success for content that provably never arrives. The builder
     // therefore rejects paths shorter than two elements (fail-closed); direct
     // delivery to a single peer uses build_tunnel_datagram. Recorded in
-    // MIGRATION_MANIFEST.md.
+    // historical migration notes.
     if (path.size() < 2) return std::nullopt;
 
-    // main.py build_onion_frame_with_circuit: encrypt from the end of the path
+    // the legacy Python prototype build_onion_frame_with_circuit: encrypt from the end of the path
     // back to the start. Each layer is encrypted with the session shared with
     // the hop that will peel it, and its plaintext is prefixed with the 8-byte
     // identity hash of the next hop after peeling. A missing session for any
-    // intermediate hop fails closed (main.py returns None).
+    // intermediate hop fails closed (the legacy Python prototype returns None).
     std::vector<uint8_t> current_inner = inner_frame;
-    // main.py: for i in range(len(path) - 1, 0, -1)
+    // the legacy Python prototype: for i in range(len(path) - 1, 0, -1)
     for (std::size_t idx = path.size() - 1; idx >= 1; --idx) {
         const auto& target = path[idx];
         const auto& hop = path[idx - 1];
@@ -1228,13 +1219,13 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
         const auto sender_hash = peer_hash8(expected_sender);
 
         // AAD: "PQVPN" + full session id + peeler hash + expected-sender hash
-        // + circuit id (BE). main.py bound the *target* hash here, which its
+        // + circuit id (BE). the legacy Python prototype bound the *target* hash here, which its
         // own handle_relay could not reproduce; binding the peeler is the
         // minimal self-consistent reading of that AAD. Binding the expected
         // forwarder's identity additionally stops a registered peer from
         // injecting a captured layer built for a different forwarder — the
         // handler verifies the actual sender against this hash. Recorded in
-        // MIGRATION_MANIFEST.md.
+        // historical migration notes.
         const auto aad = relay_aad(session.session_id, peer_hash8(hop),
                                    sender_hash, circuit_id);
 
@@ -1257,7 +1248,7 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_onion_frame_with_circuit(
         current_inner.insert(current_inner.end(), ciphertext_and_tag.begin(), ciphertext_and_tag.end());
     }
 
-    // Outer frame addressed to the first hop (main.py: make_outer_frame(FT_RELAY,
+    // Outer frame addressed to the first hop (the legacy Python prototype: make_outer_frame(FT_RELAY,
     // peer_hash8(path[0]), circuit_id, ...)).
     return encode_outer_frame(RELAY_FRAME, peer_hash8(path[0]), circuit_id, current_inner);
 }
@@ -1355,7 +1346,7 @@ asio::awaitable<bool> PQVPNNode::send_onion(
     const std::vector<uint8_t>& inner_frame) {
     const auto frame = build_onion_frame(path, inner_frame);
     if (!frame || path.empty() || !transport) co_return false;
-    // The outer frame is addressed to the first hop (main.py send_onion).
+    // The outer frame is addressed to the first hop (the legacy Python prototype send_onion).
     const auto found = sessions_by_peer_id.find(path[0]);
     if (found == sessions_by_peer_id.end() || !found->second ||
         found->second->remote_addr.address().is_unspecified()) co_return false;
@@ -1412,13 +1403,13 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     const std::vector<uint8_t>& outer_next_hash,
     uint32_t circuit_id,
     const asio::ip::udp::endpoint& sender) {
-    // main.py handle_relay: decrypt one onion layer and either forward the
+    // the legacy Python prototype handle_relay: decrypt one onion layer and either forward the
     // inner content to the next hop or deliver it locally.
     auto session = find_session_by_hint(sessions_by_peer_id, session_hint);
     if (!session || !*session) co_return false;
     auto& sess = **session;
 
-    // Sender binding (hardening beyond main.py, whose handle_relay takes no
+    // Sender binding (hardening beyond the legacy Python prototype, whose handle_relay takes no
     // address). The layer's AAD binds the identity of the node expected to
     // SEND it — the onion source for hop one, the preceding relay for later
     // hops. Verification therefore requires BOTH: the actual UDP sender must
@@ -1446,7 +1437,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     if (sender_candidates.empty()) co_return false;
 
     // A relay must know its own identity: it binds the layer AAD and decides
-    // local delivery (main.py: nexth == peer_hash8(my_id)).
+    // local delivery (the legacy Python prototype: nexth == peer_hash8(my_id)).
     if (!my_id_.has_value()) co_return false;
     const auto self_hash = peer_hash8(*my_id_);
 
@@ -1488,7 +1479,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
 
     if (next_hash == self_hash) {
         // Local delivery: the peeled content is a complete outer frame for this
-        // node. main.py dispatches FT_DATA to handle_data; in this codebase the
+        // node. the legacy Python prototype dispatches FT_DATA to handle_data; in this codebase the
         // established sink for decrypted application packets is
         // tunnel_packet_handler_ (see datagram_received). Anything else fails
         // closed, as the reference leaves that dispatch unfinished.
@@ -1503,7 +1494,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
             body.assign(inner_frame.begin() + 16, inner_frame.begin() + 16 + length);
             headered = true;
         } else {
-            // main.py fallback shape: type byte followed by raw payload. The
+            // the legacy Python prototype fallback shape: type byte followed by raw payload. The
             // tunnel data layout requires the 16-byte header, so this branch
             // can never be delivered below.
             if (inner_frame.empty()) co_return false;
@@ -1513,7 +1504,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
 
         // Only the tunnel data layout built by build_tunnel_datagram is
         // accepted: headered TUNNEL_DATA_FRAME with nonce(12) + ciphertext+tag.
-        // main.py's FT_DATA body carries its own session id first and this
+        // the legacy Python prototype's FT_DATA body carries its own session id first and this
         // codebase has no builder for that shape, so it fails closed. The body
         // length (not the frame size) bounds every slice taken below.
         const bool deliverable_data =
@@ -1522,7 +1513,7 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
         if (!deliverable_data) co_return false;
 
         // The inner data frame carries its own session hint in the header
-        // (main.py: handle_data(session_id, ...)); resolve it independently.
+        // (the legacy Python prototype: handle_data(session_id, ...)); resolve it independently.
         const auto data_hint = std::vector<uint8_t>(inner_frame.begin() + 2,
             inner_frame.begin() + 10);
         auto data_session = find_session_by_hint(sessions_by_peer_id, data_hint);
@@ -1566,18 +1557,18 @@ asio::awaitable<bool> PQVPNNode::handle_relay(
     }
     // A truncated hash matching zero known peers is an unknown next hop; one
     // matching several is ambiguous and fails closed rather than risking
-    // delivery to the wrong node (main.py takes the first match in dict order).
+    // delivery to the wrong node (the legacy Python prototype takes the first match in dict order).
     if (matches != 1 || target->address.address().is_unspecified() || !transport) {
         co_return false;
     }
 
-    // Wrap the peeled layer in a fresh RELAY_FRAME before sending. main.py
-    // forwards the raw inner blob, but every dispatcher — including main.py's
+    // Wrap the peeled layer in a fresh RELAY_FRAME before sending. the legacy Python prototype
+    // forwards the raw inner blob, but every dispatcher — including the legacy Python prototype's
     // own _process_outer_datagram — requires the 16-byte outer header before
     // routing to handle_relay, so a raw forward is undeliverable at hop two.
     // The new header identifies the next peeler (next_hash) and preserves the
     // circuit id, which the builder bound into every layer's AAD; the payload
-    // length is set by encode_outer_frame. Recorded in MIGRATION_MANIFEST.md.
+    // length is set by encode_outer_frame. Recorded in historical migration notes.
     const auto wrapped = encode_outer_frame(RELAY_FRAME, next_hash, circuit_id, inner_frame);
     auto payload = std::make_shared<std::vector<uint8_t>>(std::move(wrapped));
     const auto endpoint = target->address;
@@ -1701,7 +1692,7 @@ asio::awaitable<void> PQVPNNode::handle_hello_frame(
     const bool have_address = !endpoint.address().is_unspecified();
 
     if (!response_flag && have_address) {
-        // Answer the contact with our signed identity (main.py HELLO reply).
+        // Answer the contact with our signed identity (the legacy Python prototype HELLO reply).
         try {
             const auto wire = build_signed_hello(*this, true).dump();
             send_outer_frame(*this, HELLO_FRAME, wire, endpoint);

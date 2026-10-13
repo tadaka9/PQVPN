@@ -38,7 +38,7 @@ void UDPProtocol::datagram_received(const asio::error_code& error,
     if (!node) return;
 
     // The node owns outer-frame validation and authenticated dispatch. Keep
-    // the complete frame, matching main.py's _UDPProtocol receive path.
+    // the complete frame, matching the legacy Python prototype's _UDPProtocol receive path.
     auto executor = node->get_io_context().get_executor();
     asio::co_spawn(executor, dispatch_datagram(std::move(node), data, endpoint),
                    asio::detached);

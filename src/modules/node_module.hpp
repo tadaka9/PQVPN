@@ -22,28 +22,12 @@
 #include <span>
 #include <openssl/sha.h>
 #include "udp_protocol.hpp"
-#include "rekey_manager.hpp"
 #include <chrono>
 #include <cstdint>
 #include "ml_traffic_shaper.hpp"
 #include "strangenet.hpp"
 
 namespace pqvpn {
-
-class PluginManager;
-
-/**
- * @brief Minimal discovery lifecycle interface used by the runtime.
- */
-class DiscoveryStub {
-public:
-    asio::awaitable<void> start() {
-        co_return;
-    }
-    asio::awaitable<void> stop() {
-        co_return;
-    }
-};
 
 /**
  * @brief ASIO-backed PQVPN node state and protocol interface.
@@ -69,7 +53,7 @@ public:
     // (see register_peer_from_hello / establish_hybrid_session). Removals are
     // best-effort: teardown must not be blocked by cleanup failures.
     using PeerRouteHook = std::function<bool(const asio::ip::udp::endpoint&, bool)>;
-    // Frame types (main.py FT_* constants).
+    // Frame types (the legacy Python prototype FT_* constants).
     static inline constexpr uint8_t HELLO_FRAME = 0;     // FT_HELLO
     static inline constexpr uint8_t S1_FRAME = 1;        // FT_S1
     static inline constexpr uint8_t S2_FRAME = 2;        // FT_S2
@@ -210,7 +194,7 @@ public:
     const asio::io_context& get_io_context() const { return io_context_; }
     void set_my_id(std::vector<uint8_t> identity) { my_id_ = std::move(identity); }
     // Derives this node's stable identity from its ed25519 public key (my_id =
-    // SHA256(ed25519 pk)); main.py uses the brainpoolP512r1 key instead. Returns
+    // SHA256(ed25519 pk)); the legacy Python prototype uses the brainpoolP512r1 key instead. Returns
     // true and sets my_id_ when an ed25519 key is present; false otherwise.
     // Idempotent: an already-set identity is kept, so explicit set_my_id callers are unaffected.
     bool establish_identity();
@@ -343,7 +327,6 @@ public:
     };
 
     std::unordered_map<std::vector<uint8_t>, std::shared_ptr<Session>, VectorHasher> sessions_by_peer_id;
-    RekeyManager rekey_manager;
     std::unordered_map<std::string, std::map<std::string, std::string>> known_peers_;
     bool strict_tofu_ = false;
     bool tofu_enabled_ = true;
@@ -378,7 +361,7 @@ public:
     asio::awaitable<bool> send_onion(const std::vector<std::vector<uint8_t>>& path, const std::vector<uint8_t>& inner_frame);
 
     // Decrypts one onion RELAY layer and either forwards the peeled content to
-    // the next hop or delivers it locally. Wire format per layer (main.py):
+    // the next hop or delivers it locally. Wire format per layer (the legacy Python prototype):
     //   outer frame [1][RELAY_FRAME][next_hash(8)][circuit_id(4 BE)][len(2 BE)]
     //   payload     = session_hint(8) + nonce(12) + ciphertext+tag
     // The AEAD AAD is "PQVPN" + full session id + the 8-byte identity hash of
@@ -399,7 +382,7 @@ public:
 
     // ---- Hybrid handshake control plane (HELLO / S1 / S2) -----------------
     // Wire contract (both sides are this implementation; the field set mirrors
-    // main.py's HELLO/S1 with X25519 + ML-KEM-1024 in place of BrainpoolP/Kyber):
+    // the legacy Python prototype's HELLO/S1 with X25519 + ML-KEM-1024 in place of BrainpoolP/Kyber):
     //   HELLO  {peerid, nickname, ed25519_pk, x25519_pk, ml_kem_pk, mldsa_pk,
     //           timestamp, response, sessionid} + ed25519_sig + mldsa_sig
     //   S1     {peerid, sessionid, ct, x25519_pk(ephemeral), ed25519_pk,

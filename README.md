@@ -265,17 +265,18 @@ The checked-in [`config.json`](config.json) is the experimental mainnet profile:
 Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
 available command-line options.
 
-### StrangeNet peer room
+### StrangeNet universal room
 
-The Privacy Console joins a room on its existing mainnet process and can select
-the healthiest authenticated peer with `auto`. The CLI can instead target a
-specific peer's 32-byte identity in hex:
+The Privacy Console and CLI join a room on the existing mainnet process and
+send a separately encrypted copy to every established authenticated session:
 
 ```bash
 ./build/pqvpn_node --config config.json \
-  --strangenet-room riemann-lab \
-  --strangenet-peer 64_HEX_DIGITS
+  --strangenet-room riemann-lab
 ```
+
+Add `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
+peer.
 
 Each message is carried in a dedicated AEAD-authenticated PQVPN frame. The
 sender field must match the peer identity bound to the session, and both the
@@ -424,25 +425,20 @@ protocol identity enforced by the `pqvpn_hard_kernel` gate, not tunables.
 PQVPN/
 ├── src/                    C++23 node, modules, monitor, and platform code
 ├── include/                Public project headers
-├── tests/                  Unit, integration, and parity tests
+├── tests/                  Unit, integration, and security tests
 ├── tools/                  Hardening and security validation
 ├── scripts/windows/        Windows TAP setup
 ├── external/               Required vendored single-header dependency
-├── main.py                 Immutable Python reference that seeded this port
 ├── CMakeLists.txt          Build and test graph
-├── MIGRATION_MANIFEST.md   Parity ledger + documented protocol deviations
 └── ROADMAP.md              Post-migration release work
 ```
 
-Read [`MIGRATE.md`](MIGRATE.md) for the completed migration summary,
-[`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence and the
-documented wire-contract decisions, [`ROADMAP.md`](ROADMAP.md) for remaining
-release work, [`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md)
+Read [`ROADMAP.md`](ROADMAP.md) for remaining release work,
+[`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md)
 for the kill-switch and split-tunnelling implementation contract,
 [`docs/competitive-parity.md`](docs/competitive-parity.md) for the desktop
 client parity gates, [`docs/strangenet.md`](docs/strangenet.md) for universal
-encrypted chat behavior, and
-[`UPDATE.md`](UPDATE.md) for the verified engineering history.
+encrypted chat behavior.
 
 ## Contributing and security
 

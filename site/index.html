@@ -106,16 +106,15 @@
 
     <section class="section strange" id="strangenet">
       <div class="strange-mark reveal" aria-hidden="true">Σ<sub>peer</sub></div>
-      <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><span class="strange-claim">The First Chat on Internet*</span><h2>Enter StrangeNet.</h2><p>Two or more established PQVPN peers can share a bounded conversation room without a central chat service. Messages carry room and sender identity, monotonic anti-replay sequence and timestamp; the PQVPN session remains the authenticated transport boundary.</p><small class="strange-joke">*According to the first peer who joined this room. The internet’s historians have declined to confirm.</small></div>
-      <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB message limit and strict parsing keep conversation traffic predictable.</p></article><article><strong>Room replay defense</strong><p>Per-sender monotonic counters reject duplicate delivery inside each room.</p></article></div>
+      <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><h2>Enter StrangeNet.</h2><p>Established PQVPN peers can share a bounded conversation room without a central chat service. Text, emoji, stickers, reactions and delivery receipts use a session-separated E2E key and authenticated sender identity.</p></div>
+      <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB messages, strict UTF-8 parsing and bounded replay state keep conversation traffic predictable.</p></article><article><strong>Reactions and stickers</strong><p>The native console includes emoji reactions and locally created encrypted stickers.</p></article></div>
       <form class="strange-connect reveal" id="strangenet-connect" novalidate>
-        <div class="strange-connect-copy"><span class="connection-index">LOCAL CLIENT BRIDGE / 01</span><h3>Open an authenticated room</h3><p>The page prepares the native PQVPN command locally. Copy it into a terminal where PQVPN is installed; no room name or peer identity is sent to this website.</p></div>
+        <div class="strange-connect-copy"><span class="connection-index">LOCAL CLIENT BRIDGE / 01</span><h3>Open a universal authenticated room</h3><p>The page prepares the native PQVPN command locally. Copy it into a terminal where PQVPN is installed; the room name is never sent to this website.</p></div>
         <label>Room name<input id="strangenet-room" name="room" autocomplete="off" maxlength="64" placeholder="riemann-lab" required></label>
-        <label>Peer identity<input id="strangenet-peer" name="peer" autocomplete="off" inputmode="text" minlength="64" maxlength="64" pattern="[0-9A-Fa-f]{64}" placeholder="64 hexadecimal characters" required><small>The desktop console can select the healthiest authenticated peer automatically.</small></label>
-        <div class="strange-connect-actions"><button class="button primary" type="submit">Copy connection command</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN#strangenet-peer-room">Open setup guide</a></div>
-        <p class="connection-status" id="strangenet-status" aria-live="polite">Waiting for a room and an authenticated peer identity.</p>
+        <div class="strange-connect-actions"><button class="button primary" type="submit">Copy connection command</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN#strangenet-universal-room">Open setup guide</a></div>
+        <p class="connection-status" id="strangenet-status" aria-live="polite">Waiting for a room name.</p>
       </form>
-      <p class="strange-note reveal">Direct authenticated rooms are available from the node CLI. Public-room discovery remains disabled until its moderation and abuse model is reviewed.</p>
+      <p class="strange-note reveal">Universal fanout reaches every directly established authenticated session. Multi-hop store-and-forward remains disabled until origin-signed envelopes and abuse controls exist.</p>
     </section>
 
     <section class="section console" id="console">

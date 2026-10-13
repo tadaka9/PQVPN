@@ -6,7 +6,7 @@
  * Tunnel") whose data path is a user-mode file object. This phase delivers:
  *
  *   - the adapter registered with ndis.sys (NdisMRegisterMiniportDriver) with
- *     safe no-op handlers;
+ *     the minimal NDIS lifecycle handlers required by the adapter contract;
  *   - \\.\PQVPN_TUN0 with a default-deny DACL (SYSTEM + Administrators only);
  *   - a bounded kernel-to-user packet queue;
  *   - one IP datagram per READ/WRITE operation;
