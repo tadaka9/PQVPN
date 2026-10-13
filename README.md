@@ -440,7 +440,8 @@ documented wire-contract decisions, [`ROADMAP.md`](ROADMAP.md) for remaining
 release work, [`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md)
 for the kill-switch and split-tunnelling implementation contract,
 [`docs/competitive-parity.md`](docs/competitive-parity.md) for the desktop
-client parity gates, and
+client parity gates, [`docs/strangenet.md`](docs/strangenet.md) for universal
+encrypted chat behavior, and
 [`UPDATE.md`](UPDATE.md) for the verified engineering history.
 
 ## Contributing and security

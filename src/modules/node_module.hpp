@@ -249,9 +249,15 @@ public:
     void set_peer_session_handler(PeerSessionHandler handler) { peer_session_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_strangenet_datagram(
         const std::vector<uint8_t>& peer_id, const std::string& room,
-        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0);
     bool send_strangenet_message(const std::vector<uint8_t>& peer_id, const std::string& room,
-        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0);
+    std::size_t broadcast_strangenet_message(const std::string& room, std::uint64_t sequence,
+        std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0,
+        const std::vector<uint8_t>* except_peer = nullptr);
 
     // Installs the peer-route exclusion hook (see PeerRouteHook). Called with
     // add=true when a peer address becomes known (HELLO registration, session

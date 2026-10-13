@@ -501,15 +501,32 @@ int main(int argc, char** argv) {
                                              std::to_string(endpoint.port())}});
         });
 
-        node->set_strangenet_handler([strange](const pqvpn::strangenet::Message& message,
-                                               const std::vector<std::uint8_t>& peer) {
+        node->set_strangenet_handler([strange, node_view = node.get()](const pqvpn::strangenet::Message& message,
+                                                                      const std::vector<std::uint8_t>& peer) {
             if (strange->room.empty() || message.room != strange->room ||
                 (strange->peer && peer != *strange->peer)) return;
-            emit_console_event({{"event", "strangenet.message"},
+            if (message.kind == pqvpn::strangenet::Kind::Acknowledgement) {
+                emit_console_event({{"event", "strangenet.delivered"},
+                                    {"room", message.room}, {"sequence", message.reply_to},
+                                    {"peer", encode_peer_id(peer)}});
+                return;
+            }
+            const char* event_name = message.kind == pqvpn::strangenet::Kind::Sticker
+                ? "strangenet.sticker" : (message.kind == pqvpn::strangenet::Kind::Reaction
+                    ? "strangenet.reaction" : "strangenet.message");
+            emit_console_event({{"event", event_name},
                                 {"room", message.room},
                                 {"sender", message.sender},
                                 {"timestamp_ms", message.timestamp_ms},
+                                {"sequence", message.sequence},
+                                {"reply_to", message.reply_to},
                                 {"text", message.text}});
+            const auto timestamp = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+            auto& ack_sequence = strange->sequences[message.room];
+            node_view->send_strangenet_message(peer, message.room, ++ack_sequence, timestamp, {},
+                pqvpn::strangenet::Kind::Acknowledgement, message.sequence);
         });
 
         if (!strange->room.empty()) {
@@ -552,31 +569,39 @@ int main(int argc, char** argv) {
                                 strange->room.clear();
                                 strange->peer.reset();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
-                            } else if (name == "strangenet.send") {
+                            } else if (name == "strangenet.send" || name == "strangenet.sticker" ||
+                                       name == "strangenet.react") {
                                 const auto text = command.value("text", std::string{});
+                                const auto reply_to = command.value("reply_to", std::uint64_t{0});
                                 if (strange->room.empty() || text.empty() ||
-                                    text.size() > pqvpn::strangenet::kMaxMessageBytes) {
+                                    text.size() > pqvpn::strangenet::kMaxMessageBytes ||
+                                    (name == "strangenet.react" && reply_to == 0)) {
                                     emit_console_event({{"event", "control.error"},
                                                         {"message", "join a room and send 1..2048 bytes"}});
-                                    return;
-                                }
-                                const auto peer = strange->peer ? strange->peer : node->select_tunnel_peer();
-                                if (!peer) {
-                                    emit_console_event({{"event", "strangenet.deferred"},
-                                                        {"message", "no authenticated mainnet peer is ready"}});
                                     return;
                                 }
                                 const auto timestamp = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::system_clock::now().time_since_epoch()).count());
                                 auto& sequence = strange->sequences[strange->room];
-                                if (!node->send_strangenet_message(*peer, strange->room,
-                                                                  ++sequence, timestamp, text)) {
+                                const auto current = ++sequence;
+                                const auto kind = name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
+                                    : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
+                                                                   : pqvpn::strangenet::Kind::Text);
+                                const std::size_t recipients = strange->peer
+                                    ? (node->send_strangenet_message(*strange->peer, strange->room,
+                                          current, timestamp, text, kind, reply_to) ? 1u : 0u)
+                                    : node->broadcast_strangenet_message(strange->room, current,
+                                          timestamp, text, kind, reply_to);
+                                if (recipients == 0) {
                                     emit_console_event({{"event", "strangenet.deferred"},
                                                         {"message", "authenticated peer session is unavailable"}});
                                 } else {
                                     emit_console_event({{"event", "strangenet.sent"},
-                                                        {"room", strange->room}, {"text", text}});
+                                                        {"room", strange->room}, {"text", text},
+                                                        {"sequence", current}, {"recipients", recipients},
+                                                        {"kind", name == "strangenet.sticker" ? "sticker"
+                                                                  : (name == "strangenet.react" ? "reaction" : "text")}});
                                 }
                             } else {
                                 emit_console_event({{"event", "control.error"},

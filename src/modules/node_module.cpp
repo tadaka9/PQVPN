@@ -14,6 +14,7 @@
 #include <openssl/evp.h>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <sys/stat.h>
 #include <thread>
 #include <vector>
@@ -29,6 +30,25 @@ using namespace pqvpn;
 using namespace std::chrono_literals;
 
 namespace {
+
+std::optional<std::vector<uint8_t>> derive_strangenet_key(
+    const std::vector<uint8_t>& session_key, const std::vector<uint8_t>& session_id) {
+    static constexpr std::string_view context = "PQVPN StrangeNet E2E v2";
+    if (session_key.empty() || session_id.empty()) return std::nullopt;
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> kdf(
+        EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr), EVP_PKEY_CTX_free);
+    std::vector<uint8_t> output(32);
+    std::size_t output_size = output.size();
+    if (!kdf || EVP_PKEY_derive_init(kdf.get()) <= 0 ||
+        EVP_PKEY_CTX_set_hkdf_md(kdf.get(), EVP_sha3_512()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_salt(kdf.get(), session_id.data(), session_id.size()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_key(kdf.get(), session_key.data(), session_key.size()) <= 0 ||
+        EVP_PKEY_CTX_add1_hkdf_info(kdf.get(),
+            reinterpret_cast<const unsigned char*>(context.data()), context.size()) <= 0 ||
+        EVP_PKEY_derive(kdf.get(), output.data(), &output_size) <= 0) return std::nullopt;
+    output.resize(output_size);
+    return output;
+}
 
 // Invokes the tunnel packet sink while isolating its failures: a throwing
 // sink drops this frame only and the node keeps processing traffic. A VPN
@@ -663,9 +683,13 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
+    auto content_key = strangenet_frame
+        ? derive_strangenet_key(session->aead_recv_key, session->session_id)
+        : std::optional<std::vector<uint8_t>>(session->aead_recv_key);
+    if (!content_key) co_return;
     auto plaintext = tunnel_decrypt(
         std::span<const uint8_t>(data).subspan(28),
-        session->aead_recv_key,
+        *content_key,
         nonce,
         std::span<const uint8_t>(data).first(16));
     if (plaintext && data[1] == PADDED_TUNNEL_DATA_FRAME)
@@ -860,9 +884,10 @@ bool PQVPNNode::send_tunnel_packet(
 
 std::optional<std::vector<uint8_t>> PQVPNNode::build_strangenet_datagram(
     const std::vector<uint8_t>& peer_id, const std::string& room,
-    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text) {
+    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
+    const strangenet::Kind kind, const std::uint64_t reply_to) {
     if (!my_id_) return std::nullopt;
-    const auto encoded = strangenet::encode({room, hex_id(*my_id_), sequence, timestamp_ms, text});
+    const auto encoded = strangenet::encode({room, hex_id(*my_id_), sequence, timestamp_ms, text, kind, reply_to});
     if (!encoded) return std::nullopt;
     const auto found = sessions_by_peer_id.find(peer_id);
     if (found == sessions_by_peer_id.end() || !found->second ||
@@ -875,7 +900,9 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_strangenet_datagram(
     std::vector<uint8_t> reserved(nonce.size() + encoded->size() + 16);
     auto frame = encode_outer_frame(STRANGENET_FRAME, hint, 0, reserved);
     frame.resize(16);
-    const auto encrypted = tunnel_encrypt(*encoded, session.aead_send_key, nonce, std::span<const uint8_t>(frame));
+    const auto content_key = derive_strangenet_key(session.aead_send_key, session.session_id);
+    if (!content_key) return std::nullopt;
+    const auto encrypted = tunnel_encrypt(*encoded, *content_key, nonce, std::span<const uint8_t>(frame));
     frame.insert(frame.end(), nonce.begin(), nonce.end());
     frame.insert(frame.end(), encrypted.begin(), encrypted.end());
     session.bytes_sent += encoded->size();
@@ -884,8 +911,9 @@ std::optional<std::vector<uint8_t>> PQVPNNode::build_strangenet_datagram(
 
 bool PQVPNNode::send_strangenet_message(
     const std::vector<uint8_t>& peer_id, const std::string& room,
-    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text) {
-    const auto frame = build_strangenet_datagram(peer_id, room, sequence, timestamp_ms, text);
+    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
+    const strangenet::Kind kind, const std::uint64_t reply_to) {
+    const auto frame = build_strangenet_datagram(peer_id, room, sequence, timestamp_ms, text, kind, reply_to);
     if (!frame || !transport) return false;
     const auto found = sessions_by_peer_id.find(peer_id);
     if (found == sessions_by_peer_id.end() || !found->second ||
@@ -894,6 +922,24 @@ bool PQVPNNode::send_strangenet_message(
     asio::error_code error;
     transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
     return !error;
+}
+
+std::size_t PQVPNNode::broadcast_strangenet_message(
+    const std::string& room, const std::uint64_t sequence, const std::uint64_t timestamp_ms,
+    const std::string& text, const strangenet::Kind kind, const std::uint64_t reply_to,
+    const std::vector<uint8_t>* except_peer) {
+    std::vector<std::vector<uint8_t>> recipients;
+    recipients.reserve(sessions_by_peer_id.size());
+    for (const auto& [peer_id, session] : sessions_by_peer_id) {
+        if (!session || session->state != SessionState::ESTABLISHED ||
+            (except_peer && peer_id == *except_peer)) continue;
+        recipients.push_back(peer_id);
+    }
+    std::size_t delivered = 0;
+    for (const auto& peer_id : recipients) {
+        if (send_strangenet_message(peer_id, room, sequence, timestamp_ms, text, kind, reply_to)) ++delivered;
+    }
+    return delivered;
 }
 
 void PQVPNNode::configure_traffic_shaping(const traffic::ShapingConfig& config) {
