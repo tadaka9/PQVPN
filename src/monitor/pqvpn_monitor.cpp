@@ -239,6 +239,14 @@ private:
         while(!file.atEnd())hash.addData(file.read(1024*1024));
         return hash.result();
     }
+    void captureBoundedOutput(QProcess* child) {
+        child->setProperty("pqvpnOutput",QByteArray{});
+        connect(child,&QProcess::readyReadStandardOutput,child,[child]{
+            QByteArray output=child->property("pqvpnOutput").toByteArray();output.append(child->readAllStandardOutput());
+            if(output.size()>1024*1024)output=QByteArray("[earlier output discarded]\n")+output.right(1024*1024);
+            child->setProperty("pqvpnOutput",output);
+        });
+    }
 
     void buildMenus() {
         auto* file=menuBar()->addMenu("File"); file->addAction("Choose configuration…",QKeySequence::Open,this,&Window::chooseConfig); file->addAction("Validate configuration",QKeySequence("Ctrl+Shift+V"),this,&Window::validateConfig); file->addSeparator(); file->addAction("Exit PQVPN",QKeySequence::Quit,this,&Window::quitApplication);
@@ -385,9 +393,9 @@ private:
     void runNodeTool(const QStringList& arguments,const QString& title){
         const QFileInfo binary(executablePath_->text());
         if(!binary.exists()||!binary.isExecutable()){configHealth_->setText("Choose an executable pqvpn_node binary.");switchPage(Connection);return;}
-        auto* tool=new QProcess(this);tool->setProcessChannelMode(QProcess::MergedChannels);log(title+" started");
+        auto* tool=new QProcess(this);tool->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(tool);log(title+" started");
         connect(tool,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,tool,title](int code,QProcess::ExitStatus status){
-            QString output=QString::fromUtf8(tool->readAll()).trimmed();if(output.isEmpty())output="No output was produced.";log(title+QString(" finished · exit %1").arg(code));log(output);
+            QByteArray raw=tool->property("pqvpnOutput").toByteArray()+tool->readAllStandardOutput();if(raw.size()>1024*1024)raw=QByteArray("[earlier output discarded]\n")+raw.right(1024*1024);QString output=QString::fromUtf8(raw).trimmed();if(output.isEmpty())output="No output was produced.";log(title+QString(" finished · exit %1").arg(code));
             QDialog dialog(this);dialog.setWindowTitle(title);dialog.resize(760,520);auto* layout=new QVBoxLayout(&dialog);auto* heading=text(status==QProcess::NormalExit&&code==0?title+" completed":title+QString(" failed · exit %1").arg(code),"sectionTitle");layout->addWidget(heading);auto* report=new QPlainTextEdit(output);report->setReadOnly(true);layout->addWidget(report,1);auto* close=new QPushButton("Close");connect(close,&QPushButton::clicked,&dialog,&QDialog::accept);layout->addWidget(close,0,Qt::AlignRight);dialog.exec();tool->deleteLater();
         });
         connect(tool,&QProcess::errorOccurred,this,[this,tool,title](QProcess::ProcessError){log(title+" failed to start · "+tool->errorString());});
@@ -405,9 +413,9 @@ private:
             finishValidation(true,"Validated for relay mode. Local traffic will not be tunneled.");return;
         }
 #ifdef _WIN32
-        auto* platform=new QProcess(this);platform->setProcessChannelMode(QProcess::MergedChannels);
+        auto* platform=new QProcess(this);platform->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(platform);
         connect(platform,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,platform](int code,QProcess::ExitStatus status){
-            const QString output=QString::fromUtf8(platform->readAll()).trimmed();if(!output.isEmpty())log(output);
+            const QString output=QString::fromUtf8(platform->property("pqvpnOutput").toByteArray()+platform->readAllStandardOutput()).trimmed();
             const bool ready=status==QProcess::NormalExit&&code==0&&output.contains("driver=ready");
             QString message="PQVPN driver is ready. Configuration and platform checks passed.";
             if(!ready&&output.contains("driver=access-denied"))message="Driver access denied. Run the installed application with the required privileges.";
@@ -430,9 +438,9 @@ private:
             return;
         }
         validateButton_->setEnabled(false); configHealth_->setText("Validating with pqvpn_node…"); log("Configuration validation started");
-        auto* check=new QProcess(this); check->setProcessChannelMode(QProcess::MergedChannels);
+        auto* check=new QProcess(this); check->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(check);
         connect(check,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,check](int code,QProcess::ExitStatus status){
-            check->readAll();
+            check->readAllStandardOutput();
             const bool valid=status==QProcess::NormalExit&&code==0&&loadConfig(configPath_->text());check->deleteLater();
             if(valid){log("Configuration validation passed; checking platform readiness");validatePlatform();}
             else finishValidation(false,QString("Validation failed with exit code %1. Review Activity.").arg(code));
@@ -455,8 +463,8 @@ private:
     void setSidebarCompact(bool compact){QSettings("PQVPN","Privacy Console").setValue("compactSidebar",compact);const int width=compact?82:238;brandWords_->setVisible(!compact);for(int i=0;i<navButtons_.size();++i)navButtons_[i]->setText(compact?QString("%1").arg(i+1,2,10,QChar('0')):navButtons_[i]->property("fullText").toString());if(reduceMotion_->isChecked()){sidebar_->setMinimumWidth(width);sidebar_->setMaximumWidth(width);return;}for(const QByteArray& property:{QByteArray("minimumWidth"),QByteArray("maximumWidth")}){auto* animation=new QPropertyAnimation(sidebar_,property,sidebar_);animation->setDuration(300);animation->setEndValue(width);animation->setEasingCurve(QEasingCurve::OutCubic);animation->start(QAbstractAnimation::DeleteWhenStopped);}}
     void applyPreferences(){QSettings settings("PQVPN","Privacy Console");restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty())configPath_->setText(stored);reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());minimizeToTray_->setChecked(settings.value("minimizeToTray",true).toBool());}
     void savePreferences(){QSettings settings("PQVPN","Privacy Console");settings.setValue("geometry",saveGeometry());settings.setValue("config",configPath_->text());settings.setValue("minimizeToTray",minimizeToTray_->isChecked());}
-    void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line);}
-    void copyDiagnostics(){const QString state=mainnetReady_?"Mainnet connected":(process_.state()==QProcess::Running?"Negotiating":stateName(process_.state()));const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
+    void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line.left(16384));}
+    void copyDiagnostics(){QString state=stateName(process_.state());if(process_.state()==QProcess::Running&&!mainnetReady_)state="Negotiating";else if(mainnetReady_&&noTunnel_&&noTunnel_->isChecked())state="Mainnet connected · relay mode";else if(mainnetReady_&&tunnelReady_)state="Protected";else if(mainnetReady_)state="Peer ready · securing routes";const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
     void showCommandPalette(){QDialog dialog(this);dialog.setWindowTitle("Command palette");dialog.resize(540,410);auto* layout=new QVBoxLayout(&dialog);auto* search=new QLineEdit;search->setPlaceholderText("Type a command…");auto* list=new QListWidget;const QList<QPair<QString,QString>> commands={{"Go to overview","overview"},{"Review connection","connection"},{"Inspect transports","transports"},{"Open activity","activity"},{"Privacy principles","privacy"},{"Validate configuration","validate"},{"Copy diagnostics","diagnostics"},{"About PQVPN","about"}};for(const auto& command:commands){auto* item=new QListWidgetItem(command.first,list);item->setData(Qt::UserRole,command.second);}layout->addWidget(search);layout->addWidget(list);connect(search,&QLineEdit::textChanged,&dialog,[list](const QString& query){for(int row=0;row<list->count();++row)list->item(row)->setHidden(!list->item(row)->text().contains(query,Qt::CaseInsensitive));});connect(list,&QListWidget::itemActivated,&dialog,[this,&dialog](QListWidgetItem* item){const QString command=item->data(Qt::UserRole).toString();const QHash<QString,int> pages={{"overview",Overview},{"connection",Connection},{"transports",Transports},{"activity",Activity},{"privacy",Privacy},{"about",About}};if(pages.contains(command))switchPage(pages.value(command));else if(command=="validate")validateConfig();else if(command=="diagnostics")copyDiagnostics();dialog.accept();});list->setCurrentRow(0);search->setFocus();dialog.exec();}
 };
 
