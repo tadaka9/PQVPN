@@ -63,6 +63,7 @@ enum Page { Overview, Connection, Transports, StrangeNet, Activity, Privacy, Abo
 const char* darkTheme = R"CSS(
 * { font-family: "Inter", "SF Pro Display", "Segoe UI", sans-serif; }
 QMainWindow, QDialog { background: #080b17; color: #f8f9ff; }
+QLabel { color: #dbe1f2; }
 QMenuBar { background: #080b17; color: #aeb7d4; border-bottom: 1px solid rgba(255,255,255,.09); padding: 4px; }
 QMenuBar::item { padding: 7px 12px; border-radius: 7px; }
 QMenuBar::item:selected { background: #724cff; color: white; }
@@ -109,6 +110,7 @@ QToolTip { background: #65e6ff; color: #07101d; border: 0; padding: 6px; }
 const char* lightTheme = R"CSS(
 * { font-family: "Inter", "SF Pro Display", "Segoe UI", sans-serif; }
 QMainWindow, QDialog { background: #f4f6fb; color: #161b2d; }
+QLabel { color: #202840; }
 QMenuBar { background: #f8f9fd; color: #4e5875; border-bottom: 1px solid #dfe4f1; padding: 4px; }
 QMenuBar::item { padding: 7px 12px; border-radius: 7px; }
 QMenuBar::item:selected { background: #6842e8; color: white; }
