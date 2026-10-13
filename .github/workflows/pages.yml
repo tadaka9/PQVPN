@@ -3,10 +3,10 @@ name: GitHub Pages
 on:
   push:
     branches: [main]
-    paths: [site/**, assets/brand/**, docs/assets/**, .github/FUNDING.yml, .github/workflows/pages.yml]
+    paths: [site/**, assets/brand/**, docs/assets/**, config.json, packaging/linux/pqvpn-mainnet*, .github/FUNDING.yml, .github/workflows/pages.yml]
   pull_request:
     branches: [main]
-    paths: [site/**, assets/brand/**, docs/assets/**, .github/FUNDING.yml, .github/workflows/pages.yml]
+    paths: [site/**, assets/brand/**, docs/assets/**, config.json, packaging/linux/pqvpn-mainnet*, .github/FUNDING.yml, .github/workflows/pages.yml]
   workflow_dispatch:
   schedule:
     - cron: '17 */6 * * *'
@@ -30,9 +30,16 @@ jobs:
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
           grep -F 'id="support"' site/index.html >/dev/null
+          grep -F 'id="strangenet-peer"' site/index.html >/dev/null
+          grep -F -- '--strangenet-peer ${values.peer.toLowerCase()}' site/app.js >/dev/null
           grep -F 'api.github.com/repos/tadaka9/PQVPN' site/app.js >/dev/null
           grep -F 'bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll' site/index.html >/dev/null
           grep -F 'setInterval(()=>{if(!document.hidden)loadRegistry()},60000)' site/app.js >/dev/null
+          jq -e '.bootstrap[0].host == "65.108.251.110"' config.json >/dev/null
+          test -x packaging/linux/pqvpn-mainnet-update
+          test -s packaging/linux/pqvpn-mainnet.service
+          test -s packaging/linux/pqvpn-mainnet-update.service
+          test -s packaging/linux/pqvpn-mainnet-update.timer
           test -s site/mainnet/no-logs-policy.html
           ! grep -E '(src|href)="\.\./(assets|docs)/' site/index.html
       - name: Stage the Pages root

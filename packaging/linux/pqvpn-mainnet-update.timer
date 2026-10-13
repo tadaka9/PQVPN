@@ -1,0 +1,11 @@
+[Unit]
+Description=Check daily for a verified PQVPN mainnet release
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=24h
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
