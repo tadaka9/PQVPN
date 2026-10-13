@@ -8,6 +8,13 @@ StrangeNet derives a dedicated 256-bit application key from each directional PQV
 
 This provides end-to-end protection between directly authenticated session peers. The implementation does not let a hub decrypt and re-publish a message while still calling that path E2E. Universal reach therefore depends on the mainnet discovery layer establishing authenticated mesh sessions to the participants. A future store-and-forward relay must carry an origin-signed envelope before it can be enabled.
 
+The Privacy Console maintains a live directory from `peer.connected` and
+`peer.disconnected` events emitted by the node after hybrid authentication and
+configured admission policy succeed. A room can target all such sessions or
+one full 32-byte peer identity. A pinned room never silently falls back to a
+different peer if that identity disconnects. Discovery alone never places an
+entry in this directory and never grants chat access.
+
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
 
 ## Wire behavior
