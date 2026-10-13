@@ -250,7 +250,14 @@ int main(int argc, char** argv) {
     }
 
     if (args.version) {
-        std::cout << "PQVPN 0.0.1-alpha\n";
+        std::ifstream version_file("PQVPN_VERSION.txt");
+        if (version_file.is_open()) {
+            std::string version;
+            std::getline(version_file, version);
+            std::cout << "PQVPN " << version << "\n";
+        } else {
+            std::cout << "PQVPN unknown-version\n";
+        }
         return 0;
     }
     if (args.platform_info) {

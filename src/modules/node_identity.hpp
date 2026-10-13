@@ -16,6 +16,10 @@
 
 #ifdef __unix__
 #include <sys/stat.h>
+#else
+#include <windows.h>
+#include <aclapi.h>
+#include <securitybaseapi.h>
 #endif
 
 #include <nlohmann/json.hpp>
@@ -99,10 +103,54 @@ struct NodeIdentity {
         {
             std::ofstream output(temporary, std::ios::trunc | std::ios::binary);
             if (!output) throw std::runtime_error("cannot open node identity file for writing");
-            output << document.dump(2) << '\n';
+            output << document.dump(2) << '
+';
         }
 #ifdef __unix__
         ::chmod(temporary.c_str(), 0600);
+#else
+        // Windows implementation
+        SECURITY_ATTRIBUTES security_attributes;
+        security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+        security_attributes.lpSecurityDescriptor = nullptr;
+        security_attributes.bInheritHandle = FALSE;
+        
+        // Set ACL to grant only owner access (read/write)
+        PACL acl = nullptr;
+        EXPLICIT_ACCESS explicit_access;
+        ZeroMemory(&explicit_access, sizeof(EXPLICIT_ACCESS));
+        explicit_access.grantee.name = nullptr;  // NULL means current user
+        explicit_access.grantee.form = NO_MULTIPLE_TRUSTEE;
+        explicit_access.access_mode = GRANT_ACCESS;
+        explicit_access.access_perms = FILE_GENERIC_READ | FILE_GENERIC_WRITE;
+        explicit_access.inheritance = NO_INHERITANCE;
+        explicit_access.privileges = nullptr;
+        explicit_access trustee_type = TRUSTEE_IS_USER;
+        
+        DWORD result = SetEntriesInAcl(1, &explicit_access, nullptr, &acl);
+        if (result != ERROR_SUCCESS) {
+            std::filesystem::rename(temporary, path);
+            throw std::runtime_error("cannot set ACL on node identity file: " + std::to_string(result));
+        }
+        
+        security_attributes.lpSecurityDescriptor = acl;
+        
+        // Use SetNamedSecurityInfo for setting the ACL
+        result = SetNamedSecurityInfoA(
+            const_cast<char*>(temporary.c_str()),
+            SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION,
+            nullptr,
+            nullptr,
+            acl,
+            nullptr);
+        
+        LocalFree(acl);
+        
+        if (result != ERROR_SUCCESS) {
+            std::filesystem::rename(temporary, path);
+            throw std::runtime_error("cannot set ACL on node identity file: " + std::to_string(result));
+        }
 #endif
         std::filesystem::rename(temporary, path);
     }

@@ -65,7 +65,7 @@ namespace pqvpn::config {
         friend void to_json(nlohmann::json& j, const SecurityConfig& value) {
             j = {{"strict_sig_verify", value.strict_sig_verify}, {"tofu", value.tofu},
                  {"allowlist", value.allowlist}, {"known_peers_file", value.known_peers_file}, {"kdf", value.kdf}};
-            if (value.known_peers_passphrase) j["known_peers_passphrase"] = *value.known_peers_passphrase;
+            if (value.known_peers_passphrase) j["known_peers_passphrase"] = "<REDACTED>";
         }
     };
 
