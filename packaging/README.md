@@ -12,7 +12,7 @@ commit and target being released.
 | `macos-arm64` | macOS ARM64 | signed and notarized archive or installer |
 | `macos-x86_64` | macOS Intel | signed and notarized archive or installer |
 | `windows-arm64` | Windows ARM64 | Authenticode-signed ZIP or MSI |
-| `windows-x86_64` | Windows x64 | Authenticode-signed ZIP or MSI |
+| `windows-x86_64` | Windows x64 | Authenticode-signed per-machine MSI (required); portable ZIP may be published additionally |
 | `linux-arm64` | Linux ARM64 | tar archive |
 | `linux-x86_64` | Linux x64 | tar archive |
 | `appimage-arm64` | Linux ARM64 | AArch64 AppImage |
@@ -32,6 +32,12 @@ from the exact workflow commit.
 `PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
 DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag publishes
 those artifacts together in the corresponding GitHub prerelease.
+
+The Windows x64 MSI is a mandatory release asset. The portable ZIP is a
+separate convenience package and never substitutes for the installer. The MSI
+contains the node, terminal console, native GUI, Qt runtime, and configuration.
+A kernel-driver payload may only be added by the qualified signing pipeline;
+an unsigned driver must never be smuggled into the installer.
 
 An AppImage still requires the tunnel and routing privileges needed by a VPN.
 It must not use setuid. Debian packages must document and test their service,
