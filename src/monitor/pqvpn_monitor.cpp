@@ -84,6 +84,8 @@ QPushButton[nav="true"]:checked { background: rgba(114,76,255,.28); color: white
 QFrame[card="true"] { background: rgba(15,21,43,.92); border: 1px solid rgba(142,162,221,.18); border-radius: 16px; }
 QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #5432c9,stop:.52 #824cff,stop:1 #0fa9cb); border: 1px solid rgba(255,255,255,.22); border-radius: 20px; }
 QLabel[muted="true"] { color: #9ba6c7; }
+QFrame[accent="true"] QLabel { color: white; }
+QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.78); }
 QLabel[chip="true"] { background: rgba(101,230,255,.10); color: #a5f3ff; border: 1px solid rgba(101,230,255,.28); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
 QLineEdit, QComboBox, QPlainTextEdit, QListWidget { background: rgba(6,10,25,.82); color: #f4f6ff; border: 1px solid #303a60; border-radius: 10px; padding: 10px; selection-background-color: #724cff; }
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus { border-color: #65e6ff; }
@@ -128,6 +130,8 @@ QPushButton[nav="true"]:checked { background: rgba(104,66,232,.12); color: #4f2f
 QFrame[card="true"] { background: rgba(255,255,255,.94); border: 1px solid #dce2ef; border-radius: 16px; }
 QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #4e2fbe,stop:.52 #7046e8,stop:1 #087e96); border: 1px solid rgba(255,255,255,.5); border-radius: 20px; }
 QLabel[muted="true"] { color: #68738e; }
+QFrame[accent="true"] QLabel { color: white; }
+QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.82); }
 QLabel[chip="true"] { background: rgba(15,143,168,.09); color: #086d81; border: 1px solid rgba(15,143,168,.25); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
 QLineEdit, QComboBox, QPlainTextEdit, QListWidget { background: #ffffff; color: #171d31; border: 1px solid #cbd3e5; border-radius: 10px; padding: 10px; selection-background-color: #6842e8; selection-color: white; }
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus { border-color: #0f8fa8; }
@@ -571,6 +575,6 @@ private:
     void showCommandPalette(){QDialog dialog(this);dialog.setWindowTitle("Command palette");dialog.resize(540,410);auto* layout=new QVBoxLayout(&dialog);auto* search=new QLineEdit;search->setPlaceholderText("Type a command…");auto* list=new QListWidget;const QList<QPair<QString,QString>> commands={{"Go to overview","overview"},{"Review connection","connection"},{"Inspect transports","transports"},{"Open activity","activity"},{"Privacy principles","privacy"},{"Validate configuration","validate"},{"Copy diagnostics","diagnostics"},{"About PQVPN","about"}};for(const auto& command:commands){auto* item=new QListWidgetItem(command.first,list);item->setData(Qt::UserRole,command.second);}layout->addWidget(search);layout->addWidget(list);connect(search,&QLineEdit::textChanged,&dialog,[list](const QString& query){for(int row=0;row<list->count();++row)list->item(row)->setHidden(!list->item(row)->text().contains(query,Qt::CaseInsensitive));});connect(list,&QListWidget::itemActivated,&dialog,[this,&dialog](QListWidgetItem* item){const QString command=item->data(Qt::UserRole).toString();const QHash<QString,int> pages={{"overview",Overview},{"connection",Connection},{"transports",Transports},{"activity",Activity},{"privacy",Privacy},{"about",About}};if(pages.contains(command))switchPage(pages.value(command));else if(command=="validate")validateConfig();else if(command=="diagnostics")copyDiagnostics();dialog.accept();});list->setCurrentRow(0);search->setFocus();dialog.exec();}
 };
 
-int main(int argc,char** argv){QApplication app(argc,argv);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;window.show();if(app.arguments().contains("--smoke-test")){window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;return 0;}return app.exec();}
+int main(int argc,char** argv){QApplication app(argc,argv);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;window.show();if(app.arguments().contains("--smoke-test")){window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;return 0;}return app.exec();}
 
 #include "pqvpn_monitor.moc"
