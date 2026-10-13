@@ -48,7 +48,7 @@ jobs:
 
       - name: Restore upstream dependency cache
         id: upstream-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/pqvpn-deps
           key: ci-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
@@ -229,7 +229,7 @@ jobs:
         shell: bash
         run: cat .github/dependencies.env >> "$GITHUB_ENV"
 
-      - uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@v3
 
       - uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -237,7 +237,7 @@ jobs:
 
       - name: Restore upstream dependency cache
         id: windows-upstream-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/pqvpn-deps
           key: ci-deps-v3-${{ matrix.target }}-${{ hashFiles('.github/dependencies.env') }}
@@ -283,7 +283,7 @@ jobs:
           if ($oqsConfig -notmatch "OQS_VERSION_TEXT\s+`"$([regex]::Escape($env:LIBOQS_VERSION))`"") { throw 'Unexpected liboqs version' }
 
       - name: Restore vcpkg binary cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/vcpkg-bincache
           key: vcpkg-v2-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('.github/dependencies.env', 'CMakeLists.txt', '.github/workflows/ci.yml') }}
