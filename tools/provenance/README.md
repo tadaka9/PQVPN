@@ -95,3 +95,10 @@ To verify a PQVPN release:
 - The manifest itself should be hosted on a tamper-resistant platform (GitHub Releases)
 - For maximum security, users should verify the manifest's Git commit SHA matches the expected release tag
 - PGP signatures provide additional authenticity guarantees when the signing key is trusted
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

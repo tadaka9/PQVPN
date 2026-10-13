@@ -51,3 +51,10 @@ Website access still uses the selected server's existing egress facility.
 No interoperability claim with real udp2raw is made until an external-engine
 client/server test has run; the C++ tests exercise attachment policy and the
 encrypted shaping path.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
