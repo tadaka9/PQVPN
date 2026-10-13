@@ -196,19 +196,43 @@ inline std::vector<unsigned char> argon2_derive_key_material(const std::string& 
     return output;
 }
 
-inline std::vector<uint8_t> base32_encode(const std::vector<uint8_t>& input) {
+inline std::string base32_encode(const std::vector<uint8_t>& input) {
     static const std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    std::vector<uint8_t> output;
+    static constexpr char kPadding = '=';
+    std::string output;
     if (input.empty()) return output;
 
-    for (size_t i = 0; i < input.size(); i += 5) {
-        uint32_t chunk = 0;
-        int bits_to_process = std::min<int>(5, (int)(input.size() - i));
-        for (int j = 0; j < bits_to_process; ++j) {
-            chunk |= static_cast<uint32_t>(input[i + j]) << (8 * (bits_to_process - 1 - j));
+    // RFC 4648 Base32 encoding
+    int bits_processed = 0;
+    uint32_t chunk = 0;
+    for (size_t i = 0; i < input.size(); ++i) {
+        chunk |= static_cast<uint8_t>(input[i]) << (24 - bits_processed);
+        bits_processed += 8;
+
+        while (bits_processed >= 5) {
+            bits_processed -= 5;
+            output.push_back(alphabet[(chunk >> bits_processed) & 0x1F]);
         }
-        output.push_back(static_cast<uint8_t>(alphabet[chunk % alphabet.size()]));
     }
+
+    // Handle remaining bits
+    if (bits_processed > 0) {
+        chunk <<= (32 - bits_processed);
+        bits_processed = 32 - bits_processed;
+        output.push_back(alphabet[(chunk >> bits_processed) & 0x1F]);
+        bits_processed -= 5;
+        while (bits_processed >= 5) {
+            bits_processed -= 5;
+            output.push_back(alphabet[(chunk >> bits_processed) & 0x1F]);
+        }
+    }
+
+    // Pad output to multiple of 8 characters
+    const size_t padding_needed = (8 - (output.size() % 8)) % 8;
+    for (size_t i = 0; i < padding_needed; ++i) {
+        output.push_back(kPadding);
+    }
+
     return output;
 }
 

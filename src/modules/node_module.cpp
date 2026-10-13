@@ -1593,20 +1593,15 @@ bool PQVPNNode::load_or_create_identity() {
     const auto file = (directory / "node_keys.json").string();
 
     NodeIdentity identity;
-    bool needs_generation = false;
     if (std::filesystem::exists(file, ec)) {
         try {
             identity = NodeIdentity::load(file);
         } catch (const std::exception& error) {
             std::cerr << "node identity load failed (" << error.what()
-                      << "); generating a fresh one\n";
-            needs_generation = true;
+                      << "); identity file corrupted or unreadable\n";
+            return false; // fail-closed: don't generate new identity on corrupted file
         }
     } else {
-        needs_generation = true;
-    }
-
-    if (needs_generation) {
         try {
             identity = NodeIdentity::generate();
         } catch (const std::exception& error) {
@@ -1618,6 +1613,7 @@ bool PQVPNNode::load_or_create_identity() {
         } catch (const std::exception& error) {
             std::cerr << "warning: could not persist node identity ("
                       << error.what() << "); it will not survive a restart\n";
+            return false; // fail-closed on persistence failure
         }
     }
 
