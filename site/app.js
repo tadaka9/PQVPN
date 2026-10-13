@@ -1,7 +1,30 @@
 const menu=document.querySelector('.menu');const links=document.querySelector('.nav-links');menu?.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')==='true';menu.setAttribute('aria-expanded',String(!open));links.classList.toggle('open',!open)});links?.addEventListener('click',()=>{menu?.setAttribute('aria-expanded','false');links.classList.remove('open')});
 const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
 const registryUrl=new URL('mainnet/peers.json',location.href).href;document.querySelector('#copy-registry')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(registryUrl);event.currentTarget.textContent='Copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
-fetch('mainnet/peers.json').then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json()}).then(registry=>{const peers=Array.isArray(registry.peers)?registry.peers:[];document.querySelector('#registry-status').textContent=peers.length?`${peers.length} declared peer${peers.length===1?'':'s'}`:'Registry online · no public peers yet';document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · updated ${registry.updated_at} · opt-in entries`;document.querySelector('#registry-network').textContent=registry.network||'pqvpn-mainnet-alpha';document.querySelector('#registry-notice').textContent=registry.notice||'Opt-in discovery only.';const list=document.querySelector('#peer-list');if(!peers.length){list.innerHTML='<p class="empty"><strong>The registry is online and intentionally empty.</strong><br>No operator has completed the public consent review yet. Private PQVPN networks continue to work with manually configured bootstrap peers.</p>';return}list.innerHTML=peers.map(peer=>{const families=[peer.ipv4?'IPv4':'',peer.ipv6?'IPv6':''].filter(Boolean).join(' + ')||'address unpublished';return`<article class="peer"><strong>${escapeText(peer.name)}</strong><span>${escapeText(peer.endpoint)}</span><span>${escapeText(peer.region)} · ${escapeText(peer.roles.join(', '))}</span><span>${escapeText((peer.transports||[]).join(' / ').toUpperCase())} · ${escapeText(families)} · <a href="${safeHref(peer.policy_url)}">Policy</a></span></article>`}).join('')}).catch(error=>{document.querySelector('#registry-status').textContent='Registry unavailable';document.querySelector('#registry-meta').textContent=error.message;document.querySelector('#peer-list').innerHTML='<p class="empty">The registry could not be loaded. Use the repository copy and verify its history before connecting.</p>'});
+let registryLoading=false;
+async function loadRegistry(){
+  if(registryLoading)return;
+  registryLoading=true;
+  const refresh=document.querySelector('#refresh-registry');
+  if(refresh)refresh.disabled=true;
+  try{
+    const url=new URL(registryUrl);url.searchParams.set('live',String(Date.now()));
+    const response=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const registry=await response.json();
+    const peers=Array.isArray(registry.peers)?registry.peers:[];
+    document.querySelector('#registry-status').textContent=peers.length?`${peers.length} declared peer${peers.length===1?'':'s'} · live`:'Registry online · no public peers yet';
+    document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · source ${registry.updated_at} · synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    document.querySelector('#registry-network').textContent=registry.network||'pqvpn-mainnet-alpha';
+    document.querySelector('#registry-notice').textContent=registry.notice||'Opt-in discovery only.';
+    const list=document.querySelector('#peer-list');
+    if(!peers.length){list.innerHTML='<p class="empty"><strong>The registry is online and intentionally empty.</strong><br>No operator has completed the public consent review yet. Private PQVPN networks continue to work with manually configured bootstrap peers.</p>';return}
+    list.innerHTML=peers.map(peer=>{const families=[peer.ipv4?'IPv4':'',peer.ipv6?'IPv6':''].filter(Boolean).join(' + ')||'address unpublished';const roles=Array.isArray(peer.roles)?peer.roles.join(', '):'role unpublished';return`<article class="peer"><strong>${escapeText(peer.name)}</strong><span>${escapeText(peer.endpoint)}</span><span>${escapeText(peer.region)} · ${escapeText(roles)}</span><span>${escapeText((peer.transports||[]).join(' / ').toUpperCase())} · ${escapeText(families)} · ${escapeText(peer.release||'release pending')}</span><span class="peer-status">${escapeText(peer.status||'status unpublished')} · <a href="${safeHref(peer.policy_url)}">Policy</a></span></article>`}).join('');
+  }catch(error){document.querySelector('#registry-status').textContent='Registry unavailable';document.querySelector('#registry-meta').textContent=`${error.message} · retrying automatically`;document.querySelector('#peer-list').innerHTML='<p class="empty">The live registry could not be loaded. The page will retry; use the repository copy and verify its history before connecting.</p>'}
+  finally{registryLoading=false;if(refresh)refresh.disabled=false}
+}
+document.querySelector('#refresh-registry')?.addEventListener('click',loadRegistry);
+loadRegistry();setInterval(()=>{if(!document.hidden)loadRegistry()},60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadRegistry()});
 function escapeText(value){const node=document.createElement('span');node.textContent=String(value);return node.innerHTML}
 function safeHref(value){try{const url=new URL(String(value),location.href);return url.protocol==='https:'?escapeText(url.href):'#'}catch{return'#'}}
 document.querySelector('#open-registry')?.addEventListener('click',event=>{const details=document.querySelector('#registry-details');const open=event.currentTarget.getAttribute('aria-expanded')==='true';event.currentTarget.setAttribute('aria-expanded',String(!open));event.currentTarget.textContent=open?'Open peer registry':'Close peer registry';details.hidden=open});
@@ -13,7 +36,8 @@ const detectedLabel=document.querySelector('#platform-detected');
 const releaseLabel=document.querySelector('#download-release');
 const downloadLinks=new Map([...document.querySelectorAll('[data-download-key]')].map(link=>[link.dataset.downloadKey,link]));
 const assetMatchers={
-  'windows-x64':name=>name.endsWith('windows-x86_64.zip'),
+  'windows-x64':name=>/windows-x64\.msi$/i.test(name),
+  'windows-portable-x64':name=>/windows-x64-.+-portable\.zip$/i.test(name),
   'macos-arm64':name=>name.endsWith('macos-arm64.tar.gz'),
   'macos-x64':name=>name.endsWith('macos-x86_64.tar.gz'),
   'deb-x64':name=>name.endsWith('_amd64.deb'),
@@ -32,12 +56,15 @@ async function platformFacts(){
   if(navigator.userAgentData?.getHighEntropyValues){
     try{const hints=await navigator.userAgentData.getHighEntropyValues(['architecture','bitness']);architecture=(hints.architecture||'').toLowerCase();bitness=(hints.bitness||'').toLowerCase()}catch{}
   }
+  let architectureSource=architecture?'user-agent client hints':'browser user agent';
   if(!architecture){
     if(/aarch64|arm64/.test(ua))architecture='arm';
-    else if(/x86_64|x64|win64|amd64/.test(ua))architecture='x86';
+    else if(/x86_64|x86-64|x64|win64|wow64|amd64/.test(ua))architecture='x86';
+    else if(/i[3-6]86|\bx86\b/.test(ua)){architecture='x86';bitness='32'}
   }
   const arm64=architecture==='arm'&&bitness!=='32';
   const x64=architecture==='x86'&&bitness!=='32';
+  const unsupported32=bitness==='32';
   let os='unknown';
   if(/android/.test(ua))os='android';
   else if(/iphone|ipad|ipod/.test(ua))os='ios';
@@ -48,14 +75,15 @@ async function platformFacts(){
   if(/arch linux|manjaro/.test(ua))distro='arch';
   else if(/fedora|rhel|red hat|centos|opensuse|suse/.test(ua))distro='rpm';
   else if(/ubuntu|debian|linux mint|pop!_os/.test(ua))distro='deb';
-  return{os,arm64,x64,distro,architectureKnown:arm64||x64};
+  return{os,arm64,x64,distro,unsupported32,architectureKnown:arm64||x64,architectureSource};
 }
 function recommendationFor(facts){
   const arch=facts.arm64?'arm64':'x64';
-  if(facts.os==='windows')return facts.arm64?null:'windows-x64';
+  if(facts.os==='windows')return facts.x64?'windows-x64':null;
   if(facts.os==='macos')return facts.architectureKnown?`macos-${arch}`:null;
   if(facts.os==='linux'){
     if(facts.distro==='arch')return'arch';
+    if(!facts.architectureKnown)return null;
     if(facts.distro==='deb')return`deb-${arch}`;
     if(facts.distro==='rpm')return`rpm-${arch}`;
     return facts.architectureKnown?`linux-${arch}`:null;
@@ -63,7 +91,7 @@ function recommendationFor(facts){
   return null;
 }
 function platformDescription(facts){
-  const arch=facts.arm64?'ARM64':facts.x64?'x86-64':'architecture unknown';
+  const arch=facts.arm64?'ARM64':facts.x64?'x86-64':facts.unsupported32?'32-bit (unsupported)':'architecture needs confirmation';
   const names={windows:'Windows',macos:'macOS',linux:'Linux',android:'Android',ios:'iOS',unknown:'unknown system'};
   return`${names[facts.os]} · ${arch}`;
 }
@@ -72,16 +100,17 @@ async function configurePlatformDownload(){
   const recommendation=recommendationFor(facts);
   detectedLabel.textContent=`Detected ${platformDescription(facts)} · checking published packages`;
   try{
-    const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{headers:{Accept:'application/vnd.github+json'}});
+    const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
     if(!response.ok)throw new Error(`GitHub API ${response.status}`);
     const releases=(await response.json()).filter(release=>!release.draft);
-    const ranked=releases.map(release=>({release,score:release.assets?.filter(asset=>Object.values(assetMatchers).some(match=>match(asset.name))).length||0})).filter(item=>item.score>0).sort((a,b)=>(/packages/i.test(b.release.tag_name)-/packages/i.test(a.release.tag_name))||b.score-a.score||new Date(b.release.published_at)-new Date(a.release.published_at));
+    const ranked=releases.map(release=>({release,score:release.assets?.filter(asset=>Object.values(assetMatchers).some(match=>match(asset.name))).length||0,hasChecksums:release.assets?.some(asset=>asset.name==='SHA256SUMS')})).filter(item=>item.score>0&&item.hasChecksums).sort((a,b)=>new Date(b.release.published_at)-new Date(a.release.published_at)||b.score-a.score);
     const release=ranked[0]?.release;
     if(!release)throw new Error('No package release is published yet');
+    for(const link of downloadLinks.values())link.classList.remove('recommended');
     for(const[key,link]of downloadLinks){
       const asset=release.assets.find(item=>assetMatchers[key](item.name));
       if(asset){link.href=asset.browser_download_url;link.removeAttribute('aria-disabled');link.setAttribute('download','')}
-      else{link.href=release.html_url;link.setAttribute('aria-disabled','true')}
+      else{link.href=release.html_url;link.setAttribute('aria-disabled','true');link.removeAttribute('download')}
     }
     releaseLabel.textContent=`${release.tag_name} · SHA256SUMS is included with every published format`;
     const recommendedLink=recommendation?downloadLinks.get(recommendation):null;
@@ -94,17 +123,18 @@ async function configurePlatformDownload(){
       for(const button of downloadButtons)button.href=release.html_url;
       downloadButton.textContent='Choose a verified build';
       document.querySelector('#download-panel').open=true;
-      const reason=(facts.os==='android'||facts.os==='ios')?'Mobile platforms are not supported':'Choose your architecture or package manager';
+      for(const button of downloadButtons)button.removeAttribute('download');
+      const reason=(facts.os==='android'||facts.os==='ios')?'Mobile platforms are not supported':facts.unsupported32?'32-bit builds are not published':'Confirm your architecture or package manager';
       detectedLabel.textContent=`${platformDescription(facts)} · ${reason}`;
     }
   }catch(error){
-    for(const button of downloadButtons)button.href=releasePage;
+    for(const button of downloadButtons){button.href=releasePage;button.removeAttribute('download')}
     downloadButton.textContent='Open verified releases';
     detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;
     releaseLabel.textContent=error.message;
   }
 }
-configurePlatformDownload();
+configurePlatformDownload();setInterval(()=>{if(!document.hidden)configurePlatformDownload()},900000);
 
 const strangeForm=document.querySelector('#strangenet-connect');const strangeRoom=document.querySelector('#strangenet-room');const strangePeer=document.querySelector('#strangenet-peer');const strangeStatus=document.querySelector('#strangenet-status');
 function strangeValues(){return{room:strangeRoom.value.trim(),peer:strangePeer.value.trim()}}

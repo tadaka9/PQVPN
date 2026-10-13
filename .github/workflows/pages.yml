@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths: [site/**, assets/brand/**, docs/assets/**, .github/workflows/pages.yml]
   workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -27,6 +29,8 @@ jobs:
           test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
+          grep -F 'setInterval(()=>{if(!document.hidden)loadRegistry()},60000)' site/app.js >/dev/null
+          test -s site/mainnet/no-logs-policy.html
           ! grep -E '(src|href)="\.\./(assets|docs)/' site/index.html
       - name: Stage the Pages root
         shell: bash

@@ -36,7 +36,8 @@
           <summary>Choose another system or package format</summary>
           <p id="download-release">Loading the latest published packages…</p>
           <div class="download-grid" aria-label="PQVPN downloads">
-            <a data-download-key="windows-x64" href="https://github.com/tadaka9/PQVPN/releases">Windows <small>x86-64 · ZIP</small></a>
+            <a data-download-key="windows-x64" href="https://github.com/tadaka9/PQVPN/releases">Windows installer <small>x86-64 · MSI</small></a>
+            <a data-download-key="windows-portable-x64" href="https://github.com/tadaka9/PQVPN/releases">Windows portable <small>x86-64 · ZIP</small></a>
             <a data-download-key="macos-arm64" href="https://github.com/tadaka9/PQVPN/releases">macOS <small>Apple Silicon · TAR.GZ</small></a>
             <a data-download-key="macos-x64" href="https://github.com/tadaka9/PQVPN/releases">macOS <small>Intel · TAR.GZ</small></a>
             <a data-download-key="deb-x64" href="https://github.com/tadaka9/PQVPN/releases">Debian / Ubuntu <small>AMD64 · DEB</small></a>
@@ -95,7 +96,7 @@
     <section class="section mainnet" id="mainnet">
       <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This version-controlled registry lists only operators who deliberately publish a reachable bootstrap peer. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
       <div class="network-panel reveal">
-        <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading registry</strong><p id="registry-meta">Checking the versioned peer list…</p></div><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div>
+        <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading live registry</strong><p id="registry-meta">Automatic refresh every 60 seconds…</p></div><div class="registry-controls"><button class="copy" id="refresh-registry" type="button">Refresh now</button><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div></div>
         <div class="peer-list" id="peer-list" aria-live="polite"><p class="empty">Loading declared peers…</p></div>
         <div class="network-actions"><button class="button primary" id="open-registry" type="button" aria-expanded="false" aria-controls="registry-details">Open peer registry</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
         <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download versioned registry JSON</a></div>
