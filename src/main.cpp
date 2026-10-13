@@ -618,12 +618,22 @@ int main(int argc, char** argv) {
                 const auto timestamp = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count());
                 asio::post(io, [node, strange, text = line, timestamp] {
+                    if (strange->room.empty()) {
+                        std::cerr << "StrangeNet send deferred: no room joined\n";
+                        return;
+                    }
                     auto& sequence = strange->sequences[strange->room];
-                    if (!strange->peer || !node->send_strangenet_message(
-                            *strange->peer, strange->room, ++sequence, timestamp, text))
+                    const auto current = ++sequence;
+                    const std::size_t recipients = strange->peer
+                        ? (node->send_strangenet_message(
+                               *strange->peer, strange->room, current, timestamp, text) ? 1u : 0u)
+                        : node->broadcast_strangenet_message(
+                               strange->room, current, timestamp, text);
+                    if (recipients == 0)
                         std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
                     else
-                        std::cout << "StrangeNet message accepted\n";
+                        std::cout << "StrangeNet message accepted for " << recipients
+                                  << " authenticated peer(s)\n";
                 });
             }
         }).detach();

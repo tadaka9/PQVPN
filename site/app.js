@@ -156,11 +156,60 @@ async function configurePlatformDownload(){
 }
 configurePlatformDownload();setInterval(()=>{if(!document.hidden)configurePlatformDownload()},900000);
 
-const strangeForm=document.querySelector('#strangenet-connect');const strangeRoom=document.querySelector('#strangenet-room');const strangeStatus=document.querySelector('#strangenet-status');
-function strangeValues(){return{room:strangeRoom.value.trim()}}
-function validStrange(values){if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(values.room)){strangeStatus.textContent='Use 1–64 letters, numbers, dots, underscores or hyphens for the room.';strangeRoom.focus();return false}return true}
-function strangeCommand(values){return`pqvpn_node --config config.json --strangenet-room ${values.room}`}
-strangeForm?.addEventListener('submit',async event=>{event.preventDefault();const values=strangeValues();if(!validStrange(values))return;try{await navigator.clipboard.writeText(strangeCommand(values));event.submitter.textContent='Command copied';strangeStatus.textContent='Run the copied command in a terminal where PQVPN is installed.'}catch{strangeStatus.textContent=`Clipboard unavailable. Run: ${strangeCommand(values)}`}});
+const strangeForm=document.querySelector('#strangenet-connect');
+const strangeRoom=document.querySelector('#strangenet-room');
+const strangeMode=document.querySelector('#strangenet-target-mode');
+const strangePeerField=document.querySelector('#strangenet-peer-field');
+const strangePeer=document.querySelector('#strangenet-peer');
+const strangeStatus=document.querySelector('#strangenet-status');
+
+function setStrangeTargetMode(){
+  const pinned=strangeMode.value==='single';
+  strangePeerField.style.display=pinned?'grid':'none';
+  strangePeer.disabled=!pinned;
+  strangePeer.required=pinned;
+  strangeStatus.textContent=pinned
+    ? 'Enter the 64-character identity of the authenticated peer you want to contact.'
+    : 'Universal mode: messages go to all directly authenticated peer sessions.';
+}
+strangeMode.addEventListener('change',setStrangeTargetMode);
+setStrangeTargetMode();
+
+function strangeValues(){
+  return {
+    room:strangeRoom.value.trim(),
+    peer:strangeMode.value==='single'?strangePeer.value.trim():''
+  };
+}
+function validStrange(values){
+  if(!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(values.room)){
+    strangeStatus.textContent='Use 1–64 letters, numbers, dots, underscores or hyphens for the room.';
+    strangeRoom.focus();
+    return false;
+  }
+  if(strangeMode.value==='single'&&!/^[0-9a-fA-F]{64}$/.test(values.peer)){
+    strangeStatus.textContent='The selected peer identity must contain exactly 64 hexadecimal characters.';
+    strangePeer.focus();
+    return false;
+  }
+  return true;
+}
+function strangeCommand(values){
+  const target=values.peer?` --strangenet-peer ${values.peer.toLowerCase()}`:'';
+  return`pqvpn_node --config config.json --strangenet-room ${values.room}${target}`;
+}
+strangeForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const values=strangeValues();
+  if(!validStrange(values))return;
+  try{
+    await navigator.clipboard.writeText(strangeCommand(values));
+    event.submitter.textContent='Command copied';
+    strangeStatus.textContent='Run the copied command in a terminal where PQVPN is installed.';
+  }catch{
+    strangeStatus.textContent=`Clipboard unavailable. Run: ${strangeCommand(values)}`;
+  }
+});
 
 async function startQuantumField(){const canvas=document.querySelector('#quantum-field');if(!canvas||!('WebAssembly'in window))return;const context=canvas.getContext('2d',{alpha:true});const image=context.createImageData(canvas.width,canvas.height);let pointerX=0,pointerY=0;canvas.closest('.hero-art')?.addEventListener('pointermove',event=>{const box=event.currentTarget.getBoundingClientRect();pointerX=(event.clientX-box.left)/box.width-.5;pointerY=(event.clientY-box.top)/box.height-.5},{passive:true});try{const response=await fetch('wasm/quantum_field.wasm');if(!response.ok)throw new Error(`WASM ${response.status}`);const bytes=await response.arrayBuffer();const {instance}=await WebAssembly.instantiate(bytes);const field=instance.exports.field;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let last=0;const paint=time=>{if(!reduced&&time-last<55){requestAnimationFrame(paint);return}last=time;const phase=reduced?0:time*.00018;for(let py=0;py<canvas.height;py+=2){for(let px=0;px<canvas.width;px+=2){const x=(px/canvas.width*2-1)*1.75+pointerX*.28;const y=(py/canvas.height*2-1)*1.75+pointerY*.28;const value=field(x,y,phase);const band=Math.abs(value-Math.floor(value)-.5)*2;const glow=Math.max(0,1-band*1.7);const coral=Math.max(0,1-Math.abs(value*.35-Math.round(value*.35))*3);const r=Math.round(53+202*coral),g=Math.round(70+173*glow),b=Math.round(160+64*(1-glow)),a=Math.round(18+105*glow);for(let oy=0;oy<2;oy++)for(let ox=0;ox<2;ox++){const index=((py+oy)*canvas.width+px+ox)*4;image.data[index]=r;image.data[index+1]=g;image.data[index+2]=b;image.data[index+3]=a}}}context.putImageData(image,0,0);if(!reduced)requestAnimationFrame(paint)};requestAnimationFrame(paint)}catch(error){canvas.hidden=true;console.warn('PQVPN quantum field fallback:',error.message)}}
 startQuantumField();

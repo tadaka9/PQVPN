@@ -321,6 +321,8 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: '${{ env.QT_VERSION }}'
+          arch: win64_msvc2022_64
+          aqtsource: git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b
           cache: true
 
       - name: Configure
