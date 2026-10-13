@@ -253,7 +253,7 @@ PQVPN_SMOKE_IMAGE=pqvpn-console.png \
 
 ### Run the node
 
-The checked-in [`config.json`](config.json) is the experimental mainnet profile: it listens on UDP port `9090` and contacts the opt-in Helsinki bootstrap peer published in the versioned registry. Review its TOFU policy and listener exposure before use.
+The checked-in [`config.json`](config.json) is the experimental mainnet profile: it listens on UDP port `9090` and contacts the opt-in Helsinki bootstrap peer published in the versioned registry. The Stockholm mainnet node provides the separately declared relay/egress role. Review TOFU, listener exposure and the operator policies before use.
 
 ```bash
 ./build/pqvpn_node --smoke-test --config config.json   # self-check first

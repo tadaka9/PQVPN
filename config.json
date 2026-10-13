@@ -3,7 +3,7 @@
     "strict_sig_verify": true,
     "tofu": true,
     "known_peers_file": "known_peers.json",
-    "allowlist": ["127.0.0.1"],
+    "allowlist": [],
     "kdf": {
       "time_cost": 5,
       "memory_cost_kib": 131072,
@@ -16,7 +16,7 @@
   },
   "bootstrap": [
     {
-      "host": "45.248.37.87",
+      "host": "65.108.251.110",
       "port": 9090
     }
   ],

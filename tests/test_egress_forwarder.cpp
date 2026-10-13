@@ -207,6 +207,9 @@ struct Harness {
     pqvpn::egress::EgressForwarder fwd{io};
 
     Harness() {
+        // Loopback is intentional in the socket-bridge tests. Production keeps
+        // private destinations blocked unless the operator opts in explicitly.
+        fwd.set_allow_private_destinations(true);
         fwd.set_sender([this](const std::vector<uint8_t>& frame, const std::vector<uint8_t>& peer) {
             const auto before = sent.size();
             sent.push_back(frame);
@@ -222,6 +225,19 @@ struct Harness {
 };
 
 } // namespace
+
+TEST_CASE("egress blocks private destinations by default", "[egress][policy]") {
+    asio::io_context io;
+    pqvpn::egress::EgressForwarder fwd{io};
+    const Mac client{{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}};
+    const Mac gateway{{0x02, 0x9c, 0x4a, 0x7b, 0x3d, 0xe5}};
+    const std::uint8_t byte = 0x42;
+    const auto frame = pqvpn::egress::build_udp_frame(
+        gateway, client, asio::ip::make_address("10.8.0.2"),
+        asio::ip::make_address("127.0.0.1"), 54321, 9, &byte, 1);
+    REQUIRE(fwd.handle_frame(frame.data(), frame.size(), {0x01}));
+    REQUIRE(fwd.flow_count() == 0);
+}
 
 TEST_CASE("built TCP and UDP frames carry valid checksums", "[egress][checksums]") {
     const Mac dst{{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}};

@@ -173,12 +173,14 @@ namespace pqvpn::config {
     // performs outbound connect() calls (see src/modules/egress_forwarder.hpp).
     struct EgressConfig {
         bool enabled = false;
+        bool allow_private_destinations = false;
 
         friend void from_json(const nlohmann::json& j, EgressConfig& value) {
             value.enabled = j.value("enabled", value.enabled);
+            value.allow_private_destinations = j.value("allow_private_destinations", value.allow_private_destinations);
         }
         friend void to_json(nlohmann::json& j, const EgressConfig& value) {
-            j = {{"enabled", value.enabled}};
+            j = {{"enabled", value.enabled}, {"allow_private_destinations", value.allow_private_destinations}};
         }
     };
 

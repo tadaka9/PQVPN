@@ -24,6 +24,41 @@ constexpr std::size_t kMaxFlows = 512;
 constexpr std::size_t kMaxFragmentEntries = 32;   // in-progress reassemblies
 constexpr std::size_t kMaxReassemblyBytes = 65536; // per datagram (max IPv4 size)
 
+bool is_public_destination(const asio::ip::address& address) {
+    if (address.is_v4()) {
+        const auto value = address.to_v4().to_uint();
+        const auto in = [value](const std::uint32_t network, const std::uint32_t mask) {
+            return (value & mask) == network;
+        };
+        return !(in(0x00000000u, 0xff000000u) || in(0x0a000000u, 0xff000000u) ||
+                 in(0x64400000u, 0xffc00000u) || in(0x7f000000u, 0xff000000u) ||
+                 in(0xa9fe0000u, 0xffff0000u) || in(0xac100000u, 0xfff00000u) ||
+                 in(0xc0000000u, 0xffffff00u) || in(0xc0000200u, 0xffffff00u) ||
+                 in(0xc0a80000u, 0xffff0000u) || in(0xc6120000u, 0xfffe0000u) ||
+                 in(0xc6336400u, 0xffffff00u) || in(0xcb007100u, 0xffffff00u) ||
+                 in(0xe0000000u, 0xf0000000u) || in(0xf0000000u, 0xf0000000u));
+    }
+    if (!address.is_v6()) return false;
+    const auto value = address.to_v6();
+    if (value.is_unspecified() || value.is_loopback() || value.is_link_local() || value.is_multicast()) return false;
+    const auto bytes = value.to_bytes();
+    if ((bytes[0] & 0xfeu) == 0xfcu) return false; // RFC 4193 unique local
+    if (bytes[0] == 0xfeu && (bytes[1] & 0xc0u) == 0xc0u) return false; // deprecated site local
+    if (bytes[0] == 0x01u && bytes[1] == 0x00u &&
+        std::all_of(bytes.begin() + 2, bytes.begin() + 8,
+                    [](std::uint8_t b) { return b == 0; })) return false; // discard-only /64
+    if (bytes[0] == 0x20u && bytes[1] == 0x01u && bytes[2] == 0x0du && bytes[3] == 0xb8u)
+        return false; // documentation /32
+    const bool mapped = std::all_of(bytes.begin(), bytes.begin() + 10,
+                                    [](std::uint8_t b) { return b == 0; }) &&
+                        bytes[10] == 0xff && bytes[11] == 0xff;
+    if (mapped) {
+        asio::ip::address_v4::bytes_type v4{{bytes[12], bytes[13], bytes[14], bytes[15]}};
+        return is_public_destination(asio::ip::address(asio::ip::address_v4(v4)));
+    }
+    return true;
+}
+
 constexpr std::uint16_t kFlagFin = 0x01;
 constexpr std::uint16_t kFlagSyn = 0x02;
 constexpr std::uint16_t kFlagRst = 0x04;
@@ -314,6 +349,10 @@ bool EgressForwarder::dispatch_l4(const Mac& client_mac, const asio::ip::address
         // forwarding, which normal permissions do not grant. Consume instead
         // of leaking onto an unattached adapter.
         pqvpn::logging::Logger::debug("egress: consuming unsupported ICMPv6");
+        return kConsumed;
+    }
+    if ((proto == 6 || proto == 17) && !allow_private_destinations_ && !is_public_destination(srv_addr)) {
+        pqvpn::logging::Logger::warn("egress: refusing private or reserved destination {}", srv_addr.to_string());
         return kConsumed;
     }
     if (proto == 6) {

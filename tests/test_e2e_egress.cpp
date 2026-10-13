@@ -243,6 +243,7 @@ TEST_CASE("egress e2e: client TCP crosses the tunnel and is terminated by a real
 
     // --- Node B: egress exit, no adapter (same wiring as main.cpp) ------------
     pqvpn::egress::EgressForwarder egress(b.io);
+    egress.set_allow_private_destinations(true); // the test HTTP server is loopback-only
     auto* eg = &egress;
     egress.set_sender([&b](const std::vector<uint8_t>& frame, const std::vector<uint8_t>& peer) {
         if (peer.empty()) return false; // flow without a bound owner: fail closed

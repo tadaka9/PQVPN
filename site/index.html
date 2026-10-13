@@ -100,7 +100,7 @@
         <div class="network-actions"><button class="button primary" id="open-registry" type="button" aria-expanded="false" aria-controls="registry-details">Open peer registry</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
         <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download versioned registry JSON</a></div>
       </div>
-      <div class="driver-note reveal"><div><p class="eyebrow">Hardened operations</p><h3>Small attack surface. Automatic recovery.</h3><p>The published relay runs without login privileges, exposes only UDP/9090, rate-limits pre-authentication handshakes, and installs checksum-verified releases through an atomic updater with rollback.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/mainnet-operations.md">Operations guide</a></div>
+      <div class="driver-note reveal"><div><p class="eyebrow">Hardened operations</p><h3>Small attack surface. Automatic recovery.</h3><p>The dedicated bootstrap and mainnet exit run without login privileges, expose PQVPN only over UDP/9090, bound pre-authentication work, and install checksum-verified releases through atomic updaters with rollback.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/mainnet-operations.md">Operations guide</a></div>
     </section>
 
     <section class="section strange" id="strangenet">

@@ -154,6 +154,7 @@ public:
     ~EgressForwarder();
 
     void set_sender(FrameSender sender) { sender_ = std::move(sender); }
+    void set_allow_private_destinations(bool allowed) { allow_private_destinations_ = allowed; }
 
     // The virtual gateway IP this exit answers for (ICMP echo). Defaults to
     // 10.8.0.1, the convention of the 10.8.0.0/24 client network; deployments
@@ -290,6 +291,7 @@ private:
 
     asio::steady_timer sweeper_;
     bool sweeping_ = false;
+    bool allow_private_destinations_ = false;
 };
 
 } // namespace pqvpn::egress

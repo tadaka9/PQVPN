@@ -414,6 +414,9 @@ int main(int argc, char** argv) {
     if (config->egress.enabled) {
         egress = std::make_unique<pqvpn::egress::EgressForwarder>(io);
         auto* eg = egress.get();
+        eg->set_allow_private_destinations(config->egress.allow_private_destinations);
+        std::cout << "user-space egress active; private destinations "
+                  << (config->egress.allow_private_destinations ? "allowed" : "blocked") << "\n";
         eg->set_sender([node](const std::vector<uint8_t>& frame,
                               const std::vector<uint8_t>& peer) -> bool {
             // Return traffic goes back to the SPECIFIC client that owns the
