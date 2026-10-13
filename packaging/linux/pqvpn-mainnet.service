@@ -46,6 +46,10 @@ SystemCallErrorNumber=EPERM
 TasksMax=128
 MemoryMax=768M
 LimitNOFILE=16384
+# The public service does not persist peer, session, destination, DNS or traffic
+# metadata. Host administration and release-update logs are separate.
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=multi-user.target
