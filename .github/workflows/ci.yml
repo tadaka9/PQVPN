@@ -139,17 +139,20 @@ jobs:
       - name: Build and render Privacy Console
         shell: bash
         run: |
-          QT_QPA_PLATFORM=offscreen \
-            PQVPN_SMOKE_PAGE=strangenet \
-            PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console.png" \
-            build/pqvpn_monitor --smoke-test
-          test -s "$RUNNER_TEMP/pqvpn-console.png"
+          mkdir -p "$RUNNER_TEMP/pqvpn-console"
+          for page in overview connection transports strangenet activity privacy about; do
+            QT_QPA_PLATFORM=offscreen \
+              PQVPN_SMOKE_PAGE="$page" \
+              PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console/$page.png" \
+              build/pqvpn_monitor --smoke-test
+            test -s "$RUNNER_TEMP/pqvpn-console/$page.png"
+          done
 
       - name: Preserve Privacy Console render
         uses: actions/upload-artifact@v6
         with:
           name: privacy-console-${{ matrix.target }}
-          path: ${{ runner.temp }}/pqvpn-console.png
+          path: ${{ runner.temp }}/pqvpn-console
           if-no-files-found: error
 
       - name: Verify architecture and CLI startup
@@ -337,16 +340,20 @@ jobs:
         shell: pwsh
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          $env:PQVPN_SMOKE_PAGE = 'strangenet'
-          $env:PQVPN_SMOKE_IMAGE = "$env:RUNNER_TEMP\pqvpn-console.png"
-          & build/Release/pqvpn_monitor.exe --smoke-test
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw 'GUI smoke test failed' }
+          $renderDir = "$env:RUNNER_TEMP\pqvpn-console"
+          New-Item -ItemType Directory -Force -Path $renderDir | Out-Null
+          foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
+            $env:PQVPN_SMOKE_PAGE = $page
+            $env:PQVPN_SMOKE_IMAGE = Join-Path $renderDir "$page.png"
+            & build/Release/pqvpn_monitor.exe --smoke-test
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw "GUI smoke test failed: $page" }
+          }
 
       - name: Preserve Privacy Console render
         uses: actions/upload-artifact@v6
         with:
           name: privacy-console-${{ matrix.target }}
-          path: ${{ runner.temp }}/pqvpn-console.png
+          path: ${{ runner.temp }}/pqvpn-console
           if-no-files-found: error
 
       - name: Compile PQVPN x64 tunnel driver

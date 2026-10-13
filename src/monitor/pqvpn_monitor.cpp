@@ -38,6 +38,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QSaveFile>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QStackedLayout>
 #include <QStackedWidget>
@@ -259,7 +260,7 @@ private:
     void buildUi() {
         auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
         auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new QStackedWidget; pages_->setStyleSheet("background:transparent"); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout()); row->addWidget(pages_,1);
+        pages_=new QStackedWidget; pages_->setStyleSheet("background:transparent"); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout()); auto* pageScroll=new QScrollArea;pageScroll->setFrameShape(QFrame::NoFrame);pageScroll->setWidgetResizable(true);pageScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);pageScroll->setWidget(pages_);row->addWidget(pageScroll,1);
         stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
     }
     void buildSidebar(QHBoxLayout* shell) {
