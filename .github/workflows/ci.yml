@@ -145,6 +145,13 @@ jobs:
             build/pqvpn_monitor --smoke-test
           test -s "$RUNNER_TEMP/pqvpn-console.png"
 
+      - name: Preserve Privacy Console render
+        uses: actions/upload-artifact@v6
+        with:
+          name: privacy-console-${{ matrix.target }}
+          path: ${{ runner.temp }}/pqvpn-console.png
+          if-no-files-found: error
+
       - name: Verify architecture and CLI startup
         shell: bash
         run: |
@@ -334,6 +341,13 @@ jobs:
           $env:PQVPN_SMOKE_IMAGE = "$env:RUNNER_TEMP\pqvpn-console.png"
           & build/Release/pqvpn_monitor.exe --smoke-test
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw 'GUI smoke test failed' }
+
+      - name: Preserve Privacy Console render
+        uses: actions/upload-artifact@v6
+        with:
+          name: privacy-console-${{ matrix.target }}
+          path: ${{ runner.temp }}/pqvpn-console.png
+          if-no-files-found: error
 
       - name: Compile PQVPN x64 tunnel driver
         shell: pwsh

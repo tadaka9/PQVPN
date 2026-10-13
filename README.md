@@ -437,7 +437,9 @@ PQVPN/
 Read [`MIGRATE.md`](MIGRATE.md) for the completed migration summary,
 [`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence and the
 documented wire-contract decisions, [`ROADMAP.md`](ROADMAP.md) for remaining
-release work, and [`UPDATE.md`](UPDATE.md) for the verified engineering history.
+release work, [`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md)
+for the kill-switch and split-tunnelling implementation contract, and
+[`UPDATE.md`](UPDATE.md) for the verified engineering history.
 
 ## Contributing and security
 

@@ -616,7 +616,10 @@ int main(int argc, char** argv) {
             // literal 0.0.0.0 address and send no real traffic to the TAP.
             const auto adapter_route = pqvpn::platform::find_adapter_ipv4("PQVPN Tunnel");
             if (!adapter_route) {
-                std::cerr << "PQVPN Tunnel has no IPv4 address; skipping route installation\n";
+                std::cerr << "PQVPN Tunnel has no IPv4 address; refusing to run without "
+                             "a leak-safe default route\n";
+                listener.stop();
+                return 1;
             } else {
                     // The tunnel default route would also capture this node's own UDP
                 // transport: peer datagrams would enter the adapter, get
@@ -625,8 +628,10 @@ int main(int argc, char** argv) {
                 // to the pre-VPN physical gateway with /32 host routes.
                 const auto physical = pqvpn::platform::find_default_route(adapter_route->interface_index);
                 if (!physical) {
-                        std::cerr << "no pre-VPN default route found; skipping tunnel default route "
-                              << "(installing it without peer exclusions would loop tunnel traffic)\n";
+                    std::cerr << "no pre-VPN default route found; refusing to run because peer "
+                                 "exclusions cannot be installed safely\n";
+                    listener.stop();
+                    return 1;
                 } else {
                     pqvpn::routing::PeerRouteManager::PhysicalGateway gateway;
                     gateway.gateway = physical->ipv4;
@@ -727,6 +732,10 @@ int main(int argc, char** argv) {
 
                         if (const auto report = route_plan.commit(route_backend); report.committed) {
                             std::cout << "default route installed through the PQVPN Tunnel adapter\n";
+                            emit_console_event({{"event", "tunnel.ready"},
+                                                {"ipv4", "full"},
+                                                {"ipv6", full_tunnel_v6 ? "full" : "blocked"},
+                                                {"fail_closed", true}});
                         } else {
                             // The full-tunnel default could not be established.
                             // Continuing would leak traffic on the physical
