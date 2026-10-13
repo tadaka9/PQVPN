@@ -140,12 +140,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/pqvpn-console"
-          for page in overview connection transports strangenet activity privacy about; do
-            QT_QPA_PLATFORM=offscreen \
-              PQVPN_SMOKE_PAGE="$page" \
-              PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console/$page.png" \
-              build/pqvpn_monitor --smoke-test
-            test -s "$RUNNER_TEMP/pqvpn-console/$page.png"
+          for theme in dark light; do
+            for page in overview connection transports strangenet activity privacy about; do
+              QT_QPA_PLATFORM=offscreen \
+                PQVPN_SMOKE_THEME="$theme" \
+                PQVPN_SMOKE_PAGE="$page" \
+                PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console/$page-$theme.png" \
+                build/pqvpn_monitor --smoke-test
+              test -s "$RUNNER_TEMP/pqvpn-console/$page-$theme.png"
+            done
           done
 
       - name: Preserve Privacy Console render
@@ -342,11 +345,14 @@ jobs:
           $env:QT_QPA_PLATFORM = 'offscreen'
           $renderDir = "$env:RUNNER_TEMP\pqvpn-console"
           New-Item -ItemType Directory -Force -Path $renderDir | Out-Null
-          foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
-            $env:PQVPN_SMOKE_PAGE = $page
-            $env:PQVPN_SMOKE_IMAGE = Join-Path $renderDir "$page.png"
-            & build/Release/pqvpn_monitor.exe --smoke-test
-            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw "GUI smoke test failed: $page" }
+          foreach ($theme in @('dark','light')) {
+            foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
+              $env:PQVPN_SMOKE_THEME = $theme
+              $env:PQVPN_SMOKE_PAGE = $page
+              $env:PQVPN_SMOKE_IMAGE = Join-Path $renderDir "$page-$theme.png"
+              & build/Release/pqvpn_monitor.exe --smoke-test
+              if ($LASTEXITCODE -ne 0 -or -not (Test-Path $env:PQVPN_SMOKE_IMAGE)) { throw "GUI smoke test failed: $page ($theme)" }
+            }
           }
 
       - name: Preserve Privacy Console render

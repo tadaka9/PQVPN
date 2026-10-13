@@ -223,10 +223,15 @@ capability view and system-tray controls. Close hides the window in the tray by
 default without changing the connection; **Exit PQVPN** shuts the node down
 first. Both behaviors are explicit and configurable.
 
+**View → Appearance** follows the operating-system light/dark preference by
+default and updates while the console is open. Explicit Light and Dark choices
+are remembered. Page, connection-state, peer-directory, theme and sidebar
+transitions share the same motion policy.
+
 The interface applies ethical UX principles: one dominant action per task,
 no auto-connect, no telemetry, no urgency or fear prompts, no simulated
 success, and no inflated claims about traffic shaping. **Reduce motion** stops
-ambient, pulse and page animations. The Qt layer owns presentation and process
+ambient, pulse and interface-transition animations. The Qt layer owns presentation and process
 control only; cryptography, sessions, routing and transport remain in the
 canonical `pqvpn_node` executable.
 
