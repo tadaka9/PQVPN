@@ -185,9 +185,9 @@ int main() {
     // wire contract starts every session's send counter at 1 (pre-increment),
     // and the peeler rejects any counter at or below the high-water mark,
     // whose initial value is 0 — so there is no "first nonce" special case to
-    // tolerate. This deliberately diverges from main.py, where the builder
+    // tolerate. This deliberately diverges from the legacy Python prototype, where the builder
     // emits counter 0 first and the peeler accepts it through its out-of-order
-    // tolerance branch (see MIGRATION_MANIFEST.md, documented deviations).
+    // tolerance branch (see historical migration notes, documented deviations).
     {
         sess.data_domain.window.clear();
         sess.data_domain.high_water = 0;

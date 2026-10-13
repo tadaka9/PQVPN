@@ -73,7 +73,7 @@ cat > "$PKG_ROOT/DEBIAN/control" << EOF
 Package: pqvpn
 Version: $VERSION
 Architecture: $ARCH
-Maintainer: PQVPN <noreply@pqvpn.invalid>
+Maintainer: tadaka9 <tadaka9@users.noreply.github.com>
 Depends: libc6, libstdc++6, libssl3t64 | libssl3
 Section: net
 Priority: optional

@@ -5,7 +5,7 @@
 using namespace pqvpn::strangenet;
 
 TEST_CASE("StrangeNet messages round-trip with bounded metadata", "[strangenet]") {
-    const Message sent{"riemann-lab", "peer-alice", 7, 1700000000123ULL, "hello from the other sheet"};
+    const Message sent{"riemann-lab", "peer-alice", 7, 1700000000123ULL, "hello 👋 from the other sheet"};
     const auto wire = encode(sent);
     REQUIRE(wire.has_value());
     const auto received = decode(*wire);
@@ -14,6 +14,27 @@ TEST_CASE("StrangeNet messages round-trip with bounded metadata", "[strangenet]"
     CHECK(received->sender == sent.sender);
     CHECK(received->sequence == sent.sequence);
     CHECK(received->text == sent.text);
+}
+
+TEST_CASE("StrangeNet carries delivery receipts, stickers and reactions", "[strangenet]") {
+    const Message receipt{"mainnet", "peer-bob", 8, 1700000000124ULL, {}, Kind::Acknowledgement, 7};
+    const Message sticker{"mainnet", "peer-bob", 9, 1700000000125ULL,
+        R"({"emoji":"🚀","caption":"PQ ready","color":"#5432c9"})", Kind::Sticker};
+    const Message reaction{"mainnet", "peer-alice", 10, 1700000000126ULL, "❤️", Kind::Reaction, 9};
+    for (const auto& sent : {receipt, sticker, reaction}) {
+        const auto wire = encode(sent); REQUIRE(wire.has_value());
+        const auto received = decode(*wire); REQUIRE(received.has_value());
+        CHECK(received->kind == sent.kind);
+        CHECK(received->reply_to == sent.reply_to);
+        CHECK(received->text == sent.text);
+    }
+}
+
+TEST_CASE("StrangeNet rejects invalid UTF-8 and malformed acknowledgements", "[strangenet]") {
+    Message invalid{"mainnet", "peer", 1, 1, std::string{"\xF0\x28\x8C\x28", 4}};
+    CHECK_FALSE(encode(invalid).has_value());
+    Message bad_ack{"mainnet", "peer", 2, 2, {}, Kind::Acknowledgement, 0};
+    CHECK_FALSE(encode(bad_ack).has_value());
 }
 
 TEST_CASE("StrangeNet rejects malformed and replayed messages", "[strangenet]") {
@@ -25,10 +46,24 @@ TEST_CASE("StrangeNet rejects malformed and replayed messages", "[strangenet]") 
     ReplayGuard guard;
     CHECK(guard.accept(message));
     CHECK_FALSE(guard.accept(message));
-    message.sequence = 2;
+    message.sequence = 3;
     CHECK(guard.accept(message));
+    message.sequence = 2;
+    CHECK(guard.accept(message)); // bounded UDP reordering is accepted once
+    CHECK_FALSE(guard.accept(message));
     guard.leave_room("room");
     CHECK(guard.accept(message));
+}
+
+TEST_CASE("StrangeNet bounds replay state", "[strangenet][hardening]") {
+    ReplayGuard guard;
+    for (std::size_t index = 0; index < kMaxReplayStreams; ++index) {
+        Message message{"room-" + std::to_string(index), "peer", 1, 1, "hello"};
+        REQUIRE(guard.accept(message));
+    }
+    CHECK_FALSE(guard.accept(Message{"overflow", "peer", 1, 1, "blocked"}));
+    guard.leave_room("room-0");
+    CHECK(guard.accept(Message{"replacement", "peer", 1, 1, "accepted"}));
 }
 
 TEST_CASE("StrangeNet travels through an authenticated PQVPN session", "[strangenet][tunnel]") {

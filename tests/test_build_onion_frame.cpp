@@ -22,7 +22,7 @@ void test_build_onion_frame() {
             {0xAA, 0xBB, 0xCC, 0xDD}   // Second hop (source)
         };
 
-        // The builder (main.py parity) needs a session for every hop that will
+        // The builder (the legacy Python prototype parity) needs a session for every hop that will
         // peel a layer: here path[0] peels the single encrypted layer.
         auto first_session = std::make_shared<pqvpn::PQVPNNode::Session>();
         first_session->session_id = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
@@ -40,7 +40,7 @@ void test_build_onion_frame() {
                                          0x7F, 0x6E, 0x5D, 0x4C, 0x3B, 0x2A, 0x19, 0x08}; // 16-byte key
         second_session->state = pqvpn::PQVPNNode::SessionState::ESTABLISHED;
 
-        node.sessions_by_peer_id[path[0]] = first_session;   // peels the layer (main.py: hop = path[i-1])
+        node.sessions_by_peer_id[path[0]] = first_session;   // peels the layer (the legacy Python prototype: hop = path[i-1])
         node.sessions_by_peer_id[path[1]] = second_session;
 
         // Build onion frame

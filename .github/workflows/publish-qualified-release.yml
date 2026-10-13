@@ -105,7 +105,7 @@ jobs:
             [macos-arm64]='\.(pkg|dmg|tar\.gz)$'
             [macos-x86_64]='\.(pkg|dmg|tar\.gz)$'
             [windows-arm64]='\.(zip|msi)$'
-            [windows-x86_64]='\.(zip|msi)$'
+            [windows-x86_64]='\.msi$'
             [linux-arm64]='\.tar\.gz$'
             [linux-x86_64]='\.tar\.gz$'
             [appimage-arm64]='\.AppImage$'

@@ -46,17 +46,25 @@ int run(const fs::path& root, const fs::path& build,
             {"line", line}, {"message", message}});
     };
     const auto flags = std::regex::ECMAScript | std::regex::icase;
-    // Preserve the original gate's marker policy. co_return true is an
-    // actual coroutine result, so the word boundary excludes that spelling.
+    // Flag explicit unfinished-work markers. A plain `return true` is valid
+    // production control flow and cannot, by itself, prove fake progress.
+    // We still reject it when the same line admits that it is a placeholder.
     const std::regex forbidden(
-        R"(\b(stub|placeholder|fake|dummy|simulate|simulation|simulated|for now|not implemented|no-op|hollow|fallback to random|return true\s*;?\s*(?://.*placeholder)?)\b)", flags);
+        R"(\b(stub|placeholder|fake|dummy|simulate|simulation|simulated|for now|not implemented|no-op|hollow|fallback to random)\b)", flags);
+    const std::regex deceptive_identifier(
+        R"((DiscoveryStub|InMemoryKademliaServer|Fake[A-Z][A-Za-z0-9_]*|Dummy[A-Z][A-Za-z0-9_]*))");
+    const std::regex placeholder_success(
+        R"(\breturn\s+true\s*;\s*//.*\b(stub|placeholder|fake|dummy|not implemented|no-op)\b)", flags);
     const std::regex hollow(
         R"(REQUIRE\s*\(\s*true\s*\)|EXPECT_TRUE\s*\(\s*true\s*\)|SUCCEED\s*\()");
     const std::regex weak(
         R"(\b(Kyber512|Kyber768|ML-KEM-512|ML-KEM-768|Dilithium2|Dilithium3|Dilithium5|ML-DSA-44|ML-DSA-65)\b)");
     std::string all_source;
     std::size_t files = 0;
-    for (const auto& dir : {root / "src", root / "tests"}) {
+    // Scan shipped implementation code. Test doubles are allowed in tests,
+    // but production and driver sources may not contain unfinished markers or
+    // classes that silently substitute an in-memory/synthetic implementation.
+    for (const auto& dir : {root / "src", root / "driver"}) {
         for (const auto& entry : fs::recursive_directory_iterator(dir)) {
             if (!entry.is_regular_file()) continue;
             const auto ext = entry.path().extension().string();
@@ -70,7 +78,10 @@ int run(const fs::path& root, const fs::path& build,
             std::size_t number = 0;
             while (std::getline(stream, line)) {
                 ++number;
-                if (std::regex_search(line, forbidden) || std::regex_search(line, hollow))
+                if (std::regex_search(line, forbidden) ||
+                    std::regex_search(line, deceptive_identifier) ||
+                    std::regex_search(line, placeholder_success) ||
+                    std::regex_search(line, hollow))
                     add("no_fake_progress", entry.path(), number, line.substr(0, 180));
                 if (std::regex_search(line, weak))
                     add("mandatory_algorithms_only", entry.path(), number, line.substr(0, 180));

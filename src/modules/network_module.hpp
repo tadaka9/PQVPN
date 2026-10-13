@@ -11,7 +11,6 @@
 #include <asio.hpp>
 #include <spdlog/spdlog.h>
 #include "config_module.hpp"
-#include "dht_module.hpp"
 
 namespace pqvpn::network {
 

@@ -3,6 +3,7 @@
 /build-*/
 # WDK driver build output (compiled .sys/.cat/stamped .inf); source stays in driver/pqvpn_tunnel/
 /driver/build/
+/driver/pqvpn_tunnel/obj/
 # installable test package (signed binaries + local cert) -- generated, not committed
 /driver/dist/
 /_deps/

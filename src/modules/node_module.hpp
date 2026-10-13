@@ -22,28 +22,12 @@
 #include <span>
 #include <openssl/sha.h>
 #include "udp_protocol.hpp"
-#include "rekey_manager.hpp"
 #include <chrono>
 #include <cstdint>
 #include "ml_traffic_shaper.hpp"
 #include "strangenet.hpp"
 
 namespace pqvpn {
-
-class PluginManager;
-
-/**
- * @brief Minimal discovery lifecycle interface used by the runtime.
- */
-class DiscoveryStub {
-public:
-    asio::awaitable<void> start() {
-        co_return;
-    }
-    asio::awaitable<void> stop() {
-        co_return;
-    }
-};
 
 /**
  * @brief ASIO-backed PQVPN node state and protocol interface.
@@ -58,6 +42,8 @@ public:
         std::function<void(std::vector<uint8_t>, const std::vector<uint8_t>&)>;
     using StrangeNetHandler =
         std::function<void(const strangenet::Message&, const std::vector<uint8_t>&)>;
+    using PeerSessionHandler =
+        std::function<void(const std::vector<uint8_t>&, const asio::ip::udp::endpoint&, bool)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
     // tunnel transport traffic is not captured by the VPN default route. The
@@ -67,7 +53,7 @@ public:
     // (see register_peer_from_hello / establish_hybrid_session). Removals are
     // best-effort: teardown must not be blocked by cleanup failures.
     using PeerRouteHook = std::function<bool(const asio::ip::udp::endpoint&, bool)>;
-    // Frame types (main.py FT_* constants).
+    // Frame types (the legacy Python prototype FT_* constants).
     static inline constexpr uint8_t HELLO_FRAME = 0;     // FT_HELLO
     static inline constexpr uint8_t S1_FRAME = 1;        // FT_S1
     static inline constexpr uint8_t S2_FRAME = 2;        // FT_S2
@@ -116,6 +102,9 @@ public:
     static inline constexpr double HANDSHAKE_TIMEOUT = 30.0;
     // Seconds between bootstrap contact rounds while a peer has no session yet.
     static inline constexpr double BOOTSTRAP_RETRY_INTERVAL = 10.0;
+    static inline constexpr std::size_t MAX_HANDSHAKE_PAYLOAD = 32 * 1024;
+    static inline constexpr std::size_t MAX_PENDING_HANDSHAKES = 1024;
+    static inline constexpr std::size_t MAX_SESSIONS = 4096;
 
     // Per-deployment runtime tuning (seconds / counts). Initialized to the
     // protocol defaults above; main.cpp applies config "tuning" overrides on
@@ -205,7 +194,7 @@ public:
     const asio::io_context& get_io_context() const { return io_context_; }
     void set_my_id(std::vector<uint8_t> identity) { my_id_ = std::move(identity); }
     // Derives this node's stable identity from its ed25519 public key (my_id =
-    // SHA256(ed25519 pk)); main.py uses the brainpoolP512r1 key instead. Returns
+    // SHA256(ed25519 pk)); the legacy Python prototype uses the brainpoolP512r1 key instead. Returns
     // true and sets my_id_ when an ed25519 key is present; false otherwise.
     // Idempotent: an already-set identity is kept, so explicit set_my_id callers are unaffected.
     bool establish_identity();
@@ -240,11 +229,19 @@ public:
         tunnel_packet_handler_ = std::move(handler);
     }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
+    void leave_strangenet_room(const std::string& room) { strangenet_replay_guard_.leave_room(room); }
+    void set_peer_session_handler(PeerSessionHandler handler) { peer_session_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_strangenet_datagram(
         const std::vector<uint8_t>& peer_id, const std::string& room,
-        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0);
     bool send_strangenet_message(const std::vector<uint8_t>& peer_id, const std::string& room,
-        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
+        std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0);
+    std::size_t broadcast_strangenet_message(const std::string& room, std::uint64_t sequence,
+        std::uint64_t timestamp_ms, const std::string& text,
+        strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0,
+        const std::vector<uint8_t>* except_peer = nullptr);
 
     // Installs the peer-route exclusion hook (see PeerRouteHook). Called with
     // add=true when a peer address becomes known (HELLO registration, session
@@ -330,7 +327,6 @@ public:
     };
 
     std::unordered_map<std::vector<uint8_t>, std::shared_ptr<Session>, VectorHasher> sessions_by_peer_id;
-    RekeyManager rekey_manager;
     std::unordered_map<std::string, std::map<std::string, std::string>> known_peers_;
     bool strict_tofu_ = false;
     bool tofu_enabled_ = true;
@@ -365,7 +361,7 @@ public:
     asio::awaitable<bool> send_onion(const std::vector<std::vector<uint8_t>>& path, const std::vector<uint8_t>& inner_frame);
 
     // Decrypts one onion RELAY layer and either forwards the peeled content to
-    // the next hop or delivers it locally. Wire format per layer (main.py):
+    // the next hop or delivers it locally. Wire format per layer (the legacy Python prototype):
     //   outer frame [1][RELAY_FRAME][next_hash(8)][circuit_id(4 BE)][len(2 BE)]
     //   payload     = session_hint(8) + nonce(12) + ciphertext+tag
     // The AEAD AAD is "PQVPN" + full session id + the 8-byte identity hash of
@@ -386,7 +382,7 @@ public:
 
     // ---- Hybrid handshake control plane (HELLO / S1 / S2) -----------------
     // Wire contract (both sides are this implementation; the field set mirrors
-    // main.py's HELLO/S1 with X25519 + ML-KEM-1024 in place of BrainpoolP/Kyber):
+    // the legacy Python prototype's HELLO/S1 with X25519 + ML-KEM-1024 in place of BrainpoolP/Kyber):
     //   HELLO  {peerid, nickname, ed25519_pk, x25519_pk, ml_kem_pk, mldsa_pk,
     //           timestamp, response, sessionid} + ed25519_sig + mldsa_sig
     //   S1     {peerid, sessionid, ct, x25519_pk(ephemeral), ed25519_pk,
@@ -434,9 +430,17 @@ private:
     std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
     StrangeNetHandler strangenet_handler_;
+    PeerSessionHandler peer_session_handler_;
     strangenet::ReplayGuard strangenet_replay_guard_;
     PeerRouteHook peer_route_hook_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
+    struct PreAuthBucket {
+        double tokens = 16.0;
+        double updated_at = 0.0;
+        double last_seen = 0.0;
+    };
+    std::unordered_map<std::string, PreAuthBucket> preauth_buckets_;
+    bool allow_handshake_from(const asio::ip::udp::endpoint& endpoint);
 };
 
 } // namespace pqvpn

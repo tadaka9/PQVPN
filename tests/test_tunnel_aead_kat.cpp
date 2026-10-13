@@ -6,7 +6,7 @@ namespace {
 
 // Known-answer vectors for pqvpn::tunnel_encrypt / tunnel_decrypt. They were
 // produced with an independent AES-GCM implementation (Python `cryptography`
-// AESGCM, the same library main.py uses) and verified to round-trip before
+// AESGCM, the same library the legacy Python prototype uses) and verified to round-trip before
 // being recorded here, so a regression in the OpenSSL path or in the wire
 // layout (nonce shape, AAD binding, tag position) fails byte-for-byte.
 
@@ -15,7 +15,7 @@ const std::vector<uint8_t> key_256 = {
     0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
     0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20};
 
-// session_iv(4) + big-endian counter(7), the main.py nonce layout.
+// session_iv(4) + big-endian counter(7), the the legacy Python prototype nonce layout.
 const std::vector<uint8_t> nonce_256 = {
     0xa5, 0xc3, 0x3b, 0x9e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07};
 
