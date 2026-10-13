@@ -11,6 +11,8 @@ No central server. No account. No root. MIT licensed — the keys are yours,
 the code is auditable, and the cryptography is built for the adversary that
 hasn't been built yet.
 
+**Created and developed by [tadaka9](https://github.com/tadaka9).**
+
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
 [![Native CI targets](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge&logo=intel)](#native-ci-targets)
@@ -450,7 +452,8 @@ and platform builders especially. Start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Report suspected vulnerabilities privately
 according to [`SECURITY.md`](SECURITY.md)—never in a public issue.
 
-PQVPN is released under the [MIT License](LICENSE).
+PQVPN was created and is developed by [tadaka9](https://github.com/tadaka9),
+with community contributions accepted under the [MIT License](LICENSE).
 
 ---
 

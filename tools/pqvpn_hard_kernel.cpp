@@ -46,10 +46,13 @@ int run(const fs::path& root, const fs::path& build,
             {"line", line}, {"message", message}});
     };
     const auto flags = std::regex::ECMAScript | std::regex::icase;
-    // Preserve the original gate's marker policy. co_return true is an
-    // actual coroutine result, so the word boundary excludes that spelling.
+    // Flag explicit unfinished-work markers. A plain `return true` is valid
+    // production control flow and cannot, by itself, prove fake progress.
+    // We still reject it when the same line admits that it is a placeholder.
     const std::regex forbidden(
-        R"(\b(stub|placeholder|fake|dummy|simulate|simulation|simulated|for now|not implemented|no-op|hollow|fallback to random|return true\s*;?\s*(?://.*placeholder)?)\b)", flags);
+        R"(\b(stub|placeholder|fake|dummy|simulate|simulation|simulated|for now|not implemented|no-op|hollow|fallback to random)\b)", flags);
+    const std::regex placeholder_success(
+        R"(\breturn\s+true\s*;\s*//.*\b(stub|placeholder|fake|dummy|not implemented|no-op)\b)", flags);
     const std::regex hollow(
         R"(REQUIRE\s*\(\s*true\s*\)|EXPECT_TRUE\s*\(\s*true\s*\)|SUCCEED\s*\()");
     const std::regex weak(
@@ -70,7 +73,9 @@ int run(const fs::path& root, const fs::path& build,
             std::size_t number = 0;
             while (std::getline(stream, line)) {
                 ++number;
-                if (std::regex_search(line, forbidden) || std::regex_search(line, hollow))
+                if (std::regex_search(line, forbidden) ||
+                    std::regex_search(line, placeholder_success) ||
+                    std::regex_search(line, hollow))
                     add("no_fake_progress", entry.path(), number, line.substr(0, 180));
                 if (std::regex_search(line, weak))
                     add("mandatory_algorithms_only", entry.path(), number, line.substr(0, 180));

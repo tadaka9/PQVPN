@@ -235,7 +235,7 @@ TEST_CASE("egress blocks private destinations by default", "[egress][policy]") {
     const auto frame = pqvpn::egress::build_udp_frame(
         gateway, client, asio::ip::make_address("10.8.0.2"),
         asio::ip::make_address("127.0.0.1"), 54321, 9, &byte, 1);
-    REQUIRE(fwd.handle_frame(frame.data(), frame.size(), {0x01}));
+    REQUIRE_FALSE(fwd.handle_frame(frame.data(), frame.size(), {0x01}));
     REQUIRE(fwd.flow_count() == 0);
 }
 

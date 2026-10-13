@@ -8,6 +8,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 #include "platform/adapter.hpp"
 #ifdef _WIN32
@@ -482,7 +483,9 @@ int main(int argc, char** argv) {
         struct StrangeNetRuntime {
             std::string room;
             std::optional<std::vector<std::uint8_t>> peer;
-            std::uint64_t sequence = 0;
+            // Sequence numbers remain monotonic for every room during this
+            // authenticated process lifetime, including leave/rejoin cycles.
+            std::unordered_map<std::string, std::uint64_t> sequences;
         };
         auto strange = std::make_shared<StrangeNetRuntime>();
         strange->room = args.strangenet_room;
@@ -541,7 +544,6 @@ int main(int argc, char** argv) {
                                     node->leave_strangenet_room(strange->room);
                                 strange->room = room;
                                 strange->peer = peer;
-                                strange->sequence = 0;
                                 emit_console_event({{"event", "strangenet.joined"},
                                                     {"room", room}, {"peer", peer_text}});
                             } else if (name == "strangenet.leave") {
@@ -549,7 +551,6 @@ int main(int argc, char** argv) {
                                 if (!room.empty()) node->leave_strangenet_room(room);
                                 strange->room.clear();
                                 strange->peer.reset();
-                                strange->sequence = 0;
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
                             } else if (name == "strangenet.send") {
                                 const auto text = command.value("text", std::string{});
@@ -568,8 +569,9 @@ int main(int argc, char** argv) {
                                 const auto timestamp = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::system_clock::now().time_since_epoch()).count());
+                                auto& sequence = strange->sequences[strange->room];
                                 if (!node->send_strangenet_message(*peer, strange->room,
-                                                                  ++strange->sequence, timestamp, text)) {
+                                                                  ++sequence, timestamp, text)) {
                                     emit_console_event({{"event", "strangenet.deferred"},
                                                         {"message", "authenticated peer session is unavailable"}});
                                 } else {
@@ -591,8 +593,9 @@ int main(int argc, char** argv) {
                 const auto timestamp = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count());
                 asio::post(io, [node, strange, text = line, timestamp] {
+                    auto& sequence = strange->sequences[strange->room];
                     if (!strange->peer || !node->send_strangenet_message(
-                            *strange->peer, strange->room, ++strange->sequence, timestamp, text))
+                            *strange->peer, strange->room, ++sequence, timestamp, text))
                         std::cerr << "StrangeNet send deferred: authenticated peer session is unavailable\n";
                     else
                         std::cout << "StrangeNet message accepted\n";
