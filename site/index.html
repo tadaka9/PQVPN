@@ -5,10 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="PQVPN is an experimental C++23 peer network with hybrid post-quantum handshakes, native clients and auditable public peer discovery.">
   <meta name="theme-color" content="#070817">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PQVPN — Post-quantum paths you control">
+  <meta property="og:description" content="An experimental C++23 peer network with hybrid post-quantum identity, native clients and auditable public discovery.">
+  <meta property="og:url" content="https://tadaka9.github.io/PQVPN/">
+  <meta property="og:image" content="https://tadaka9.github.io/PQVPN/docs/assets/pqvpn-console.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PQVPN — Post-quantum paths you control">
+  <meta name="twitter:description" content="Inspect the protocol, try the native clients and help test the public alpha.">
+  <meta name="twitter:image" content="https://tadaka9.github.io/PQVPN/docs/assets/pqvpn-console.png">
+  <link rel="canonical" href="https://tadaka9.github.io/PQVPN/">
   <title>PQVPN — Post-quantum paths you control</title>
   <link rel="icon" href="assets/brand/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PQVPN","applicationCategory":"SecurityApplication","operatingSystem":"Windows, macOS, Linux","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/tadaka9/PQVPN","author":{"@type":"Person","name":"tadaka9","url":"https://github.com/tadaka9"},"description":"Experimental C++23 peer network with hybrid post-quantum identity and native clients."}</script>
 </head>
 <body>
   <a class="skip" href="#content">Skip to content</a>
@@ -18,7 +29,7 @@
       <a class="brand" href="#top" aria-label="PQVPN home"><img src="assets/brand/logo.svg" alt=""><span>PQVPN</span></a>
       <button class="menu" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <div class="nav-links" id="nav-links">
-        <a href="#features">Features</a><a href="#start">Start</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#ethics">Trust</a>
+        <a href="#features">Features</a><a href="#start">Start</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#support">Support</a>
         <a class="nav-cta" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/latest/download/pqvpn-linux-x86_64.tar.gz">Download</a>
       </div>
     </nav>
@@ -125,6 +136,29 @@
     <section class="section ethics" id="ethics">
       <div class="section-head reveal"><p class="eyebrow">Professional means verifiable</p><h2>Security claims carry evidence.</h2></div>
       <div class="ethics-grid reveal"><div><strong>Experimental</strong><p>This alpha has no independent audit. Use it for evaluation and controlled networks.</p></div><div><strong>No activity logs</strong><p>Public nodes discard protocol output and do not retain traffic, destination or DNS history. <a href="mainnet/no-logs-policy.html">Read the scope.</a></p></div><div><strong>Abuse boundaries</strong><p>Operators define access and egress policy. Privacy does not remove responsibility.</p></div><div><strong>Reproducible status</strong><p>Platform support appears only after its native workflow succeeds.</p></div></div>
+    </section>
+
+    <section class="section support" id="support">
+      <div class="support-copy reveal">
+        <p class="eyebrow">Open source grows through signal</p>
+        <h2>If PQVPN earned your attention, star it.</h2>
+        <p>A GitHub star helps technical contributors find the project. Testing a release, reviewing the protocol and reporting reproducible results are even more useful.</p>
+        <div class="support-actions">
+          <a class="button primary star-button" id="github-star" href="https://github.com/tadaka9/PQVPN" target="_blank" rel="noopener"><span aria-hidden="true">★</span> Star on GitHub <strong id="star-count" aria-live="polite">View project</strong></a>
+          <button class="button ghost" id="share-project" type="button">Share PQVPN</button>
+          <a class="button ghost" href="https://github.com/tadaka9/PQVPN/issues">Give technical feedback</a>
+        </div>
+        <p class="github-signal" id="github-signal" aria-live="polite">Loading the public repository signal…</p>
+        <div class="bitcoin-support" aria-labelledby="bitcoin-title">
+          <div><span>OPTIONAL BITCOIN SUPPORT</span><strong id="bitcoin-title">Fund independent development and CI compute</strong><code id="bitcoin-address">bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll</code><p>Verify this address in the repository before sending. Donations purchase no guarantees, influence or security assurances.</p></div>
+          <button class="copy" id="copy-bitcoin" type="button">Copy BTC address</button>
+        </div>
+      </div>
+      <div class="contribution-grid reveal" aria-label="Ways to help PQVPN">
+        <a href="https://github.com/tadaka9/PQVPN/releases"><span>01</span><strong>Run a verified build</strong><p>Try the native package for your platform and report the exact release, configuration and observed result.</p><b>Open releases →</b></a>
+        <a href="https://github.com/tadaka9/PQVPN/security"><span>02</span><strong>Review the security model</strong><p>Inspect trust boundaries, protocol code and published limitations before making or testing a claim.</p><b>Security policy →</b></a>
+        <a href="https://github.com/tadaka9/PQVPN/issues/new/choose"><span>03</span><strong>Make feedback actionable</strong><p>Open a focused issue with reproduction steps, platform details and logs with secrets removed.</p><b>Start an issue →</b></a>
+      </div>
     </section>
   </main>
 

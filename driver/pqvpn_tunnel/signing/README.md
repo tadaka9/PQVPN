@@ -43,3 +43,10 @@ For production use, store your EV certificate in a USB token or hardware securit
 
 - [Microsoft Driver Signing Documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/signing)
 - [signtool Command-Line Options](https://learn.microsoft.com/en-us/windows/win32/seccrypto/signtool)
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

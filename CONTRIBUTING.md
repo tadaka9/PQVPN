@@ -1,8 +1,8 @@
 # Contributing to PQVPN
 
-Thank you for your interest in PQVPN. The project is currently in the planning
-stage, so design discussion and small documentation improvements are the most
-useful contributions until an implementation direction is published.
+Thank you for your interest in PQVPN. The project is an experimental public
+alpha with native C++23 node, GUI and packaging code. Focused implementation,
+platform testing, documentation and security review are welcome.
 
 ## Before contributing
 
@@ -24,8 +24,8 @@ Security vulnerabilities must be reported privately as described in
 5. Open a pull request explaining what changed, why it changed, and how it was
    validated.
 
-Concrete build and test commands will be added after the initial implementation
-and toolchain are selected.
+Use the build and test commands in the project [README](README.md). Every pull
+request must keep the affected native targets and hardening checks green.
 
 ## Commit and pull request guidance
 
@@ -36,3 +36,10 @@ and toolchain are selected.
 
 By contributing, you agree that your contribution is licensed under the
 project's [MIT License](LICENSE).
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

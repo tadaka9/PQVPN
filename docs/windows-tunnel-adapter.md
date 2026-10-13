@@ -71,3 +71,10 @@ GitHub prereleases are tag driven. The `Native build and smoke tests` workflow
 publishes a `v*` tag only after every Linux, macOS, and Windows matrix target
 has configured, compiled, and passed CLI startup checks. An existing release is
 never overwritten.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

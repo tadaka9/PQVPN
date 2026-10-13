@@ -3,10 +3,10 @@ name: GitHub Pages
 on:
   push:
     branches: [main]
-    paths: [site/**, assets/brand/**, docs/assets/**, .github/workflows/pages.yml]
+    paths: [site/**, assets/brand/**, docs/assets/**, .github/FUNDING.yml, .github/workflows/pages.yml]
   pull_request:
     branches: [main]
-    paths: [site/**, assets/brand/**, docs/assets/**, .github/workflows/pages.yml]
+    paths: [site/**, assets/brand/**, docs/assets/**, .github/FUNDING.yml, .github/workflows/pages.yml]
   workflow_dispatch:
   schedule:
     - cron: '17 */6 * * *'
@@ -29,6 +29,9 @@ jobs:
           test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
+          grep -F 'id="support"' site/index.html >/dev/null
+          grep -F 'api.github.com/repos/tadaka9/PQVPN' site/app.js >/dev/null
+          grep -F 'bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll' site/index.html >/dev/null
           grep -F 'setInterval(()=>{if(!document.hidden)loadRegistry()},60000)' site/app.js >/dev/null
           test -s site/mainnet/no-logs-policy.html
           ! grep -E '(src|href)="\.\./(assets|docs)/' site/index.html

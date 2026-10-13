@@ -87,3 +87,10 @@ candidates. The publication workflow downloads those exact bytes, verifies
 their attestations, writes `SHA256SUMS`, and creates a GitHub prerelease. Moving
 a version to a production release additionally requires the project's security
 and product release criteria.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

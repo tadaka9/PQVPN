@@ -1,5 +1,25 @@
 const menu=document.querySelector('.menu');const links=document.querySelector('.nav-links');menu?.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')==='true';menu.setAttribute('aria-expanded',String(!open));links.classList.toggle('open',!open)});links?.addEventListener('click',()=>{menu?.setAttribute('aria-expanded','false');links.classList.remove('open')});
 const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+const repositoryUrl='https://github.com/tadaka9/PQVPN';
+async function loadRepositorySignal(){
+  const count=document.querySelector('#star-count');const signal=document.querySelector('#github-signal');
+  if(!count||!signal)return;
+  try{
+    const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
+    if(!response.ok)throw new Error(`GitHub API ${response.status}`);
+    const repository=await response.json();
+    const stars=Number(repository.stargazers_count)||0;const forks=Number(repository.forks_count)||0;
+    count.textContent=`${stars.toLocaleString()} star${stars===1?'':'s'}`;
+    signal.textContent=`Live from GitHub · ${stars.toLocaleString()} stars · ${forks.toLocaleString()} forks · updated ${new Date(repository.updated_at).toLocaleDateString()}`;
+  }catch{count.textContent='View project';signal.textContent='Public counts are temporarily unavailable. The repository link remains available.'}
+}
+document.querySelector('#share-project')?.addEventListener('click',async event=>{
+  const data={title:'PQVPN — Post-quantum paths you control',text:'Inspect PQVPN, an experimental C++23 peer network with hybrid post-quantum identity.',url:location.href.split('#')[0]};
+  try{if(navigator.share){await navigator.share(data);event.currentTarget.textContent='Shared'}else{await navigator.clipboard.writeText(data.url);event.currentTarget.textContent='Link copied'}}catch(error){if(error.name!=='AbortError')event.currentTarget.textContent='Share unavailable'}
+});
+document.querySelector('#copy-bitcoin')?.addEventListener('click',async event=>{const address=document.querySelector('#bitcoin-address')?.textContent.trim();try{await navigator.clipboard.writeText(address);event.currentTarget.textContent='BTC address copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
+loadRepositorySignal();
 const registryUrl=new URL('mainnet/peers.json',location.href).href;document.querySelector('#copy-registry')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(registryUrl);event.currentTarget.textContent='Copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
 let registryLoading=false;
 async function loadRegistry(){

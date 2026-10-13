@@ -41,3 +41,10 @@ The main screen stays simple: choose a recommended route and connect. Advanced p
 The status hierarchy is fixed: **Disconnected**, **Connecting**, **Peer ready · securing routes**, **Protected**, **Reconnecting**, and **Blocked**. Relay mode uses **Mainnet connected · relay mode** and never shares the protected visual state. The tray, diagnostics and main window derive their label from the same state.
 
 Release notes must separate compiled, integration-tested and production-verified capabilities. No protocol or leak-protection claim is published from a unit test alone.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

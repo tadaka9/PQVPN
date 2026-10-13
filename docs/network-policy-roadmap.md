@@ -63,3 +63,10 @@ The Connect action stays disabled when the driver is missing, access is denied, 
 ## Release gates
 
 A Windows release is eligible only after a clean virtual machine installs the MSI and signed driver, connects through the GUI, observes an exit-IP change, and passes packet-capture tests for IPv4, IPv6, DNS, WebRTC-relevant routes, LAN enabled/disabled, sleep/resume, interface changes, process crash, service crash, peer rotation and uninstall. Tests must demonstrate that only declared split or LAN exceptions leave through a physical interface. Route, DNS and WFP state must match the pre-install snapshot after cleanup.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

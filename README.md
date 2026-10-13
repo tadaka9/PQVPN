@@ -465,14 +465,21 @@ with community contributions accepted under the [MIT License](LICENSE).
 
 <div align="center">
 
-## Fuel the resistance with Bitcoin
+## Support PQVPN
 
-If PQVPN's open security research is useful to you, you can support continued
-development — and the compute that keeps this grid honest — with Bitcoin.
+If the work is useful, [star PQVPN on GitHub](https://github.com/tadaka9/PQVPN),
+test a verified release, or submit focused technical feedback. Stars help other
+contributors discover the project without changing its security claims.
+
+You can also support continued development and CI compute with Bitcoin:
 
 **`bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`**
 
 Verify the address in this repository before sending funds. Donations do not
 purchase support, guarantees, influence, or security assurances.
+
+[Open the project website](https://tadaka9.github.io/PQVPN/) ·
+[Read all support options](docs/SUPPORT.md) ·
+[Report an issue](https://github.com/tadaka9/PQVPN/issues/new/choose)
 
 </div>

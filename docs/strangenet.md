@@ -36,3 +36,9 @@ Sticker payloads contain only an emoji, a caption of at most 48 characters and o
 
 `Sent` means at least one authenticated session accepted the datagram for transmission. `Delivered` means that peer decrypted, authenticated, replay-checked and accepted the item, then returned an encrypted acknowledgement. UDP delivery remains best effort; missing receipts are not fabricated. Reactions and stickers use the same receipt path.
 
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

@@ -89,3 +89,10 @@ The first production-oriented release must not be declared until:
 
 Historical migration artifacts were removed from the active tree because they
 certified unused prototype modules. Git history retains them for archaeology.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

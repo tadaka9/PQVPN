@@ -30,3 +30,10 @@ The threat model follows deterministic controls rather than an unaudited ML clas
 Recommended host controls are unattended distribution security updates without automatic reboot, nftables persistence, fail2ban for SSH noise, audit watches on the service, updater, firewall, SSH policy, configuration, and persistent identity, and disabled core-dump storage. Re-run `systemd-analyze security pqvpn-mainnet.service`, `ss -lntup`, `nft list ruleset`, and an external UDP health probe after every host-level change.
 
 The packaged public-node service sends both protocol stdout and stderr to `/dev/null`. This prevents the journal from retaining peer endpoints, session identifiers, destinations, DNS queries or traffic metadata. Do not enable packet logging in the PQVPN firewall chains. Administrative security records remain separate: SSH authentication/fail2ban events, audit records of privileged configuration changes, package operations and updater results. TOFU keeps the minimum persistent public-key trust state needed to recognize a peer; it is not a traffic history. This scope is published in the [no-activity-logs policy](../site/mainnet/no-logs-policy.html).
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
