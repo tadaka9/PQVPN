@@ -11,6 +11,8 @@ No central server. No account. No root. MIT licensed — the keys are yours,
 the code is auditable, and the cryptography is built for the adversary that
 hasn't been built yet.
 
+**Created and developed by [tadaka9](https://github.com/tadaka9).**
+
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
 [![Native CI targets](https://img.shields.io/badge/platforms-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge&logo=intel)](#native-ci-targets)
@@ -50,9 +52,9 @@ everyone.
 | 🧅 **Onion relay paths** | Traffic can peel through several of your own nodes. Each layer is AEAD-bound to the exact forwarder identity allowed to unwrap it; replays and rogue injection fail closed. |
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
-| ✨ **Native privacy console** | A colorful Qt 6 interface validates configuration with the real node, starts and stops it, reports actual process output, explains transport limits, and can stay available in the system tray. Motion is optional and no metric is simulated. |
+| ✨ **Native privacy console** | A polished Qt 6 interface guides Configure → Verify → Connect → Use, reports authenticated mainnet readiness, controls StrangeNet through the same node process, inspects the native driver, and can stay available in the system tray. Motion is optional and no metric is simulated. |
 | 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
-| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. Public discovery stays disabled until its moderation and abuse model is reviewed. |
+| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. The Privacy Console can select a healthy peer automatically; public discovery stays disabled until its moderation and abuse model is reviewed. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -221,10 +223,15 @@ capability view and system-tray controls. Close hides the window in the tray by
 default without changing the connection; **Exit PQVPN** shuts the node down
 first. Both behaviors are explicit and configurable.
 
+**View → Appearance** follows the operating-system light/dark preference by
+default and updates while the console is open. Explicit Light and Dark choices
+are remembered. Page, connection-state, peer-directory, theme and sidebar
+transitions share the same motion policy.
+
 The interface applies ethical UX principles: one dominant action per task,
 no auto-connect, no telemetry, no urgency or fear prompts, no simulated
 success, and no inflated claims about traffic shaping. **Reduce motion** stops
-ambient, pulse and page animations. The Qt layer owns presentation and process
+ambient, pulse and interface-transition animations. The Qt layer owns presentation and process
 control only; cryptography, sessions, routing and transport remain in the
 canonical `pqvpn_node` executable.
 
@@ -253,7 +260,7 @@ PQVPN_SMOKE_IMAGE=pqvpn-console.png \
 
 ### Run the node
 
-The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
+The checked-in [`config.json`](config.json) is the experimental mainnet profile: it listens on UDP port `9090` and contacts the opt-in Helsinki bootstrap peer published in the versioned registry. The Stockholm mainnet node provides the separately declared relay/egress role. Review TOFU, listener exposure and the operator policies before use.
 
 ```bash
 ./build/pqvpn_node --smoke-test --config config.json   # self-check first
@@ -263,22 +270,27 @@ The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
 Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Run `./build/pqvpn_node --help` for the
 available command-line options.
 
-### StrangeNet peer room
+### StrangeNet universal room
 
-Once the configured bootstrap handshake has established the target peer,
-start a direct conversation room with that peer's 32-byte identity in hex:
+The Privacy Console and CLI join a room on the existing mainnet process and
+send a separately encrypted copy to every established authenticated session:
 
 ```bash
 ./build/pqvpn_node --config config.json \
-  --strangenet-room riemann-lab \
-  --strangenet-peer 64_HEX_DIGITS
+  --strangenet-room riemann-lab
 ```
+
+Add `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
+peer.
 
 Each message is carried in a dedicated AEAD-authenticated PQVPN frame. The
 sender field must match the peer identity bound to the session, and both the
 tunnel nonce window and StrangeNet's per-room sequence guard reject replays.
 Messages are limited to 2 KiB. Enter `/quit` to stop reading the room console;
 stop the node with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+For a managed public relay, install the hardened systemd service and verified
+release updater described in [`docs/mainnet-operations.md`](docs/mainnet-operations.md).
 
 ### Join a network (operator view)
 
@@ -418,20 +430,20 @@ protocol identity enforced by the `pqvpn_hard_kernel` gate, not tunables.
 PQVPN/
 ├── src/                    C++23 node, modules, monitor, and platform code
 ├── include/                Public project headers
-├── tests/                  Unit, integration, and parity tests
+├── tests/                  Unit, integration, and security tests
 ├── tools/                  Hardening and security validation
 ├── scripts/windows/        Windows TAP setup
 ├── external/               Required vendored single-header dependency
-├── main.py                 Immutable Python reference that seeded this port
 ├── CMakeLists.txt          Build and test graph
-├── MIGRATION_MANIFEST.md   Parity ledger + documented protocol deviations
 └── ROADMAP.md              Post-migration release work
 ```
 
-Read [`MIGRATE.md`](MIGRATE.md) for the completed migration summary,
-[`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md) for parity evidence and the
-documented wire-contract decisions, [`ROADMAP.md`](ROADMAP.md) for remaining
-release work, and [`UPDATE.md`](UPDATE.md) for the verified engineering history.
+Read [`ROADMAP.md`](ROADMAP.md) for remaining release work,
+[`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md)
+for the kill-switch and split-tunnelling implementation contract,
+[`docs/competitive-parity.md`](docs/competitive-parity.md) for the desktop
+client parity gates, [`docs/strangenet.md`](docs/strangenet.md) for universal
+encrypted chat behavior.
 
 ## Contributing and security
 
@@ -446,20 +458,28 @@ and platform builders especially. Start with
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Report suspected vulnerabilities privately
 according to [`SECURITY.md`](SECURITY.md)—never in a public issue.
 
-PQVPN is released under the [MIT License](LICENSE).
+PQVPN was created and is developed by [tadaka9](https://github.com/tadaka9),
+with community contributions accepted under the [MIT License](LICENSE).
 
 ---
 
 <div align="center">
 
-## Fuel the resistance with Bitcoin
+## Support PQVPN
 
-If PQVPN's open security research is useful to you, you can support continued
-development — and the compute that keeps this grid honest — with Bitcoin.
+If the work is useful, [star PQVPN on GitHub](https://github.com/tadaka9/PQVPN),
+test a verified release, or submit focused technical feedback. Stars help other
+contributors discover the project without changing its security claims.
+
+You can also support continued development and CI compute with Bitcoin:
 
 **`bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`**
 
 Verify the address in this repository before sending funds. Donations do not
 purchase support, guarantees, influence, or security assurances.
+
+[Open the project website](https://tadaka9.github.io/PQVPN/) ·
+[Read all support options](docs/SUPPORT.md) ·
+[Report an issue](https://github.com/tadaka9/PQVPN/issues/new/choose)
 
 </div>

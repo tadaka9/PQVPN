@@ -74,7 +74,7 @@ verification on an elevated host with a connected adapter is still pending.
   regressions reproduce the old failures and pass with the fix. Elevated
   routing and adapter end-to-end verification remain pending.
 - `functional-release-gates.yml` requires `packaging/gates/<target>` for ten
-  targets; none exist yet — intentional fail-closed placeholder until release
+  targets; none exist yet, so release publication remains fail-closed until release
   engineering lands (tracked above).
 
 ## Release criteria
@@ -87,5 +87,12 @@ The first production-oriented release must not be declared until:
 - the README's experimental warning can be revised based on documented audit
   and deployment evidence.
 
-Migration history remains available in [`MIGRATE.md`](MIGRATE.md), with detailed
-parity evidence in [`MIGRATION_MANIFEST.md`](MIGRATION_MANIFEST.md).
+Historical migration artifacts were removed from the active tree because they
+certified unused prototype modules. Git history retains them for archaeology.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

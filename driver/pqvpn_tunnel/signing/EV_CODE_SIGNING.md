@@ -145,3 +145,10 @@ pnputil /add-driver pqvpn_tunnel.inf /install
 - Install the appropriate token drivers from the CA's website
 - Try a different USB port
 - Restart the computer with the token inserted
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

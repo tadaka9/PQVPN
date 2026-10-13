@@ -17,3 +17,10 @@ Every entry must include:
 Egress entries require an explicit acceptable-use policy. A maintainer may
 remove an unreachable or unsafe entry without waiting for the operator. Users
 must still verify identity fingerprints through an independent channel.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)

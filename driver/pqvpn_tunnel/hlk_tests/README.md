@@ -61,3 +61,10 @@ Verify test signing is enabled: `bcdedit /enum | findstr testsigning`
 
 ### Driver installation failures
 Check the Windows Event Viewer for driver-specific error messages. Ensure the INF file references the correct architecture.
+
+---
+
+<!-- pqvpn-project-links -->
+[PQVPN website](https://tadaka9.github.io/PQVPN/) ·
+[Star the repository](https://github.com/tadaka9/PQVPN) ·
+[Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
