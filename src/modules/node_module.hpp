@@ -58,6 +58,8 @@ public:
         std::function<void(std::vector<uint8_t>, const std::vector<uint8_t>&)>;
     using StrangeNetHandler =
         std::function<void(const strangenet::Message&, const std::vector<uint8_t>&)>;
+    using PeerSessionHandler =
+        std::function<void(const std::vector<uint8_t>&, const asio::ip::udp::endpoint&, bool)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
     // tunnel transport traffic is not captured by the VPN default route. The
@@ -116,6 +118,9 @@ public:
     static inline constexpr double HANDSHAKE_TIMEOUT = 30.0;
     // Seconds between bootstrap contact rounds while a peer has no session yet.
     static inline constexpr double BOOTSTRAP_RETRY_INTERVAL = 10.0;
+    static inline constexpr std::size_t MAX_HANDSHAKE_PAYLOAD = 32 * 1024;
+    static inline constexpr std::size_t MAX_PENDING_HANDSHAKES = 1024;
+    static inline constexpr std::size_t MAX_SESSIONS = 4096;
 
     // Per-deployment runtime tuning (seconds / counts). Initialized to the
     // protocol defaults above; main.cpp applies config "tuning" overrides on
@@ -240,6 +245,8 @@ public:
         tunnel_packet_handler_ = std::move(handler);
     }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
+    void leave_strangenet_room(const std::string& room) { strangenet_replay_guard_.leave_room(room); }
+    void set_peer_session_handler(PeerSessionHandler handler) { peer_session_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_strangenet_datagram(
         const std::vector<uint8_t>& peer_id, const std::string& room,
         std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text);
@@ -434,9 +441,17 @@ private:
     std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
     StrangeNetHandler strangenet_handler_;
+    PeerSessionHandler peer_session_handler_;
     strangenet::ReplayGuard strangenet_replay_guard_;
     PeerRouteHook peer_route_hook_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
+    struct PreAuthBucket {
+        double tokens = 16.0;
+        double updated_at = 0.0;
+        double last_seen = 0.0;
+    };
+    std::unordered_map<std::string, PreAuthBucket> preauth_buckets_;
+    bool allow_handshake_from(const asio::ip::udp::endpoint& endpoint);
 };
 
 } // namespace pqvpn

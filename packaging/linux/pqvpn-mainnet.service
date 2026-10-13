@@ -1,0 +1,51 @@
+[Unit]
+Description=PQVPN experimental mainnet node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pqvpn
+Group=pqvpn
+WorkingDirectory=/var/lib/pqvpn
+# PrivateDevices deliberately makes the TUN boundary unavailable on this public
+# relay. Older packaged nodes fall back to UDP-only operation; newer nodes also
+# support an explicit --no-tunnel flag for interactive use.
+ExecStart=/opt/pqvpn/current/bin/pqvpn_node --config /var/lib/pqvpn/config.json --log-level info
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RemoveIPC=yes
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadWritePaths=/var/lib/pqvpn
+RestrictAddressFamilies=AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=~@mount @reboot @swap @obsolete @debug @privileged @cpu-emulation @raw-io
+SystemCallErrorNumber=EPERM
+TasksMax=128
+MemoryMax=768M
+LimitNOFILE=16384
+
+[Install]
+WantedBy=multi-user.target

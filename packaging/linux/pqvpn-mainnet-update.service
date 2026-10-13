@@ -1,0 +1,20 @@
+[Unit]
+Description=Install a verified PQVPN mainnet release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/pqvpn/mainnet-updater.env
+ExecStart=/usr/local/sbin/pqvpn-mainnet-update
+User=root
+Group=root
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/pqvpn
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes

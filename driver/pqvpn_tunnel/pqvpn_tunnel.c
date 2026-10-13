@@ -19,6 +19,7 @@
 
 #include <ntddk.h>
 #include <wdm.h>
+#include <wdmsec.h>
 #include <ndis.h>
 
 #define PQVPN_TUN_DEVICE_NAME L"\\Device\\PQVPN_TUN0"
@@ -59,94 +60,10 @@ static PPQVPN_CONTEXT g_Context = NULL;      /* freed in DriverUnload          *
 
 static void pqvpn_driver_unload(PDRIVER_OBJECT driver_object);
 
-/* ------------------------------------------------------------------ */
-/* Security: default-deny DACL.                                        */
-/*                                                                     */
-/* Built as a static byte layout (no Rtl* dependency): two             */
-/* access-allowed ACEs for SYSTEM (S-1-5-18) and BUILTIN\Administrators*/
-/* (S-1-5-32-544); every other principal is denied by absence. Phase 3 */
-/* adds the per-node service identity; until then the node runs        */
-/* elevated, which it already needs for route installation in user     */
-/* mode.                                                               */
-/*                                                                     */
-/* Layout (all fields naturally aligned):                              */
-/*   0  SECURITY_DESCRIPTOR {Revision,Sbz1,Control}      6 bytes       */
-/*   8  ACL {Rev,Sbz1,AclSize,AceCount,Sbz2}             8 bytes       */
-/*  16  ACE[0] header {Rev,Flags,Mask(4),Size(4)}        10 bytes      */
-/*  26  SID S-1-5-18 (1+1+8+4*1)                          14 bytes      */
-/*  40  ACE[1] header                                     10 bytes     */
-/*  50  SID S-1-5-32-544 (1+1+8+4*3)                      22 bytes      */
-/*  72  end                                               AclSize=64   */
-/* ------------------------------------------------------------------ */
-
-#define PQVPN_SD_SIZE          72
-#define PQVPN_ACE0_OFFSET      16
-#define PQVPN_SID_SYSTEM_OFF   26
-#define PQVPN_ACE1_OFFSET      40
-#define PQVPN_SID_ADMIN_OFF    50
-#define PQVPN_ACL_SIZE         64
-
-/* Access mask for the tunnel pipe: read, write, synchronize. */
-#define PQVPN_PIPE_MASK \
-    (GENERIC_READ | GENERIC_WRITE | SYNCHRONIZE) /* 0x50000080 */
-
-/* SE_DACL_PRESENT is not in the kernel header set here; value is stable. */
-#ifndef SE_DACL_PRESENT
-#define SE_DACL_PRESENT 0x0004
-#endif
-
-static UCHAR g_SecurityDescriptor[PQVPN_SD_SIZE];
-
-static void pqvpn_build_security_descriptor(void) {
-    PUCHAR sd = g_SecurityDescriptor;
-
-    RtlZeroMemory(sd, PQVPN_SD_SIZE);
-
-    /* SECURITY_DESCRIPTOR: Revision 1, DACL present. */
-    sd[0] = 1;                                   /* Revision               */
-    sd[2] = SE_DACL_PRESENT & 0xFF;              /* Control low byte       */
-    sd[3] = (SE_DACL_PRESENT >> 8) & 0xFF;       /* Control high byte      */
-
-    /* ACL header at offset 8. */
-    sd[8] = 2;                                   /* AclRevision            */
-    sd[10] = PQVPN_ACL_SIZE & 0xFF;              /* AclSize low            */
-    sd[11] = (PQVPN_ACL_SIZE >> 8) & 0xFF;       /* AclSize high           */
-    sd[12] = 2;                                  /* AceCount low           */
-
-    /* ACE[0]: allow SYSTEM. Header layout {Rev,Flags,Mask(4),Size(4)}.   */
-    sd[PQVPN_ACE0_OFFSET] = 2;                   /* AceRevision            */
-    sd[PQVPN_ACE0_OFFSET + 1] = 0;               /* AceFlags               */
-    sd[PQVPN_ACE0_OFFSET + 2] = PQVPN_PIPE_MASK & 0xFF;
-    sd[PQVPN_ACE0_OFFSET + 3] = (PQVPN_PIPE_MASK >> 8) & 0xFF;
-    sd[PQVPN_ACE0_OFFSET + 4] = (PQVPN_PIPE_MASK >> 16) & 0xFF;
-    sd[PQVPN_ACE0_OFFSET + 5] = (PQVPN_PIPE_MASK >> 24) & 0xFF;
-    sd[PQVPN_ACE0_OFFSET + 6] = 10 + 14;         /* AceSize incl. SID      */
-
-    /* SID S-1-5-18 at offset 26: Revision=1, SubAuthorityCount=1,
-     * IdentifierAuthority = NT (all zero), SubAuthority[0]=18. */
-    sd[PQVPN_SID_SYSTEM_OFF] = 1;                /* SidRevision            */
-    sd[PQVPN_SID_SYSTEM_OFF + 1] = 1;            /* SubAuthorityCount      */
-    /* bytes ..+2 ..+9: IdentifierAuthority (zero, already cleared)        */
-    sd[PQVPN_SID_SYSTEM_OFF + 10] = 18;          /* SubAuthority[0] low    */
-
-    /* ACE[1]: allow BUILTIN\Administrators. */
-    sd[PQVPN_ACE1_OFFSET] = 2;                   /* AceRevision            */
-    sd[PQVPN_ACE1_OFFSET + 1] = 0;               /* AceFlags               */
-    sd[PQVPN_ACE1_OFFSET + 2] = PQVPN_PIPE_MASK & 0xFF;
-    sd[PQVPN_ACE1_OFFSET + 3] = (PQVPN_PIPE_MASK >> 8) & 0xFF;
-    sd[PQVPN_ACE1_OFFSET + 4] = (PQVPN_PIPE_MASK >> 16) & 0xFF;
-    sd[PQVPN_ACE1_OFFSET + 5] = (PQVPN_PIPE_MASK >> 24) & 0xFF;
-    sd[PQVPN_ACE1_OFFSET + 6] = 10 + 22;         /* AceSize incl. SID      */
-
-    /* SID S-1-5-32-544 at offset 50: Revision=1, SubAuthorityCount=3,
-     * IdentifierAuthority = NT (zero), SubAuthority={5,32,544}. */
-    sd[PQVPN_SID_ADMIN_OFF] = 1;                 /* SidRevision            */
-    sd[PQVPN_SID_ADMIN_OFF + 1] = 3;             /* SubAuthorityCount      */
-    sd[PQVPN_SID_ADMIN_OFF + 10] = 5;            /* SubAuthority[0]        */
-    sd[PQVPN_SID_ADMIN_OFF + 14] = 32;           /* SubAuthority[1]        */
-    sd[PQVPN_SID_ADMIN_OFF + 18] = 544 & 0xFF;   /* SubAuthority[2] low    */
-    sd[PQVPN_SID_ADMIN_OFF + 19] = (544 >> 8) & 0xFF;
-}
+/* IoCreateDeviceSecure applies the default-deny DACL without relying on a
+ * hand-packed SECURITY_DESCRIPTOR whose pointer layout differs on x64. */
+static const GUID GUID_DEVCLASS_PQVPN_TUNNEL =
+    {0x62f7d153, 0x87c5, 0x4d51, {0x9f, 0x4b, 0x43, 0x36, 0x60, 0xb0, 0x2a, 0xb1}};
 
 /* ------------------------------------------------------------------ */
 /* Device dispatch                                                     */
@@ -546,15 +463,13 @@ DriverEntry(
     ExInitializeDriverRuntime(DrvRtPoolNxOptIn);
 
     /* Default-deny DACL: only SYSTEM and Administrators may open the pipe. */
-    pqvpn_build_security_descriptor();
-
-    status = IoCreateDevice(DriverObject, sizeof(PQVPN_CONTEXT), &device_name, FILE_DEVICE_UNKNOWN,
-                            0, FALSE, &device_object);
+    status = IoCreateDeviceSecure(DriverObject, sizeof(PQVPN_CONTEXT), &device_name,
+                                  FILE_DEVICE_UNKNOWN, 0, FALSE, &SDDL_DEVOBJ_SYS_ALL_ADM_ALL,
+                                  &GUID_DEVCLASS_PQVPN_TUNNEL, &device_object);
     if (!NT_SUCCESS(status)) {
         return status;
     }
 
-    device_object->SecurityDescriptor = (PSECURITY_DESCRIPTOR)g_SecurityDescriptor;
     device_object->Flags |= DO_BUFFERED_IO | DO_DEVICE_INITIALIZING;
 
     ctx = (PPQVPN_CONTEXT)device_object->DeviceExtension;
@@ -585,14 +500,10 @@ DriverEntry(
     /* NDIS miniport registration (NDIS 6.20 contract). */
     RtlZeroMemory(&characteristics, sizeof(characteristics));
     characteristics.Header.Type = NDIS_OBJECT_TYPE_MINIPORT_DRIVER_CHARACTERISTICS;
-#if defined(NDIS_SUPPORT_NDIS61)
     characteristics.Header.Revision =
+        NDIS_MINIPORT_DRIVER_CHARACTERISTICS_REVISION_2;
+    characteristics.Header.Size =
         NDIS_SIZEOF_MINIPORT_DRIVER_CHARACTERISTICS_REVISION_2;
-#else
-    characteristics.Header.Revision =
-        NDIS_SIZEOF_MINIPORT_DRIVER_CHARACTERISTICS_REVISION_1;
-#endif
-    characteristics.Header.Size = sizeof(characteristics);
     characteristics.MajorNdisVersion = 6;
     characteristics.MinorNdisVersion = 20;
     characteristics.MajorDriverVersion = 0;

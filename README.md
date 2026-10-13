@@ -50,9 +50,9 @@ everyone.
 | 🧅 **Onion relay paths** | Traffic can peel through several of your own nodes. Each layer is AEAD-bound to the exact forwarder identity allowed to unwrap it; replays and rogue injection fail closed. |
 | 🚪 **Exit without elevation** | A node terminates client traffic into real outbound sockets with normal permissions: TCP/UDP bridging, ARP + gateway echo answers, IPv4 **and** IPv6, fragment reassembly, multi-client exits — verified end-to-end against live web endpoints. |
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
-| ✨ **Native privacy console** | A colorful Qt 6 interface validates configuration with the real node, starts and stops it, reports actual process output, explains transport limits, and can stay available in the system tray. Motion is optional and no metric is simulated. |
+| ✨ **Native privacy console** | A polished Qt 6 interface guides Configure → Verify → Connect → Use, reports authenticated mainnet readiness, controls StrangeNet through the same node process, inspects the native driver, and can stay available in the system tray. Motion is optional and no metric is simulated. |
 | 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
-| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. Public discovery stays disabled until its moderation and abuse model is reviewed. |
+| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. The Privacy Console can select a healthy peer automatically; public discovery stays disabled until its moderation and abuse model is reviewed. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -253,7 +253,7 @@ PQVPN_SMOKE_IMAGE=pqvpn-console.png \
 
 ### Run the node
 
-The checked-in [`config.json`](config.json) binds only to `127.0.0.1:9090`.
+The checked-in [`config.json`](config.json) is the experimental mainnet profile: it listens on UDP port `9090` and contacts the opt-in Helsinki bootstrap peer published in the versioned registry. Review its TOFU policy and listener exposure before use.
 
 ```bash
 ./build/pqvpn_node --smoke-test --config config.json   # self-check first
@@ -265,8 +265,9 @@ available command-line options.
 
 ### StrangeNet peer room
 
-Once the configured bootstrap handshake has established the target peer,
-start a direct conversation room with that peer's 32-byte identity in hex:
+The Privacy Console joins a room on its existing mainnet process and can select
+the healthiest authenticated peer with `auto`. The CLI can instead target a
+specific peer's 32-byte identity in hex:
 
 ```bash
 ./build/pqvpn_node --config config.json \
@@ -279,6 +280,9 @@ sender field must match the peer identity bound to the session, and both the
 tunnel nonce window and StrangeNet's per-room sequence guard reject replays.
 Messages are limited to 2 KiB. Enter `/quit` to stop reading the room console;
 stop the node with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+
+For a managed public relay, install the hardened systemd service and verified
+release updater described in [`docs/mainnet-operations.md`](docs/mainnet-operations.md).
 
 ### Join a network (operator view)
 

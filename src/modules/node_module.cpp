@@ -117,6 +117,17 @@ double now_seconds() {
     return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+bool fresh_handshake_timestamp(const nlohmann::json& message) {
+    if (!message.contains("timestamp") || !message.at("timestamp").is_number_integer()) return false;
+    try {
+        const auto timestamp = message.at("timestamp").get<std::int64_t>();
+        const auto now = static_cast<std::int64_t>(now_seconds());
+        return timestamp >= now - 300 && timestamp <= now + 300;
+    } catch (...) {
+        return false;
+    }
+}
+
 std::string escape_json_string(const std::string& value) {
     static constexpr char hexdigits[] = "0123456789abcdef";
     std::string out;
@@ -453,7 +464,12 @@ asio::awaitable<void> PQVPNNode::maintenance_tick() {
         if (now - sess.last_activity > session_timeout) {
             std::cout << "Pruning stale session " << hex_id(sess.session_id).substr(0, 8) << std::endl;
             const auto remote = sess.remote_addr; // capture before the entry is erased
+            const auto peer = it->first;
             it = sessions_by_peer_id.erase(it);
+            if (peer_session_handler_) {
+                try { peer_session_handler_(peer, remote, false); }
+                catch (...) { /* observers cannot interrupt session cleanup */ }
+            }
             // Release this peer's route exclusion only if no other consumer can
             // still send to its address. A live relay path (mesh entry) or a second
             // session at the same /32 would otherwise be left without an exclusion
@@ -567,6 +583,10 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     // These frames carry a JSON body after the 16-byte outer header; the
     // established-session paths below keep their existing layout.
     if (data[1] == HELLO_FRAME || data[1] == S1_FRAME || data[1] == S2_FRAME) {
+        // Hybrid signatures are deliberately expensive. Bound work before JSON
+        // parsing or PQ verification so spoofed UDP floods cannot turn the
+        // post-quantum handshake into an unbounded CPU or memory sink.
+        if (payload_size > MAX_HANDSHAKE_PAYLOAD || !allow_handshake_from(endpoint)) co_return;
         std::vector<uint8_t> body(data.begin() + 16, data.end());
         if (data[1] == HELLO_FRAME) co_await handle_hello_frame(std::move(body), endpoint);
         else if (data[1] == S1_FRAME) co_await handle_s1_frame(std::move(body), endpoint);
@@ -682,6 +702,34 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     invoke_tunnel_sink(tunnel_packet_handler_, *plaintext,
                        session->peer_id_.value_or(std::vector<uint8_t>{}));
     co_return;
+}
+
+bool PQVPNNode::allow_handshake_from(const asio::ip::udp::endpoint& endpoint) {
+    static constexpr double refill_per_second = 4.0;
+    static constexpr double burst = 16.0;
+    static constexpr std::size_t max_sources = 4096;
+    const double now = std::chrono::duration<double>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    const std::string source = endpoint.address().to_string();
+
+    auto found = preauth_buckets_.find(source);
+    if (found == preauth_buckets_.end()) {
+        if (preauth_buckets_.size() >= max_sources) {
+            const auto oldest = std::min_element(preauth_buckets_.begin(), preauth_buckets_.end(),
+                [](const auto& left, const auto& right) {
+                    return left.second.last_seen < right.second.last_seen;
+                });
+            if (oldest != preauth_buckets_.end()) preauth_buckets_.erase(oldest);
+        }
+        found = preauth_buckets_.emplace(source, PreAuthBucket{burst, now, now}).first;
+    }
+    auto& bucket = found->second;
+    bucket.tokens = std::min(burst, bucket.tokens + std::max(0.0, now - bucket.updated_at) * refill_per_second);
+    bucket.updated_at = now;
+    bucket.last_seen = now;
+    if (bucket.tokens < 1.0) return false;
+    bucket.tokens -= 1.0;
+    return true;
 }
 
 std::optional<std::vector<uint8_t>> PQVPNNode::build_tunnel_liveness_frame(
@@ -1178,6 +1226,10 @@ std::shared_ptr<PQVPNNode::Session> PQVPNNode::establish_hybrid_session(
     if (peer_id.empty() || remote_endpoint.address().is_unspecified()) {
         throw std::invalid_argument("hybrid session requires a peer identity and remote endpoint");
     }
+    if (!sessions_by_peer_id.contains(peer_id) && sessions_by_peer_id.size() >= MAX_SESSIONS) {
+        std::cerr << "refusing hybrid session: session capacity reached\n";
+        return nullptr;
+    }
 
     // Full-tunnel gate (see register_peer_from_hello): a session whose peer
     // address cannot be excluded from the TAP default would loop its own
@@ -1575,6 +1627,8 @@ asio::awaitable<void> PQVPNNode::handle_hello_frame(
     }
     if (!j.is_object()) co_return;
 
+    if (!fresh_handshake_timestamp(j)) co_return;
+
     if (!verify_hybrid_signatures(j, kHelloFields)) {
         std::cerr << "rejecting HELLO from " << endpoint
                   << ": hybrid signature verification failed\n";
@@ -1637,6 +1691,10 @@ bool PQVPNNode::initiate_handshake(
     const std::vector<uint8_t>& peer_id, const asio::ip::udp::endpoint& endpoint) {
     if (!my_id_.has_value() || *my_id_ == peer_id) return false;
     if (endpoint.address().is_unspecified()) return false;
+    if (pending_handshakes_.size() >= MAX_PENDING_HANDSHAKES) {
+        std::cerr << "cannot initiate handshake: pending capacity reached\n";
+        return false;
+    }
 
     const auto keys = peer_hybrid_keys(peer_id);
     if (!keys) {
@@ -1698,6 +1756,8 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
     }
     if (!j.is_object()) co_return;
 
+    if (!fresh_handshake_timestamp(j)) co_return;
+
     if (!verify_hybrid_signatures(j, kS1Fields)) {
         std::cerr << "rejecting S1 from " << endpoint
                   << ": hybrid signature verification failed\n";
@@ -1753,6 +1813,11 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
     }
     if (!session) co_return; // route gate refused the peer address
 
+    if (peer_session_handler_) {
+        try { peer_session_handler_(*peer_id, endpoint, true); }
+        catch (...) { /* session observers are non-authoritative */ }
+    }
+
     std::cout << "Session established (responder) with " << endpoint
               << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
 
@@ -1788,6 +1853,8 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
         co_return;
     }
     if (!j.is_object()) co_return;
+
+    if (!fresh_handshake_timestamp(j)) co_return;
 
     const auto session_id_hex = j.value("sessionid", std::string{});
     const auto pending_it = pending_handshakes_.find(session_id_hex);
@@ -1838,6 +1905,10 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
     if (!session) co_return;
 
     pending_handshakes_.erase(pending_it);
+    if (peer_session_handler_) {
+        try { peer_session_handler_(pending.peer_id, endpoint, true); }
+        catch (...) { /* session observers are non-authoritative */ }
+    }
     std::cout << "Session established (initiator) with " << endpoint
               << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
 }

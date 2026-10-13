@@ -18,7 +18,7 @@
       <a class="brand" href="#top" aria-label="PQVPN home"><img src="assets/brand/logo.svg" alt=""><span>PQVPN</span></a>
       <button class="menu" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <div class="nav-links" id="nav-links">
-        <a href="#features">Features</a><a href="#architecture">Architecture</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#ethics">Trust</a>
+        <a href="#features">Features</a><a href="#start">Start</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#ethics">Trust</a>
         <a class="nav-cta" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/latest/download/pqvpn-linux-x86_64.tar.gz">Download</a>
       </div>
     </nav>
@@ -81,14 +81,26 @@
       </div>
     </section>
 
+    <section class="section start" id="start">
+      <div class="section-head reveal"><p class="eyebrow">One clear path</p><h2>From download to an authenticated path.</h2><p>The desktop console guides the same four steps on every platform and reports only state produced by the canonical node.</p></div>
+      <ol class="start-path reveal">
+        <li><span>01</span><div><strong>Install</strong><p>Choose a verified release and its matching package format. Windows full-tunnel mode also requires the signed PQVPN NDIS driver.</p></div></li>
+        <li><span>02</span><div><strong>Validate</strong><p>Select a reviewed JSON configuration. The console asks <code>pqvpn_node</code> to parse and validate it before enabling Connect.</p></div></li>
+        <li><span>03</span><div><strong>Connect</strong><p>The node contacts a declared bootstrap endpoint and completes the hybrid handshake. “Mainnet connected” appears only after an authenticated peer session exists.</p></div></li>
+        <li><span>04</span><div><strong>Use</strong><p>Tunnel traffic, adaptive transport and StrangeNet share that session. Activity and diagnostics stay visible, and Disconnect rolls back the managed process.</p></div></li>
+      </ol>
+      <div class="driver-note reveal"><div><p class="eyebrow">Windows tunnel boundary</p><h3>Driver state is checked, not assumed.</h3><p>The console distinguishes ready, missing and access-denied states. UDP-only mode remains an explicit connectivity test and never claims that system traffic is tunneled.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/windows-tunnel-adapter.md">Driver guide</a></div>
+    </section>
+
     <section class="section mainnet" id="mainnet">
-      <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This signed-in-code registry lists only operators who deliberately publish a reachable bootstrap peer. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
+      <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This version-controlled registry lists only operators who deliberately publish a reachable bootstrap peer. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
       <div class="network-panel reveal">
         <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading registry</strong><p id="registry-meta">Checking the versioned peer list…</p></div><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div>
         <div class="peer-list" id="peer-list" aria-live="polite"><p class="empty">Loading declared peers…</p></div>
         <div class="network-actions"><button class="button primary" id="open-registry" type="button" aria-expanded="false" aria-controls="registry-details">Open peer registry</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
-        <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download signed registry JSON</a></div>
+        <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download versioned registry JSON</a></div>
       </div>
+      <div class="driver-note reveal"><div><p class="eyebrow">Hardened operations</p><h3>Small attack surface. Automatic recovery.</h3><p>The published relay runs without login privileges, exposes only UDP/9090, rate-limits pre-authentication handshakes, and installs checksum-verified releases through an atomic updater with rollback.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/mainnet-operations.md">Operations guide</a></div>
     </section>
 
     <section class="section strange" id="strangenet">
@@ -98,7 +110,7 @@
       <form class="strange-connect reveal" id="strangenet-connect" novalidate>
         <div class="strange-connect-copy"><span class="connection-index">LOCAL CLIENT BRIDGE / 01</span><h3>Open an authenticated room</h3><p>The page prepares the native PQVPN command locally. Copy it into a terminal where PQVPN is installed; no room name or peer identity is sent to this website.</p></div>
         <label>Room name<input id="strangenet-room" name="room" autocomplete="off" maxlength="64" placeholder="riemann-lab" required></label>
-        <label>Peer identity<input id="strangenet-peer" name="peer" autocomplete="off" inputmode="text" minlength="64" maxlength="64" pattern="[0-9A-Fa-f]{64}" placeholder="64 hexadecimal characters" required></label>
+        <label>Peer identity<input id="strangenet-peer" name="peer" autocomplete="off" inputmode="text" minlength="64" maxlength="64" pattern="[0-9A-Fa-f]{64}" placeholder="64 hexadecimal characters" required><small>The desktop console can select the healthiest authenticated peer automatically.</small></label>
         <div class="strange-connect-actions"><button class="button primary" type="submit">Copy connection command</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN#strangenet-peer-room">Open setup guide</a></div>
         <p class="connection-status" id="strangenet-status" aria-live="polite">Waiting for a room and an authenticated peer identity.</p>
       </form>
@@ -106,7 +118,7 @@
     </section>
 
     <section class="section console" id="console">
-      <div class="console-copy reveal"><p class="eyebrow">Native privacy console</p><h2>Calm controls. Honest state.</h2><p>Validate before connecting, inspect the selected transport, operate from the system tray, or reduce motion. The SSH-ready TUI and automation CLI expose the same configuration on every supported OS.</p><ul><li>GUI with tray and minimize-on-close</li><li>Cross-platform terminal dashboard</li><li>Scriptable validation and platform inspection</li><li>No telemetry or artificial urgency</li></ul></div>
+      <div class="console-copy reveal"><p class="eyebrow">Native privacy console</p><h2>Calm controls. Honest state.</h2><p>The redesigned console follows Configure → Verify → Connect → Use. It exposes mainnet bootstrap state, hybrid peer readiness, the native tunnel boundary, egress, shaping, adaptive transport, StrangeNet, activity and diagnostics through the same node process.</p><ul><li>Mainnet readiness comes from authenticated session events</li><li>Windows driver status and explicit UDP-only testing</li><li>StrangeNet rooms on the active tunnel session</li><li>System tray, command palette and reduced motion</li><li>CLI and SSH-ready TUI for the same configuration</li></ul></div>
       <figure class="screenshot reveal"><img src="docs/assets/pqvpn-console.png" alt="PQVPN Privacy Console overview"><figcaption>Real Qt interface rendered by the CI smoke test.</figcaption></figure>
     </section>
 
