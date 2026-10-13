@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="${PQVPN_REPOSITORY:-tadaka9/PQVPN}"
+install_root="${PQVPN_INSTALL_ROOT:-/opt/pqvpn}"
+config="${PQVPN_CONFIG:-/var/lib/pqvpn/config.json}"
+service="${PQVPN_SERVICE:-pqvpn-mainnet.service}"
+allow_prerelease="${PQVPN_ALLOW_PRERELEASE:-1}"
+api="https://api.github.com/repos/${repo}/releases?per_page=20"
+
+[[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Invalid GitHub repository name" >&2; exit 2; }
+[[ "$install_root" == /* && "$install_root" != "/" ]] || { echo "PQVPN_INSTALL_ROOT must be an absolute non-root path" >&2; exit 2; }
+[[ "$config" == /* ]] || { echo "PQVPN_CONFIG must be an absolute path" >&2; exit 2; }
+[[ "$service" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || { echo "Invalid systemd service name" >&2; exit 2; }
+
+case "$(uname -m)" in
+  x86_64|amd64) platform="linux-x86_64" ;;
+  aarch64|arm64) platform="linux-arm64" ;;
+  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 2 ;;
+esac
+
+for command in curl python3 sha256sum flock systemctl; do
+  command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 2; }
+done
+test -r "$config" || { echo "Configuration is not readable: $config" >&2; exit 2; }
+
+service_stable() {
+  local initial_restarts current_restarts
+  initial_restarts="$(systemctl show "$service" --property=NRestarts --value)"
+  for _ in {1..10}; do
+    sleep 1
+    systemctl is-active --quiet "$service" || return 1
+  done
+  current_restarts="$(systemctl show "$service" --property=NRestarts --value)"
+  [[ "$initial_restarts" == "$current_restarts" ]]
+}
+
+mkdir -p "$install_root/releases"
+exec 9>"$install_root/update.lock"
+flock -n 9 || { echo "Another PQVPN update is already running"; exit 0; }
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$api" -o "$tmp/releases.json"
+
+selection="$(python3 - "$tmp/releases.json" "$platform" "$allow_prerelease" <<'PY'
+import json, pathlib, sys
+releases = json.loads(pathlib.Path(sys.argv[1]).read_text())
+platform, allow_prerelease = sys.argv[2], sys.argv[3] == "1"
+for release in releases:
+    if release.get("draft") or (release.get("prerelease") and not allow_prerelease):
+        continue
+    assets = release.get("assets", [])
+    archive = next((a for a in assets if a["name"].endswith(platform + ".tar.gz")), None)
+    sums = next((a for a in assets if a["name"] == "SHA256SUMS"), None)
+    if archive and sums:
+        print(release["tag_name"])
+        print(archive["name"])
+        print(archive["browser_download_url"])
+        print(sums["browser_download_url"])
+        break
+else:
+    raise SystemExit("No release contains both the requested archive and SHA256SUMS")
+PY
+)"
+mapfile -t selected <<<"$selection"
+tag="${selected[0]}"; asset="${selected[1]}"; asset_url="${selected[2]}"; sums_url="${selected[3]}"
+[[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "Release returned an unsafe tag" >&2; exit 3; }
+[[ "$asset" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] || { echo "Release returned an unsafe asset name" >&2; exit 3; }
+release_prefix="https://github.com/${repo}/releases/download/"
+[[ "$asset_url" == "$release_prefix"* && "$sums_url" == "$release_prefix"* ]] || { echo "Release returned an unexpected download host" >&2; exit 3; }
+target="$install_root/releases/$tag"
+
+if [[ -x "$target/bin/pqvpn_node" && -L "$install_root/current" && "$(readlink -f "$install_root/current")" == "$target" ]]; then
+  "$target/bin/pqvpn_node" --validate-config --config "$config"
+  service_state="$(systemctl is-active "$service" 2>&1 || true)"
+  if [[ "$service_state" != "active" ]]; then
+    echo "PQVPN service state is $service_state; restarting it"
+    systemctl restart "$service" || { echo "Could not restart $service" >&2; exit 4; }
+    service_stable || { echo "Current PQVPN release did not remain stable" >&2; exit 4; }
+  fi
+  printf '%s\n' "$tag" >"$install_root/current-version" || { echo "Could not record the current version" >&2; exit 4; }
+  echo "PQVPN mainnet is already current: $tag"
+  exit 0
+fi
+
+curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$asset_url" -o "$tmp/$asset"
+curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$sums_url" -o "$tmp/SHA256SUMS"
+expected="$(awk -v name="$asset" '$2 == name || $2 == "*" name {print $1; exit}' "$tmp/SHA256SUMS")"
+[[ "$expected" =~ ^[0-9A-Fa-f]{64}$ ]] || { echo "Release checksum for $asset is missing" >&2; exit 3; }
+actual="$(sha256sum "$tmp/$asset" | awk '{print $1}')"
+[[ "${actual,,}" == "${expected,,}" ]] || { echo "SHA-256 verification failed for $asset" >&2; exit 3; }
+
+mkdir "$tmp/unpack"
+python3 - "$tmp/$asset" "$tmp/unpack" <<'PY'
+import pathlib, shutil, stat, sys, tarfile
+
+archive, destination = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]).resolve()
+with tarfile.open(archive, "r:gz") as package:
+    symlinks = []
+    seen = set()
+    for member in package.getmembers():
+        relative = pathlib.PurePosixPath(member.name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise SystemExit(f"Unsafe archive path: {member.name}")
+        normalized = relative.as_posix().rstrip("/")
+        if normalized in seen:
+            raise SystemExit(f"Duplicate archive entry: {member.name}")
+        seen.add(normalized)
+        if member.islnk() or member.isdev():
+            raise SystemExit(f"Unsupported archive entry: {member.name}")
+        output = destination.joinpath(*relative.parts)
+        if output != destination and destination not in output.parents:
+            raise SystemExit(f"Archive path escapes destination: {member.name}")
+        if member.issym():
+            link = pathlib.PurePosixPath(member.linkname)
+            if link.is_absolute():
+                raise SystemExit(f"Absolute archive link: {member.name}")
+            target = (output.parent / pathlib.Path(*link.parts)).resolve()
+            if target != destination and destination not in target.parents:
+                raise SystemExit(f"Archive link escapes destination: {member.name}")
+            symlinks.append((output, member.linkname))
+        elif member.isdir():
+            output.mkdir(parents=True, exist_ok=True)
+        elif member.isfile():
+            output.parent.mkdir(parents=True, exist_ok=True)
+            source = package.extractfile(member)
+            if source is None:
+                raise SystemExit(f"Could not read archive entry: {member.name}")
+            with source, output.open("wb") as target_file:
+                shutil.copyfileobj(source, target_file)
+            output.chmod(0o755 if member.mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH) else 0o644)
+        else:
+            raise SystemExit(f"Unsupported archive entry: {member.name}")
+    for output, linkname in symlinks:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        if output.exists() or output.is_symlink() or output.parent.resolve() != output.parent:
+            raise SystemExit(f"Unsafe archive link location: {output.relative_to(destination)}")
+        output.symlink_to(linkname)
+PY
+node="$(find "$tmp/unpack" -type f -path '*/bin/pqvpn_node' -print -quit)"
+[[ -n "$node" ]] || { echo "Release does not contain bin/pqvpn_node" >&2; exit 3; }
+release_root="$(dirname "$(dirname "$node")")"
+"$node" --validate-config --config "$config"
+"$node" --smoke-test --config "$config"
+
+staged="$install_root/releases/.${tag}.new"
+rm -rf -- "$staged"
+mkdir "$staged"
+cp -a "$release_root"/. "$staged"/
+chown -R root:root "$staged"
+chmod -R go-w "$staged"
+if [[ -e "$target" || -L "$target" ]]; then rm -rf -- "$target"; fi
+mv "$staged" "$target"
+
+previous=""
+if [[ -L "$install_root/current" ]]; then previous="$(readlink -f "$install_root/current")"; fi
+ln -sfn "$target" "$install_root/current.new"
+mv -Tf "$install_root/current.new" "$install_root/current"
+
+if ! systemctl restart "$service" || ! service_stable; then
+  echo "Updated service failed; rolling back" >&2
+  if [[ -n "$previous" && -x "$previous/bin/pqvpn_node" ]]; then
+    ln -sfn "$previous" "$install_root/current.rollback"
+    mv -Tf "$install_root/current.rollback" "$install_root/current"
+    systemctl restart "$service"
+    service_stable || echo "Previous release also failed its stability check" >&2
+  fi
+  exit 4
+fi
+
+printf '%s\n' "$tag" >"$install_root/current-version"
+echo "PQVPN mainnet updated to $tag"
