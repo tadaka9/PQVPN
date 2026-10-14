@@ -133,14 +133,21 @@ def check_rpm(package, version, arch):
     fields = raw.splitlines()
     if len(fields) != 4 or fields[0] != "pqvpn":
         raise GateError("Invalid RPM name or metadata")
-    expected = re.match(r"^(\d+)\.(\d+)-(?:alpha|beta)-\d+-", version)
-    if expected is None:
-        expected = re.match(r"^(\d+)\.(\d+)\.(\d+)", version)
-        numeric = ".".join(expected.groups()) if expected else None
+    prerelease = re.fullmatch(
+        r"(\d+)\.(\d+)-(alpha|beta)-(\d+)-([0-9A-Za-z.-]+)", version)
+    if prerelease:
+        major, minor, stage, date, label = prerelease.groups()
+        numeric = f"{major}.{minor}.0"
+        release = f"0.{stage}.{date}.{label.replace('-', '.')}"
     else:
-        numeric = ".".join(expected.groups()) + ".0"
-    if fields[1] != numeric or fields[3] != {"x86_64": "x86_64", "arm64": "aarch64"}[arch]:
-        raise GateError(f"RPM version/architecture mismatch: {fields[1:]}")
+        stable = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version)
+        if not stable:
+            raise GateError("Unsupported RPM source version")
+        numeric = ".".join(stable.groups())
+        release = "1"
+    if (fields[1] != numeric or fields[2] != release or
+            fields[3] != {"x86_64": "x86_64", "arm64": "aarch64"}[arch]):
+        raise GateError(f"RPM version/release/architecture mismatch: {fields[1:]}")
     inventory = run("rpm", "-qlp", str(package)).splitlines()
     if not any(name.endswith("/bin/pqvpn_node") for name in inventory):
         raise GateError("RPM payload does not contain pqvpn_node")
