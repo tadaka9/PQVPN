@@ -30,6 +30,8 @@ TEST_CASE("Existing broken identities fail closed and temporary files are preser
     std::ifstream temporary(path.string() + ".tmp");
     CHECK(std::string(std::istreambuf_iterator<char>(temporary), {}) == "existing");
     std::filesystem::remove(path.string() + ".tmp");
+    CHECK_THROWS(pqvpn::identity::write_private_file(path.string(), "replacement"));
+    std::filesystem::remove(path);
     pqvpn::identity::write_private_file(path.string(), "private");
 #ifndef _WIN32
     CHECK((std::filesystem::status(path).permissions() &

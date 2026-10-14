@@ -31,7 +31,7 @@ inline void write_private_file(const std::string& path, const std::string& conte
         written == contents.size() && FlushFileBuffers(file);
     CloseHandle(file);
     if (!complete || !MoveFileExW(std::filesystem::path(temporary).c_str(),
-            std::filesystem::path(path).c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+            std::filesystem::path(path).c_str(), MOVEFILE_WRITE_THROUGH)) {
         DeleteFileW(std::filesystem::path(temporary).c_str());
         throw std::runtime_error("cannot persist private identity file");
     }
@@ -48,10 +48,11 @@ inline void write_private_file(const std::string& path, const std::string& conte
     }
     if (::fsync(file) != 0) complete = false;
     if (::close(file) != 0) complete = false;
-    if (!complete || ::rename(temporary.c_str(), path.c_str()) != 0) {
+    if (!complete || ::link(temporary.c_str(), path.c_str()) != 0) {
         ::unlink(temporary.c_str());
         throw std::runtime_error("cannot persist private identity file");
     }
+    ::unlink(temporary.c_str());
 #endif
 }
 } // namespace pqvpn::identity
