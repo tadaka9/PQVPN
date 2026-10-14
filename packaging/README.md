@@ -35,6 +35,15 @@ implemented. Arch Linux users can generate a checksum-pinned PKGBUILD with
 `packaging/arch/generate-pkgbuild.sh COMMIT OUTPUT` and build using `makepkg -si`;
 a native Arch packaging job has not yet verified this path.
 
+`tools/verify-distribution-artifact.py` now provides a fail-closed **artifact**
+gate for Linux tar, DEB, RPM, Arch and AppImage (including architecture,
+metadata, archive contents, and native extracted smoke where supported).
+The Linux CI matrix executes the tar and DEB gates on both CPU architectures;
+RPM, Arch and AppImage require real candidate producers and native runners.
+These are package checks, **not** proof of privileged VPN traffic, installer
+upgrade/removal, platform signatures or attestation. See
+[Linux distribution gates](../docs/linux-distribution-gates.md).
+
 `PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
 DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs build
 and source readiness checks. Publication uses `Publish qualified prerelease`
