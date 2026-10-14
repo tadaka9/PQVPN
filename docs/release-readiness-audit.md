@@ -80,10 +80,12 @@ independent cryptographic security audit or evidence that every platform works.
    succeed for the exact immutable commit.
 
 Do not turn false flags into true, add passing placeholder gate scripts, reuse
-old-commit artifacts, or disable mandatory platform checks to publish. The
-source preflight is deliberately still failing until genuine native evidence
-can be produced. These fixes improve packaging and prevent premature publication;
-they do not make a qualified multi-platform prerelease ready.
+old-commit artifacts, or disable mandatory platform checks to publish. The strict
+source preflight deliberately still fails until genuine native evidence can be
+produced. Tagged build CI reports these blockers without failing a successful
+build matrix, but neither the native functional release workflow nor the
+qualified publication workflow permits release without all required checks.
+These fixes do not make a qualified multi-platform prerelease ready.
 
 ## Extended installer and console audit
 

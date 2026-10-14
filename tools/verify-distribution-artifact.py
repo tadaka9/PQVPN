@@ -249,7 +249,13 @@ def check_rpm(package, version, arch):
         r"(\d+)\.(\d+)-(alpha|beta)-(\d+)-([0-9A-Za-z.-]+)", version)
     legacy = re.fullmatch(
         r"alpha-(\d+)\.(\d+)-(\d+)-([0-9A-Za-z.-]+)", version)
-    if prerelease:
+    dated_beta = re.fullmatch(
+        r"(\d+)\.(\d+)\.(\d+)-(\d{8})-([0-9A-Za-z.]+)-beta(-[0-9A-Za-z.-]+)?", version)
+    if dated_beta:
+        major, minor, patch, date, label, suffix = dated_beta.groups()
+        numeric = f"{major}.{minor}.{patch}"
+        release = f"0.beta.{date}.{(label + (suffix or '')).replace('-', '.')}"
+    elif prerelease:
         major, minor, stage, date, label = prerelease.groups()
         numeric = f"{major}.{minor}.0"
         release = f"0.{stage}.{date}.{label.replace('-', '.')}"

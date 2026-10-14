@@ -2,7 +2,9 @@
 
 pqvpn_debian_version() {
   local version="$1"
-  if [[ "$version" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
+  if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]{8})-([0-9A-Za-z.]+)-beta(-[0-9A-Za-z.-]+)?$ ]]; then
+    printf '%s.%s.%s~beta-%s-%s%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}" "${BASH_REMATCH[5]}" "${BASH_REMATCH[6]}"
+  elif [[ "$version" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
     printf '%s.%s.0~alpha-%s-%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" \
       "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"
   elif [[ "$version" =~ ^([0-9]+)\.([0-9]+)-(alpha|beta)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
@@ -15,7 +17,9 @@ pqvpn_debian_version() {
 
 pqvpn_arch_version() {
   local version="$1" converted
-  if [[ "$version" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
+  if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-([0-9]{8})-([0-9A-Za-z.]+)-beta(-[0-9A-Za-z.-]+)?$ ]]; then
+    converted="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.beta.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
+  elif [[ "$version" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
     converted="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0.alpha.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}"
   elif [[ "$version" =~ ^([0-9]+)\.([0-9]+)-(alpha|beta)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
     converted="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}"

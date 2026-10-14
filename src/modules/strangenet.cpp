@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 
 namespace pqvpn::strangenet {
 namespace {
@@ -133,6 +134,61 @@ void ReplayGuard::leave_room(const std::string& room) {
     for (auto it = streams_.begin(); it != streams_.end();) {
         if (it->first.starts_with(prefix)) it = streams_.erase(it); else ++it;
     }
+}
+
+FloodDecision FloodGuard::accept(const Message& message, const std::uint64_t now_ms) {
+    constexpr double sender_rate = 2.0;
+    constexpr double sender_burst = 8.0;
+    constexpr double room_rate = 32.0;
+    constexpr double room_burst = 128.0;
+    constexpr std::uint64_t idle_expiry_ms = 5 * 60 * 1000;
+
+    const double payload_cost = 1.0 +
+        static_cast<double>(message.text.empty() ? 0 : message.text.size() - 1) / 512.0;
+    const double cost = message.kind == Kind::Acknowledgement ? 0.25
+        : (message.kind == Kind::Reaction ? 0.5 : payload_cost);
+    const auto& sender_key = message.sender;
+
+    auto expire_idle = [now_ms](auto& buckets, const std::uint64_t expiry) {
+        for (auto it = buckets.begin(); it != buckets.end();) {
+            if (now_ms >= it->second.last_seen_ms && now_ms - it->second.last_seen_ms >= expiry)
+                it = buckets.erase(it);
+            else
+                ++it;
+        }
+    };
+    if (!senders_.contains(sender_key) && senders_.size() >= kMaxFloodStreams)
+        expire_idle(senders_, idle_expiry_ms);
+    if (!rooms_.contains(message.room) && rooms_.size() >= kMaxFloodRooms)
+        expire_idle(rooms_, idle_expiry_ms);
+    if ((!senders_.contains(sender_key) && senders_.size() >= kMaxFloodStreams) ||
+        (!rooms_.contains(message.room) && rooms_.size() >= kMaxFloodRooms))
+        return {false, 1000};
+
+    auto prepare = [now_ms](Bucket& bucket, const double rate, const double burst) {
+        if (bucket.updated_ms == 0) {
+            bucket.tokens = burst;
+            bucket.updated_ms = now_ms;
+        } else if (now_ms > bucket.updated_ms) {
+            bucket.tokens = std::min(burst, bucket.tokens +
+                static_cast<double>(now_ms - bucket.updated_ms) * rate / 1000.0);
+            bucket.updated_ms = now_ms;
+        }
+        bucket.last_seen_ms = now_ms;
+    };
+    auto& sender = senders_[sender_key];
+    auto& room = rooms_[message.room];
+    prepare(sender, sender_rate, sender_burst);
+    prepare(room, room_rate, room_burst);
+
+    if (sender.tokens < cost || room.tokens < cost) {
+        const double sender_wait = std::max(0.0, cost - sender.tokens) / sender_rate;
+        const double room_wait = std::max(0.0, cost - room.tokens) / room_rate;
+        return {false, static_cast<std::uint64_t>(std::ceil(std::max(sender_wait, room_wait) * 1000.0))};
+    }
+    sender.tokens -= cost;
+    room.tokens -= cost;
+    return {true, 0};
 }
 
 } // namespace pqvpn::strangenet

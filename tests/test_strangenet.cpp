@@ -66,6 +66,34 @@ TEST_CASE("StrangeNet bounds replay state", "[strangenet][hardening]") {
     CHECK(guard.accept(Message{"replacement", "peer", 1, 1, "accepted"}));
 }
 
+TEST_CASE("StrangeNet antiflood limits one authenticated sender", "[strangenet][hardening]") {
+    FloodGuard guard;
+    Message message{"mainnet", "peer-alice", 1, 1, "x"};
+    for (std::uint64_t sequence = 1; sequence <= 8; ++sequence) {
+        message.sequence = sequence;
+        message.room = sequence % 2 == 0 ? "mainnet" : "another-room";
+        CHECK(guard.accept(message, 1000).allowed);
+    }
+    const auto limited = guard.accept(message, 1000);
+    CHECK_FALSE(limited.allowed);
+    CHECK(limited.retry_after_ms == 500);
+    CHECK(guard.accept(message, 1500).allowed);
+}
+
+TEST_CASE("StrangeNet antiflood bounds a large room in aggregate", "[strangenet][hardening]") {
+    FloodGuard guard;
+    for (std::size_t index = 0; index < 128; ++index) {
+        const Message message{"mainnet", "peer-" + std::to_string(index), 1, 1, "x"};
+        REQUIRE(guard.accept(message, 1000).allowed);
+    }
+    const Message overflow{"mainnet", "peer-overflow", 1, 1, "x"};
+    const auto limited = guard.accept(overflow, 1000);
+    CHECK_FALSE(limited.allowed);
+    CHECK(limited.retry_after_ms > 0);
+    CHECK(limited.retry_after_ms <= 32);
+    CHECK(guard.accept(overflow, 1032).allowed);
+}
+
 TEST_CASE("StrangeNet travels through an authenticated PQVPN session", "[strangenet][tunnel]") {
     asio::io_context io;
     pqvpn::PQVPNNode alice{io}, bob{io};

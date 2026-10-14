@@ -45,9 +45,12 @@ upgrade/removal, platform signatures or attestation. See
 [Linux distribution gates](../docs/linux-distribution-gates.md).
 
 `PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
-DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs build
-and source readiness checks. Publication uses `Publish qualified prerelease`
-only after native functional qualification.
+DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs the native build matrix. Tagged CI warns only about
+known missing native qualification gates; invalid tags, project versions,
+manifests or malformed reports still fail. A green CI does not authorize
+qualified publication. `Native functional release gates` and
+`Publish qualified prerelease` continue enforcing native evidence, signing,
+and exact-commit attestations.
 The tag is exactly `v` plus that public version, including labels such as
 `valpha-0.6-10142026-cybergun`; source readiness rejects any mismatch.
 

@@ -700,7 +700,10 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     session->last_peer_response = now;
     if (strangenet_frame) {
         auto message = strangenet::decode(*plaintext);
+        const auto now_ms = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
         if (!message || !session->peer_id_ || message->sender != hex_id(*session->peer_id_) ||
+            !strangenet_flood_guard_.accept(*message, now_ms).allowed ||
             !strangenet_replay_guard_.accept(*message)) co_return;
         if (strangenet_handler_) {
             try { strangenet_handler_(*message, *session->peer_id_); }
@@ -920,11 +923,12 @@ std::size_t PQVPNNode::broadcast_strangenet_message(
     const std::string& text, const strangenet::Kind kind, const std::uint64_t reply_to,
     const std::vector<uint8_t>* except_peer) {
     std::vector<std::vector<uint8_t>> recipients;
-    recipients.reserve(sessions_by_peer_id.size());
+    recipients.reserve(std::min(sessions_by_peer_id.size(), strangenet::kMaxBroadcastRecipients));
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
         if (!session || session->state != SessionState::ESTABLISHED ||
             (except_peer && peer_id == *except_peer)) continue;
         recipients.push_back(peer_id);
+        if (recipients.size() == strangenet::kMaxBroadcastRecipients) break;
     }
     std::size_t delivered = 0;
     for (const auto& peer_id : recipients) {

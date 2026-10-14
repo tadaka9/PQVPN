@@ -490,6 +490,7 @@ int main(int argc, char** argv) {
             // Sequence numbers remain monotonic for every room during this
             // authenticated process lifetime, including leave/rejoin cycles.
             std::unordered_map<std::string, std::uint64_t> sequences;
+            pqvpn::strangenet::FloodGuard outbound_flood;
         };
         auto strange = std::make_shared<StrangeNetRuntime>();
         strange->room = args.strangenet_room;
@@ -589,11 +590,22 @@ int main(int argc, char** argv) {
                                 const auto timestamp = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::system_clock::now().time_since_epoch()).count());
-                                auto& sequence = strange->sequences[strange->room];
-                                const auto current = ++sequence;
                                 const auto kind = name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
                                     : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
                                                                    : pqvpn::strangenet::Kind::Text);
+                                const auto monotonic_ms = static_cast<std::uint64_t>(
+                                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        std::chrono::steady_clock::now().time_since_epoch()).count());
+                                const auto flood = strange->outbound_flood.accept(
+                                    {strange->room, "local", 1, timestamp, text, kind, reply_to}, monotonic_ms);
+                                if (!flood.allowed) {
+                                    emit_console_event({{"event", "strangenet.rate_limited"},
+                                                        {"message", "StrangeNet antiflood limit reached"},
+                                                        {"retry_after_ms", flood.retry_after_ms}});
+                                    return;
+                                }
+                                auto& sequence = strange->sequences[strange->room];
+                                const auto current = ++sequence;
                                 const std::size_t recipients = strange->peer
                                     ? (node->send_strangenet_message(*strange->peer, strange->room,
                                           current, timestamp, text, kind, reply_to) ? 1u : 0u)
@@ -627,6 +639,16 @@ int main(int argc, char** argv) {
                 asio::post(io, [node, strange, text = line, timestamp] {
                     if (strange->room.empty()) {
                         std::cerr << "StrangeNet send deferred: no room joined\n";
+                        return;
+                    }
+                    const auto monotonic_ms = static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch()).count());
+                    const auto flood = strange->outbound_flood.accept(
+                        {strange->room, "local", 1, timestamp, text}, monotonic_ms);
+                    if (!flood.allowed) {
+                        std::cerr << "StrangeNet send deferred: antiflood limit; retry in "
+                                  << flood.retry_after_ms << " ms\n";
                         return;
                     }
                     auto& sequence = strange->sequences[strange->room];
