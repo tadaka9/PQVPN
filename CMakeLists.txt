@@ -3,7 +3,7 @@ file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSI
 string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
 # Public labels are preserved in CLI output and artifact names. Package managers
 # and project() additionally require numeric version components.
-if(PQVPN_PROJECT_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([0-9]{8})-([0-9A-Za-z.]+)-beta(-[0-9A-Za-z.-]+)?$")
+if(PQVPN_PROJECT_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)-([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])-([0-9A-Za-z.]+)-beta(-[0-9A-Za-z.-]+)?$")
   set(PQVPN_NUMERIC_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
   set(PQVPN_PACKAGE_PRERELEASE "beta-${CMAKE_MATCH_4}-${CMAKE_MATCH_5}${CMAKE_MATCH_6}")
   set(PQVPN_DEBIAN_VERSION "${PQVPN_NUMERIC_VERSION}~${PQVPN_PACKAGE_PRERELEASE}")
