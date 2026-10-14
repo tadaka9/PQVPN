@@ -496,7 +496,7 @@ jobs:
           if (-not (Test-Path $candle) -or -not (Test-Path $light)) { throw 'WiX candle/light not found on runner' }
           $heat = Join-Path (Split-Path $candle) 'heat.exe'
           New-Item -ItemType Directory -Path msi-build -Force | Out-Null
-          & $heat dir $stage -dr INSTALLDIR -cg ProductComponents -sreg -sfrag -gg -ke -out msi-build/files.wxs
+          & $heat dir $stage -dr INSTALLDIR -cg ProductComponents -srd -sreg -sfrag -gg -ke -out msi-build/files.wxs
           if ($LASTEXITCODE -ne 0) { throw 'heat failed' }
           & $candle -arch x64 -dMsiVersion="$msiVersion" packaging/windows/pqvpn.wxs msi-build/files.wxs -o msi-build/
           if ($LASTEXITCODE -ne 0) { throw 'candle failed' }

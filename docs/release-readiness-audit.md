@@ -158,3 +158,5 @@ On-demand engine catalog: all four Linux x86_64 downloads passed pinned archive 
 The macOS installed-bundle smoke exposed a missing `LC_RPATH` for Qt frameworks. The GUI now retains `@executable_path/../Frameworks` in its install RPATH; native package smoke runs without SDK loader overrides.
 
 The dependency updater now checks out and fast-forward-pushes `future`, preserves concurrent work by refusing non-fast-forward pushes, and prepares the existing integration PR without automatically merging unrelated development. It no longer recreates a third automation branch.
+
+The Windows clean-install test exposed an extra staging-root directory in the MSI payload: WiX Heat included `msi-stage` below INSTALLDIR, leaving Start Menu targets and the expected `bin` directory unavailable. Heat now uses `-srd` to retain only the intended payload children. The lifecycle test continues to require the actual installation layout rather than accepting the nested directory.
