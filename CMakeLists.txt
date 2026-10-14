@@ -171,7 +171,8 @@ if(PQVPN_BUILD_MONITOR)
         MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.tadaka9.pqvpn"
         MACOSX_BUNDLE_BUNDLE_NAME "PQVPN"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        INSTALL_RPATH "@executable_path/../Frameworks")
     endif()
     # Keep the packaged Qt runtime ahead of any older system Qt.  The deploy
     # script installs libraries under lib/ beside bin/pqvpn_monitor; without

@@ -160,6 +160,10 @@ jobs:
           path: ${{ runner.temp }}/pqvpn-console
           if-no-files-found: error
 
+      - name: Verify pinned on-demand engines on native platform
+        shell: bash
+        run: python3 tests/check_transport_catalog.py --platform "${{ matrix.target }}"
+
       - name: Verify architecture and CLI startup
         shell: bash
         run: |
@@ -460,6 +464,12 @@ jobs:
         run: |
           packaging/windows/build-installer.ps1 -BuildDir build/Release -OutputDir artifacts -Version $env:PQVPN_VERSION
           if (-not (Get-ChildItem artifacts -Filter '*.zip')) { throw 'portable zip was not produced' }
+
+      - name: Verify pinned on-demand engines on Windows
+        shell: pwsh
+        run: |
+          python tests/check_transport_catalog.py --platform windows-x86_64
+          if ($LASTEXITCODE -ne 0) { throw "Transport catalog smoke failed" }
 
       - name: Build MSI installer
         shell: pwsh

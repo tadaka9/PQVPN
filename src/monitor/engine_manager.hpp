@@ -23,7 +23,7 @@ class EngineManager : public QObject {
 public:
     std::function<void(const QString&)> report;
     explicit EngineManager(QObject* parent) : QObject(parent) {}
-    ~EngineManager() override { for (auto* process : jobs_) { process->kill(); process->waitForFinished(300); } }
+    ~EngineManager() override { const auto processes=jobs_.values(); for (auto* process : processes) { disconnect(process,nullptr,this,nullptr); process->kill(); process->waitForFinished(300); } }
     bool active(const QString& id) const { return jobs_.contains(id); }
     void stop(const QString& id) {
         if (auto* process = jobs_.value(id)) {
