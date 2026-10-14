@@ -21,6 +21,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of PQVPN is already installed." />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
     <UIRef Id="WixUI_InstallDir" />
+    <WixVariable Id="WixUILicenseRtf" Value="packaging/windows/license.rtf" />
     <Property Id="ARPCOMMENTS" Value="Post-quantum privacy node and console" />
     <Property Id="ARPURLINFOABOUT" Value="https://tadaka9.github.io/PQVPN/" />
 

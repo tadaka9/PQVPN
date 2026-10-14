@@ -1,6 +1,6 @@
 # StrangeNet universal encrypted chat
 
-StrangeNet v2 is a bounded, session-only chat carried by authenticated PQVPN mainnet sessions. The desktop console joins `mainnet` as a universal room and fans each outbound item out to every established authenticated peer. Each recipient gets a separately encrypted frame; there is no shared plaintext broadcast packet.
+StrangeNet v2 is a bounded, session-only chat carried by authenticated PQVPN mainnet sessions. The desktop console joins `mainnet` as a universal room and fans each outbound item out to as many as 512 established authenticated peers. Each recipient gets a separately encrypted frame; there is no shared plaintext broadcast packet.
 
 ## Security boundary
 
@@ -16,6 +16,24 @@ different peer if that identity disconnects. Discovery alone never places an
 entry in this directory and never grants chat access.
 
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
+
+## Antiflood behavior
+
+Every authenticated sender has a process-lifetime token bucket (eight-item
+burst, two tokens per second). Each room also has an aggregate bucket (128-item
+burst, 32 tokens per second). Text and stickers consume more capacity as their payload
+approaches 2 KiB; acknowledgements and compact reactions cost less. These checks
+run after session authentication and sender binding, but before the message
+reaches the UI or produces a delivery receipt. Outbound GUI and CLI messages use
+the same limits. When the local sender exhausts a bucket, the node returns the
+calculated retry delay and the GUI keeps the draft instead of using a fixed
+five-second timer.
+
+Flood state is memory-only and bounded to 4,096 sender streams and 256 rooms;
+idle entries expire after five minutes. One broadcast is capped at 512 directly
+authenticated sessions, bounding encryption and UDP work per click. Larger
+communities require an authenticated room distribution layer; the current
+direct-session protocol does not claim unbounded global fanout.
 
 ## Optional blockchain anchor
 
@@ -43,7 +61,9 @@ Version 2 frames support:
 - compact custom sticker specifications;
 - reactions tied to a sender and message sequence;
 - a 64-packet per-room, per-sender replay window that tolerates bounded UDP reordering;
-- a hard limit of 4,096 replay streams per process.
+- a hard limit of 4,096 replay streams per process;
+- bounded per-sender and aggregate room token buckets;
+- a maximum of 512 direct recipients per broadcast operation.
 
 Version 1 text frames remain decodable. New senders emit version 2.
 

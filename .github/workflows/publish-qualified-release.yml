@@ -42,8 +42,13 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$TAG" =~ ^v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]
-          tag_sha="$(git rev-list -n 1 "$TAG")"
+          if [[ "$GITHUB_REF" != "refs/tags/$TAG" ]]; then
+            echo '::error::Dispatch publication from the exact immutable tag ref.'
+            exit 1
+          fi
+          tag_sha="$(git rev-parse "refs/tags/$TAG^{commit}")"
           test -n "$tag_sha"
+          test "$tag_sha" = "$(git rev-parse HEAD)"
           python3 tools/check-release-readiness.py --tag "$TAG"
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
           test "$(jq -r .path <<<"$run_json")" = ".github/workflows/functional-release-gates.yml"
@@ -52,6 +57,7 @@ jobs:
           test "$(jq -r .conclusion <<<"$run_json")" = success
           test "$(jq -r .head_repository.full_name <<<"$run_json")" = "$GITHUB_REPOSITORY"
           test "$(jq -r .head_sha <<<"$run_json")" = "$tag_sha"
+          test "$(jq -r .head_branch <<<"$run_json")" = "$TAG"
           echo "PQVPN_RELEASE_SHA=$tag_sha" >> "$GITHUB_ENV"
 
       - name: Download every evidence and candidate artifact
@@ -71,27 +77,19 @@ jobs:
               --name "release-candidate-$target" --dir "candidates/$target"
           done
 
-      - name: Fail closed on incomplete functional evidence
+      - name: Fail closed on incomplete, mismatched, or tampered functional evidence
         shell: bash
         run: |
           set -euo pipefail
+          version="$(cat PQVPN_VERSION.txt)"
           for directory in evidence/*; do
             target="${directory##*/}"
-            test -s "$directory/evidence.json"
-            test -s "$directory/verification.log"
-            jq -e --arg target "$target" --arg sha "$PQVPN_RELEASE_SHA" '
-              .schema == 1 and .target == $target and .commit_sha == $sha and
-              .passed == true and .native_runner == true and
-              .privileged_tunnel_e2e == true and
-              .bidirectional_traffic == true and .route_dns_rollback == true and
-              .clean_install_upgrade_remove == true and
-              .architecture_verified == true and
-              .runtime_dependencies_verified == true and
-              .platform_signature_verified == true and
-              .provenance_verified == true
-            ' "$directory/evidence.json"
+            python3 tools/validate-functional-evidence.py \
+              --target "$target" --commit "$PQVPN_RELEASE_SHA" \
+              --version "$version" \
+              --evidence-dir "$directory" \
+              --candidate-dir "candidates/$target"
           done
-
       - name: Verify candidate count, type, and provenance
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,101 @@
+name: Promote verified beta tag and prerelease
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# Trusted workflow_run event from successful CI in this repository only.
+# Tags created with GITHUB_TOKEN do not trigger push workflows, so we
+# explicitly dispatch CI on the immutable beta tag.
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: promote-pqvpn-beta
+  cancel-in-progress: false
+
+jobs:
+  create-immutable-beta-tag:
+    name: Create new beta tag after green main CI
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Verify main commit, create immutable tag and dispatch tagged CI
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          [[ "$CI_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$CI_SHA"
+          test "$(git rev-parse origin/main)" = "$CI_SHA"
+          version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          tag="v$version"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; no change is allowed."
+            exit 0
+          fi
+          if existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null)"; then
+            test "$existing" = "$CI_SHA" || {
+              echo "::error::Tag $tag exists at a different commit; refusing to retag."
+              exit 1
+            }
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$tag" -f "sha=$CI_SHA" >/dev/null
+            echo "Created immutable tag $tag at $CI_SHA"
+          fi
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
+          echo "Dispatched tagged CI for $tag from main CI $CI_RUN_ID."
+
+  publish-verified-tag-build:
+    name: Dispatch experimental prerelease after green tagged CI
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_dispatch' &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Verify beta tag and dispatch protected publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          [[ "$CI_SHA" =~ ^[0-9a-f]{40}$ && "$CI_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          git fetch origin main --tags
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CI_SHA"
+          test "$(git rev-parse HEAD)" = "$CI_SHA"
+          test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
+          git merge-base --is-ancestor "$CI_SHA" origin/main
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Prerelease $TAG exists; no duplicate publication."
+            exit 0
+          fi
+          gh workflow run publish-test-prerelease.yml \
+            --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
+            -f "tag=$TAG" -f "ci_run_id=$CI_RUN_ID"
+          echo "Dispatched attestation and protected beta publication for $TAG."

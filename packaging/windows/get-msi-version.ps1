@@ -1,6 +1,8 @@
 param([Parameter(Mandatory = $true)][string]$Version)
 $ErrorActionPreference = 'Stop'
-if ($Version -match '^alpha-(\d+)\.(\d+)-\d+-[0-9A-Za-z.-]+$') {
+if ($Version -match '^(\d+)\.(\d+)\.(\d+)-\d{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$') {
+    $parts = @([uint64]$Matches[1], [uint64]$Matches[2], [uint64]$Matches[3])
+} elseif ($Version -match '^alpha-(\d+)\.(\d+)-\d+-[0-9A-Za-z.-]+$') {
     $parts = @([uint64]$Matches[1], [uint64]$Matches[2], [uint64]0)
 } elseif ($Version -match '^(\d+)\.(\d+)-(alpha|beta)-\d+-[0-9A-Za-z.-]+$') {
     $parts = @([uint64]$Matches[1], [uint64]$Matches[2], [uint64]0)

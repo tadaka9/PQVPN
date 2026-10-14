@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Actual Linux native BUILD + CRYPTO/ROUTING REGRESSION PROBES.
+# The tests here are not proof of a privileged PQVPN tunnel, DNS rollback,
+# a signed package, or independent provenance. All such fields stay false.
+set -euo pipefail
+umask 077
+
+TARGET="linux-arm64"
+MACHINE="aarch64"
+ARCH_FILE="aarch64"
+OUTPUT_DIR="${PQVPN_OUTPUT_DIR:?Set PQVPN_OUTPUT_DIR to a protected output directory}"
+COMMIT_SHA="$(git rev-parse HEAD)"
+VERSION="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+mkdir -p "$OUTPUT_DIR/candidate"
+LOG="$OUTPUT_DIR/verification.log"
+
+if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "$MACHINE" ]]; then
+    printf 'Native %s on %s required\n' "$MACHINE" "$(uname -m)" >&2
+    exit 1
+fi
+if [[ "${PQVPN_TARGET:-$TARGET}" != "$TARGET" ]]; then
+    echo "Target mismatch: ${PQVPN_TARGET:-} vs $TARGET" >&2
+    exit 1
+fi
+# Persist complete native output, and replay it to Actions after the script
+# exits. Do not append to the log after hashing it for evidence.json.
+exec 3>&1 4>&2
+exec >"$LOG" 2>&1
+trap 'status=$?; exec 1>&3 2>&4; cat "$LOG"; exit "$status"' EXIT
+echo "Target: $TARGET"
+echo "Immutable commit: $COMMIT_SHA"
+echo "Project version: $VERSION"
+echo "Native Linux machine: $MACHINE"
+echo "Source-level encrypted end-to-end tests are user-space only."
+
+BUILD_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/pqvpn-gate-XXXXXX")"
+trap 'status=$?; rm -rf "$BUILD_DIR"; exec 1>&3 2>&4; cat "$LOG"; exit "$status"' EXIT
+cmake -S . -B "$BUILD_DIR/build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+    -DPQVPN_BUILD_MONITOR=OFF
+cmake --build "$BUILD_DIR/build" \
+    --target pqvpn_node test_e2e_egress test_tunnel_dataplane test_route_transaction \
+    --parallel 2
+test "$(ctest --test-dir "$BUILD_DIR/build" -N \
+    -R '^test_(e2e_egress|tunnel_dataplane|route_transaction)$' \
+    | awk '/Total Tests:/ {print $3}')" = 3
+ctest --test-dir "$BUILD_DIR/build" --output-on-failure -j 1 \
+    -R '^test_(e2e_egress|tunnel_dataplane|route_transaction)$'
+"$BUILD_DIR/build/pqvpn_node" --smoke-test --config config.json
+test "$("$BUILD_DIR/build/pqvpn_node" --version)" = "PQVPN $VERSION"
+file "$BUILD_DIR/build/pqvpn_node" | grep -q "$ARCH_FILE"
+echo "Built ELF CPU architecture checked"
+
+# This checks dependencies on the host, NOT a clean install in every distro.
+ldd "$BUILD_DIR/build/pqvpn_node" | tee "$BUILD_DIR/dependencies.txt"
+! grep -q 'not found' "$BUILD_DIR/dependencies.txt"
+
+STAGE="PQVPN-$VERSION-$TARGET"
+mkdir -p "$BUILD_DIR/stage/$STAGE/bin"
+cp "$BUILD_DIR/build/pqvpn_node" "$BUILD_DIR/stage/$STAGE/bin/pqvpn_node"
+chmod 0755 "$BUILD_DIR/stage/$STAGE/bin/pqvpn_node"
+CANDIDATE="$OUTPUT_DIR/candidate/$STAGE.tar.gz"
+tar -czf "$CANDIDATE" -C "$BUILD_DIR/stage" "$STAGE"
+python3 tools/verify-distribution-artifact.py \
+    --target "$TARGET" --version "$VERSION" --package "$CANDIDATE" \
+    --trusted-node "$BUILD_DIR/stage/$STAGE/bin/pqvpn_node"
+echo "Native user-space egress and route transaction tests passed."
+echo "HOST package dependency resolution passed; signed lifecycle not tested."
+echo "No privileged PQVPN tunnel, real DNS rollback, native clean install, signature or attested provenance was verified."
+# The log must be flushed before computing the evidence hashes. The evidence
+# deliberately refuses release qualification despite valid partial tests.
+export TARGET COMMIT_SHA VERSION OUTPUT_DIR CANDIDATE LOG
+python3 - <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+def sha(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fd:
+        for chunk in iter(lambda: fd.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+out = Path(os.environ["OUTPUT_DIR"])
+candidate = Path(os.environ["CANDIDATE"])
+log = Path(os.environ["LOG"])
+data = {
+    "schema": 2,
+    "target": os.environ["TARGET"],
+    "version": os.environ["VERSION"],
+    "commit_sha": os.environ["COMMIT_SHA"],
+    "runner_os": "Linux",
+    "runner_arch": "ARM64" if os.environ["TARGET"].endswith("arm64") else "X64",
+    "candidate_name": candidate.name,
+    "candidate_size": candidate.stat().st_size,
+    "candidate_sha256": sha(candidate),
+    "verification_log_sha256": sha(log),
+    "native_runner": True,
+    "architecture_verified": True,
+    "passed": False,
+    "privileged_tunnel_e2e": False,
+    "bidirectional_traffic": False,
+    "route_dns_rollback": False,
+    "clean_install_upgrade_remove": False,
+    "runtime_dependencies_verified": False,
+    "platform_signature_verified": False,
+    "provenance_verified": False,
+    "user_space_egress_tested": True,
+    "route_transaction_unit_tested": True,
+}
+(out / "evidence.json").write_text(json.dumps(data, indent=2) + "\n")
+PY
+# This is intentionally a nonzero gate until ALL genuine conditions are met.
+exit 1
