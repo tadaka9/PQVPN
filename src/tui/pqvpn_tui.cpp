@@ -128,15 +128,32 @@ bool is_raw = false;
 
 #if defined(_WIN32)
 DWORD saved_input_mode=0;
-void enable_vt() {
+void configure_utf8_console() {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+}
+bool enable_vt() {
     const HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
     if (output != INVALID_HANDLE_VALUE && GetConsoleMode(output, &mode)) {
-        SetConsoleMode(output, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+        return SetConsoleMode(output, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0;
     }
+    return false;
+}
+std::string tunnel_blocker() {
+    const HANDLE driver=CreateFileW(L"\\\\.\\PQVPN_TUN0",GENERIC_READ|GENERIC_WRITE,
+                                    FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,
+                                    FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(driver!=INVALID_HANDLE_VALUE){CloseHandle(driver);return {};}
+    const DWORD error=GetLastError();
+    if(error==ERROR_ACCESS_DENIED)return "Tunnel driver access denied. Restart the console as administrator, then verify again.";
+    if(error==ERROR_FILE_NOT_FOUND||error==ERROR_PATH_NOT_FOUND)
+        return "PQVPN tunnel driver is not installed. This test build cannot protect system traffic; press M for relay mode.";
+    return "PQVPN tunnel driver is unavailable (Windows error "+std::to_string(error)+"). Press M for relay mode.";
 }
 #else
 struct termios saved_termios;
+std::string tunnel_blocker() { return {}; }
 #endif
 
 void set_raw(const bool raw) {
@@ -426,7 +443,7 @@ bool parse(int argc, char** argv, Options& options) {
 
 int main(int argc, char** argv) {
 #if defined(_WIN32)
-    enable_vt();
+    configure_utf8_console();
 #else
     setvbuf(stdout, nullptr, _IONBF, 0);
 #endif
@@ -444,6 +461,10 @@ int main(int argc, char** argv) {
     }
 
 #ifdef _WIN32
+    if(!enable_vt()){
+        std::cerr<<"This console does not support Windows virtual-terminal rendering. Start PQVPN Terminal Console in Windows Terminal or use the Privacy Console.\n";
+        return 1;
+    }
     DWORD console_mode=0;
     if(!GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),&console_mode)){std::cerr<<"Interactive terminal required; use --smoke-test for automation\n";return 1;}
 #else
@@ -461,6 +482,7 @@ int main(int argc, char** argv) {
     };
 
     std::string notice;
+    if(!options.no_tunnel)notice=tunnel_blocker();
     bool quit = false;
     while (!quit) {
         const ScreenSize size = current_size();
@@ -474,18 +496,19 @@ int main(int argc, char** argv) {
                 const char c = static_cast<char>(key);
                 if (c == 'q' || c == 'Q' || c == 3) { quit = true; break; }
                 else if (c == 'c' || c == 'C') { node.clear_log(); notice.clear(); }
-                else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else{options.no_tunnel=!options.no_tunnel;notice=options.no_tunnel?"Relay mode selected":"Tunnel mode selected";}}
-                else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{auto checked=pqvpn::config::load_config(options.config);if(checked){loaded=std::move(checked);notice="Configuration verified; connect when ready";}else notice="Invalid configuration; review the file before connecting";}}
+                else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else{options.no_tunnel=!options.no_tunnel;if(options.no_tunnel)notice="Relay mode selected";else{notice=tunnel_blocker();if(notice.empty())notice="Tunnel mode selected";}}}
+                else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{auto checked=pqvpn::config::load_config(options.config);if(checked){loaded=std::move(checked);notice=options.no_tunnel?"Configuration verified; relay mode will not protect local traffic":tunnel_blocker();if(notice.empty())notice="Configuration and tunnel readiness verified; connect when ready";}else notice="Invalid configuration; review the file before connecting";}}
                 else if (c == 'd' || c == 'D') {
                     if (node.running() && !node.finished()) {
                         notice = "node already running";
                     } else {
+                        if(!options.no_tunnel){notice=tunnel_blocker();if(!notice.empty())continue;}
                         auto checked=pqvpn::config::load_config(options.config);
                         if(!checked){notice="Configuration changed or is invalid; cannot connect";continue;}
                         loaded=std::move(checked);
                         std::vector<std::string> arguments{"--config",options.config};if(options.no_tunnel)arguments.push_back("--no-tunnel");
                         if (node.start(options.node,arguments)) {
-                            notice = "node starting…";
+                            notice = "node starting...";
                         } else {
                             notice = "failed to start node";
                         }
