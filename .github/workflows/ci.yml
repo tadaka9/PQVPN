@@ -622,8 +622,8 @@ jobs:
         with:
           fetch-depth: 0
       # Native build CI should report qualification gaps, not pretend it is the
-      # separately protected release workflow. The two publication workflows
-      # still run the strict readiness command and require native evidence.
+      # separately protected release workflow. The native qualification and
+      # qualified publication workflows still enforce strict readiness and evidence.
       - name: Report native qualification without authorizing publication
         shell: bash
         run: |
