@@ -7,11 +7,11 @@ commit and target being released.
 
 ## Required targets
 
-The ten qualified publication targets are listed in `release-targets.json`:
-macOS ARM64/x64, Windows ARM64/x64, Linux ARM64/x64, AppImage ARM64/x64,
-and Debian ARM64/x64. RPM and Arch are supplementary distribution targets;
-qualified publication requires implementing their native gates and attestation
-validation before adding them to that manifest.
+All thirteen required publication targets are listed in `release-targets.json`.
+The native gate matrix and publication count include RPM and Arch as well as
+macOS, Windows, Linux tar archives, AppImage, and Debian packages. Each format
+requires its own real installation/lifecycle evidence; build-only artifacts
+are insufficient.
 
 | Target ID | Runner/build architecture | Expected package |
 |---|---|---|
@@ -109,7 +109,7 @@ Update `PQVPN_VERSION.txt` to an unused prerelease version and merge fixes
 only after the native CI matrix and hardening tests pass. Run
 `python3 tools/check-release-readiness.py` before creating the version tag.
 This command lists missing/provisional drivers; it does not certify native
-behavior. The current Linux driver is provisional and the other nine drivers
+behavior. The current Linux driver is provisional and the other twelve drivers
 still require implementation.
 
 Create the tag at the reviewed commit, then dispatch `Native functional release

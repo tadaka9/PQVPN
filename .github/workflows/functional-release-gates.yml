@@ -55,6 +55,12 @@ jobs:
             runs_on: ubuntu-24.04-arm
           - target: deb-x86_64
             runs_on: ubuntu-24.04
+          - target: rpm-arm64
+            runs_on: ubuntu-24.04-arm
+          - target: rpm-x86_64
+            runs_on: ubuntu-24.04
+          - target: arch-x86_64
+            runs_on: ubuntu-24.04
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 90
     steps:

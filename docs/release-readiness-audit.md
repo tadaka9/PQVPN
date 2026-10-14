@@ -23,14 +23,15 @@ independent cryptographic security audit or evidence that every platform works.
 - Tag-triggered CI no longer publishes smoke-only assets. Qualified publication
   remains the only publication path and still requires trusted native evidence,
   signatures, and verified artifact attestations.
-- `packaging/release-targets.json` records the ten mandatory qualification
+- `packaging/release-targets.json` records the thirteen mandatory qualification
   targets. Source preflight reports all missing/non-executable/provisional gates
   and validates tag/version/commit agreement before release jobs consume runners.
 - The provisional Linux gate is executable. Its false assertions remain false;
   those checks have not been implemented or verified.
-- RPM/Arch are documented as supplementary targets rather than silently treated
-  as qualified. Service configuration requires an explicit reviewed operator
-  configuration; packages do not automatically join the public bootstrap peer.
+- RPM/Arch are included in the gate matrix and publication validation, preserving
+  all thirteen formats required by the packaging contract. Service configuration
+  requires an explicit reviewed operator configuration; packages do not
+  automatically join the public bootstrap peer.
 
 ## Local verification
 
@@ -55,8 +56,9 @@ independent cryptographic security audit or evidence that every platform works.
 
 ## Remaining qualified-release blockers
 
-1. Nine actual native gate implementations are still absent: macOS ARM64/x64,
-   Windows ARM64/x64, Linux ARM64, AppImage ARM64/x64, Debian ARM64/x64.
+1. Twelve actual native gate implementations are still absent: macOS ARM64/x64,
+   Windows ARM64/x64, Linux ARM64, AppImage ARM64/x64, Debian ARM64/x64,
+   RPM ARM64/x64, and Arch x64.
 2. The existing Linux x64 script builds and smoke-tests only. It explicitly
    leaves privileged tunnel traffic, bidirectional traffic, route/DNS rollback,
    clean install/upgrade/remove, runtime validation, platform signature, and

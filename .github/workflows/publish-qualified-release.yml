@@ -109,6 +109,9 @@ jobs:
             [appimage-x86_64]='\.AppImage$'
             [deb-arm64]='\.deb$'
             [deb-x86_64]='\.deb$'
+            [rpm-arm64]='\.rpm$'
+            [rpm-x86_64]='\.rpm$'
+            [arch-x86_64]='\.pkg\.tar\.(xz|zst)$'
           )
           for target in "${!pattern[@]}"; do
             mapfile -t files < <(find "candidates/$target" -maxdepth 1 -type f)
