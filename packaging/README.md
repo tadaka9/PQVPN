@@ -36,9 +36,12 @@ implemented. Arch Linux users can generate a checksum-pinned PKGBUILD with
 a native Arch packaging job has not yet verified this path.
 
 `PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
-DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs build
-and source readiness checks. Publication uses `Publish qualified prerelease`
-only after native functional qualification.
+DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs the native build matrix and reports source-readiness blockers
+as CI warnings. A green tagged build means build and smoke tests passed; it does
+**not** certify native release qualification or authorize publication.
+`Native functional release gates` and `Publish qualified prerelease` still
+enforce the strict source preflight, native functional tests, signatures, and
+exact-commit evidence. Never reinterpret CI warnings as passed evidence.
 The tag is exactly `v` plus that public version, including labels such as
 `valpha-0.6-10142026-cybergun`; source readiness rejects any mismatch.
 
