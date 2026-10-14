@@ -86,6 +86,15 @@ jobs:
           test -s "$windows/PQVPN-$version-windows-x64.msi"
           test -s "$windows/PQVPN-windows-x64-$version-portable.zip"
           test -s "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg"
+          python3 - "$windows/PQVPN-windows-x64-$version-portable.zip" <<'PY'
+          import pathlib, sys, zipfile
+          archive = pathlib.Path(sys.argv[1])
+          with zipfile.ZipFile(archive) as package:
+              bundled = [name for name in package.namelist()
+                         if name.lower().endswith((".msi", ".pqvpnpkg"))]
+          if bundled:
+              raise SystemExit(f"Portable ZIP bundles separate release assets: {bundled}")
+          PY
           cp "$windows/PQVPN-$version-windows-x64.msi" release/
           cp "$windows/PQVPN-windows-x64-$version-portable.zip" release/
           cp "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg" release/
@@ -151,7 +160,7 @@ jobs:
 
           This prerelease provides Windows x86-64, Linux x86-64/ARM64, and macOS Intel/Apple Silicon builds from commit \`$PQVPN_RELEASE_SHA\`.
 
-          Included: Windows MSI and portable ZIP, Debian packages, manual Linux archives, macOS archives, desktop updater packages, SHA-256 manifest, and build information.
+          Each download is a separate release asset: Windows MSI, Windows portable ZIP, Debian packages, manual Linux archives, macOS archives, desktop updater packages, SHA-256 manifest, and build information. The portable ZIP does not bundle the MSI or OTA package.
 
           The [main CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID) passed native builds and package smoke tests on all five published targets. Windows also passed clean MSI install, upgrade from the previous release, old ProductCode removal, uninstall, and update-container verification.
 
