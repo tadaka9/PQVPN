@@ -262,6 +262,23 @@ jobs:
           # merge-multiple download; a nested artifacts/ prefix would hide them.
           cp artifacts/pqvpn_*.deb ./
 
+      - name: Verify native Linux and Debian distribution artifacts
+        if: matrix.family == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ env.PQVPN_VERSION }}"
+          target="${{ matrix.target }}"
+          python3 tools/verify-distribution-artifact.py \
+            --target "$target" \
+            --package "PQVPN-$version-$target.tar.gz" --version "$version"
+          deb_target="${target/linux-/deb-}"
+          deb_package="$(find . -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          test -n "$deb_package"
+          python3 tools/verify-distribution-artifact.py \
+            --target "$deb_target" --package "$deb_package" --version "$version"
+          echo 'Distribution artifact checks passed; privileged VPN qualification remains separate.'
+
       - name: Build verified custom update package
         shell: bash
         run: |
