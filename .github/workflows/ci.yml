@@ -140,13 +140,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/pqvpn-console"
+          monitor=build/pqvpn_monitor
+          if [[ "${{ matrix.family }}" == macos ]]; then monitor=build/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor; fi
           for theme in dark light; do
             for page in overview connection transports strangenet activity privacy about; do
               QT_QPA_PLATFORM=offscreen \
                 PQVPN_SMOKE_THEME="$theme" \
                 PQVPN_SMOKE_PAGE="$page" \
                 PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console/$page-$theme.png" \
-                build/pqvpn_monitor --smoke-test
+                "$monitor" --smoke-test
               test -s "$RUNNER_TEMP/pqvpn-console/$page-$theme.png"
             done
           done
@@ -196,9 +198,10 @@ jobs:
             monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           fi
           test -e "$monitor"
-          if [[ "${{ matrix.family }}" == linux ]]; then
-            env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
-              "$monitor" --smoke-test
+          if [[ "${{ matrix.family }}" == linux || "${{ matrix.family }}" == macos ]]; then
+            installed_monitor="$GITHUB_WORKSPACE/$monitor"
+            (cd "$stage"; env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+              "$installed_monitor" --smoke-test --verify-installation)
           fi
           tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
@@ -214,8 +217,8 @@ jobs:
           dpkg-deb -x "$package" "$extracted"
           "$extracted/usr/bin/pqvpn_node" --validate-config --config config.json
           test "$("$extracted/usr/bin/pqvpn_node" --version)" = "PQVPN ${{ env.PQVPN_VERSION }}"
-          env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
-            "$extracted/usr/bin/pqvpn_monitor" --smoke-test
+          env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+            "$extracted/usr/bin/pqvpn_monitor" --smoke-test --verify-installation
           python3 -m unittest discover -s tests/release -v
           # Place the deb next to the tar.gz at the workspace root so the
           # release-candidate artifact stores it at its root (not under
@@ -452,10 +455,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = $env:PQVPN_VERSION
-          $base = ($ver -split '-')[0]
-          $build = '1'
-          if ($ver -match '\d{4}') { $build = $matches[0].Substring(0,4) }
-          $msiVersion = "$base.$build"
+          $msiVersion = & packaging/windows/get-msi-version.ps1 -Version $ver
           # Stage the install tree. cmake --install also runs the Qt deploy
           # script (install(SCRIPT pqvpn_monitor_deploy_script)) which deploys
           # the Qt runtime next to the GUI. The prefix MUST be absolute: with a
@@ -486,6 +486,18 @@ jobs:
           & $light -ext WixUIExtension -ext WixUtilExtension -sice:ICE38 -sice:ICE43 -sice:ICE57 -b $stage msi-build/pqvpn.wixobj msi-build/files.wixobj -o "artifacts/PQVPN-$ver-windows-x64.msi"
           if ($LASTEXITCODE -ne 0) { throw 'light failed' }
           if (-not (Get-ChildItem artifacts -Filter '*.msi')) { throw 'MSI was not produced' }
+
+      - name: Verify portable runtime and MSI install upgrade removal
+        shell: pwsh
+        run: packaging/windows/test-packages.ps1 -Artifacts artifacts -Version $env:PQVPN_VERSION
+
+      - name: Preserve installer test logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-test-logs-windows-x86_64
+          path: ${{ runner.temp }}/pqvpn-package-tests/*.log
+          if-no-files-found: ignore
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v6

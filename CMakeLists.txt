@@ -22,6 +22,7 @@ endforeach()
 
 include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
+option(PQVPN_DEPLOY_QT_RUNTIME "Deploy private Qt runtime beside the monitor" ON)
 
 find_package(OpenSSL ${PQVPN_OPENSSL_VERSION} REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
@@ -161,6 +162,13 @@ if(PQVPN_BUILD_MONITOR)
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
     set_target_properties(pqvpn_monitor PROPERTIES AUTOMOC ON AUTORCC ON)
+    if(APPLE)
+      set_target_properties(pqvpn_monitor PROPERTIES MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.tadaka9.pqvpn"
+        MACOSX_BUNDLE_BUNDLE_NAME "PQVPN"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}")
+    endif()
     # Keep the packaged Qt runtime ahead of any older system Qt.  The deploy
     # script installs libraries under lib/ beside bin/pqvpn_monitor; without
     # this RPATH the dynamic loader may select an incompatible system Qt.
@@ -174,16 +182,21 @@ if(PQVPN_BUILD_MONITOR)
     install(TARGETS pqvpn_monitor
       BUNDLE DESTINATION .
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    qt_generate_deploy_app_script(
-      TARGET pqvpn_monitor
-      OUTPUT_SCRIPT pqvpn_monitor_deploy_script
-      NO_UNSUPPORTED_PLATFORM_ERROR)
-    install(SCRIPT ${pqvpn_monitor_deploy_script})
-    # The default Linux deployment selects xcb only. Preserve the headless
-    # platform plugin so installed bundles can run the same smoke test as CI.
-    if(UNIX AND NOT APPLE AND TARGET Qt6::QOffscreenIntegrationPlugin)
-      install(FILES $<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>
-        DESTINATION plugins/platforms)
+    if(PQVPN_DEPLOY_QT_RUNTIME)
+      if(WIN32)
+        set(PQVPN_QT_DEPLOY_OPTIONS DEPLOY_TOOL_OPTIONS --include-plugins qoffscreen)
+      endif()
+      qt_generate_deploy_app_script(
+        TARGET pqvpn_monitor
+        OUTPUT_SCRIPT pqvpn_monitor_deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR ${PQVPN_QT_DEPLOY_OPTIONS})
+      install(SCRIPT ${pqvpn_monitor_deploy_script})
+      # The default Linux deployment selects xcb only. Preserve the headless
+      # platform plugin so installed bundles can run the same smoke test as CI.
+      if(UNIX AND TARGET Qt6::QOffscreenIntegrationPlugin)
+        install(FILES $<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>
+          DESTINATION $<IF:$<BOOL:${APPLE}>,pqvpn_monitor.app/Contents/PlugIns/platforms,plugins/platforms>)
+      endif()
     endif()
     if(BUILD_TESTING)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
@@ -271,6 +284,12 @@ install(TARGETS pqvpn_node pqvpn_tui
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES config.json config.udp2raw.json
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pqvpn/examples)
+if(APPLE AND PQVPN_BUILD_MONITOR)
+  install(PROGRAMS $<TARGET_FILE:pqvpn_node>
+    DESTINATION pqvpn_monitor.app/Contents/MacOS)
+  install(FILES config.json config.udp2raw.json
+    DESTINATION pqvpn_monitor.app/Contents/Resources/pqvpn/examples)
+endif()
 install(FILES README.md LICENSE
   DESTINATION ${CMAKE_INSTALL_DOCDIR})
 if(UNIX AND NOT APPLE)

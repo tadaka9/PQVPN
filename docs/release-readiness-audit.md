@@ -84,3 +84,59 @@ old-commit artifacts, or disable mandatory platform checks to publish. The
 source preflight is deliberately still failing until genuine native evidence
 can be produced. These fixes improve packaging and prevent premature publication;
 they do not make a qualified multi-platform prerelease ready.
+
+## Extended installer and console audit
+
+The user additionally requested all installer/package paths and refinement of
+GUI/TUI behavior. These changes add:
+
+- A shared, tested connection-state model. Gray is disconnected, amber is
+  connecting/securing/disconnecting, green is an authenticated relay or a
+  protected tunnel, and red is failure. A running process alone is insufficient.
+- A programmatically rendered tray icon, including high-DPI sizes, avoiding an
+  extra SVG loader requirement for status colors. GUI smoke checks icon colors.
+- A smaller overview with live configuration/peer/protection checklist and one
+  primary configure/connect/disconnect action. Dark/light preferences remain.
+- A resize-aware TUI with verification and mode shortcuts, authenticated event
+  parsing, bounded line buffering, terminal-control sanitization, direct argv
+  process launch, and terminal-state restoration. Relay mode is explicit.
+- Writable per-user default configurations for installed consoles. Existing
+  user edits are preserved; installed example files are never edited.
+- A udp2raw attach-profile action that coordinates an existing loopback listener,
+  reuses an existing engine configuration path, and retains engine credentials
+  in that engine's file. It does not install/start a raw-socket engine or claim
+  Shadowsocks/V2Ray/obfs4 integration, which still requires transport adapters.
+- Configuration normalization now preserves WireGuard/OpenVPN backend selections
+  even when an interface name was not supplied.
+- Windows portable packaging fails when GUI deployment tools are absent; packaged
+  launchers select their own directory. A three-component MSI version replaces
+  the ineffective fourth date component that Windows ignores for upgrades.
+- Native Windows package tests exercise ZIP runtime, real MSI clean install,
+  upgrade from the existing checksum-verified prerelease, and removal.
+- macOS uses a real application bundle with paired node and configuration examples.
+  Native checks run the installed application without SDK loader overrides.
+- Arch dependencies follow pinned upstream minimum versions, and its system-Qt
+  installation disables private deployment to avoid global Qt runtime collisions.
+
+| Format / architecture | Packaging path | Checks and limits |
+|---|---|---|
+| Linux tar, x64/ARM64 | native CMake deployment + tar | Installed CLI/GUI runtime smoke on native CI; system install/remove and privileged tunnel gate still missing |
+| Debian, x64/ARM64 | custom complete-runtime builder | Extracted runtime, version, configuration, and dependency checks; clean distro install/upgrade/remove gate still missing |
+| Windows x64 ZIP | windeployqt portable builder | Extracted CLI/TUI/GUI runtime checks without SDK Qt PATH; no kernel driver payload |
+| Windows x64 MSI | WiX v3 per-machine installer | Native clean install/upgrade/remove tests added; signing and privileged tunnel qualification remain required |
+| macOS Intel/ARM64 archive | deployed application bundle + tar | Installed application runtime checks added; Developer ID signing/notarization and native tunnel gate remain required |
+| Windows ARM64 ZIP/MSI | no reviewed native producer/gate | Unsupported by current native CI baseline; not claimed verified |
+| AppImage x64/ARM64 | no producer/gate implemented | Not produced or verified; native package workflow must be implemented |
+| RPM x64/ARM64 | generic CPack capability only | No native RPM distribution producer/lifecycle evidence; not claimed verified |
+| Arch x64 | generated checksum-pinned PKGBUILD | Recipe/version/dependency checks; makepkg and native installation not executed here |
+
+Native CI for earlier commit `8e05464` passed all five build jobs, both hardening/
+Windows-driver jobs, attribution policy, and both CodeQL analyses. The extended
+installer/console changes require their own fresh native run; consult PR checks
+for the current commit rather than reusing that earlier result.
+
+SSH inspection/deployment remains blocked: the requested `C:\Users\dvx3\.ssh`
+folder belongs to the user's Windows PC and is not mounted in this Linux cloud
+machine. Neither requested alias is configured here; key/agent bindings are
+absent. User permission to read that directory does not transfer its contents.
+No remote server was logged into or changed, and no private key was printed.

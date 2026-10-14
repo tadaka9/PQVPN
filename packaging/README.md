@@ -29,11 +29,11 @@ are insufficient.
 | `rpm-x86_64` | RPM-compatible x64 | `.rpm` (`Architecture: x86_64`) |
 | `arch-x86_64` | Arch Linux x64 | package built from `packaging/arch/PKGBUILD` |
 
-The native Linux build workflow also publishes installable `.deb` and `.rpm`
-artifacts for both supported architectures. Arch Linux users can build the
-package with `makepkg -si` from the generated `arch-linux-pkgbuild` artifact;
-the recipe compiles the same node, terminal console, and Qt privacy console
-from the exact workflow commit.
+The current native Linux workflow produces tar archives and `.deb` artifacts
+for both architectures. RPM and AppImage producers/lifecycle gates remain to be
+implemented. Arch Linux users can generate a checksum-pinned PKGBUILD with
+`packaging/arch/generate-pkgbuild.sh COMMIT OUTPUT` and build using `makepkg -si`;
+a native Arch packaging job has not yet verified this path.
 
 `PQVPN_VERSION.txt` is the single package-version source. Changing it updates CMake,
 DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs build
@@ -137,3 +137,18 @@ Before enabling `pqvpn.service`, copy `/etc/pqvpn/config.json.example` to
 then run `pqvpn_node --validate-config --config /etc/pqvpn/config.json`.
 No operator configuration is silently overwritten during upgrades. Privileged
 service lifecycle qualification remains a native release gate requirement.
+
+
+Windows package CI exercises portable runtime plus MSI clean installation,
+upgrade, and removal on a disposable native runner. MSI ProductVersion uses
+three numeric components; Windows ignores a fourth component for upgrade
+ordering. Every published prerelease must use an unused numeric base version.
+These installer tests do not establish kernel-driver signing or full VPN
+qualification. macOS archives now contain a paired application bundle; Developer
+ID signing and notarization remain separate mandatory release gates.
+
+Installed GUI/TUI consoles prepare a private writable user profile when launched
+without a configuration and an installed example exists. They preserve existing
+user profiles and never modify the installed template. GUI transport presets
+keep keys in the external engine's configuration and only prepare supported
+loopback UDP attachment; TCP/SOCKS adapters remain unimplemented.

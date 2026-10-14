@@ -3,6 +3,7 @@ set -euo pipefail
 
 commit="${1:-$(git rev-parse HEAD)}"
 output="${2:-packaging/arch/PKGBUILD}"
+source .github/dependencies.env
 version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
 
 if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -23,6 +24,10 @@ sed \
   -e "s/@PKGVER@/$pkgver/g" \
   -e "s/@COMMIT@/$commit/g" \
   -e "s/@SHA256@/$archive_sha/g" \
+  -e "s/@ARGON2_VERSION@/$ARGON2_VERSION/g" \
+  -e "s/@LIBOQS_VERSION@/$LIBOQS_VERSION/g" \
+  -e "s/@OPENSSL_VERSION@/$OPENSSL_VERSION/g" \
+  -e "s/@QT_VERSION@/$QT_VERSION/g" \
   packaging/arch/PKGBUILD.in > "$output"
 
 echo "Generated $output for PQVPN $version at $commit"

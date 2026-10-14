@@ -33,6 +33,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPalette>
 #include <QPlainTextEdit>
 #include <QProcess>
@@ -46,6 +47,7 @@
 #include <QStackedLayout>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QStandardPaths>
 #include <QStyle>
 #include <QStyleHints>
 #include <QSysInfo>
@@ -56,6 +58,8 @@
 #include <QVBoxLayout>
 
 #include <cmath>
+#include "console/connection_state.hpp"
+#include "console/default_profile.hpp"
 
 namespace {
 enum Page { Overview, Connection, Transports, StrangeNet, Activity, Privacy, About };
@@ -73,11 +77,11 @@ QMenu::item:selected { background: #724cff; }
 #sidebar { background: rgba(7,10,24,.96); border-right: 1px solid rgba(255,255,255,.08); }
 #wordmark { font-size: 21px; font-weight: 850; letter-spacing: 3px; color: white; }
 #brandSub { color: #65e6ff; font-size: 10px; font-weight: 750; letter-spacing: 2px; }
-#pageTitle { font-size: 34px; font-weight: 820; color: white; }
+#pageTitle { font-size: 30px; font-weight: 820; color: white; }
 #pageSubtitle { color: #a5aec8; font-size: 14px; }
-#heroTitle { font-size: 38px; font-weight: 850; color: white; }
+#heroTitle { font-size: 34px; font-weight: 850; color: white; }
 #sectionTitle { font-size: 17px; font-weight: 760; color: white; }
-#metric { font-size: 23px; font-weight: 820; color: white; }
+#metric { font-size: 21px; font-weight: 820; color: white; }
 #eyebrow { color: #7cecff; font-size: 10px; font-weight: 800; letter-spacing: 2px; }
 QPushButton[nav="true"] { background: transparent; color: #8994b7; border: 0; border-radius: 10px; padding: 13px 14px; text-align: left; font-weight: 680; }
 QPushButton[nav="true"]:hover { background: rgba(101,230,255,.10); color: white; }
@@ -120,11 +124,11 @@ QMenu::item:selected { background: #6842e8; color: white; }
 #sidebar { background: rgba(248,249,253,.97); border-right: 1px solid #dfe4f1; }
 #wordmark { font-size: 21px; font-weight: 850; letter-spacing: 3px; color: #161b2d; }
 #brandSub { color: #087e96; font-size: 10px; font-weight: 750; letter-spacing: 2px; }
-#pageTitle { font-size: 34px; font-weight: 820; color: #121728; }
+#pageTitle { font-size: 30px; font-weight: 820; color: #121728; }
 #pageSubtitle { color: #606b88; font-size: 14px; }
-#heroTitle { font-size: 38px; font-weight: 850; color: white; }
+#heroTitle { font-size: 34px; font-weight: 850; color: white; }
 #sectionTitle { font-size: 17px; font-weight: 760; color: #171d31; }
-#metric { font-size: 23px; font-weight: 820; color: #171d31; }
+#metric { font-size: 21px; font-weight: 820; color: #171d31; }
 #eyebrow { color: #087e96; font-size: 10px; font-weight: 800; letter-spacing: 2px; }
 QPushButton[nav="true"] { background: transparent; color: #626d8a; border: 0; border-radius: 10px; padding: 13px 14px; text-align: left; font-weight: 680; }
 QPushButton[nav="true"]:hover { background: rgba(15,143,168,.10); color: #151b2d; }
@@ -166,11 +170,19 @@ QFrame* card(QLayout* layout, bool accent = false) {
     result->setLayout(layout);
     return result;
 }
-QString stateName(QProcess::ProcessState state) {
-    if (state == QProcess::Running) return "Protected";
-    if (state == QProcess::Starting) return "Starting";
-    return "Disconnected";
+QIcon connectionTrayIcon(pqvpn::console::ConnectionPhase phase) {
+    const QColor color(QString::fromUtf8(pqvpn::console::phase_color(phase).data()));
+    QIcon icon;
+    for(int size:{16,24,32,48,64,128}){
+        QPixmap frame(size,size);frame.fill(Qt::transparent);QPainter painter(&frame);painter.setRenderHint(QPainter::Antialiasing);painter.scale(size/64.0,size/64.0);
+        QPainterPath shield;shield.moveTo(32,5);shield.lineTo(55,16);shield.lineTo(55,32);shield.cubicTo(55,46,46,55,32,59);shield.cubicTo(18,55,9,46,9,32);shield.lineTo(9,16);shield.closeSubpath();
+        painter.setPen(QPen(color,4));painter.setBrush(QColor("#10162c"));painter.drawPath(shield);
+        QPainterPath eye;eye.moveTo(19,33);eye.cubicTo(27,22,37,22,45,33);eye.cubicTo(37,44,27,44,19,33);
+        painter.setPen(QPen(Qt::white,4));painter.setBrush(Qt::NoBrush);painter.drawPath(eye);painter.setPen(Qt::NoPen);painter.setBrush(color);painter.drawEllipse(QPointF(32,33),5,5);painter.end();icon.addPixmap(frame);
+    }
+    return icon;
 }
+
 }
 
 class Aurora final : public QWidget {
@@ -251,6 +263,19 @@ public:
         const QHash<QString,int> pages{{"connection",Connection},{"transports",Transports},{"strangenet",StrangeNet},{"activity",Activity},{"privacy",Privacy},{"about",About}};
         switchPage(pages.value(request,Overview)); QApplication::processEvents();
     }
+    bool verifyInstallation() const {
+        if(!QFileInfo(executablePath_->text()).isExecutable()||!QFileInfo(configPath_->text()).isFile())return false;
+        QProcess check;check.start(executablePath_->text(),{"--validate-config","--config",configPath_->text()});
+        return check.waitForFinished(10000)&&check.exitStatus()==QProcess::NormalExit&&check.exitCode()==0;
+    }
+    bool verifyTrayIcons() const {
+        using pqvpn::console::ConnectionPhase;
+        for(auto phase:{ConnectionPhase::Disconnected,ConnectionPhase::Connecting,ConnectionPhase::Protected,ConnectionPhase::Failed}){
+            const auto image=connectionTrayIcon(phase).pixmap(64,64).toImage();
+            if(image.isNull()||image.pixelColor(32,33)!=QColor(QString::fromUtf8(pqvpn::console::phase_color(phase).data())))return false;
+        }
+        return true;
+    }
     void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
 protected:
     void closeEvent(QCloseEvent* event) override {
@@ -268,6 +293,7 @@ protected:
         if (event->mimeData()->hasUrls() && event->mimeData()->urls().size()==1 && event->mimeData()->urls().constFirst().toLocalFile().endsWith(".json",Qt::CaseInsensitive)) event->acceptProposedAction();
     }
     void dropEvent(QDropEvent* event) override {
+        if(process_.state()!=QProcess::NotRunning){event->ignore();log("Disconnect before changing configuration.");return;}
         const QString path=event->mimeData()->urls().constFirst().toLocalFile();
         if (loadConfig(path)) { configPath_->setText(path); log("Configuration selected · "+QDir::toNativeSeparators(path)); event->acceptProposedAction(); }
     }
@@ -277,6 +303,8 @@ private:
     Aurora* aurora_=nullptr; StatusOrb* orb_=nullptr; QPropertyAnimation *auroraAnimation_=nullptr,*pulseAnimation_=nullptr;
     QHash<int,QPushButton*> pageButtons_; QList<QPushButton*> navButtons_;
     QLineEdit *configPath_=nullptr,*executablePath_=nullptr; QComboBox *logLevel_=nullptr,*adaptiveMode_=nullptr; QCheckBox* noTunnel_=nullptr;
+    QPushButton* overviewAction_=nullptr;
+    QLabel *configurationStep_=nullptr,*peerStep_=nullptr,*protectionStep_=nullptr;
     QPushButton *connectButton_=nullptr,*validateButton_=nullptr; QLabel *stateLabel_=nullptr,*statusText_=nullptr,*endpointMetric_=nullptr,*verificationMetric_=nullptr,*shapingMetric_=nullptr,*mainnetMetric_=nullptr,*tunnelMetric_=nullptr,*egressMetric_=nullptr,*transportMetric_=nullptr,*transportDetails_=nullptr,*configHealth_=nullptr;
     QCheckBox* adaptiveEnabled_=nullptr; QLabel* adaptiveMetric_=nullptr; QPushButton* saveTransportButton_=nullptr;
     QLineEdit *strangeRoom_=nullptr,*strangeMessage_=nullptr;
@@ -289,6 +317,7 @@ private:
     QByteArray validatedConfigHash_,validatedExecutableHash_;
     QString themeMode_="system";
     QString lastStrangeSender_,activeStrangePeer_="auto";QHash<QString,QString> authenticatedPeers_;qulonglong lastStrangeSequence_=0;int unreadStrange_=0;qint64 lastStrangeNotificationMs_=0;
+    bool processFailed_=false;
     bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false,strangeActive_=false,mainnetReady_=false,tunnelReady_=false,pendingStrangeJoin_=false,systemDark_=false,activeDarkTheme_=true,applyingTheme_=false;
 
     void refreshConnectionPresentation() {
@@ -301,9 +330,18 @@ private:
         else if(active&&mainnetReady_&&relay){title="Mainnet connected · relay mode";detail="Authenticated peer ready. Local system traffic is not routed through PQVPN.";}
         else if(active&&mainnetReady_&&!tunnelReady_){title="Peer ready · securing routes";detail="The peer is authenticated; waiting for the operating-system tunnel and fail-closed routes.";}
         else if(active&&mainnetReady_&&tunnelReady_){title="Protected";detail="Authenticated peer, tunnel adapter and leak-safe routes are ready.";protectedPath=true;}
-        stateLabel_->setText(title);statusText_->setText(detail);orb_->setConnected(protectedPath);
+        stateLabel_->setText(title);statusText_->setText(detail);orb_->setConnected(protectedPath&&!stopping_);
         if(previousTitle!=title){fadeWidget(stateLabel_,220);fadeWidget(statusText_,280);}
+        const auto phase=pqvpn::console::connection_phase({active,mainnetReady_,tunnelReady_,relay,stopping_,processFailed_});
+        if(phase==pqvpn::console::ConnectionPhase::Stopping){title="Disconnecting";statusText_->setText("Stopping the node and restoring its owned network state…");}
+        if(phase==pqvpn::console::ConnectionPhase::Failed){title="Connection failed";statusText_->setText("Open Activity for the node error, then review and validate the configuration.");}
+        stateLabel_->setText(title);
+        tray_->setIcon(connectionTrayIcon(phase));
         trayStatus_->setText(title);tray_->setToolTip("PQVPN · "+title);
+        if(overviewAction_){overviewAction_->setText(active?"Disconnect":configValid_?"Connect securely":"Configure connection");overviewAction_->setProperty("danger",active);overviewAction_->style()->unpolish(overviewAction_);overviewAction_->style()->polish(overviewAction_);}
+        if(configurationStep_)configurationStep_->setText(configValid_?"1  Configuration verified":"1  Choose and verify configuration");
+        if(peerStep_)peerStep_->setText(mainnetReady_&&active?"2  Peer authenticated":"2  Peer session pending");
+        if(protectionStep_)protectionStep_->setText(protectedPath?"3  System traffic protected":relay?"3  Relay mode · local traffic unchanged":"3  Tunnel and routes pending");
     }
     QByteArray fileFingerprint(const QString& path) const {
         QFile file(path);if(!file.open(QIODevice::ReadOnly))return {};
@@ -348,15 +386,18 @@ private:
     QLabel* metric(const QString& title,const QString& value,QHBoxLayout* row) { auto* layout=new QVBoxLayout; layout->setContentsMargins(20,18,20,18); layout->addWidget(text(title,"eyebrow")); auto* result=text(value,"metric"); layout->addWidget(result); row->addWidget(card(layout),1); return result; }
     QWidget* buildOverview() {
         QVBoxLayout* body; auto* page=pageShell("Your private route, at a glance","Real state only. Nothing connects or changes routes until you ask.",&body);
-        auto* hero=new QHBoxLayout; hero->setContentsMargins(28,25,28,25); auto* copy=new QVBoxLayout; copy->addWidget(text("POST-QUANTUM PRIVACY","eyebrow")); stateLabel_=text("Disconnected","heroTitle"); copy->addWidget(stateLabel_); statusText_=text("Choose a configuration, validate it, then connect when you are ready."); statusText_->setProperty("muted",true); copy->addWidget(statusText_); auto* open=new QPushButton("Review connection"); connect(open,&QPushButton::clicked,this,[this]{switchPage(Connection);}); copy->addWidget(open,0,Qt::AlignLeft); hero->addLayout(copy,1); orb_=new StatusOrb; hero->addWidget(orb_,0,Qt::AlignCenter); body->addWidget(card(hero,true));
+        auto* hero=new QHBoxLayout; hero->setContentsMargins(28,25,28,25); auto* copy=new QVBoxLayout; copy->addWidget(text("POST-QUANTUM PRIVACY","eyebrow")); stateLabel_=text("Disconnected","heroTitle"); copy->addWidget(stateLabel_); statusText_=text("Choose a configuration, validate it, then connect when you are ready."); statusText_->setProperty("muted",true); copy->addWidget(statusText_); overviewAction_=new QPushButton("Configure connection"); connect(overviewAction_,&QPushButton::clicked,this,[this]{if(process_.state()!=QProcess::NotRunning||configValid_)toggleConnection();else switchPage(Connection);}); copy->addWidget(overviewAction_,0,Qt::AlignLeft); hero->addLayout(copy,1); orb_=new StatusOrb; hero->addWidget(orb_,0,Qt::AlignCenter); body->addWidget(card(hero,true));
         auto* metrics=new QHBoxLayout; mainnetMetric_=metric("MAINNET BOOTSTRAP","Not loaded",metrics); endpointMetric_=metric("LOCAL LISTENER","Not loaded",metrics); verificationMetric_=metric("PEER POLICY","Unknown",metrics); body->addLayout(metrics);
         auto* capabilities=new QHBoxLayout; tunnelMetric_=metric("TUNNEL BOUNDARY","Unknown",capabilities); egressMetric_=metric("EXIT MODE","Off",capabilities); shapingMetric_=metric("TRAFFIC SHAPING","Off",capabilities); body->addLayout(capabilities);
-        auto* explain=new QVBoxLayout; explain->setContentsMargins(22,20,22,20); explain->addWidget(text("Your path to a working session","sectionTitle")); explain->addWidget(text("01  Validate the same configuration the node will run.\n02  Start the native tunnel boundary and contact a declared bootstrap peer.\n03  Wait for the hybrid peer session; only then does the console show Mainnet connected.\n04  Use the tunnel and StrangeNet on that one authenticated session.")); auto* note=text("Every state comes from the node. Traffic shaping changes encrypted packet size and timing; it does not promise invisibility."); note->setProperty("muted",true); explain->addWidget(note); body->addWidget(card(explain)); body->addStretch(); return page;
+        auto* explain=new QVBoxLayout; explain->setContentsMargins(22,20,22,20); explain->setSpacing(10); explain->addWidget(text("Connection checklist","sectionTitle"));
+        configurationStep_=text("1  Choose and verify configuration");peerStep_=text("2  Peer session pending");protectionStep_=text("3  Tunnel and routes pending");
+        for(auto* step:{configurationStep_,peerStep_,protectionStep_})explain->addWidget(step);
+        auto* note=text("Green means an authenticated connection. Relay mode leaves this computer's traffic unchanged; Protected additionally requires a ready tunnel and fail-closed routes.");note->setProperty("muted",true);explain->addWidget(note);body->addWidget(card(explain));body->addStretch(); return page;
     }
     QWidget* buildConnection() {
         QVBoxLayout* body; auto* page=pageShell("Connect","A short, reversible flow with validation before execution.",&body); auto* form=new QVBoxLayout; form->setContentsMargins(23,21,23,21); form->setSpacing(12);
         auto* journey=new QHBoxLayout;journey->setSpacing(10);journey->addWidget(capability("01 · CONFIGURE","Choose node + policy","Local",true),1);journey->addWidget(capability("02 · VERIFY","Real node validation","Required",true),1);journey->addWidget(capability("03 · CONNECT","Hybrid mainnet session","Observed",true),1);journey->addWidget(capability("04 · USE","Tunnel + StrangeNet","One session",true),1);body->addLayout(journey);
-        form->addWidget(text("CONFIGURATION","eyebrow")); auto* cr=new QHBoxLayout; configPath_=new QLineEdit(QDir::current().absoluteFilePath("config.json")); auto* cb=new QPushButton("Choose…"); cb->setProperty("quiet",true); cr->addWidget(configPath_,1); cr->addWidget(cb); form->addLayout(cr);
+        form->addWidget(text("CONFIGURATION","eyebrow")); auto* cr=new QHBoxLayout; configPath_=new QLineEdit(QString::fromStdString(pqvpn::console::default_profile(QFileInfo(defaultExecutable()).absolutePath().toStdString()).generic_string())); auto* cb=new QPushButton("Choose…"); cb->setProperty("quiet",true); cr->addWidget(configPath_,1); cr->addWidget(cb); form->addLayout(cr);
         form->addWidget(text("NODE EXECUTABLE","eyebrow")); auto* er=new QHBoxLayout; executablePath_=new QLineEdit(defaultExecutable()); auto* eb=new QPushButton("Choose…"); eb->setProperty("quiet",true); er->addWidget(executablePath_,1); er->addWidget(eb); form->addLayout(er);
         auto* options=new QHBoxLayout; options->addWidget(text("LOG DETAIL","eyebrow")); logLevel_=new QComboBox; logLevel_->addItems({"info","debug","warning","error"}); options->addWidget(logLevel_);
         noTunnel_=new QCheckBox("Relay / exit only (no local tunnel)"); noTunnel_->setToolTip("Run the authenticated node without the operating-system tunnel boundary. Mainnet and StrangeNet still work, but local system traffic is not tunneled."); noTunnel_->setChecked(false); options->addWidget(noTunnel_);
@@ -370,7 +411,11 @@ private:
     QWidget* buildTransports() {
         QVBoxLayout* body; auto* page=pageShell("Transports","Capabilities read from configuration — no implied support.",&body); auto* current=new QVBoxLayout; current->setContentsMargins(23,21,23,21); current->addWidget(text("SELECTED OUTER PATH","eyebrow")); transportMetric_=text("Direct PQVPN UDP","heroTitle"); current->addWidget(transportMetric_); transportDetails_=text("Load a configuration to inspect its transport constraints."); transportDetails_->setProperty("muted",true); current->addWidget(transportDetails_); body->addWidget(card(current,true));
         auto* adaptive=new QVBoxLayout; adaptive->setContentsMargins(20,18,20,18); adaptive->addWidget(text("PQTP ADAPTIVE PATH","eyebrow")); adaptiveMetric_=text("Disabled","sectionTitle"); adaptive->addWidget(adaptiveMetric_); auto* adaptiveRow=new QHBoxLayout; adaptiveEnabled_=new QCheckBox("Enable automatic UDP/TCP failover"); adaptiveMode_=new QComboBox; adaptiveMode_->addItem("Automatic · prefer UDP", "auto"); adaptiveMode_->addItem("UDP only", "udp"); adaptiveMode_->addItem("TCP only", "tcp"); saveTransportButton_=new QPushButton("Save transport policy"); saveTransportButton_->setProperty("quiet",true); adaptiveRow->addWidget(adaptiveEnabled_); adaptiveRow->addWidget(adaptiveMode_); adaptiveRow->addStretch(); adaptiveRow->addWidget(saveTransportButton_); adaptive->addLayout(adaptiveRow); auto* adaptiveCopy=text("Automatic mode preserves the authenticated PQVPN frame, uses UDP for low latency, falls back to TCP after measured loss, jitter or blocking, and probes UDP before returning."); adaptiveCopy->setProperty("muted",true); adaptive->addWidget(adaptiveCopy); body->addWidget(card(adaptive)); connect(saveTransportButton_,&QPushButton::clicked,this,&Window::saveTransportSettings);
-        auto* grid=new QHBoxLayout; grid->addWidget(capability("udp2raw","External UDP forwarder","Attach mode",true),1); grid->addWidget(capability("obfs4","External SOCKS transport","TCP relay required",false),1); grid->addWidget(capability("Xray / V2Ray","External SOCKS transport","TCP relay required",false),1); grid->addWidget(capability("Shadowsocks","External SOCKS transport","TCP relay required",false),1); body->addLayout(grid); auto* truth=text("Available means the PQVPN adapter exists. It does not prove an external engine is installed, running or interoperable; the authenticated handshake remains the runtime check."); truth->setProperty("muted",true); body->addWidget(truth); body->addStretch(); return page;
+        auto* grid=new QHBoxLayout;grid->addWidget(capability("udp2raw","Existing local UDP forwarder","Profile available",true),1);grid->addWidget(capability("obfs4","SOCKS / TCP engine","UDP-over-TCP relay required",false),1);grid->addWidget(capability("V2Ray / Xray","SOCKS engine","UDP adapter required",false),1);grid->addWidget(capability("Shadowsocks","SOCKS engine","UDP adapter required",false),1); body->addLayout(grid); auto* truth=text("Available means the PQVPN adapter exists. It does not prove an external engine is installed, running or interoperable; the authenticated handshake remains the runtime check."); truth->setProperty("muted",true); body->addWidget(truth);
+        auto* presets=new QHBoxLayout;auto* udpPreset=new QPushButton("Auto-configure udp2raw");auto* engineInfo=text("Uses your existing local forwarder. A matching remote server and engine configuration are required.");engineInfo->setProperty("muted",true);presets->addWidget(udpPreset);auto* chooseEngine=new QPushButton("Choose engine config…");chooseEngine->setProperty("quiet",true);presets->addWidget(chooseEngine);presets->addWidget(engineInfo,1);
+        connect(chooseEngine,&QPushButton::clicked,this,[this]{if(process_.state()!=QProcess::NotRunning)return;const QString path=QFileDialog::getOpenFileName(this,"Choose existing udp2raw client configuration",QDir::homePath(),"Engine configuration (*.conf *.cfg);;All files (*)");if(!path.isEmpty()){QSettings("PQVPN","Privacy Console").setValue("udp2rawConfigPath",path);prepareUdp2rawProfile();}});body->addLayout(presets);
+        connect(udpPreset,&QPushButton::clicked,this,&Window::prepareUdp2rawProfile);
+        body->addStretch(); return page;
     }
     QWidget* buildStrangeNet() {
         QVBoxLayout* body; auto* page=pageShell("StrangeNet","Universal rooms over authenticated PQVPN mainnet sessions.",&body);
@@ -392,7 +437,7 @@ private:
         QVBoxLayout* body; auto* page=pageShell("About PQVPN","A native C++23 console for the post-quantum node.",&body); auto* info=new QVBoxLayout; info->setContentsMargins(27,25,27,25); auto* logo=new QLabel; logo->setPixmap(QIcon(":/brand/logo.svg").pixmap(96,96)); info->addWidget(logo,0,Qt::AlignLeft); info->addWidget(text("PQVPN","heroTitle")); info->addWidget(text("Privacy Console · Qt 6 · C++23","sectionTitle")); auto* detail=text("The node owns cryptography, sessions, routing, shaping and transport policy. Qt owns presentation and launches the same pqvpn_node executable used by the CLI."); detail->setProperty("muted",true); info->addWidget(detail); auto* diagnostic=new QPushButton("Copy diagnostics"); diagnostic->setProperty("quiet",true); connect(diagnostic,&QPushButton::clicked,this,&Window::copyDiagnostics); info->addWidget(diagnostic,0,Qt::AlignLeft); body->addWidget(card(info,true)); body->addStretch(); return page;
     }
     void buildTray() {
-        tray_=new QSystemTrayIcon(QIcon(":/brand/tray.svg"),this); trayMenu_=new QMenu; trayStatus_=trayMenu_->addAction("Disconnected"); trayStatus_->setEnabled(false); trayMenu_->addSeparator(); auto* show=trayMenu_->addAction("Show Privacy Console"); connect(show,&QAction::triggered,this,&Window::restoreFromTray); trayToggle_=trayMenu_->addAction("Connect securely"); connect(trayToggle_,&QAction::triggered,this,[this]{restoreFromTray(); if(process_.state()==QProcess::NotRunning&&!configValid_)switchPage(Connection); else toggleConnection();}); trayMenu_->addSeparator(); auto* exit=trayMenu_->addAction("Exit PQVPN"); connect(exit,&QAction::triggered,this,&Window::quitApplication); tray_->setContextMenu(trayMenu_); connect(tray_,&QSystemTrayIcon::activated,this,[this](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger||reason==QSystemTrayIcon::DoubleClick)restoreFromTray();}); if(QSystemTrayIcon::isSystemTrayAvailable())tray_->show(); else minimizeToTray_->setChecked(false);
+        tray_=new QSystemTrayIcon(connectionTrayIcon(pqvpn::console::ConnectionPhase::Disconnected),this); trayMenu_=new QMenu; trayStatus_=trayMenu_->addAction("Disconnected"); trayStatus_->setEnabled(false); trayMenu_->addSeparator(); auto* show=trayMenu_->addAction("Show Privacy Console"); connect(show,&QAction::triggered,this,&Window::restoreFromTray); trayToggle_=trayMenu_->addAction("Connect securely"); connect(trayToggle_,&QAction::triggered,this,[this]{restoreFromTray(); if(process_.state()==QProcess::NotRunning&&!configValid_)switchPage(Connection); else toggleConnection();}); trayMenu_->addSeparator(); auto* exit=trayMenu_->addAction("Exit PQVPN"); connect(exit,&QAction::triggered,this,&Window::quitApplication); tray_->setContextMenu(trayMenu_); connect(tray_,&QSystemTrayIcon::activated,this,[this](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger||reason==QSystemTrayIcon::DoubleClick)restoreFromTray();}); if(QSystemTrayIcon::isSystemTrayAvailable())tray_->show(); else minimizeToTray_->setChecked(false);
     }
     QString defaultExecutable() const { const QString name=
 #ifdef _WIN32
@@ -400,7 +445,10 @@ private:
 #else
         "pqvpn_node";
 #endif
-        const QString sibling=QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(name); return QFileInfo::exists(sibling)?sibling:QDir::current().absoluteFilePath("build/"+name); }
+        const QDir directory(QCoreApplication::applicationDirPath());
+        for(const QString& candidate:{directory.absoluteFilePath(name),directory.absoluteFilePath("../../../bin/"+name),directory.absoluteFilePath("../../../"+name)})if(QFileInfo::exists(candidate))return QDir::cleanPath(candidate);
+        return QDir::current().absoluteFilePath("build/"+name); }
+
     bool strangeRecipientReady() const {return mainnetReady_&&(activeStrangePeer_=="auto"||authenticatedPeers_.contains(activeStrangePeer_));}
     void refreshPeerDirectory(){
         if(!strangeAudience_||!peerDirectory_)return;const QString selected=strangeAudience_->currentData().toString();QSignalBlocker guard(strangeAudience_);strangeAudience_->clear();strangeAudience_->addItem(QString("All authenticated peers · %1").arg(authenticatedPeers_.size()),"auto");peerDirectory_->clear();QStringList identities=authenticatedPeers_.keys();identities.sort(Qt::CaseInsensitive);for(const QString& identity:identities){const QString endpoint=authenticatedPeers_.value(identity);const QString label=QString("%1…  ·  %2  ·  authenticated + policy accepted").arg(identity.left(16),endpoint);strangeAudience_->addItem(label,identity);auto* item=new QListWidgetItem(label,peerDirectory_);item->setData(Qt::UserRole,identity);item->setToolTip(identity);}const int restored=strangeAudience_->findData(selected);strangeAudience_->setCurrentIndex(restored>=0?restored:0);peerCount_->setText(QString("%1 authenticated").arg(authenticatedPeers_.size()));fadeWidget(peerDirectory_,180);
@@ -448,9 +496,9 @@ private:
                 }
             }
         });
-        connect(&process_,&QProcess::stateChanged,this,[this](QProcess::ProcessState state){const bool active=state!=QProcess::NotRunning,running=state==QProcess::Running;if(!active){mainnetReady_=false;tunnelReady_=false;authenticatedPeers_.clear();refreshPeerDirectory();}refreshConnectionPresentation();connectButton_->setText(active?"Disconnect":"Connect securely"); connectButton_->setProperty("danger",active); connectButton_->style()->unpolish(connectButton_);connectButton_->style()->polish(connectButton_); validateButton_->setEnabled(!active); configPath_->setEnabled(!active);executablePath_->setEnabled(!active);logLevel_->setEnabled(!active);adaptiveEnabled_->setEnabled(!active);adaptiveMode_->setEnabled(!active);saveTransportButton_->setEnabled(!active); trayToggle_->setText(active?"Disconnect":"Connect securely");if(strangeJoin_){strangeJoin_->setEnabled(running||(!active&&configValid_));strangeSend_->setEnabled(strangeActive_&&strangeRecipientReady()&&!strangeMessage_->text().isEmpty()&&strangeMessage_->text().toUtf8().size()<=2048);strangeReaction_->setEnabled(strangeActive_&&strangeRecipientReady()&&lastStrangeSequence_!=0);strangeRoom_->setEnabled(!strangeActive_);strangeAudience_->setEnabled(!strangeActive_);}if(!active){strangeActive_=false;pendingStrangeJoin_=false;activeStrangePeer_="auto";strangeJoin_->setText("Join universal room");}});
-        connect(&process_,&QProcess::started,this,[this]{log("Node process started");if(pendingStrangeJoin_)sendStrangeJoin();}); connect(&process_,&QProcess::errorOccurred,this,[this](QProcess::ProcessError){log("Process error · "+process_.errorString());statusText_->setText("The node could not continue: "+process_.errorString());});
-        connect(&process_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus status){if(!processBuffer_.isEmpty()){log(QString::fromUtf8(processBuffer_).trimmed());processBuffer_.clear();}log(QString("Node stopped · exit %1 · %2").arg(code).arg(status==QProcess::NormalExit?"normal":"crashed"));statusText_->setText(stopping_&&status==QProcess::NormalExit?"Disconnected cleanly.":QString("Node stopped with exit code %1. Review Activity.").arg(code));stopping_=false;connectButton_->setEnabled(configValid_);if(pendingQuit_){pendingQuit_=false;quitting_=true;savePreferences();qApp->quit();}});
+        connect(&process_,&QProcess::stateChanged,this,[this](QProcess::ProcessState state){const bool active=state!=QProcess::NotRunning,running=state==QProcess::Running;if(!active){mainnetReady_=false;tunnelReady_=false;authenticatedPeers_.clear();refreshPeerDirectory();}refreshConnectionPresentation();connectButton_->setText(active?"Disconnect":"Connect securely"); connectButton_->setProperty("danger",active); connectButton_->style()->unpolish(connectButton_);connectButton_->style()->polish(connectButton_); validateButton_->setEnabled(!active); configPath_->setEnabled(!active);executablePath_->setEnabled(!active);noTunnel_->setEnabled(!active);logLevel_->setEnabled(!active);adaptiveEnabled_->setEnabled(!active);adaptiveMode_->setEnabled(!active);saveTransportButton_->setEnabled(!active); trayToggle_->setText(active?"Disconnect":"Connect securely");if(strangeJoin_){strangeJoin_->setEnabled(running||(!active&&configValid_));strangeSend_->setEnabled(strangeActive_&&strangeRecipientReady()&&!strangeMessage_->text().isEmpty()&&strangeMessage_->text().toUtf8().size()<=2048);strangeReaction_->setEnabled(strangeActive_&&strangeRecipientReady()&&lastStrangeSequence_!=0);strangeRoom_->setEnabled(!strangeActive_);strangeAudience_->setEnabled(!strangeActive_);}if(!active){strangeActive_=false;pendingStrangeJoin_=false;activeStrangePeer_="auto";strangeJoin_->setText("Join universal room");}});
+        connect(&process_,&QProcess::started,this,[this]{log("Node process started");if(pendingStrangeJoin_)sendStrangeJoin();}); connect(&process_,&QProcess::errorOccurred,this,[this](QProcess::ProcessError){processFailed_=true;refreshConnectionPresentation();log("Process error · "+process_.errorString());statusText_->setText("The node could not continue: "+process_.errorString());});
+        connect(&process_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus status){if(!processBuffer_.isEmpty()){log(QString::fromUtf8(processBuffer_).trimmed());processBuffer_.clear();}log(QString("Node stopped · exit %1 · %2").arg(code).arg(status==QProcess::NormalExit?"normal":"crashed"));statusText_->setText(stopping_&&status==QProcess::NormalExit?"Disconnected cleanly.":QString("Node stopped with exit code %1. Review Activity.").arg(code));processFailed_=!stopping_&&(status!=QProcess::NormalExit||code!=0);stopping_=false;refreshConnectionPresentation();connectButton_->setEnabled(configValid_);if(pendingQuit_){pendingQuit_=false;quitting_=true;savePreferences();qApp->quit();}});
     }
     bool loadConfig(const QString& path) {
         QFile file(path); if(!file.open(QIODevice::ReadOnly)){setUnknownConfig();return false;} QJsonParseError error; const auto doc=QJsonDocument::fromJson(file.readAll(),&error); if(error.error!=QJsonParseError::NoError||!doc.isObject()){configHealth_->setText("JSON could not be read: "+error.errorString());return false;}
@@ -471,10 +519,44 @@ private:
         const bool adaptiveOn=adaptive.value("enabled").toBool(false);const QString adaptiveMode=adaptive.value("mode").toString("auto");adaptiveEnabled_->setChecked(adaptiveOn);adaptiveMode_->setCurrentIndex(qMax(0,adaptiveMode_->findData(adaptiveMode)));adaptiveMetric_->setText(adaptiveOn?QString("Enabled · %1").arg(adaptiveMode.toUpper()):"Disabled · direct UDP");if(external.isEmpty()){transportMetric_->setText(adaptiveOn?"PQTP adaptive path":"Direct PQVPN UDP");transportDetails_->setText(adaptiveOn?"Policy is configured; runtime events report every lane change.":"No external transport selected.");}else{transportMetric_->setText(external.value("engine").toString("Unknown"));transportDetails_->setText(QString("Attach mode · %1:%2 · external process required").arg(external.value("host").toString()).arg(external.value("port").toInt()));}return !root.isEmpty();
     }
     void setUnknownConfig(){mainnetMetric_->setText("Not loaded");endpointMetric_->setText("Not loaded");verificationMetric_->setText("Unknown");tunnelMetric_->setText("Unknown");egressMetric_->setText("Unknown");shapingMetric_->setText("Unknown");transportMetric_->setText("Configuration unavailable");transportDetails_->setText("Choose a readable JSON configuration.");if(adaptiveMetric_)adaptiveMetric_->setText("Configuration unavailable");}
+    void prepareUdp2rawProfile(){
+        if(process_.state()!=QProcess::NotRunning){log("Disconnect before changing transport profiles.");return;}
+        QJsonObject root;QFile source(configPath_->text());
+        if(source.open(QIODevice::ReadOnly)){const auto document=QJsonDocument::fromJson(source.readAll());if(document.isObject())root=document.object();}
+        if(root.isEmpty()){QMessageBox::information(this,"Choose configuration","Choose your existing PQVPN server configuration first. Engine keys stay in the engine's own configuration.");switchPage(Connection);return;}
+        QSettings settings("PQVPN","Privacy Console");QString engineConfig=settings.value("udp2rawConfigPath").toString();
+        if(!QFileInfo(engineConfig).isFile()){
+            for(const QString& candidate:{QString::fromStdString((pqvpn::console::user_profile_directory()/"udp2raw.conf").generic_string()),QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)+"/udp2raw.conf",QDir::homePath()+"/.config/udp2raw/client.conf"})if(QFileInfo(candidate).isFile()){engineConfig=candidate;break;}
+        }
+        QString host="127.0.0.1";int port=9091;
+        const auto existing=root.value("external_transport").toObject();const QString existingHost=existing.value("host").toString();const int existingPort=existing.value("port").toInt();
+        if(existing.value("engine").toString()=="udp2raw"&&(existingHost=="127.0.0.1"||existingHost=="::1")&&existingPort>0&&existingPort<=65535){host=existingHost;port=existingPort;}
+        if(QFileInfo(engineConfig).isFile()){
+            QFile engine(engineConfig);if(!engine.open(QIODevice::ReadOnly))return;
+            // Read only the local listener directive for coordination; never
+            // copy or print engine credentials into the PQVPN profile/log.
+            const QString contents=QString::fromUtf8(engine.read(1024*1024));
+            const auto match=QRegularExpression("(?:^|\\n)\\s*-l\\s*(127\\.0\\.0\\.1|\\[::1\\]):([0-9]+)").match(contents);
+            if(!match.hasMatch()){QMessageBox::information(this,"Local listener required","The existing udp2raw configuration needs a loopback -l listener. Review that configuration before connecting.");return;}
+            host=match.captured(1)=="[::1]"?"::1":match.captured(1);port=match.captured(2).toInt();if(port<1||port>65535)return;
+        }
+        auto network=root.value("network").toObject();network["bind_address"]=host;if(network.value("port").toInt(9090)==port)network["port"]=port==9090?9092:9090;root["network"]=network;
+        root["bootstrap"]=QJsonArray{QJsonObject{{"host",host},{"port",port}}};
+        root["external_transport"]=QJsonObject{{"version",1},{"mode","attach"},{"engine","udp2raw"},{"host",host},{"port",port}};
+        auto security=root.value("security").toObject();security["strict_sig_verify"]=true;
+        const QString directory=QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)+"/profiles";if(!QDir().mkpath(directory))return;
+        const QString known=security.value("known_peers_file").toString("known_peers.json");const QString originalKnown=QFileInfo(known).isRelative()?QFileInfo(configPath_->text()).dir().absoluteFilePath(known):known;const QString profileKnown=directory+"/known_peers.json";
+        if(!QFileInfo(profileKnown).exists()&&QFileInfo(originalKnown).isFile()){if(!QFile::copy(originalKnown,profileKnown))return;QFile::setPermissions(profileKnown,QFileDevice::ReadOwner|QFileDevice::WriteOwner);}
+        security["known_peers_file"]=profileKnown;root["security"]=security;
+        QString profile=directory+"/udp2raw.json";if(QFileInfo(profile).exists()&&QDir::cleanPath(QFileInfo(configPath_->text()).absoluteFilePath())!=QDir::cleanPath(profile))profile=directory+"/udp2raw-"+QString::number(QDateTime::currentMSecsSinceEpoch())+".json";QSaveFile output(profile);if(!output.open(QIODevice::WriteOnly))return;output.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);if(output.write(QJsonDocument(root).toJson(QJsonDocument::Indented))<0||!output.commit())return;
+        configPath_->setText(profile);invalidate("Local udp2raw profile prepared. Verify the engine and server before connecting.");loadConfig(profile);switchPage(Connection);validateConfig();
+        QString executable;for(const QString& name:{QString("udp2raw"),QString("udp2raw_amd64"),QString("udp2raw_arm64"),QString("udp2raw_arm"),QString("udp2raw_mp")}){executable=QStandardPaths::findExecutable(name);if(!executable.isEmpty())break;}
+        log(executable.isEmpty()?"udp2raw engine not found on PATH. Attach mode requires your installed forwarder.":"udp2raw executable detected; attach mode requires the engine to be running with your server configuration.");
+    }
     void saveTransportSettings(){QFile source(configPath_->text());if(!source.open(QIODevice::ReadOnly)){log("Transport policy was not saved · configuration unavailable");return;}QJsonParseError error;auto document=QJsonDocument::fromJson(source.readAll(),&error);source.close();if(error.error!=QJsonParseError::NoError||!document.isObject()){log("Transport policy was not saved · invalid JSON");return;}auto root=document.object();auto adaptive=root.value("adaptive_transport").toObject();adaptive["enabled"]=adaptiveEnabled_->isChecked();adaptive["mode"]=adaptiveMode_->currentData().toString();if(!adaptive.contains("loss_switch_percent"))adaptive["loss_switch_percent"]=12.0;if(!adaptive.contains("jitter_switch_ms"))adaptive["jitter_switch_ms"]=45.0;if(!adaptive.contains("failure_switch_count"))adaptive["failure_switch_count"]=3;if(!adaptive.contains("recovery_probe_count"))adaptive["recovery_probe_count"]=4;if(!adaptive.contains("minimum_dwell_ms"))adaptive["minimum_dwell_ms"]=5000;root["adaptive_transport"]=adaptive;document.setObject(root);QSaveFile output(configPath_->text());if(!output.open(QIODevice::WriteOnly)||output.write(document.toJson(QJsonDocument::Indented))<0||!output.commit()){log("Transport policy could not be written safely");return;}invalidate("Transport policy saved. Validate before connecting.");loadConfig(configPath_->text());log("Transport policy saved · "+adaptiveMode_->currentData().toString());}
-    void invalidate(const QString& reason){configValid_=false;validatedConfigHash_.clear();validatedExecutableHash_.clear();connectButton_->setEnabled(false);configHealth_->setText(reason);}
-    void chooseConfig(){const QString path=QFileDialog::getOpenFileName(this,"Choose PQVPN configuration",QFileInfo(configPath_->text()).absolutePath(),"JSON configuration (*.json)");if(!path.isEmpty())configPath_->setText(path);}
-    void chooseExecutable(){const QString path=QFileDialog::getOpenFileName(this,"Choose pqvpn_node",QFileInfo(executablePath_->text()).absolutePath());if(!path.isEmpty())executablePath_->setText(path);}
+    void invalidate(const QString& reason){configValid_=false;validatedConfigHash_.clear();validatedExecutableHash_.clear();connectButton_->setEnabled(false);configHealth_->setText(reason);refreshConnectionPresentation();}
+    void chooseConfig(){if(process_.state()!=QProcess::NotRunning){log("Disconnect before choosing another configuration.");return;}const QString path=QFileDialog::getOpenFileName(this,"Choose PQVPN configuration",QFileInfo(configPath_->text()).absolutePath(),"JSON configuration (*.json)");if(!path.isEmpty())configPath_->setText(path);}
+    void chooseExecutable(){if(process_.state()!=QProcess::NotRunning){log("Disconnect before choosing another executable.");return;}const QString path=QFileDialog::getOpenFileName(this,"Choose pqvpn_node",QFileInfo(executablePath_->text()).absolutePath());if(!path.isEmpty())executablePath_->setText(path);}
     void runNodeTool(const QStringList& arguments,const QString& title){
         const QFileInfo binary(executablePath_->text());
         if(!binary.exists()||!binary.isExecutable()){configHealth_->setText("Choose an executable pqvpn_node binary.");switchPage(Connection);return;}
@@ -491,7 +573,7 @@ private:
         if(passed){validatedConfigHash_=fileFingerprint(configPath_->text());validatedExecutableHash_=fileFingerprint(executablePath_->text());
             if(validatedConfigHash_.isEmpty()||validatedExecutableHash_.isEmpty()){invalidate("Validated files are no longer readable. Validate again.");passed=false;}}
         else{validatedConfigHash_.clear();validatedExecutableHash_.clear();}
-        validateButton_->setEnabled(true);log(passed?"Configuration and platform preflight passed":"Connection preflight failed");
+        validateButton_->setEnabled(true);refreshConnectionPresentation();log(passed?"Configuration and platform preflight passed":"Connection preflight failed");
     }
     void validatePlatform(){
         if(noTunnel_&&noTunnel_->isChecked()){
@@ -532,7 +614,7 @@ private:
         });
         check->start(executablePath_->text(),{"--smoke-test","--config",configPath_->text()}); if(switchToConnection) switchPage(Connection);
     }
-    void toggleConnection(){if(process_.state()==QProcess::NotRunning){if(!configValid_)return;if(fileFingerprint(configPath_->text())!=validatedConfigHash_||fileFingerprint(executablePath_->text())!=validatedExecutableHash_){invalidate("Configuration or executable changed after validation. Validate again.");log("Connection blocked · validated files changed");return;}stopping_=false;bool noTunnel=false;
+    void toggleConnection(){if(process_.state()==QProcess::NotRunning){if(!configValid_)return;if(fileFingerprint(configPath_->text())!=validatedConfigHash_||fileFingerprint(executablePath_->text())!=validatedExecutableHash_){invalidate("Configuration or executable changed after validation. Validate again.");log("Connection blocked · validated files changed");return;}stopping_=false;processFailed_=false;bool noTunnel=false;
         noTunnel=noTunnel_&&noTunnel_->isChecked();
         log(QString("Connect requested · config %1 · log %2%3").arg(configPath_->text(),logLevel_->currentText(),noTunnel?" · no-tunnel":""));QStringList args={"--config",configPath_->text(),"--log-level",logLevel_->currentText(),"--control-stdin"};if(noTunnel)args<<"--no-tunnel";process_.start(executablePath_->text(),args);}else requestStop();}
     void appendStrangeText(const QString& value){strangeTranscript_->append(QString("<div style='margin:6px 0;color:#eef1ff'>%1</div>").arg(value.toHtmlEscaped().replace("\n","<br>")));}
@@ -546,7 +628,7 @@ private:
     void sendStrangeMessage(){const QByteArray message=strangeMessage_->text().toUtf8();if(!strangeActive_||!strangeRecipientReady()||process_.state()!=QProcess::Running||message.isEmpty()||message.size()>2048)return;sendControl({{"command","strangenet.send"},{"text",strangeMessage_->text()}});strangeSend_->setEnabled(false);}
     void sendStrangeReaction(const QString& emoji){if(!strangeActive_||!strangeRecipientReady()||lastStrangeSequence_==0)return;const QJsonObject reaction{{"emoji",emoji},{"target",lastStrangeSender_},{"sequence",static_cast<qint64>(lastStrangeSequence_)}};sendControl({{"command","strangenet.react"},{"reply_to",static_cast<qint64>(lastStrangeSequence_)},{"text",QString::fromUtf8(QJsonDocument(reaction).toJson(QJsonDocument::Compact))}});}
     void createStrangeSticker(){if(!strangeActive_||!strangeRecipientReady()){appendStrangeText("Join a room with an authenticated recipient before creating a sticker.");return;}QDialog dialog(this);dialog.setWindowTitle("Create encrypted sticker");auto* layout=new QVBoxLayout(&dialog);auto* emoji=new QComboBox;emoji->addItems({"🚀","🔐","🛡️","🎉","🔥","💜","🌌","⚡","👋","👍"});auto* caption=new QLineEdit;caption->setMaxLength(48);caption->setPlaceholderText("Short caption");auto* color=new QComboBox;const QList<QPair<QString,QString>> colors{{"Violet","#5432c9"},{"Cyan","#0f8fa8"},{"Magenta","#b83280"},{"Amber","#b86b18"},{"Green","#226c4a"},{"Slate","#3d4d73"}};for(const auto& entry:colors)color->addItem(entry.first,entry.second);auto* preview=text("","heroTitle");auto refresh=[=]{preview->setText(emoji->currentText()+"  "+caption->text());preview->setStyleSheet("padding:18px;border-radius:14px;background:"+color->currentData().toString()+";color:white");};connect(emoji,&QComboBox::currentTextChanged,&dialog,[=]{refresh();});connect(caption,&QLineEdit::textChanged,&dialog,[=]{refresh();});connect(color,&QComboBox::currentTextChanged,&dialog,[=]{refresh();});layout->addWidget(text("EMOJI","eyebrow"));layout->addWidget(emoji);layout->addWidget(text("CAPTION","eyebrow"));layout->addWidget(caption);layout->addWidget(text("COLOR","eyebrow"));layout->addWidget(color);layout->addWidget(preview);auto* send=new QPushButton("Send sticker E2E");layout->addWidget(send);connect(send,&QPushButton::clicked,&dialog,&QDialog::accept);refresh();if(dialog.exec()!=QDialog::Accepted)return;const QJsonObject sticker{{"emoji",emoji->currentText()},{"caption",caption->text()},{"color",color->currentData().toString()}};sendControl({{"command","strangenet.sticker"},{"text",QString::fromUtf8(QJsonDocument(sticker).toJson(QJsonDocument::Compact))}});}
-    void requestStop(){if(process_.state()==QProcess::NotRunning)return;stopping_=true;statusText_->setText("Disconnecting cleanly…");log("Disconnect requested");process_.terminate();QTimer::singleShot(5000,this,[this]{if(process_.state()!=QProcess::NotRunning){log("Clean shutdown timed out; process termination escalated");process_.kill();}});}
+    void requestStop(){if(process_.state()==QProcess::NotRunning)return;stopping_=true;refreshConnectionPresentation();statusText_->setText("Disconnecting cleanly…");log("Disconnect requested");process_.terminate();QTimer::singleShot(5000,this,[this]{if(process_.state()!=QProcess::NotRunning){log("Clean shutdown timed out; process termination escalated");process_.kill();}});}
     void quitApplication(){quitting_=true;if(process_.state()!=QProcess::NotRunning){pendingQuit_=true;requestStop();}else{savePreferences();qApp->quit();}}
     void restoreFromTray(){showNormal();raise();activateWindow();}
     void fadeWidget(QWidget* widget,int duration=240){if(!widget||!reduceMotion_||reduceMotion_->isChecked())return;auto* effect=new QGraphicsOpacityEffect(widget);widget->setGraphicsEffect(effect);auto* animation=new QPropertyAnimation(effect,"opacity",effect);animation->setDuration(duration);animation->setStartValue(0.18);animation->setEndValue(1.0);animation->setEasingCurve(QEasingCurve::OutCubic);connect(animation,&QPropertyAnimation::finished,effect,[effect]{effect->setEnabled(false);});animation->start(QAbstractAnimation::DeleteWhenStopped);}
@@ -573,10 +655,10 @@ private:
     void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty())configPath_->setText(stored);reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());minimizeToTray_->setChecked(settings.value("minimizeToTray",true).toBool());strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());applyTheme(settings.value("theme","system").toString());}
     void savePreferences(){QSettings settings("PQVPN","Privacy Console");settings.setValue("geometry",saveGeometry());settings.setValue("config",configPath_->text());settings.setValue("minimizeToTray",minimizeToTray_->isChecked());settings.setValue("strangeNotifications",strangeNotifications_->isChecked());settings.setValue("theme",themeMode_);}
     void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line.left(16384));}
-    void copyDiagnostics(){QString state=stateName(process_.state());if(process_.state()==QProcess::Running&&!mainnetReady_)state="Negotiating";else if(mainnetReady_&&noTunnel_&&noTunnel_->isChecked())state="Mainnet connected · relay mode";else if(mainnetReady_&&tunnelReady_)state="Protected";else if(mainnetReady_)state="Peer ready · securing routes";const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
+    void copyDiagnostics(){const auto phase=pqvpn::console::connection_phase({process_.state()!=QProcess::NotRunning,mainnetReady_,tunnelReady_,noTunnel_&&noTunnel_->isChecked(),stopping_,processFailed_});const QString state=QString::fromUtf8(pqvpn::console::phase_label(phase).data());const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
     void showCommandPalette(){QDialog dialog(this);dialog.setWindowTitle("Command palette");dialog.resize(540,410);auto* layout=new QVBoxLayout(&dialog);auto* search=new QLineEdit;search->setPlaceholderText("Type a command…");auto* list=new QListWidget;const QList<QPair<QString,QString>> commands={{"Go to overview","overview"},{"Review connection","connection"},{"Inspect transports","transports"},{"Open activity","activity"},{"Privacy principles","privacy"},{"Validate configuration","validate"},{"Copy diagnostics","diagnostics"},{"About PQVPN","about"}};for(const auto& command:commands){auto* item=new QListWidgetItem(command.first,list);item->setData(Qt::UserRole,command.second);}layout->addWidget(search);layout->addWidget(list);connect(search,&QLineEdit::textChanged,&dialog,[list](const QString& query){for(int row=0;row<list->count();++row)list->item(row)->setHidden(!list->item(row)->text().contains(query,Qt::CaseInsensitive));});connect(list,&QListWidget::itemActivated,&dialog,[this,&dialog](QListWidgetItem* item){const QString command=item->data(Qt::UserRole).toString();const QHash<QString,int> pages={{"overview",Overview},{"connection",Connection},{"transports",Transports},{"activity",Activity},{"privacy",Privacy},{"about",About}};if(pages.contains(command))switchPage(pages.value(command));else if(command=="validate")validateConfig();else if(command=="diagnostics")copyDiagnostics();dialog.accept();});list->setCurrentRow(0);search->setFocus();dialog.exec();}
 };
 
-int main(int argc,char** argv){QApplication app(argc,argv);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;window.show();if(app.arguments().contains("--smoke-test")){window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;return 0;}return app.exec();}
+int main(int argc,char** argv){QApplication app(argc,argv);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;return 0;}return app.exec();}
 
 #include "pqvpn_monitor.moc"

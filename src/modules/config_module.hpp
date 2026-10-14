@@ -236,7 +236,8 @@ namespace pqvpn::config {
                 value.tuning.replay_window_size || value.tuning.bootstrap_retry_seconds) {
                 j["tuning"] = value.tuning;
             }
-            if (!value.tunnel.interface_name.empty()) j["tunnel"] = value.tunnel;
+            if (!value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
+                !value.tunnel.config_path.empty()) j["tunnel"] = value.tunnel;
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;

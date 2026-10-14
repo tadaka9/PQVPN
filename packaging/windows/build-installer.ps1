@@ -52,10 +52,10 @@ if ($has_gui) {
     }
     if ($qt_dir -and (Test-Path (Join-Path $qt_dir "bin\windeployqt.exe"))) {
         $gui = Join-Path $package_path "pqvpn_monitor.exe"
-        & (Join-Path $qt_dir "bin\windeployqt.exe") --release --no-translations --no-opengl-sw $gui
+        & (Join-Path $qt_dir "bin\windeployqt.exe") --release --no-translations --no-opengl-sw --include-plugins qoffscreen $gui
         if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed' }
     } else {
-        Write-Host "Warning: windeployqt not found; the GUI may not start without Qt DLLs." -ForegroundColor Red
+        throw 'windeployqt is required when packaging the GUI'
     }
 }
 
@@ -71,6 +71,7 @@ foreach ($entry in $launchers.GetEnumerator()) {
 @echo off
 setlocal
 set PQVPN_DIR=%~dp0
+cd /d "%PQVPN_DIR%"
 "%PQVPN_DIR%$($entry.Value)" %*
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Path (Join-Path $package_path $entry.Key)
