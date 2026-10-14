@@ -122,17 +122,23 @@ async function configurePlatformDownload(){
   try{
     const response=await fetch('https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=10',{cache:'no-store',headers:{Accept:'application/vnd.github+json'}});
     if(!response.ok)throw new Error(`GitHub API ${response.status}`);
-    const releases=(await response.json()).filter(release=>!release.draft);
-    const ranked=releases.map(release=>({release,score:release.assets?.filter(asset=>Object.values(assetMatchers).some(match=>match(asset.name))).length||0,hasChecksums:release.assets?.some(asset=>asset.name==='SHA256SUMS')})).filter(item=>item.score>0&&item.hasChecksums).sort((a,b)=>new Date(b.release.published_at)-new Date(a.release.published_at)||b.score-a.score);
-    const release=ranked[0]?.release;
-    if(!release)throw new Error('No package release is published yet');
+    const releases=(await response.json()).filter(release=>!release.draft&&release.assets?.some(asset=>asset.name==='SHA256SUMS')).sort((a,b)=>new Date(b.published_at)-new Date(a.published_at));
+    const selections=new Map();
+    for(const[key,match]of Object.entries(assetMatchers)){
+      for(const release of releases){
+        const asset=release.assets.find(item=>match(item.name));
+        if(asset){selections.set(key,{release,asset});break}
+      }
+    }
+    if(!selections.size)throw new Error('No package release is published yet');
     for(const link of downloadLinks.values())link.classList.remove('recommended');
     for(const[key,link]of downloadLinks){
-      const asset=release.assets.find(item=>assetMatchers[key](item.name));
-      if(asset){link.href=asset.browser_download_url;link.removeAttribute('aria-disabled');link.setAttribute('download','')}
-      else{link.href=release.html_url;link.setAttribute('aria-disabled','true');link.removeAttribute('download')}
+      const selection=selections.get(key);
+      if(selection){link.href=selection.asset.browser_download_url;link.title=`${selection.release.tag_name} · checksum manifest available`;link.removeAttribute('aria-disabled');link.setAttribute('download','')}
+      else{link.href=releasePage;link.removeAttribute('title');link.setAttribute('aria-disabled','true');link.removeAttribute('download')}
     }
-    releaseLabel.textContent=`${release.tag_name} · SHA256SUMS is included with every published format`;
+    const newestRelease=releases[0];
+    releaseLabel.textContent=`${newestRelease.tag_name} · each selected package has a same-release SHA256SUMS manifest`;
     const recommendedLink=recommendation?downloadLinks.get(recommendation):null;
     if(recommendedLink&&recommendedLink.getAttribute('aria-disabled')!=='true'){
       recommendedLink.classList.add('recommended');
@@ -140,7 +146,7 @@ async function configurePlatformDownload(){
       downloadButton.textContent=`Download ${recommendedLink.textContent.trim()}`;
       detectedLabel.textContent=`Detected ${platformDescription(facts)} · recommended package selected`;
     }else{
-      for(const button of downloadButtons)button.href=release.html_url;
+      for(const button of downloadButtons)button.href=newestRelease.html_url;
       downloadButton.textContent='Choose an available beta package';
       document.querySelector('#download-panel').open=true;
       for(const button of downloadButtons)button.removeAttribute('download');

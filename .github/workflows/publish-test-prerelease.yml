@@ -14,7 +14,9 @@ on:
 
 permissions:
   actions: read
+  attestations: write
   contents: write
+  id-token: write
 
 concurrency:
   group: publish-test-prerelease
@@ -24,6 +26,7 @@ jobs:
   validate-and-publish:
     name: Validate and publish test assets
     runs-on: ubuntu-24.04
+    environment: release-publication
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -83,12 +86,11 @@ jobs:
           test -s "$windows/PQVPN-$version-windows-x64.msi"
           test -s "$windows/PQVPN-windows-x64-$version-portable.zip"
           test -s "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg"
-          test -s "$windows/BUILD-INFO.txt"
-          grep -F "Commit: $PQVPN_RELEASE_SHA" "$windows/BUILD-INFO.txt"
           cp "$windows/PQVPN-$version-windows-x64.msi" release/
           cp "$windows/PQVPN-windows-x64-$version-portable.zip" release/
           cp "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg" release/
-          cp "$windows/BUILD-INFO.txt" release/
+          python3 packaging/update/build-package.py verify \
+            "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg"
 
           for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
             package="candidate/$target/PQVPN-$version-$target.pqvpnpkg"
@@ -108,10 +110,33 @@ jobs:
           test -s "candidate/linux-arm64/pqvpn_${version}_arm64.deb"
           cp "candidate/linux-x86_64/pqvpn_${version}_amd64.deb" release/
           cp "candidate/linux-arm64/pqvpn_${version}_arm64.deb" release/
+          cat > release/BUILD-INFO.txt <<EOF
+          PQVPN $version
+          Commit: $PQVPN_RELEASE_SHA
+          CI run: https://github.com/$GITHUB_REPOSITORY/actions/runs/${{ inputs.ci_run_id }}
+          Publisher run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+
+          These are unsigned, unqualified test packages from a successful exact-commit CI run.
+          EOF
           (cd release && sha256sum -- * | sort -k2 > SHA256SUMS)
           (cd release && sha256sum -c SHA256SUMS)
           test "$(find release -maxdepth 1 -type f | wc -l)" = 15
-          test -z "$(find release -maxdepth 1 -type f -name 'PQVPN-*-linux-x86_64.tar.gz' -o -name 'PQVPN-*-linux-arm64.tar.gz')"
+          test -z "$(find release -maxdepth 1 -type f \( -name 'PQVPN-*-linux-x86_64.tar.gz' -o -name 'PQVPN-*-linux-arm64.tar.gz' \))"
+
+      - name: Attest staged release bytes
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: release/*
+
+      - name: Verify staged asset provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in release/*; do
+            gh attestation verify "$asset" --repo "$GITHUB_REPOSITORY"
+          done
 
       - name: Publish immutable test prerelease
         env:
