@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.28)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
 string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
-if(NOT PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$")
-  message(FATAL_ERROR
-    "PQVPN_VERSION.txt must contain one semantic version, optionally with a prerelease suffix "
-    "such as 0.0.2 or 0.0.5-alpha-10092026-David0")
+# Public labels are preserved in CLI output and artifact names. Package managers
+# and project() additionally require numeric version components.
+if(PQVPN_PROJECT_VERSION MATCHES "^alpha-([0-9]+)\\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$")
+  set(PQVPN_NUMERIC_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.0")
+  set(PQVPN_PACKAGE_PRERELEASE "alpha-${CMAKE_MATCH_3}-${CMAKE_MATCH_4}")
+  set(PQVPN_DEBIAN_VERSION "${PQVPN_NUMERIC_VERSION}~${PQVPN_PACKAGE_PRERELEASE}")
+elseif(PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$")
+  string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PQVPN_NUMERIC_VERSION "${PQVPN_PROJECT_VERSION}")
+  set(PQVPN_DEBIAN_VERSION "${PQVPN_PROJECT_VERSION}")
+else()
+  message(FATAL_ERROR "Invalid project version label in PQVPN_VERSION.txt")
 endif()
-# project() accepts only numeric dotted components, so the prerelease suffix is
-# carried separately in PQVPN_PROJECT_VERSION for artifacts and package names.
-string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PQVPN_NUMERIC_VERSION "${PQVPN_PROJECT_VERSION}")
 project(PQVPN VERSION ${PQVPN_NUMERIC_VERSION} LANGUAGES CXX)
 
 include(GNUInstallDirs)
@@ -305,6 +309,12 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://tadaka9.github.io/PQVPN/")
 set(CPACK_PACKAGE_VERSION ${PQVPN_PROJECT_VERSION})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+set(CPACK_DEBIAN_PACKAGE_VERSION "${PQVPN_DEBIAN_VERSION}")
+set(CPACK_RPM_PACKAGE_VERSION "${PQVPN_NUMERIC_VERSION}")
+if(PQVPN_PACKAGE_PRERELEASE)
+  string(REPLACE "-" "." PQVPN_RPM_PRERELEASE "${PQVPN_PACKAGE_PRERELEASE}")
+  set(CPACK_RPM_PACKAGE_RELEASE "0.${PQVPN_RPM_PRERELEASE}")
+endif()
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)

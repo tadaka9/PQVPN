@@ -14,7 +14,11 @@ VERSION="${3:-$(tr -d '[:space:]' < PQVPN_VERSION.txt)}"
 DEPLOY_DIR="${4:-}"
 BUILD_DIR="$(realpath "$BUILD_DIR")"
 OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
-dpkg --validate-version "$VERSION"
+PACKAGE_VERSION="$VERSION"
+if [[ "$VERSION" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
+    PACKAGE_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0~alpha-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}"
+fi
+dpkg --validate-version "$PACKAGE_VERSION"
 command -v dpkg-shlibdeps >/dev/null
 
 if [ ! -f "$BUILD_DIR/pqvpn_node" ]; then
@@ -93,7 +97,7 @@ while IFS= read -r -d '' object; do
     elfs+=("-e$object")
     soname="$(objdump -p "$object" | awk '$1 == "SONAME" {print $2}')"
     if [[ "$soname" =~ ^(.+)\.so\.(.+)$ ]]; then
-        printf '%s %s pqvpn (= %s)\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "$VERSION" >> "$shlibs"
+        printf '%s %s pqvpn (= %s)\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "$PACKAGE_VERSION" >> "$shlibs"
     fi
 done < <(find "$PRIVATE_ROOT" -type f -print0)
 test "${#elfs[@]}" -gt 0
@@ -133,7 +137,7 @@ fi
 
 cat > "$PKG_ROOT/DEBIAN/control" << EOF
 Package: pqvpn
-Version: $VERSION
+Version: $PACKAGE_VERSION
 Architecture: $ARCH
 Maintainer: tadaka9 <tadaka9@users.noreply.github.com>
 Depends: $DEPENDENCIES

@@ -7,7 +7,7 @@ independent cryptographic security audit or evidence that every platform works.
 ## Corrections implemented
 
 - `PQVPN_VERSION.txt` now selects the unused version
-  `0.0.6-alpha-14102026-David0`. Existing releases/tags are preserved.
+  `alpha-0.6-10142026-cybergun`. Existing releases/tags are preserved.
 - CLI version and CPack version derive from that file, including the prerelease
   suffix. A CTest regression covers CLI version output.
 - Debian packaging retains the CMake deployment tree under `/usr/lib/pqvpn`,
@@ -148,3 +148,5 @@ Development moves to `future`; `main` remains the protected integration branch. 
 The two audit branches propose overlapping corrections. Their unmodified patches contain malformed C++ literals, invalid Windows ACL fields, an incorrect Base32 bit accumulator, and a commented-out shutdown body. The consolidated implementation instead preserves the compiled version, redacts passphrases only at diagnostic output boundaries, uses a shared JSON shutdown command with route cleanup, refuses corrupt or unpersisted identities, creates private identity files before writing, and encodes RFC 4648 Base32 with regression vectors. Configuration serialization retains credentials for private profile round trips.
 
 Native packaging checks for the new GUI and installer changes must pass on the consolidated commit before merging. Qualified prerelease requirements remain separate and mandatory.
+
+Public version: `alpha-0.6-10142026-cybergun`; numeric CMake/macOS/MSI version: `0.6.0`; Debian version: `0.6.0~alpha-10142026-cybergun`. Artifact names and CLI output retain the requested public label.
