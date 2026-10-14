@@ -636,7 +636,7 @@ jobs:
           else
             status=$?
             cat "$report"
-            if [[ "$status" -ne 1 ]] || ! jq -e '.ready == false and (.issues | type == "array" and length > 0)' "$report" > /dev/null; then
+            if [[ "$status" -ne 1 ]] || ! jq -e '.ready == false and (.issues | type == "array") and (.issues | length > 0)' "$report" > /dev/null; then
               echo '::error::Readiness script failed unexpectedly or returned a malformed report.'
               exit 1
             fi
