@@ -229,7 +229,9 @@ public:
         tunnel_packet_handler_ = std::move(handler);
     }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
-    void leave_strangenet_room(const std::string& room) { strangenet_replay_guard_.leave_room(room); }
+    void leave_strangenet_room(const std::string& room) {
+        strangenet_replay_guard_.leave_room(room);
+    }
     void set_peer_session_handler(PeerSessionHandler handler) { peer_session_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_strangenet_datagram(
         const std::vector<uint8_t>& peer_id, const std::string& room,
@@ -432,6 +434,7 @@ private:
     StrangeNetHandler strangenet_handler_;
     PeerSessionHandler peer_session_handler_;
     strangenet::ReplayGuard strangenet_replay_guard_;
+    strangenet::FloodGuard strangenet_flood_guard_;
     PeerRouteHook peer_route_hook_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
     struct PreAuthBucket {

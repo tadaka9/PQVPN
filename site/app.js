@@ -176,7 +176,7 @@ function setStrangeTargetMode(){
   strangePeer.required=pinned;
   strangeStatus.textContent=pinned
     ? 'Enter the 64-character identity of the authenticated peer you want to contact.'
-    : 'Universal mode: messages go to all directly authenticated peer sessions.';
+    : 'Universal mode: each send reaches up to 512 directly authenticated sessions with antiflood protection.';
 }
 strangeMode.addEventListener('change',setStrangeTargetMode);
 setStrangeTargetMode();

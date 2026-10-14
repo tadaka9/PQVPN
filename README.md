@@ -295,7 +295,10 @@ peer.
 Each message is carried in a dedicated AEAD-authenticated PQVPN frame. The
 sender field must match the peer identity bound to the session, and both the
 tunnel nonce window and StrangeNet's per-room sequence guard reject replays.
-Messages are limited to 2 KiB. Enter `/quit` to stop reading the room console;
+Messages are limited to 2 KiB. Per-peer and room-wide token buckets protect the
+chat path from authenticated floods, and direct broadcast work is capped at 512
+recipients per item. See [`docs/strangenet.md`](docs/strangenet.md) for the exact
+limits and large-room boundary. Enter `/quit` to stop reading the room console;
 stop the node with <kbd>Ctrl</kbd>+<kbd>C</kbd>.
 
 For a managed public relay, install the hardened systemd service and verified
