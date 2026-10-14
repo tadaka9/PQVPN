@@ -640,7 +640,7 @@ jobs:
               .ready == false and
               (.issues | type == "array") and (.issues | length > 0) and
               (.issue_details | type == "array") and
-              (.issue_details | length == (.issues | length)) and
+              ((.issue_details | length) == (.issues | length)) and
               ([.issue_details[].message] == .issues) and
               all(.issue_details[];
                 .category == "qualification" and
