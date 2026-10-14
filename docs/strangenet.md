@@ -17,6 +17,23 @@ entry in this directory and never grants chat access.
 
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
 
+## Optional blockchain anchor
+
+The Privacy Console can build a private StrangeNet proof chain when the user
+explicitly enables **Build a private session proof chain**. Each accepted,
+sent, delivered, sticker, or reaction event becomes a salted SHA-256
+commitment. Every block binds its index, the previous block, and the new
+commitment. The chain is bounded to 4,096 events and exists only in memory.
+
+**Copy chain anchor** copies a compact JSON record with the algorithm, block
+count, and 32-byte root. That root can be timestamped with a blockchain or
+notary tool without sending the room, peer identities, message text, or the
+private salt. PQVPN does not select a chain, access a wallet, pay a fee, or
+publish a transaction. A root proves continuity only after an external system
+anchors it; by itself it is a local commitment, not decentralized consensus.
+Starting another node session resets an enabled chain, and closing the console
+discards it.
+
 ## Wire behavior
 
 Version 2 frames support:

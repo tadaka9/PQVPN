@@ -54,7 +54,7 @@ everyone.
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
 | ✨ **Native privacy console** | A polished Qt 6 interface guides Configure → Verify → Connect → Use, reports authenticated mainnet readiness, controls StrangeNet through the same node process, inspects the native driver, and can stay available in the system tray. Motion is optional and no metric is simulated. |
 | 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
-| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. The Privacy Console can select a healthy peer automatically; public discovery stays disabled until its moderation and abuse model is reviewed. |
+| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. An opt-in, memory-only salted proof chain exposes a content-free root for an external blockchain/notary anchor. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
