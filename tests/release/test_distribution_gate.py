@@ -10,6 +10,7 @@ import struct
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
@@ -74,6 +75,47 @@ class DistributionArtifactTests(unittest.TestCase):
         self.make_archive(node=b"not-a-valid-elf")
         with self.assertRaisesRegex(gate.GateError, "ELF"):
             gate.verify("linux-x86_64", self.package, VERSION)
+
+    def test_rpm_exact_version_and_architecture(self):
+        package = self.root / "pqvpn.rpm"
+        with patch.object(gate, "run", side_effect=[
+            "pqvpn\n0.6.0\n0.beta.10142026.David0.OTA\nx86_64",
+            "/usr/bin/pqvpn_node",
+        ]):
+            gate.check_rpm(package, VERSION, "x86_64")
+
+    def test_rpm_bad_release_rejected(self):
+        package = self.root / "pqvpn.rpm"
+        with patch.object(gate, "run", return_value=
+                          "pqvpn\n0.6.0\n1\nx86_64"):
+            with self.assertRaisesRegex(gate.GateError, "RPM version"):
+                gate.check_rpm(package, VERSION, "x86_64")
+
+    def test_arch_native_metadata(self):
+        package = self.root / "pqvpn.pkg.tar.zst"
+        with patch.object(gate, "run", side_effect=[
+            "pkgname = pqvpn\n"
+            "pkgver = 0.6.0.beta.10142026.David0.OTA-1\n"
+            "arch = x86_64",
+            "usr/bin/pqvpn_node",
+        ]), patch.object(gate, "version_with_bash",
+                         return_value="0.6.0.beta.10142026.David0.OTA"):
+            gate.check_arch(package, VERSION, "x86_64")
+
+    def test_arch_bad_architecture_rejected(self):
+        package = self.root / "pqvpn.pkg.tar.zst"
+        with patch.object(gate, "run", return_value=
+                          "pkgname = pqvpn\npkgver = 0.6.0.beta.10142026.David0.OTA-1\narch = aarch64"), \
+             patch.object(gate, "version_with_bash",
+                          return_value="0.6.0.beta.10142026.David0.OTA"):
+            with self.assertRaisesRegex(gate.GateError, "Arch package"):
+                gate.check_arch(package, VERSION, "x86_64")
+
+    def test_appimage_wrong_elf_architecture_rejected(self):
+        package = self.root / f"PQVPN-{VERSION}-appimage-x86_64.AppImage"
+        package.write_bytes(elf(183))
+        with self.assertRaisesRegex(gate.GateError, "Wrong ELF"):
+            gate.check_appimage(package, VERSION, "x86_64")
 
     def test_bad_version_rejected(self):
         self.make_archive()
