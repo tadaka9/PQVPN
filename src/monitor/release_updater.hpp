@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCryptographicHash>
+#include <QDate>
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
@@ -39,9 +40,16 @@ public:
         const auto alpha = versionKey("0.6-alpha-10142026-test");
         const auto beta = versionKey("0.6-beta-10142026-David0-OTA");
         const auto stable = versionKey("0.6.0");
+        const auto yearEnd = versionKey("0.6-beta-12312026-test");
+        const auto nextYear = versionKey("0.6-beta-01012027-test");
+        const auto leapDay = versionKey("0.6-beta-02292028-test");
         return !legacyAlpha.isEmpty() && !alpha.isEmpty() && !beta.isEmpty() && !stable.isEmpty() &&
+               !yearEnd.isEmpty() && !nextYear.isEmpty() && !leapDay.isEmpty() &&
                compare(legacyAlpha, alpha) == 0 && compare(alpha, beta) < 0 &&
-               compare(beta, stable) < 0;
+               compare(beta, stable) < 0 && compare(yearEnd, nextYear) < 0 &&
+               compare(nextYear, leapDay) < 0 &&
+               versionKey("0.6-beta-02302028-invalid").isEmpty() &&
+               versionKey("0.6-beta-1231202-invalid").isEmpty();
     }
 
     void check() {
@@ -104,6 +112,24 @@ private:
     void message(const QString& value) { if (report) report(value); }
     void setDownloadable(bool value) { if (downloadable) downloadable(value); }
 
+    // Public release labels use MMDDYYYY. Normalize to YYYYMMDD so
+    // December of one year compares below January of the following year.
+    static QVector<qulonglong> datedVersion(const QRegularExpressionMatch& match,
+                                            bool includesPatch, qulonglong stage) {
+        const QString date = match.captured(includesPatch ? 4 : 3);
+        if (date.size() != 8) return {};
+        const int month = date.left(2).toInt();
+        const int day = date.mid(2, 2).toInt();
+        const int year = date.mid(4, 4).toInt();
+        if (!QDate::isValid(year, month, day)) return {};
+        const qulonglong calendarKey = static_cast<qulonglong>(year) * 10000ULL +
+                                       static_cast<qulonglong>(month) * 100ULL +
+                                       static_cast<qulonglong>(day);
+        return {match.captured(1).toULongLong(), match.captured(2).toULongLong(),
+                includesPatch ? match.captured(3).toULongLong() : 0ULL,
+                stage, calendarKey};
+    }
+
     static QVector<qulonglong> versionKey(QString version) {
         QRegularExpressionMatch match;
         const QRegularExpression publicLabel("^alpha-(\\d+)\\.(\\d+)-(\\d+)-[0-9A-Za-z.-]+$");
@@ -112,11 +138,11 @@ private:
         const QRegularExpression semverAlpha("^(\\d+)\\.(\\d+)\\.(\\d+)-alpha-(\\d+)-[0-9A-Za-z.-]+$");
         const QRegularExpression semverBeta("^(\\d+)\\.(\\d+)\\.(\\d+)-beta-(\\d+)-[0-9A-Za-z.-]+$");
         const QRegularExpression semver("^(\\d+)\\.(\\d+)\\.(\\d+)$");
-        if ((match = publicLabel.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 0, match.captured(3).toULongLong()};
-        if ((match = publicAlpha.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 0, match.captured(3).toULongLong()};
-        if ((match = publicBeta.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 1, match.captured(3).toULongLong()};
-        if ((match = semverAlpha.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 0, match.captured(4).toULongLong()};
-        if ((match = semverBeta.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 1, match.captured(4).toULongLong()};
+        if ((match = publicLabel.match(version)).hasMatch()) return datedVersion(match, false, 0);
+        if ((match = publicAlpha.match(version)).hasMatch()) return datedVersion(match, false, 0);
+        if ((match = publicBeta.match(version)).hasMatch()) return datedVersion(match, false, 1);
+        if ((match = semverAlpha.match(version)).hasMatch()) return datedVersion(match, true, 0);
+        if ((match = semverBeta.match(version)).hasMatch()) return datedVersion(match, true, 1);
         if ((match = semver.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 2, 0};
         return {};
     }
