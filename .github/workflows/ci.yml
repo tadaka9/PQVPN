@@ -269,9 +269,14 @@ jobs:
           set -euo pipefail
           version="${{ env.PQVPN_VERSION }}"
           target="${{ matrix.target }}"
+          stage="PQVPN-$version-$target"
+          # Run the trusted CMake-installed node from this checked-out build,
+          # not a binary extracted from an untrusted archive.
+          test "$("$stage/bin/pqvpn_node" --version)" = "PQVPN $version"
           python3 tools/verify-distribution-artifact.py \
             --target "$target" \
-            --package "PQVPN-$version-$target.tar.gz" --version "$version"
+            --package "PQVPN-$version-$target.tar.gz" --version "$version" \
+            --trusted-node "$stage/bin/pqvpn_node"
           deb_target="${target/linux-/deb-}"
           deb_package="$(find . -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
           test -n "$deb_package"
