@@ -201,14 +201,18 @@ inline std::vector<uint8_t> base32_encode(const std::vector<uint8_t>& input) {
     std::vector<uint8_t> output;
     if (input.empty()) return output;
 
-    for (size_t i = 0; i < input.size(); i += 5) {
-        uint32_t chunk = 0;
-        int bits_to_process = std::min<int>(5, (int)(input.size() - i));
-        for (int j = 0; j < bits_to_process; ++j) {
-            chunk |= static_cast<uint32_t>(input[i + j]) << (8 * (bits_to_process - 1 - j));
+    uint32_t buffer = 0;
+    unsigned bits = 0;
+    for (uint8_t byte : input) {
+        buffer = (buffer << 8) | byte;
+        bits += 8;
+        while (bits >= 5) {
+            bits -= 5;
+            output.push_back(static_cast<uint8_t>(alphabet[(buffer >> bits) & 31]));
         }
-        output.push_back(static_cast<uint8_t>(alphabet[chunk % alphabet.size()]));
     }
+    if (bits) output.push_back(static_cast<uint8_t>(alphabet[(buffer << (5 - bits)) & 31]));
+    while (output.size() % 8) output.push_back('=');
     return output;
 }
 

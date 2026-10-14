@@ -43,3 +43,7 @@ project's [MIT License](LICENSE).
 [PQVPN website](https://tadaka9.github.io/PQVPN/) ·
 [Star the repository](https://github.com/tadaka9/PQVPN) ·
 [Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
+
+## Branch workflow
+
+Develop and validate changes on `future`, then merge them into protected `main` through a pull request after required checks pass. Keep these two branches; synchronize `future` with `main` after integration.

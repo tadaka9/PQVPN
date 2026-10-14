@@ -1594,13 +1594,15 @@ bool PQVPNNode::load_or_create_identity() {
 
     NodeIdentity identity;
     bool needs_generation = false;
-    if (std::filesystem::exists(file, ec)) {
+    const bool identity_exists = std::filesystem::exists(file, ec);
+    if (ec) return false;
+    if (identity_exists) {
         try {
             identity = NodeIdentity::load(file);
         } catch (const std::exception& error) {
             std::cerr << "node identity load failed (" << error.what()
-                      << "); generating a fresh one\n";
-            needs_generation = true;
+                      << "); refusing to replace existing identity\n";
+            return false;
         }
     } else {
         needs_generation = true;
@@ -1617,7 +1619,8 @@ bool PQVPNNode::load_or_create_identity() {
             identity.save(file);
         } catch (const std::exception& error) {
             std::cerr << "warning: could not persist node identity ("
-                      << error.what() << "); it will not survive a restart\n";
+                      << error.what() << "); refusing to start\n";
+            return false;
         }
     }
 

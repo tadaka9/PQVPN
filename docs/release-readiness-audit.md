@@ -140,3 +140,11 @@ folder belongs to the user's Windows PC and is not mounted in this Linux cloud
 machine. Neither requested alias is configured here; key/agent bindings are
 absent. User permission to read that directory does not transfer its contents.
 No remote server was logged into or changed, and no private key was printed.
+
+## Branch consolidation audit
+
+Development moves to `future`; `main` remains the protected integration branch. All original branch refs and their complete histories were archived in a verified Git bundle before cleanup. Pages changes match already merged patches; dependency pins already match the updater branch. Their original histories are retained through merge ancestry without reverting subsequent fixes.
+
+The two audit branches propose overlapping corrections. Their unmodified patches contain malformed C++ literals, invalid Windows ACL fields, an incorrect Base32 bit accumulator, and a commented-out shutdown body. The consolidated implementation instead preserves the compiled version, redacts passphrases only at diagnostic output boundaries, uses a shared JSON shutdown command with route cleanup, refuses corrupt or unpersisted identities, creates private identity files before writing, and encodes RFC 4648 Base32 with regression vectors. Configuration serialization retains credentials for private profile round trips.
+
+Native packaging checks for the new GUI and installer changes must pass on the consolidated commit before merging. Qualified prerelease requirements remain separate and mandatory.

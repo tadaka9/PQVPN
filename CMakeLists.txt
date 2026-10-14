@@ -345,6 +345,7 @@ set_tests_properties(pqvpn_hard_kernel PROPERTIES
 set(CATCH_TESTS
   test_adaptive_transport
   test_config
+  test_identity_audit
   test_crypto_kem
   test_crypto_signature
   test_crypto_signature_keygen
