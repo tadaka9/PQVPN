@@ -631,13 +631,24 @@ jobs:
           report="$RUNNER_TEMP/pqvpn-readiness.json"
           if python3 tools/check-release-readiness.py --tag "$GITHUB_REF_NAME" > "$report"; then
             cat "$report"
-            jq -e '.ready == true and .issues == []' "$report" > /dev/null
+            jq -e '.ready == true and .issues == [] and .issue_details == []' "$report" > /dev/null
             echo 'Source preflight passed; native functional evidence is still required before qualified publication.' >> "$GITHUB_STEP_SUMMARY"
           else
             status=$?
             cat "$report"
-            if [[ "$status" -ne 1 ]] || ! jq -e '.ready == false and (.issues | type == "array") and (.issues | length > 0)' "$report" > /dev/null; then
-              echo '::error::Readiness script failed unexpectedly or returned a malformed report.'
+            if [[ "$status" -ne 1 ]] || ! jq -e '
+              .ready == false and
+              (.issues | type == "array") and (.issues | length > 0) and
+              (.issue_details | type == "array") and
+              (.issue_details | length == (.issues | length)) and
+              ([.issue_details[].message] == .issues) and
+              all(.issue_details[];
+                .category == "qualification" and
+                (.code == "gate_missing" or
+                 .code == "gate_not_executable" or
+                 .code == "gate_unverified"))
+            ' "$report" > /dev/null; then
+              echo '::error::Readiness has an integrity error (tag, version, manifest, or unknown issue), or returned malformed output.'
               exit 1
             fi
             {
