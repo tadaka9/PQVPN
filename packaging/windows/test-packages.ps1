@@ -12,6 +12,25 @@ $portable = Join-Path $root 'portable'
 Expand-Archive $zip[0].FullName $portable -Force
 if (Get-ChildItem $portable -Recurse -Filter '*.sys') { throw 'Unsigned driver must not be packaged' }
 
+Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+
+namespace PQVPN {
+    public static class WindowsInstaller {
+        [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+        public static extern int MsiQueryProductState(string productCode);
+    }
+}
+'@
+
+function Test-ProductInstalled([string]$ProductCode) {
+    # INSTALLSTATE_DEFAULT (5) means installed for the current context. The
+    # native API returns INSTALLSTATE_UNKNOWN (-1) for a removed product,
+    # whereas the WindowsInstaller COM property can throw a null-reference
+    # exception for that expected state on current hosted runners.
+    return [PQVPN.WindowsInstaller]::MsiQueryProductState($ProductCode) -eq 5
+}
+
 function Test-Payload([string]$Bin, [string]$Config, [string]$Phase) {
     $node = Join-Path $Bin 'pqvpn_node.exe'
     Push-Location $Bin
@@ -89,9 +108,7 @@ try {
     Invoke-Msi @('/i', "`"$oldMsi`"", "INSTALLDIR=`"$install`"") 'old-install.log'
     Invoke-Msi @('/i', "`"$($msi[0].FullName)`"", "INSTALLDIR=`"$install`"") 'upgrade.log'
     Test-Payload (Join-Path $install 'bin') (Join-Path $install 'share\pqvpn\examples\config.json') 'MSI upgrade'
-    $installer = New-Object -ComObject WindowsInstaller.Installer
-    if ($installer.ProductState($oldCode) -eq 5) { throw 'Upgrade left the old product installed' }
-    [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
+    if (Test-ProductInstalled $oldCode) { throw 'Upgrade left the old product installed' }
     Invoke-Msi @('/x', $currentCode) 'upgrade-remove.log'
     if (Test-Path (Join-Path $install 'bin\pqvpn_node.exe')) { throw 'Upgrade removal left the node installed' }
  } catch {
@@ -113,10 +130,7 @@ try {
 } finally {
     # Cleanup only product IDs installed by this test, including partial failures.
     foreach ($code in ($codes | Select-Object -Unique)) {
-        $installer = New-Object -ComObject WindowsInstaller.Installer
-        $state = $installer.ProductState($code)
-        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
-        if ($state -eq 5) { Invoke-Msi @('/x', $code) 'cleanup.log' }
+        if (Test-ProductInstalled $code) { Invoke-Msi @('/x', $code) 'cleanup.log' }
     }
     $env:PATH = $oldPath
     $env:QT_PLUGIN_PATH = $oldPluginPath

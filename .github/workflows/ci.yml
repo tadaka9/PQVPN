@@ -57,11 +57,27 @@ jobs:
         if: matrix.family == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ninja-build pkg-config perl make
+          sudo apt-get install --yes ccache ninja-build pkg-config perl make
 
       - name: Install build tools on macOS
         if: matrix.family == 'macos'
-        run: brew install ninja pkg-config
+        run: brew install ccache ninja pkg-config
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pqvpn-ccache
+          key: ci-ccache-v1-${{ matrix.target }}-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'external/**') }}
+          restore-keys: |
+            ci-ccache-v1-${{ matrix.target }}-
+
+      - name: Configure compiler cache
+        shell: bash
+        run: |
+          echo "CCACHE_DIR=$HOME/.cache/pqvpn-ccache" >> "$GITHUB_ENV"
+          export CCACHE_DIR="$HOME/.cache/pqvpn-ccache"
+          ccache --max-size=500M
+          ccache --zero-stats
 
       - name: Build official upstream dependencies
         if: steps.upstream-deps.outputs.cache-hit != 'true'
@@ -130,11 +146,17 @@ jobs:
           export CMAKE_PREFIX_PATH="$QT_ROOT_DIR;$RUNNER_TEMP/pqvpn-deps"
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_TESTING=OFF \
             -DPQVPN_BUILD_MONITOR=ON
 
       - name: Compile node, terminal console and native GUI
         run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor --parallel 2
+
+      - name: Report compiler cache
+        shell: bash
+        run: ccache --show-stats
 
       - name: Build and render Privacy Console
         shell: bash
@@ -362,6 +384,16 @@ jobs:
           arch: win64_msvc2022_64
           aqtsource: git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b
           cache: true
+
+      - name: Restore Windows driver SDK cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages/microsoft.windows.wdk.*
+            ~/.nuget/packages/microsoft.windows.sdk.*
+          key: ci-wdk-nuget-v1-${{ matrix.target }}-${{ hashFiles('driver/pqvpn_tunnel/*.vcxproj', 'driver/pqvpn_tunnel/packages.config') }}
+          restore-keys: |
+            ci-wdk-nuget-v1-${{ matrix.target }}-
 
       - name: Configure
         shell: pwsh
