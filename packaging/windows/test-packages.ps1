@@ -91,6 +91,22 @@ try {
     [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
     Invoke-Msi @('/x', $currentCode) 'upgrade-remove.log'
     if (Test-Path (Join-Path $install 'bin\pqvpn_node.exe')) { throw 'Upgrade removal left the node installed' }
+ } catch {
+    # Publish the concrete failure in check annotations when log storage is unavailable.
+    $message = $_.Exception.Message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+    Write-Host "::error::Windows package lifecycle: $message"
+    foreach ($log in Get-ChildItem $root -Filter '*.log' -ErrorAction SilentlyContinue) {
+        $lines = @(Get-Content $log.FullName)
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($lines[$index] -match 'Return value 3') {
+                $first = [Math]::Max(0, $index - 15)
+                $context = ($lines[$first..$index] -join ' ').Replace('%', '%25')
+                Write-Host "::error::MSI $($log.Name): $context"
+                break
+            }
+        }
+    }
+    throw
 } finally {
     # Cleanup only product IDs installed by this test, including partial failures.
     foreach ($code in ($codes | Select-Object -Unique)) {
