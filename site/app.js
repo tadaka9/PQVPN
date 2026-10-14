@@ -65,8 +65,8 @@ const assetMatchers={
   'rpm-x64':name=>name.endsWith('.x86_64.rpm'),
   'rpm-arm64':name=>name.endsWith('.aarch64.rpm'),
   arch:name=>name==='PKGBUILD',
-  'linux-x64':name=>name.endsWith('linux-x86_64.tar.gz'),
-  'linux-arm64':name=>name.endsWith('linux-arm64.tar.gz')
+  'linux-x64':name=>name.endsWith('linux-x86_64-desktop-test.tar.gz'),
+  'linux-arm64':name=>name.endsWith('linux-arm64-desktop-test.tar.gz')
 };
 async function platformFacts(){
   const ua=navigator.userAgent.toLowerCase();

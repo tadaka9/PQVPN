@@ -1,0 +1,140 @@
+name: Publish cross-platform test prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing beta tag to publish
+        required: true
+        type: string
+      ci_run_id:
+        description: Successful CI run for the exact tagged commit
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-test-prerelease
+  cancel-in-progress: false
+
+jobs:
+  validate-and-publish:
+    name: Validate and publish test assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Validate tag and CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+-beta-[0-9]+-[0-9A-Za-z.-]+$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          tag_sha="$(git rev-list -n 1 "$TAG")"
+          test -n "$tag_sha"
+          test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          test "$(jq -r .path <<<"$run_json")" = ".github/workflows/ci.yml"
+          test "$(jq -r .event <<<"$run_json")" = "push"
+          test "$(jq -r .head_branch <<<"$run_json")" = "main"
+          test "$(jq -r .status <<<"$run_json")" = "completed"
+          test "$(jq -r .conclusion <<<"$run_json")" = "success"
+          test "$(jq -r .head_repository.full_name <<<"$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r .head_sha <<<"$run_json")" = "$tag_sha"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to mutate it." >&2
+            exit 1
+          fi
+          echo "PQVPN_RELEASE_SHA=$tag_sha" >> "$GITHUB_ENV"
+
+      - name: Download exact native candidates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir candidate release
+          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+            mkdir "candidate/$target"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name "release-candidate-$target" --dir "candidate/$target"
+          done
+
+      - name: Verify and stage public assets
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          windows="candidate/windows-x86_64"
+          test -s "$windows/PQVPN-$version-windows-x64.msi"
+          test -s "$windows/PQVPN-windows-x64-$version-portable.zip"
+          test -s "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg"
+          test -s "$windows/BUILD-INFO.txt"
+          grep -F "Commit: $PQVPN_RELEASE_SHA" "$windows/BUILD-INFO.txt"
+          cp "$windows/PQVPN-$version-windows-x64.msi" release/
+          cp "$windows/PQVPN-windows-x64-$version-portable.zip" release/
+          cp "$windows/PQVPN-$version-windows-x86_64.pqvpnpkg" release/
+          cp "$windows/BUILD-INFO.txt" release/
+
+          for target in linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+            package="candidate/$target/PQVPN-$version-$target.pqvpnpkg"
+            archive="candidate/$target/PQVPN-$version-$target.tar.gz"
+            test -s "$package"
+            test -s "$archive"
+            python3 packaging/update/build-package.py verify "$package"
+            cp "$package" release/
+            if [[ "$target" == linux-* ]]; then
+              cp "$archive" "release/PQVPN-$version-$target-desktop-test.tar.gz"
+            else
+              cp "$archive" release/
+            fi
+          done
+
+          test -s "candidate/linux-x86_64/pqvpn_${version}_amd64.deb"
+          test -s "candidate/linux-arm64/pqvpn_${version}_arm64.deb"
+          cp "candidate/linux-x86_64/pqvpn_${version}_amd64.deb" release/
+          cp "candidate/linux-arm64/pqvpn_${version}_arm64.deb" release/
+          (cd release && sha256sum -- * | sort -k2 > SHA256SUMS)
+          (cd release && sha256sum -c SHA256SUMS)
+          test "$(find release -maxdepth 1 -type f | wc -l)" = 15
+          test -z "$(find release -maxdepth 1 -type f -name 'PQVPN-*-linux-x86_64.tar.gz' -o -name 'PQVPN-*-linux-arm64.tar.gz')"
+
+      - name: Publish immutable test prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          ## Experimental cross-platform beta
+
+          This prerelease provides Windows x86-64, Linux x86-64/ARM64, and macOS Intel/Apple Silicon builds from commit \`$PQVPN_RELEASE_SHA\`.
+
+          Included: Windows MSI and portable ZIP, Debian packages, manual Linux archives, macOS archives, desktop updater packages, SHA-256 manifest, and build information.
+
+          The [main CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID) passed native builds and package smoke tests on all five published targets. Windows also passed clean MSI install, upgrade from the previous release, old ProductCode removal, uninstall, and update-container verification.
+
+          This is an **unqualified test prerelease**. Production signing and the full native functional release gates are incomplete. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix so the public mainnet updater will not install this prerelease automatically.
+          EOF
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --title "PQVPN ${TAG#v} (cross-platform test prerelease)" \
+            --notes-file release-notes.md
