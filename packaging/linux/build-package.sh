@@ -14,10 +14,8 @@ VERSION="${3:-$(tr -d '[:space:]' < PQVPN_VERSION.txt)}"
 DEPLOY_DIR="${4:-}"
 BUILD_DIR="$(realpath "$BUILD_DIR")"
 OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
-PACKAGE_VERSION="$VERSION"
-if [[ "$VERSION" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
-    PACKAGE_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0~alpha-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}"
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/../version-functions.sh"
+PACKAGE_VERSION="$(pqvpn_debian_version "$VERSION")"
 dpkg --validate-version "$PACKAGE_VERSION"
 command -v dpkg-shlibdeps >/dev/null
 

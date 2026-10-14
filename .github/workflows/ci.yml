@@ -247,6 +247,8 @@ jobs:
           ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
           test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
           package="$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          source packaging/version-functions.sh
+          test "$(dpkg-deb -f "$package" Version)" = "$(pqvpn_debian_version "${{ env.PQVPN_VERSION }}")"
           extracted="$RUNNER_TEMP/pqvpn-deb-smoke"
           dpkg-deb -x "$package" "$extracted"
           "$extracted/usr/bin/pqvpn_node" --validate-config --config config.json

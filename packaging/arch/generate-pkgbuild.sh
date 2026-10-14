@@ -4,15 +4,10 @@ set -euo pipefail
 commit="${1:-$(git rev-parse HEAD)}"
 output="${2:-packaging/arch/PKGBUILD}"
 source .github/dependencies.env
+source packaging/version-functions.sh
 version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
 
-if [[ "$version" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
-  pkgver="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0.alpha.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}"
-elif [[ "$version" =~ ^([0-9]+)\.([0-9]+)-(alpha|beta)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
-  pkgver="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0.${BASH_REMATCH[3]}.${BASH_REMATCH[4]}.${BASH_REMATCH[5]}"
-elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-  pkgver="${version//-/.}"
-else
+if ! pkgver="$(pqvpn_arch_version "$version")"; then
   echo "Invalid project version label" >&2
   exit 1
 fi
