@@ -67,8 +67,8 @@ independent cryptographic security audit or evidence that every platform works.
 4. GitHub API read access now works. Runner/secret administration endpoints return
    `Resource not accessible by integration`; configured runner labels and signing
    bindings cannot be inspected with this integration. At inspection time the
-   environment list contained `copilot` and `github-pages`, not the two named
-   release environments. The existing CI GitHub-hosted runner labels are reused for matching targets;
+   environment list did not contain either of the two named release
+   environments. The existing CI GitHub-hosted runner labels are reused for matching targets;
    Windows ARM64 remains outside that baseline and requires a native runner.
    Protected signing/release environments must be configured and verified
    before qualification.
