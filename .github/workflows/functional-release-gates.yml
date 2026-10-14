@@ -24,15 +24,8 @@ jobs:
       - name: Require dispatch from the same immutable tag
         shell: bash
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-      - name: Require every reviewed native gate driver
-        shell: bash
-        run: |
-          for target in \
-            macos-arm64 macos-x86_64 windows-arm64 windows-x86_64 \
-            linux-arm64 linux-x86_64 appimage-arm64 appimage-x86_64 \
-            deb-arm64 deb-x86_64; do
-            test -x "packaging/gates/$target"
-          done
+      - name: Check all native qualification prerequisites
+        run: python3 tools/check-release-readiness.py --tag "${{ inputs.tag }}"
 
   native-gate:
     name: Functional gate ${{ matrix.target }}

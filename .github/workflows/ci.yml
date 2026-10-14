@@ -196,6 +196,10 @@ jobs:
             monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           fi
           test -e "$monitor"
+          if [[ "${{ matrix.family }}" == linux ]]; then
+            env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+              "$monitor" --smoke-test
+          fi
           tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
       - name: Build deb package (Linux only)
@@ -205,6 +209,14 @@ jobs:
           chmod +x packaging/linux/build-package.sh
           ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
           test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          package="$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          extracted="$RUNNER_TEMP/pqvpn-deb-smoke"
+          dpkg-deb -x "$package" "$extracted"
+          "$extracted/usr/bin/pqvpn_node" --validate-config --config config.json
+          test "$("$extracted/usr/bin/pqvpn_node" --version)" = "PQVPN ${{ env.PQVPN_VERSION }}"
+          env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+            "$extracted/usr/bin/pqvpn_monitor" --smoke-test
+          python3 -m unittest discover -s tests/release -v
           # Place the deb next to the tar.gz at the workspace root so the
           # release-candidate artifact stores it at its root (not under
           # artifacts/). The publish gate counts *.deb at release/ root after
@@ -500,42 +512,19 @@ jobs:
           test "$WINDOWS_RESULT" = success
           echo 'Every native configure, compile, help and smoke test passed.'
 
-  publish-tagged-release:
-    name: Publish matrix-verified prerelease
+  tagged-release-readiness:
+    name: Require native qualification before publishing
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [ci-matrix-complete]
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     steps:
-      - name: Download every matrix artifact
-        uses: actions/download-artifact@v7
+      - uses: actions/checkout@v6
         with:
-          pattern: release-candidate-*
-          path: release
-          merge-multiple: true
-      - name: Verify complete release set and checksums
-        shell: bash
+          fetch-depth: 0
+      - name: Validate release version and native gate implementations
+        run: python3 tools/check-release-readiness.py --tag "$GITHUB_REF_NAME"
+      - name: Explain qualified publication
         run: |
-          set -euo pipefail
-          test "$(find release -maxdepth 1 -type f -name '*.zip' | wc -l)" = 1
-          test "$(find release -maxdepth 1 -type f -name '*.msi' | wc -l)" = 1
-          test "$(find release -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" = 4
-          test "$(find release -maxdepth 1 -type f -name '*.deb' | wc -l)" = 2
-          (cd release && sha256sum *.zip *.msi *.tar.gz *.deb | sort -k2 > SHA256SUMS)
-      - name: Create immutable GitHub prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 && {
-            echo "Release ${GITHUB_REF_NAME} already exists; refusing to mutate it." >&2
-            exit 1
-          }
-          # Experimental prerelease: matrix-verified compile and smoke evidence only.
-          # Fully qualified releases are published exclusively by
-          # publish-qualified-release.yml after the native functional gates pass.
-          gh release create "${GITHUB_REF_NAME}" release/* \
-            --repo "${GITHUB_REPOSITORY}" --verify-tag --prerelease --generate-notes \
-            --title "PQVPN ${GITHUB_REF_NAME} (experimental prerelease)"
+          echo 'Run Native functional release gates at this tag, then Publish qualified prerelease with its successful evidence run ID.'

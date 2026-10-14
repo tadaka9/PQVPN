@@ -250,7 +250,7 @@ int main(int argc, char** argv) {
     }
 
     if (args.version) {
-        std::cout << "PQVPN 0.0.1-alpha\n";
+        std::cout << "PQVPN " << PQVPN_BUILD_VERSION << '\n';
         return 0;
     }
     if (args.platform_info) {

@@ -179,6 +179,12 @@ if(PQVPN_BUILD_MONITOR)
       OUTPUT_SCRIPT pqvpn_monitor_deploy_script
       NO_UNSUPPORTED_PLATFORM_ERROR)
     install(SCRIPT ${pqvpn_monitor_deploy_script})
+    # The default Linux deployment selects xcb only. Preserve the headless
+    # platform plugin so installed bundles can run the same smoke test as CI.
+    if(UNIX AND NOT APPLE AND TARGET Qt6::QOffscreenIntegrationPlugin)
+      install(FILES $<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>
+        DESTINATION plugins/platforms)
+    endif()
     if(BUILD_TESTING)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
       set_tests_properties(pqvpn_gui_smoke PROPERTIES
@@ -226,6 +232,7 @@ target_include_directories(pqvpn_platform PUBLIC
 
 set(PQVPN_NODE_SOURCES src/main.cpp)
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
+target_compile_definitions(pqvpn_node PRIVATE PQVPN_BUILD_VERSION="${PQVPN_PROJECT_VERSION}")
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
 
@@ -276,7 +283,7 @@ set(CPACK_PACKAGE_VENDOR "PQVPN contributors")
 set(CPACK_PACKAGE_CONTACT "https://github.com/tadaka9/PQVPN/issues")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Post-quantum peer-to-peer VPN node and consoles")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://tadaka9.github.io/PQVPN/")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_VERSION ${PQVPN_PROJECT_VERSION})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
@@ -290,6 +297,10 @@ include(CPack)
 
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
+add_test(NAME pqvpn_cli_version COMMAND pqvpn_node --version)
+set_tests_properties(pqvpn_cli_version PROPERTIES
+  PASS_REGULAR_EXPRESSION "PQVPN ${PQVPN_PROJECT_VERSION}"
+  TIMEOUT 30 LABELS "baseline;console")
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 add_test(NAME pqvpn_cli_udp2raw_config COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.udp2raw.json)
 add_test(NAME pqvpn_cli_validate COMMAND pqvpn_node --validate-config --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)

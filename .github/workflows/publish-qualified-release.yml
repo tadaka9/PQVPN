@@ -44,6 +44,7 @@ jobs:
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           tag_sha="$(git rev-list -n 1 "$TAG")"
           test -n "$tag_sha"
+          python3 tools/check-release-readiness.py --tag "$TAG"
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
           test "$(jq -r .path <<<"$run_json")" = ".github/workflows/functional-release-gates.yml"
           test "$(jq -r .event <<<"$run_json")" = workflow_dispatch
@@ -61,11 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence candidates release
-          targets=(
-            macos-arm64 macos-x86_64 windows-arm64 windows-x86_64
-            linux-arm64 linux-x86_64 appimage-arm64 appimage-x86_64
-            deb-arm64 deb-x86_64
-          )
+          mapfile -t targets < <(jq -r '.[]' packaging/release-targets.json)
           for target in "${targets[@]}"; do
             mkdir -p "evidence/$target" "candidates/$target"
             gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
@@ -122,7 +119,7 @@ jobs:
             gh attestation verify "$package" --repo "$GITHUB_REPOSITORY"
             cp "$package" "release/${package##*/}"
           done
-          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" = 10
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "$(jq length packaging/release-targets.json)"
 
       - name: Generate checksums
         working-directory: release
