@@ -68,8 +68,10 @@ independent cryptographic security audit or evidence that every platform works.
    `Resource not accessible by integration`; configured runner labels and signing
    bindings cannot be inspected with this integration. At inspection time the
    environment list contained `copilot` and `github-pages`, not the two named
-   release environments. Protected signing/release environments and capable
-   native runners must be configured and verified before qualification.
+   release environments. The existing CI GitHub-hosted runner labels are reused for matching targets;
+   Windows ARM64 remains outside that baseline and requires a native runner.
+   Protected signing/release environments must be configured and verified
+   before qualification.
 5. Existing version `v0.0.5-alpha-10092026-David0` points to an older commit and
    is already published. The replacement version is staged in source; no new
    release/tag should be created until reviewed fixes and native qualification

@@ -36,26 +36,26 @@ jobs:
       matrix:
         include:
           - target: macos-arm64
-            runs_on: '["self-hosted","pqvpn-release","macOS","ARM64"]'
+            runs_on: macos-15
           - target: macos-x86_64
-            runs_on: '["self-hosted","pqvpn-release","macOS","X64"]'
+            runs_on: macos-15-intel
           - target: windows-arm64
-            runs_on: '["self-hosted","pqvpn-release","Windows","ARM64"]'
+            runs_on: [self-hosted, pqvpn-release, Windows, ARM64]
           - target: windows-x86_64
-            runs_on: '["self-hosted","pqvpn-release","Windows","X64"]'
+            runs_on: windows-2025
           - target: linux-arm64
-            runs_on: '["self-hosted","pqvpn-release","Linux","ARM64"]'
+            runs_on: ubuntu-24.04-arm
           - target: linux-x86_64
-            runs_on: '["self-hosted","pqvpn-release","Linux","X64"]'
+            runs_on: ubuntu-24.04
           - target: appimage-arm64
-            runs_on: '["self-hosted","pqvpn-release","Linux","ARM64"]'
+            runs_on: ubuntu-24.04-arm
           - target: appimage-x86_64
-            runs_on: '["self-hosted","pqvpn-release","Linux","X64"]'
+            runs_on: ubuntu-24.04
           - target: deb-arm64
-            runs_on: '["self-hosted","pqvpn-release","Linux","ARM64"]'
+            runs_on: ubuntu-24.04-arm
           - target: deb-x86_64
-            runs_on: '["self-hosted","pqvpn-release","Linux","X64"]'
-    runs-on: ${{ fromJSON(matrix.runs_on) }}
+            runs_on: ubuntu-24.04
+    runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6

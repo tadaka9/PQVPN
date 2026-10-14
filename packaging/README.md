@@ -113,8 +113,9 @@ behavior. The current Linux driver is provisional and the other nine drivers
 still require implementation.
 
 Create the tag at the reviewed commit, then dispatch `Native functional release
-gates` using that tag as both the workflow ref and the `tag` input. Each native
-runner must actually build/sign, exercise bidirectional privileged tunnel
+gates` using that tag as both the workflow ref and the `tag` input. The five existing CI platform runner choices are reused for matching targets.
+Windows ARM64 still needs a native runner because it is outside that baseline.
+Each native runner must actually build/sign, exercise bidirectional privileged tunnel
 traffic, restore route/DNS state, and test clean installation, upgrade, and
 removal. Missing tests must fail the gate; never change false evidence to true
 without the corresponding test. `Publish qualified prerelease` accepts only a
