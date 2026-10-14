@@ -203,7 +203,7 @@ cmake --build build --target pqvpn_node pqvpn_tui
 
 ### Privacy Console
 
-Install the Qt 6 Core, Gui and Widgets development packages, then build the
+Install the Qt 6 Core, Gui, Widgets and Network development packages, then build the
 native C++23 interface beside the node:
 
 ```bash
@@ -222,6 +222,11 @@ preferences. PQVPN adds an animated aurora, live connection orb, transport
 capability view and system-tray controls. Close hides the window in the tray by
 default without changing the connection; **Exit PQVPN** shuts the node down
 first. Both behaviors are explicit and configurable.
+
+The About page checks GitHub Releases only when requested. It selects the native
+package for the current operating system and architecture, requires a unique
+entry in the release's `SHA256SUMS`, verifies the complete download, and opens
+the containing folder. Installation remains a separate user action.
 
 **View → Appearance** follows the operating-system light/dark preference by
 default and updates while the console is open. Explicit Light and Dark choices

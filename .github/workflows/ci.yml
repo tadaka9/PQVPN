@@ -486,6 +486,14 @@ jobs:
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
           if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed into the MSI stage' }
+          # Use the same native Qt deployment that the verified portable ZIP
+          # uses. This closes over newly linked Qt modules and compiler runtime
+          # DLLs before WiX harvests the stage.
+          $windeployqt = Join-Path $env:QT_ROOT_DIR 'bin\windeployqt.exe'
+          if (-not (Test-Path $windeployqt)) { throw 'windeployqt is required for the MSI runtime' }
+          & $windeployqt --release --no-translations --no-opengl-sw --include-plugins qoffscreen "$stage\bin\pqvpn_monitor.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'MSI Qt runtime deployment failed' }
+          if (-not (Test-Path "$stage\bin\platforms\qoffscreen.dll")) { throw 'MSI stage is missing the offscreen platform plugin' }
           # Locate the WiX v3 toolset (candle/light/heat) on the runner.
           $candle = (Get-Command candle.exe -ErrorAction SilentlyContinue).Source
           $light  = (Get-Command light.exe  -ErrorAction SilentlyContinue).Source
