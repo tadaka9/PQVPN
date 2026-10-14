@@ -36,7 +36,7 @@ TARGETS = tuple(
         "appimage": ("x86_64", "arm64"),
         "macos": ("x86_64", "arm64"),
         "windows": ("x86_64", "arm64"),
-    }.items()
+    }.items() for arch in arches
 )
 
 
