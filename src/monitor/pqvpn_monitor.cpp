@@ -19,12 +19,14 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QGuiApplication>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -46,6 +48,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QSaveFile>
+#include <QSet>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSignalBlocker>
@@ -297,11 +300,44 @@ public:
     }
     bool verifyVisualLayout() const {
         const auto fail=[](const QString& message){qCritical().noquote()<<message;const QString image=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!image.isEmpty()){QFile diagnostic(image+".error.txt");if(diagnostic.open(QIODevice::WriteOnly|QIODevice::Truncate))diagnostic.write(message.toUtf8());}return false;};
+        // On Qt's offscreen Windows plugin, inFont('A') can return false for a
+        // generic font even when Qt actually rasterizes the Latin glyph. Keep
+        // the coverage check, but verify rendered glyph ink rather than trusting
+        // only the font-database metadata.
+        const auto rendersDistinctLatinGlyphs=[](const QFont& font){
+            const auto render=[&font](QChar glyph){
+                QImage ink(96,96,QImage::Format_ARGB32_Premultiplied);
+                ink.fill(Qt::transparent);
+                QPainter painter(&ink);
+                painter.setRenderHint(QPainter::TextAntialiasing,true);
+                painter.setPen(Qt::white);
+                painter.setFont(font);
+                painter.drawText(QPoint(8,64),QString(glyph));
+                painter.end();
+                return ink;
+            };
+            const QImage a=render(QChar('A'));
+            const QImage w=render(QChar('W'));
+            if(a==w) return false; // identical replacement glyphs or no ink
+            const auto hasInk=[](const QImage& image){
+                for(int y=0;y<image.height();++y)
+                    for(int x=0;x<image.width();++x)
+                        if(qAlpha(image.pixel(x,y))!=0) return true;
+                return false;
+            };
+            return hasInk(a)&&hasInk(w);
+        };
+        QSet<QString> checkedFonts;
         const auto labels=findChildren<QLabel*>();
         for(const auto* label:labels){
-            if(label->isVisible()&&label->text().contains(QRegularExpression("[A-Za-z]"))&&!label->fontMetrics().inFont(QChar('A'))){
-                return fail("PQVPN visual check: selected UI font cannot render Latin text: "+label->font().family());
-            }
+            if(!label->isVisible()||!label->text().contains(QRegularExpression("[A-Za-z]"))) continue;
+            if(label->fontMetrics().inFont(QChar('A'))) continue;
+            const QFont font=label->font();
+            const QString key=font.toString();
+            if(checkedFonts.contains(key)) continue;
+            if(!rendersDistinctLatinGlyphs(font))
+                return fail("PQVPN visual check: UI font failed Latin glyph raster check: "+font.family());
+            checkedFonts.insert(key);
         }
         const auto* scroll=findChild<QScrollArea*>("pageScroll");
         if(!scroll)return fail("PQVPN visual check: page scroll area is missing");
