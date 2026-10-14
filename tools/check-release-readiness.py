@@ -78,7 +78,7 @@ def inspect(root, tag=None):
                       f"{target}: cannot inspect native gate: {error}")
                 continue
             for check in REQUIRED_CHECKS:
-                if re.search(r'"' + check + r'"\s*:\s*false\b', body):
+                if re.search(r'["\x27]' + check + r'["\x27]\s*:\s*(?:false|False)\b', body):
                     issue("gate_unverified", "qualification",
                           f"{target}: gate explicitly leaves {check} unverified")
     version_file = root / "PQVPN_VERSION.txt"

@@ -33,6 +33,16 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(report["ready"])
         self.assertIn("missing", report["issues"][0])
 
+    def test_python_false_evidence_is_still_unverified(self):
+        self.gate.write_text('#!/bin/sh\n# "privileged_tunnel_e2e": False\nexit 1\n')
+        self.gate.chmod(0o755)
+        report = readiness.inspect(self.root)
+        self.assertFalse(report["qualification_ready"])
+        self.assertTrue(any(
+            item["code"] == "gate_unverified" and
+            "privileged_tunnel_e2e" in item["message"]
+            for item in report["issue_details"]))
+
     def test_non_executable_gate_is_rejected(self):
         self.gate.write_text("#!/bin/sh\nexit 1\n")
         self.assertIn("not executable", readiness.inspect(self.root)["issues"][0])

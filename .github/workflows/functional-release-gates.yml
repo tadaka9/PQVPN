@@ -83,6 +83,19 @@ jobs:
       - name: Resolve qualified commit
         shell: bash
         run: echo "PQVPN_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check native runner prerequisites
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          OUTPUT: ${{ runner.temp }}/pqvpn-gate-output
+        run: |
+          set -euo pipefail
+          python3 tools/verify-native-gate-environment.py \
+            --target "$TARGET" --output "$OUTPUT/host-prerequisites.json"
+          echo 'Host prerequisites passed; privileged PQVPN functional and signature tests are still mandatory.'
       - name: Build, sign, install, exercise tunnel, and uninstall
         shell: bash
         env:
@@ -103,6 +116,7 @@ jobs:
         with:
           name: qualification-diagnostics-${{ matrix.target }}
           path: |
+            ${{ runner.temp }}/pqvpn-gate-output/host-prerequisites.json
             ${{ runner.temp }}/pqvpn-gate-output/evidence.json
             ${{ runner.temp }}/pqvpn-gate-output/verification.log
           if-no-files-found: warn
