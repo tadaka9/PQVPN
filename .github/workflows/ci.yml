@@ -190,7 +190,10 @@ jobs:
           trap 'echo "::error::Native package verification failed; $(tail -n 15 "$RUNNER_TEMP/package-smoke.log" 2>/dev/null | tr "\n" " ")"' ERR
           stage="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           mkdir -p "$stage"
-          cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
+          if ! cmake --install build --prefix "$GITHUB_WORKSPACE/$stage" > "$RUNNER_TEMP/package-install.log" 2>&1; then
+            echo "::error::$(tail -n 20 "$RUNNER_TEMP/package-install.log" | tr '\n' ' ')"
+            exit 1
+          fi
           # GNUInstallDirs installs the executables under bin/. A macOS app
           # bundle would land at the prefix root, so accept either layout.
           test -e "$stage/bin/pqvpn_node"
@@ -202,8 +205,11 @@ jobs:
           test -e "$monitor"
           if [[ "${{ matrix.family }}" == linux || "${{ matrix.family }}" == macos ]]; then
             installed_monitor="$GITHUB_WORKSPACE/$monitor"
-            (cd "$stage"; env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
-              "$installed_monitor" --smoke-test --verify-installation 2>&1 | tee "$RUNNER_TEMP/package-smoke.log")
+            if ! (cd "$stage"; env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+              "$installed_monitor" --smoke-test --verify-installation) > "$RUNNER_TEMP/package-smoke.log" 2>&1; then
+              echo "::error::$(tail -n 20 "$RUNNER_TEMP/package-smoke.log" | tr '\n' ' ')"
+              exit 1
+            fi
           fi
           tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 

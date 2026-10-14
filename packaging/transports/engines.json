@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "engines": [
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
+      "platform": "linux-x86_64",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.x86_64-unknown-linux-musl.tar.xz",
+      "sha256": "8439bf43c324b0fc273e663d0b1f8926fd8f666cbd1e0fd59b35096f0e778e92",
+      "member": "sslocal",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "linux-x86_64",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-linux-64.zip",
+      "sha256": "6bbb8aee65a57d0b12599b4b7c842b3ad0daca4436e661d94015c447cb31b4fa",
+      "member": "v2ray",
+      "format": "tar"
+    },
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
+      "platform": "linux-arm64",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.aarch64-unknown-linux-musl.tar.xz",
+      "sha256": "2c24915b56a05effdab5898848bacfbcb625bc277b18febafc7a3aa45f87f3b0",
+      "member": "sslocal",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "linux-arm64",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-linux-arm64-v8a.zip",
+      "sha256": "2bda03a3d6b93122cb418504dc1c9ada10f99ae6be58a1fcc4a5ca1a01e12a30",
+      "member": "v2ray",
+      "format": "tar"
+    },
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
+      "platform": "macos-x86_64",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.x86_64-apple-darwin.tar.xz",
+      "sha256": "f4d7e8d9e3fe905c5c4a28e05593f2bcbd247e1618454c7996b81d951556282a",
+      "member": "sslocal",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "macos-x86_64",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-macos-64.zip",
+      "sha256": "73e907f20355a6be16e4090c5c3693404f0c56b48a00111160cfafc874e1f317",
+      "member": "v2ray",
+      "format": "tar"
+    },
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
+      "platform": "macos-arm64",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.aarch64-apple-darwin.tar.xz",
+      "sha256": "58e0caf0cc9266c4ea226f38aa20fb28c1be12efc87a73cf5903197867555208",
+      "member": "sslocal",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "macos-arm64",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-macos-arm64-v8a.zip",
+      "sha256": "75d0b4bf571b33aff8fb3eacb4a7ff16061a2d227503d75c5247852ef0958b15",
+      "member": "v2ray",
+      "format": "tar"
+    },
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
+      "platform": "windows-x86_64",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.x86_64-pc-windows-msvc.zip",
+      "sha256": "882151ea5c52941d4a3360ebd12c74c6d6bd1b599596089ef1811b379c705666",
+      "member": "sslocal.exe",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "windows-x86_64",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-windows-64.zip",
+      "sha256": "46ee170d031ea3be79cc583e61e6335a612e4c87925deed2a7179b0a5fb79f60",
+      "member": "v2ray.exe",
+      "format": "tar"
+    },
+    {
+      "engine": "udp2raw",
+      "version": "20230206.0",
+      "platform": "linux-x86_64",
+      "url": "https://github.com/wangyu-/udp2raw/releases/download/20230206.0/udp2raw_binaries.tar.gz",
+      "sha256": "503cf5781aa97e50b4954c6bc4622c3ea6be02f6a35def4bb3b3eaf95bd2c7e8",
+      "member": "udp2raw_amd64",
+      "format": "tar"
+    },
+    {
+      "engine": "obfs4",
+      "version": "0.0.14-1+b4",
+      "platform": "linux-x86_64",
+      "url": "https://deb.debian.org/debian/pool/main/o/obfs4proxy/obfs4proxy_0.0.14-1+b4_amd64.deb",
+      "sha256": "11700bd64416c04666ab52cab3cb09315e3247b76102da3fb83bb673c3fa67cf",
+      "member": "usr/bin/obfs4proxy",
+      "format": "deb"
+    },
+    {
+      "engine": "obfs4",
+      "version": "0.0.14-1+b4",
+      "platform": "linux-arm64",
+      "url": "https://deb.debian.org/debian/pool/main/o/obfs4proxy/obfs4proxy_0.0.14-1+b4_arm64.deb",
+      "sha256": "177f99092893f391a46150616b5cde84393a46cb7a26a4468cd40edaa66c209f",
+      "member": "usr/bin/obfs4proxy",
+      "format": "deb"
+    }
+  ]
+}
