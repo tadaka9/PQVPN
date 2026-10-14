@@ -1,14 +1,25 @@
 #!/bin/bash
 # PQVPN Linux package builder (DEB)
-# Produces a policy-compliant .deb with binaries under /usr/bin,
+# Deploys the complete runtime under /usr/lib/pqvpn with launchers under /usr/bin,
 # configuration examples under /etc/pqvpn, the systemd unit under
 # /usr/lib/systemd/system, and the desktop entry under /usr/share.
 
 set -euo pipefail
+umask 022
 
 BUILD_DIR="${1:-build}"
 OUTPUT_DIR="${2:-artifacts}"
-VERSION="${3:-0.0.0}"
+VERSION="${3:-$(tr -d '[:space:]' < PQVPN_VERSION.txt)}"
+# Optional already-deployed CMake install tree, e.g. the native tar staging tree.
+DEPLOY_DIR="${4:-}"
+BUILD_DIR="$(realpath "$BUILD_DIR")"
+OUTPUT_DIR="$(realpath -m "$OUTPUT_DIR")"
+PACKAGE_VERSION="$VERSION"
+if [[ "$VERSION" =~ ^alpha-([0-9]+)\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$ ]]; then
+    PACKAGE_VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0~alpha-${BASH_REMATCH[3]}-${BASH_REMATCH[4]}"
+fi
+dpkg --validate-version "$PACKAGE_VERSION"
+command -v dpkg-shlibdeps >/dev/null
 
 if [ ! -f "$BUILD_DIR/pqvpn_node" ]; then
     echo "error: $BUILD_DIR/pqvpn_node not found" >&2
@@ -34,11 +45,66 @@ mkdir -p \
     "$PKG_ROOT/usr/share/applications" \
     "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
 
-install -m 0755 "$BUILD_DIR/pqvpn_node" "$PKG_ROOT/usr/bin/"
-install -m 0755 "$BUILD_DIR/pqvpn_tui" "$PKG_ROOT/usr/bin/"
-if [ -f "$BUILD_DIR/pqvpn_monitor" ]; then
-    install -m 0755 "$BUILD_DIR/pqvpn_monitor" "$PKG_ROOT/usr/bin/"
+# Keep the GUI beside its deployed Qt libraries, plugins, and qt.conf. Copying
+# only the executable selects an incompatible system Qt on clean machines.
+PRIVATE_ROOT="$PKG_ROOT/usr/lib/pqvpn"
+mkdir -p "$PRIVATE_ROOT"
+if [ -n "$DEPLOY_DIR" ]; then
+    DEPLOY_DIR="$(realpath "$DEPLOY_DIR")"
+    # CMake rewrites install RPATHs, so byte comparison is inappropriate.
+    # GNU build IDs survive that rewrite and tie the stage to these binaries.
+    for binary in pqvpn_node pqvpn_tui pqvpn_monitor; do
+        if [ ! -f "$BUILD_DIR/$binary" ]; then continue; fi
+        build_id="$(readelf -n "$BUILD_DIR/$binary" | awk '/Build ID:/ {print $3}')"
+        stage_id="$(readelf -n "$DEPLOY_DIR/bin/$binary" | awk '/Build ID:/ {print $3}')"
+        test -n "$build_id"
+        test "$build_id" = "$stage_id"
+    done
+    cp -a "$DEPLOY_DIR/." "$PRIVATE_ROOT/"
+else
+    cmake --install "$BUILD_DIR" --prefix "$PRIVATE_ROOT"
 fi
+for binary in pqvpn_node pqvpn_tui pqvpn_monitor; do
+    if [ -f "$PRIVATE_ROOT/bin/$binary" ]; then
+        ln -s "../lib/pqvpn/bin/$binary" "$PKG_ROOT/usr/bin/$binary"
+    fi
+done
+if [ -f "$PRIVATE_ROOT/bin/pqvpn_monitor" ]; then
+    test -s "$PRIVATE_ROOT/bin/qt.conf"
+    test -s "$PRIVATE_ROOT/lib/libQt6Core.so.6"
+    test -s "$PRIVATE_ROOT/plugins/platforms/libqxcb.so"
+fi
+
+# Resolve system dependencies from every shipped ELF object. Bundled SONAMEs
+# belong to this package, so omit their self-dependencies while still resolving
+# their external dependencies through the system shlibs database.
+mkdir -p "$PKG_ROOT/debian"
+cat > "$PKG_ROOT/debian/control" <<CONTROL
+Source: pqvpn
+Section: net
+Priority: optional
+Maintainer: tadaka9 <tadaka9@users.noreply.github.com>
+
+Package: pqvpn
+Architecture: any
+Description: PQVPN node and consoles
+CONTROL
+shlibs="$PKG_ROOT/debian/shlibs.local"
+: > "$shlibs"
+elfs=()
+while IFS= read -r -d '' object; do
+    if ! file -b "$object" | grep -q '^ELF'; then continue; fi
+    elfs+=("-e$object")
+    soname="$(objdump -p "$object" | awk '$1 == "SONAME" {print $2}')"
+    if [[ "$soname" =~ ^(.+)\.so\.(.+)$ ]]; then
+        printf '%s %s pqvpn (= %s)\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "$PACKAGE_VERSION" >> "$shlibs"
+    fi
+done < <(find "$PRIVATE_ROOT" -type f -print0)
+test "${#elfs[@]}" -gt 0
+dependencies="$(cd "$PKG_ROOT"; dpkg-shlibdeps -O -xpqvpn -l"$PRIVATE_ROOT/lib" "${elfs[@]}")"
+DEPENDENCIES="${dependencies#shlibs:Depends=}"
+test -n "$DEPENDENCIES"
+rm -rf "$PKG_ROOT/debian"
 
 install -m 0644 config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
 install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
@@ -71,10 +137,10 @@ fi
 
 cat > "$PKG_ROOT/DEBIAN/control" << EOF
 Package: pqvpn
-Version: $VERSION
+Version: $PACKAGE_VERSION
 Architecture: $ARCH
 Maintainer: tadaka9 <tadaka9@users.noreply.github.com>
-Depends: libc6, libstdc++6, libssl3t64 | libssl3
+Depends: $DEPENDENCIES
 Section: net
 Priority: optional
 Homepage: https://tadaka9.github.io/PQVPN/

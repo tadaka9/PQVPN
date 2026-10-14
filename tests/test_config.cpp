@@ -129,3 +129,17 @@ TEST_CASE("Config rejects invalid adaptive policy", "[config][transport]") {
     CHECK_FALSE(pqvpn::config::load_config(config_path).has_value());
     std::remove(config_path.c_str());
 }
+
+TEST_CASE("Normalized configuration preserves an external backend without interface name", "[config][transport]") {
+    for(const std::string backend:{"wireguard","openvpn"}) {
+        pqvpn::config::Config original;
+        original.tunnel.plugin=backend;
+        original.tunnel.config_path="/operator/client.conf";
+        const nlohmann::json normalized=original;
+        REQUIRE(normalized.contains("tunnel"));
+        CHECK(normalized.at("tunnel").at("plugin")==backend);
+        const auto restored=normalized.get<pqvpn::config::Config>();
+        CHECK(restored.tunnel.plugin==backend);
+        CHECK(restored.tunnel.config_path==original.tunnel.config_path);
+    }
+}

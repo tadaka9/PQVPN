@@ -5,8 +5,8 @@ pkgdesc='Post-quantum peer-to-peer VPN node and consoles'
 arch=('x86_64' 'aarch64')
 url='https://tadaka9.github.io/PQVPN/'
 license=('MIT')
-depends=('argon2' 'liboqs' 'openssl' 'qt6-base')
-makedepends=('cmake' 'git' 'ninja')
+depends=('argon2>=@ARGON2_VERSION@' 'liboqs>=@LIBOQS_VERSION@' 'openssl>=@OPENSSL_VERSION@' 'qt6-base>=@QT_VERSION@')
+makedepends=('cmake>=3.28' 'gcc>=13' 'git' 'ninja')
 _commit='@COMMIT@'
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tadaka9/PQVPN/archive/$_commit.tar.gz")
 sha256sums=('@SHA256@')
@@ -16,7 +16,8 @@ build() {
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_TESTING=OFF \
-    -DPQVPN_BUILD_MONITOR=ON
+    -DPQVPN_BUILD_MONITOR=ON \
+    -DPQVPN_DEPLOY_QT_RUNTIME=OFF
   cmake --build build --parallel
 }
 

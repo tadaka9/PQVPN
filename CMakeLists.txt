@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.28)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
 string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
-if(NOT PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$")
-  message(FATAL_ERROR
-    "PQVPN_VERSION.txt must contain one semantic version, optionally with a prerelease suffix "
-    "such as 0.0.2 or 0.0.5-alpha-10092026-David0")
+# Public labels are preserved in CLI output and artifact names. Package managers
+# and project() additionally require numeric version components.
+if(PQVPN_PROJECT_VERSION MATCHES "^alpha-([0-9]+)\\.([0-9]+)-([0-9]+)-([0-9A-Za-z.-]+)$")
+  set(PQVPN_NUMERIC_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.0")
+  set(PQVPN_PACKAGE_PRERELEASE "alpha-${CMAKE_MATCH_3}-${CMAKE_MATCH_4}")
+  set(PQVPN_DEBIAN_VERSION "${PQVPN_NUMERIC_VERSION}~${PQVPN_PACKAGE_PRERELEASE}")
+elseif(PQVPN_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$")
+  string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PQVPN_NUMERIC_VERSION "${PQVPN_PROJECT_VERSION}")
+  set(PQVPN_DEBIAN_VERSION "${PQVPN_PROJECT_VERSION}")
+else()
+  message(FATAL_ERROR "Invalid project version label in PQVPN_VERSION.txt")
 endif()
-# project() accepts only numeric dotted components, so the prerelease suffix is
-# carried separately in PQVPN_PROJECT_VERSION for artifacts and package names.
-string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PQVPN_NUMERIC_VERSION "${PQVPN_PROJECT_VERSION}")
 project(PQVPN VERSION ${PQVPN_NUMERIC_VERSION} LANGUAGES CXX)
 
 include(GNUInstallDirs)
@@ -22,6 +26,7 @@ endforeach()
 
 include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
+option(PQVPN_DEPLOY_QT_RUNTIME "Deploy private Qt runtime beside the monitor" ON)
 
 find_package(OpenSSL ${PQVPN_OPENSSL_VERSION} REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
@@ -156,11 +161,19 @@ target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIB
 
 # ... (previous lines)
 if(PQVPN_BUILD_MONITOR)
-    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets)
+    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network)
     # The privacy console controls the canonical pqvpn_node process; it does
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
     set_target_properties(pqvpn_monitor PROPERTIES AUTOMOC ON AUTORCC ON)
+    if(APPLE)
+      set_target_properties(pqvpn_monitor PROPERTIES MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.tadaka9.pqvpn"
+        MACOSX_BUNDLE_BUNDLE_NAME "PQVPN"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        INSTALL_RPATH "@executable_path/../Frameworks")
+    endif()
     # Keep the packaged Qt runtime ahead of any older system Qt.  The deploy
     # script installs libraries under lib/ beside bin/pqvpn_monitor; without
     # this RPATH the dynamic loader may select an incompatible system Qt.
@@ -168,17 +181,29 @@ if(PQVPN_BUILD_MONITOR)
       set_target_properties(pqvpn_monitor PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
     endif()
     target_include_directories(pqvpn_monitor PRIVATE ${PQVPN_INCLUDE_DIRS})
-    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core)
+    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Network)
+    target_compile_definitions(pqvpn_monitor PRIVATE PQVPN_BUILD_VERSION="${PQVPN_PROJECT_VERSION}")
     target_compile_options(pqvpn_monitor PRIVATE
       $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
     install(TARGETS pqvpn_monitor
       BUNDLE DESTINATION .
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-    qt_generate_deploy_app_script(
-      TARGET pqvpn_monitor
-      OUTPUT_SCRIPT pqvpn_monitor_deploy_script
-      NO_UNSUPPORTED_PLATFORM_ERROR)
-    install(SCRIPT ${pqvpn_monitor_deploy_script})
+    if(PQVPN_DEPLOY_QT_RUNTIME)
+      if(WIN32)
+        set(PQVPN_QT_DEPLOY_OPTIONS DEPLOY_TOOL_OPTIONS --include-plugins qoffscreen)
+      endif()
+      qt_generate_deploy_app_script(
+        TARGET pqvpn_monitor
+        OUTPUT_SCRIPT pqvpn_monitor_deploy_script
+        NO_UNSUPPORTED_PLATFORM_ERROR ${PQVPN_QT_DEPLOY_OPTIONS})
+      # The default Linux deployment selects xcb only. Preserve the headless
+      # platform plugin so installed bundles can run the same smoke test as CI.
+      if(UNIX AND TARGET Qt6::QOffscreenIntegrationPlugin)
+        install(FILES $<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>
+          DESTINATION $<IF:$<BOOL:${APPLE}>,pqvpn_monitor.app/Contents/PlugIns/platforms,plugins/platforms>)
+      endif()
+      install(SCRIPT ${pqvpn_monitor_deploy_script})
+    endif()
     if(BUILD_TESTING)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
       set_tests_properties(pqvpn_gui_smoke PROPERTIES
@@ -226,6 +251,7 @@ target_include_directories(pqvpn_platform PUBLIC
 
 set(PQVPN_NODE_SOURCES src/main.cpp)
 add_executable(pqvpn_node ${PQVPN_NODE_SOURCES})
+target_compile_definitions(pqvpn_node PRIVATE PQVPN_BUILD_VERSION="${PQVPN_PROJECT_VERSION}")
 target_include_directories(pqvpn_node PRIVATE ${PQVPN_INCLUDE_DIRS})
 target_link_libraries(pqvpn_node PRIVATE node_module_lib pqvpn_platform ${PQVPN_COMMON_LIBS})
 
@@ -264,6 +290,12 @@ install(TARGETS pqvpn_node pqvpn_tui
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES config.json config.udp2raw.json
   DESTINATION ${CMAKE_INSTALL_DATADIR}/pqvpn/examples)
+if(APPLE AND PQVPN_BUILD_MONITOR)
+  install(PROGRAMS $<TARGET_FILE:pqvpn_node>
+    DESTINATION pqvpn_monitor.app/Contents/MacOS)
+  install(FILES config.json config.udp2raw.json
+    DESTINATION pqvpn_monitor.app/Contents/Resources/pqvpn/examples)
+endif()
 install(FILES README.md LICENSE
   DESTINATION ${CMAKE_INSTALL_DOCDIR})
 if(UNIX AND NOT APPLE)
@@ -276,9 +308,15 @@ set(CPACK_PACKAGE_VENDOR "PQVPN contributors")
 set(CPACK_PACKAGE_CONTACT "https://github.com/tadaka9/PQVPN/issues")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Post-quantum peer-to-peer VPN node and consoles")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://tadaka9.github.io/PQVPN/")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_VERSION ${PQVPN_PROJECT_VERSION})
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+set(CPACK_DEBIAN_PACKAGE_VERSION "${PQVPN_DEBIAN_VERSION}")
+set(CPACK_RPM_PACKAGE_VERSION "${PQVPN_NUMERIC_VERSION}")
+if(PQVPN_PACKAGE_PRERELEASE)
+  string(REPLACE "-" "." PQVPN_RPM_PRERELEASE "${PQVPN_PACKAGE_PRERELEASE}")
+  set(CPACK_RPM_PACKAGE_RELEASE "0.${PQVPN_RPM_PRERELEASE}")
+endif()
 set(CPACK_DEBIAN_PACKAGE_SECTION "net")
 set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
@@ -290,6 +328,10 @@ include(CPack)
 
 if(BUILD_TESTING)
 add_test(NAME pqvpn_cli_help COMMAND pqvpn_node --help)
+add_test(NAME pqvpn_cli_version COMMAND pqvpn_node --version)
+set_tests_properties(pqvpn_cli_version PROPERTIES
+  PASS_REGULAR_EXPRESSION "PQVPN ${PQVPN_PROJECT_VERSION}"
+  TIMEOUT 30 LABELS "baseline;console")
 add_test(NAME pqvpn_cli_smoke COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
 add_test(NAME pqvpn_cli_udp2raw_config COMMAND pqvpn_node --smoke-test --config ${CMAKE_CURRENT_SOURCE_DIR}/config.udp2raw.json)
 add_test(NAME pqvpn_cli_validate COMMAND pqvpn_node --validate-config --config ${CMAKE_CURRENT_SOURCE_DIR}/config.json)
@@ -315,6 +357,7 @@ set_tests_properties(pqvpn_hard_kernel PROPERTIES
 set(CATCH_TESTS
   test_adaptive_transport
   test_config
+  test_identity_audit
   test_crypto_kem
   test_crypto_signature
   test_crypto_signature_keygen

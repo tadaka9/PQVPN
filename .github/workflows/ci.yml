@@ -57,11 +57,27 @@ jobs:
         if: matrix.family == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ninja-build pkg-config perl make
+          sudo apt-get install --yes ccache ninja-build pkg-config perl make
 
       - name: Install build tools on macOS
         if: matrix.family == 'macos'
-        run: brew install ninja pkg-config
+        run: brew install ccache ninja pkg-config
+
+      - name: Restore compiler cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/pqvpn-ccache
+          key: ci-ccache-v1-${{ matrix.target }}-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'external/**') }}
+          restore-keys: |
+            ci-ccache-v1-${{ matrix.target }}-
+
+      - name: Configure compiler cache
+        shell: bash
+        run: |
+          echo "CCACHE_DIR=$HOME/.cache/pqvpn-ccache" >> "$GITHUB_ENV"
+          export CCACHE_DIR="$HOME/.cache/pqvpn-ccache"
+          ccache --max-size=500M
+          ccache --zero-stats
 
       - name: Build official upstream dependencies
         if: steps.upstream-deps.outputs.cache-hit != 'true'
@@ -130,23 +146,31 @@ jobs:
           export CMAKE_PREFIX_PATH="$QT_ROOT_DIR;$RUNNER_TEMP/pqvpn-deps"
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DBUILD_TESTING=OFF \
             -DPQVPN_BUILD_MONITOR=ON
 
       - name: Compile node, terminal console and native GUI
         run: cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor --parallel 2
 
+      - name: Report compiler cache
+        shell: bash
+        run: ccache --show-stats
+
       - name: Build and render Privacy Console
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/pqvpn-console"
+          monitor=build/pqvpn_monitor
+          if [[ "${{ matrix.family }}" == macos ]]; then monitor=build/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor; fi
           for theme in dark light; do
             for page in overview connection transports strangenet activity privacy about; do
               QT_QPA_PLATFORM=offscreen \
                 PQVPN_SMOKE_THEME="$theme" \
                 PQVPN_SMOKE_PAGE="$page" \
                 PQVPN_SMOKE_IMAGE="$RUNNER_TEMP/pqvpn-console/$page-$theme.png" \
-                build/pqvpn_monitor --smoke-test
+                "$monitor" --smoke-test
               test -s "$RUNNER_TEMP/pqvpn-console/$page-$theme.png"
             done
           done
@@ -158,6 +182,10 @@ jobs:
           path: ${{ runner.temp }}/pqvpn-console
           if-no-files-found: error
 
+      - name: Verify pinned on-demand engines on native platform
+        shell: bash
+        run: python3 tests/check_transport_catalog.py --platform "${{ matrix.target }}"
+
       - name: Verify architecture and CLI startup
         shell: bash
         run: |
@@ -168,6 +196,7 @@ jobs:
           build/pqvpn_node --platform-info
           build/pqvpn_node --smoke-test --config config.json
           build/pqvpn_node --smoke-test --config config.udp2raw.json
+          python3 tests/check_console_runtime.py --node build/pqvpn_node --template config.json
           build/pqvpn_tui --smoke-test --config config.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
@@ -184,9 +213,13 @@ jobs:
       - name: Package verified native build
         shell: bash
         run: |
+          trap 'echo "::error::Native package verification failed; $(tail -n 15 "$RUNNER_TEMP/package-smoke.log" 2>/dev/null | tr "\n" " ")"' ERR
           stage="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           mkdir -p "$stage"
-          cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
+          if ! cmake --install build --prefix "$GITHUB_WORKSPACE/$stage" > "$RUNNER_TEMP/package-install.log" 2>&1; then
+            echo "::error::$(tail -n 20 "$RUNNER_TEMP/package-install.log" | tr '\n' ' ')"
+            exit 1
+          fi
           # GNUInstallDirs installs the executables under bin/. A macOS app
           # bundle would land at the prefix root, so accept either layout.
           test -e "$stage/bin/pqvpn_node"
@@ -196,6 +229,14 @@ jobs:
             monitor="$stage/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor"
           fi
           test -e "$monitor"
+          if [[ "${{ matrix.family }}" == linux || "${{ matrix.family }}" == macos ]]; then
+            installed_monitor="$GITHUB_WORKSPACE/$monitor"
+            if ! (cd "$stage"; env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+              "$installed_monitor" --smoke-test --verify-installation) > "$RUNNER_TEMP/package-smoke.log" 2>&1; then
+              echo "::error::$(tail -n 20 "$RUNNER_TEMP/package-smoke.log" | tr '\n' ' ')"
+              exit 1
+            fi
+          fi
           tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
       - name: Build deb package (Linux only)
@@ -205,11 +246,29 @@ jobs:
           chmod +x packaging/linux/build-package.sh
           ./packaging/linux/build-package.sh build artifacts "${{ env.PQVPN_VERSION }}"
           test -n "$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          package="$(find artifacts -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          extracted="$RUNNER_TEMP/pqvpn-deb-smoke"
+          dpkg-deb -x "$package" "$extracted"
+          "$extracted/usr/bin/pqvpn_node" --validate-config --config config.json
+          test "$("$extracted/usr/bin/pqvpn_node" --version)" = "PQVPN ${{ env.PQVPN_VERSION }}"
+          env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
+            "$extracted/usr/bin/pqvpn_monitor" --smoke-test --verify-installation
+          python3 -m unittest discover -s tests/release -v
           # Place the deb next to the tar.gz at the workspace root so the
           # release-candidate artifact stores it at its root (not under
           # artifacts/). The publish gate counts *.deb at release/ root after
           # merge-multiple download; a nested artifacts/ prefix would hide them.
           cp artifacts/pqvpn_*.deb ./
+
+      - name: Build verified custom update package
+        shell: bash
+        run: |
+          payload="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz"
+          if [[ "${{ matrix.family }}" == linux ]]; then payload="$(find . -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"; fi
+          output="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.pqvpnpkg"
+          python3 packaging/update/build-package.py build --payload "$payload" \
+            --version "${{ env.PQVPN_VERSION }}" --target "${{ matrix.target }}" --output "$output"
+          python3 packaging/update/build-package.py verify "$output"
 
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
@@ -217,6 +276,7 @@ jobs:
           name: release-candidate-${{ matrix.target }}
           path: |
             PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz
+            PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.pqvpnpkg
             pqvpn_*.deb
           if-no-files-found: error
           retention-days: 7
@@ -325,6 +385,16 @@ jobs:
           aqtsource: git+https://github.com/miurahr/aqtinstall.git@8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b
           cache: true
 
+      - name: Restore Windows driver SDK cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.nuget/packages/microsoft.windows.wdk.*
+            ~/.nuget/packages/microsoft.windows.sdk.*
+          key: ci-wdk-nuget-v1-${{ matrix.target }}-${{ hashFiles('driver/pqvpn_tunnel/*.vcxproj', 'driver/pqvpn_tunnel/packages.config') }}
+          restore-keys: |
+            ci-wdk-nuget-v1-${{ matrix.target }}-
+
       - name: Configure
         shell: pwsh
         run: |
@@ -408,6 +478,8 @@ jobs:
           & $binary --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
           & $binary --smoke-test --config config.udp2raw.json
+          python tests/check_console_runtime.py --node $binary --template config.json
+          if ($LASTEXITCODE -ne 0) { throw "Console runtime regression failed" }
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
           & build/Release/pqvpn_tui.exe --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw 'TUI smoke test failed' }
@@ -436,14 +508,17 @@ jobs:
           packaging/windows/build-installer.ps1 -BuildDir build/Release -OutputDir artifacts -Version $env:PQVPN_VERSION
           if (-not (Get-ChildItem artifacts -Filter '*.zip')) { throw 'portable zip was not produced' }
 
+      - name: Verify pinned on-demand engines on Windows
+        shell: pwsh
+        run: |
+          python tests/check_transport_catalog.py --platform windows-x86_64
+          if ($LASTEXITCODE -ne 0) { throw "Transport catalog smoke failed" }
+
       - name: Build MSI installer
         shell: pwsh
         run: |
           $ver = $env:PQVPN_VERSION
-          $base = ($ver -split '-')[0]
-          $build = '1'
-          if ($ver -match '\d{4}') { $build = $matches[0].Substring(0,4) }
-          $msiVersion = "$base.$build"
+          $msiVersion = & packaging/windows/get-msi-version.ps1 -Version $ver
           # Stage the install tree. cmake --install also runs the Qt deploy
           # script (install(SCRIPT pqvpn_monitor_deploy_script)) which deploys
           # the Qt runtime next to the GUI. The prefix MUST be absolute: with a
@@ -454,6 +529,14 @@ jobs:
           New-Item -ItemType Directory -Path $stage -Force | Out-Null
           cmake --install build --config Release --prefix (Resolve-Path $stage).Path
           if (-not (Test-Path "$stage\bin\pqvpn_node.exe")) { throw 'node was not installed into the MSI stage' }
+          # Use the same native Qt deployment that the verified portable ZIP
+          # uses. This closes over newly linked Qt modules and compiler runtime
+          # DLLs before WiX harvests the stage.
+          $windeployqt = Join-Path $env:QT_ROOT_DIR 'bin\windeployqt.exe'
+          if (-not (Test-Path $windeployqt)) { throw 'windeployqt is required for the MSI runtime' }
+          & $windeployqt --release --no-translations --no-opengl-sw --include-plugins qoffscreen "$stage\bin\pqvpn_monitor.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'MSI Qt runtime deployment failed' }
+          if (-not (Test-Path "$stage\bin\platforms\qoffscreen.dll")) { throw 'MSI stage is missing the offscreen platform plugin' }
           # Locate the WiX v3 toolset (candle/light/heat) on the runner.
           $candle = (Get-Command candle.exe -ErrorAction SilentlyContinue).Source
           $light  = (Get-Command light.exe  -ErrorAction SilentlyContinue).Source
@@ -464,7 +547,7 @@ jobs:
           if (-not (Test-Path $candle) -or -not (Test-Path $light)) { throw 'WiX candle/light not found on runner' }
           $heat = Join-Path (Split-Path $candle) 'heat.exe'
           New-Item -ItemType Directory -Path msi-build -Force | Out-Null
-          & $heat dir $stage -dr INSTALLDIR -cg ProductComponents -sreg -sfrag -gg -ke -out msi-build/files.wxs
+          & $heat dir $stage -dr INSTALLDIR -cg ProductComponents -srd -sreg -sfrag -gg -ke -out msi-build/files.wxs
           if ($LASTEXITCODE -ne 0) { throw 'heat failed' }
           & $candle -arch x64 -dMsiVersion="$msiVersion" packaging/windows/pqvpn.wxs msi-build/files.wxs -o msi-build/
           if ($LASTEXITCODE -ne 0) { throw 'candle failed' }
@@ -475,6 +558,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'light failed' }
           if (-not (Get-ChildItem artifacts -Filter '*.msi')) { throw 'MSI was not produced' }
 
+      - name: Verify portable runtime and MSI install upgrade removal
+        shell: pwsh
+        run: packaging/windows/test-packages.ps1 -Artifacts artifacts -Version $env:PQVPN_VERSION
+
+      - name: Build verified custom update package
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem artifacts -Filter '*.msi')
+          if ($packages.Count -ne 1) { throw 'Expected exactly one MSI for the custom update package' }
+          $payload = $packages[0].FullName
+          $output = "artifacts/PQVPN-$env:PQVPN_VERSION-windows-x86_64.pqvpnpkg"
+          python packaging/update/build-package.py build --payload $payload --version $env:PQVPN_VERSION --target windows-x86_64 --output $output
+          if ($LASTEXITCODE -ne 0) { throw 'Custom update package build failed' }
+          python packaging/update/build-package.py verify $output
+          if ($LASTEXITCODE -ne 0) { throw 'Custom update package verification failed' }
+
+      - name: Preserve installer test logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: installer-test-logs-windows-x86_64
+          path: ${{ runner.temp }}/pqvpn-package-tests/*.log
+          if-no-files-found: ignore
+
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
@@ -482,6 +589,7 @@ jobs:
           path: |
             artifacts/*.zip
             artifacts/*.msi
+            artifacts/*.pqvpnpkg
           if-no-files-found: error
           retention-days: 7
 
@@ -500,42 +608,19 @@ jobs:
           test "$WINDOWS_RESULT" = success
           echo 'Every native configure, compile, help and smoke test passed.'
 
-  publish-tagged-release:
-    name: Publish matrix-verified prerelease
+  tagged-release-readiness:
+    name: Require native qualification before publishing
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [ci-matrix-complete]
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     steps:
-      - name: Download every matrix artifact
-        uses: actions/download-artifact@v7
+      - uses: actions/checkout@v6
         with:
-          pattern: release-candidate-*
-          path: release
-          merge-multiple: true
-      - name: Verify complete release set and checksums
-        shell: bash
+          fetch-depth: 0
+      - name: Validate release version and native gate implementations
+        run: python3 tools/check-release-readiness.py --tag "$GITHUB_REF_NAME"
+      - name: Explain qualified publication
         run: |
-          set -euo pipefail
-          test "$(find release -maxdepth 1 -type f -name '*.zip' | wc -l)" = 1
-          test "$(find release -maxdepth 1 -type f -name '*.msi' | wc -l)" = 1
-          test "$(find release -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" = 4
-          test "$(find release -maxdepth 1 -type f -name '*.deb' | wc -l)" = 2
-          (cd release && sha256sum *.zip *.msi *.tar.gz *.deb | sort -k2 > SHA256SUMS)
-      - name: Create immutable GitHub prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 && {
-            echo "Release ${GITHUB_REF_NAME} already exists; refusing to mutate it." >&2
-            exit 1
-          }
-          # Experimental prerelease: matrix-verified compile and smoke evidence only.
-          # Fully qualified releases are published exclusively by
-          # publish-qualified-release.yml after the native functional gates pass.
-          gh release create "${GITHUB_REF_NAME}" release/* \
-            --repo "${GITHUB_REPOSITORY}" --verify-tag --prerelease --generate-notes \
-            --title "PQVPN ${GITHUB_REF_NAME} (experimental prerelease)"
+          echo 'Run Native functional release gates at this tag, then Publish qualified prerelease with its successful evidence run ID.'

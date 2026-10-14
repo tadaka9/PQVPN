@@ -51,6 +51,7 @@ namespace pqvpn::config {
         std::vector<std::string> allowlist;
         std::string known_peers_file = "known_peers.yaml";
         std::optional<std::string> known_peers_passphrase;
+        std::string identity_file; // Empty retains node_keys.json beside the configuration.
         KDFConfig kdf;
 
         friend void from_json(const nlohmann::json& j, SecurityConfig& value) {
@@ -58,6 +59,7 @@ namespace pqvpn::config {
             value.tofu = j.value("tofu", value.tofu);
             value.allowlist = j.value("allowlist", value.allowlist);
             value.known_peers_file = j.value("known_peers_file", value.known_peers_file);
+            value.identity_file = j.value("identity_file", value.identity_file);
             if (j.contains("known_peers_passphrase") && j.at("known_peers_passphrase").is_string())
                 value.known_peers_passphrase = j.at("known_peers_passphrase").get<std::string>();
             if (j.contains("kdf")) value.kdf = j.at("kdf").get<KDFConfig>();
@@ -65,6 +67,7 @@ namespace pqvpn::config {
         friend void to_json(nlohmann::json& j, const SecurityConfig& value) {
             j = {{"strict_sig_verify", value.strict_sig_verify}, {"tofu", value.tofu},
                  {"allowlist", value.allowlist}, {"known_peers_file", value.known_peers_file}, {"kdf", value.kdf}};
+            if (!value.identity_file.empty()) j["identity_file"] = value.identity_file;
             if (value.known_peers_passphrase) j["known_peers_passphrase"] = *value.known_peers_passphrase;
         }
     };
@@ -236,7 +239,8 @@ namespace pqvpn::config {
                 value.tuning.replay_window_size || value.tuning.bootstrap_retry_seconds) {
                 j["tuning"] = value.tuning;
             }
-            if (!value.tunnel.interface_name.empty()) j["tunnel"] = value.tunnel;
+            if (!value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
+                !value.tunnel.config_path.empty()) j["tunnel"] = value.tunnel;
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;

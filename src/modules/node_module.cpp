@@ -1590,17 +1590,34 @@ bool PQVPNNode::load_or_create_identity() {
     const auto directory = config_file.has_parent_path()
         ? config_file.parent_path()
         : std::filesystem::current_path(ec);
-    const auto file = (directory / "node_keys.json").string();
+    auto identity_path = directory / "node_keys.json";
+    // An explicit identity path remains stable when a console relocates a profile.
+    try {
+        std::ifstream input(config_file);
+        if (input) {
+            const auto document = nlohmann::json::parse(input);
+            if (document.contains("security")) {
+                const auto configured = document.at("security").value("identity_file", std::string{});
+                if (!configured.empty()) {
+                    identity_path = std::filesystem::path(configured);
+                    if (identity_path.is_relative()) identity_path = directory / identity_path;
+                }
+            }
+        }
+    } catch (const std::exception&) { return false; }
+    const auto file = identity_path.string();
 
     NodeIdentity identity;
     bool needs_generation = false;
-    if (std::filesystem::exists(file, ec)) {
+    const bool identity_exists = std::filesystem::exists(file, ec);
+    if (ec) return false;
+    if (identity_exists) {
         try {
             identity = NodeIdentity::load(file);
         } catch (const std::exception& error) {
             std::cerr << "node identity load failed (" << error.what()
-                      << "); generating a fresh one\n";
-            needs_generation = true;
+                      << "); refusing to replace existing identity\n";
+            return false;
         }
     } else {
         needs_generation = true;
@@ -1617,7 +1634,8 @@ bool PQVPNNode::load_or_create_identity() {
             identity.save(file);
         } catch (const std::exception& error) {
             std::cerr << "warning: could not persist node identity ("
-                      << error.what() << "); it will not survive a restart\n";
+                      << error.what() << "); refusing to start\n";
+            return false;
         }
     }
 

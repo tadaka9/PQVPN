@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: future
 
       - name: Resolve latest stable upstream releases
         id: versions
@@ -52,34 +53,73 @@ jobs:
           done < .github/dependencies.env.new
           mv .github/dependencies.env.new .github/dependencies.env
 
-      - name: Create or refresh the protected update PR
+      - name: Update CI actions to latest stable releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          stable_action_tag() {
+            git ls-remote --tags --refs "https://github.com/$1.git" 'v*' |
+              awk '{sub("refs/tags/", "", $2); print $2}' |
+              grep -E '^v[0-9]+(\.[0-9]+){0,2}$' | sort -V | tail -1
+          }
+
+          export PQVPN_ACTION_REFS
+          PQVPN_ACTION_REFS="$(cat <<EOF
+          actions/checkout=$(stable_action_tag actions/checkout)
+          actions/cache=$(stable_action_tag actions/cache)
+          actions/upload-artifact=$(stable_action_tag actions/upload-artifact)
+          microsoft/setup-msbuild=$(stable_action_tag microsoft/setup-msbuild)
+          ilammy/msvc-dev-cmd=$(stable_action_tag ilammy/msvc-dev-cmd)
+          jurplel/install-qt-action=$(stable_action_tag jurplel/install-qt-action)
+          EOF
+          )"
+
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/ci.yml')
+          text = workflow.read_text(encoding='utf-8')
+          for line in os.environ['PQVPN_ACTION_REFS'].splitlines():
+              action, tag = line.strip().split('=', 1)
+              if not re.fullmatch(r'v[0-9]+(?:\.[0-9]+){0,2}', tag):
+                  raise SystemExit(f'unsafe action tag for {action}: {tag!r}')
+              pattern = rf'(uses:\s*{re.escape(action)}@)[^\s#]+'
+              text, count = re.subn(pattern, rf'\g<1>{tag}', text)
+              if count == 0:
+                  raise SystemExit(f'action is no longer referenced by ci.yml: {action}')
+          workflow.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Update future and prepare the main integration PR
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- .github/dependencies.env; then
-            echo 'Every dependency already matches its latest stable upstream release.'
+          if git diff --quiet -- .github/dependencies.env .github/workflows/ci.yml; then
+            echo 'Every dependency and CI action already matches its latest stable upstream release.'
             exit 0
           fi
 
-          branch=automation/upstream-dependencies
+          branch=future
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git switch -C "$branch"
-          git add .github/dependencies.env
-          git commit -m 'Update dependencies to latest upstream releases'
-          git push --force-with-lease origin "$branch"
+          git add .github/dependencies.env .github/workflows/ci.yml
+          git commit -m 'Update CI dependencies to latest stable releases'
+          git push origin "HEAD:$branch"
 
           pr_number="$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number // empty')"
           if [[ -z "$pr_number" ]]; then
             pr_url="$(gh pr create --base main --head "$branch" \
-              --title 'Update dependencies to latest upstream releases' \
-              --body 'Updates the centralized native dependency pins from official stable upstream releases. The protected C++23 matrix must pass before automatic merge.')"
+              --title 'Integrate validated future development into main' \
+              --body 'Integrates development from future, including updates to centralized dependency pins from official stable upstream releases. Required checks and review must pass before merging into protected main.')"
             pr_number="${pr_url##*/}"
           fi
 
           gh workflow run ci.yml --ref "$branch"
           gh workflow run build.yml --ref "$branch"
           gh workflow run codeql.yml --ref "$branch"
-          gh pr merge "$pr_number" --auto --squash
+          gh workflow run attribution-policy.yml --ref "$branch"
+          echo "Integration PR #$pr_number is ready for validation and review."

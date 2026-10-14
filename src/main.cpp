@@ -211,7 +211,9 @@ int run_smoke_test(const CliArgs& args) {
     Logger::info("Network bind: {}:{}", config_result->network.bind_address, config_result->network.port);
 
     Logger::info("\n--- Serialized Config (JSON) ---");
-    const std::string json = pqvpn::serialization::JsonSerializer::serialize(*config_result);
+    auto printable = *config_result;
+    printable.security.known_peers_passphrase.reset();
+    const std::string json = pqvpn::serialization::JsonSerializer::serialize(printable);
     Logger::info("{}", json);
 
     Logger::info("\n--- Deserializing Back from JSON ---");
@@ -250,7 +252,7 @@ int main(int argc, char** argv) {
     }
 
     if (args.version) {
-        std::cout << "PQVPN 0.0.1-alpha\n";
+        std::cout << "PQVPN " << PQVPN_BUILD_VERSION << '\n';
         return 0;
     }
     if (args.platform_info) {
@@ -265,6 +267,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         if (args.print_config) {
+            checked->security.known_peers_passphrase.reset();
             std::cout << pqvpn::serialization::JsonSerializer::serialize(*checked) << "\n";
         } else {
             std::cout << "Configuration valid: " << args.config_path << "\n";
@@ -470,6 +473,7 @@ int main(int argc, char** argv) {
         if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
     });
 
+    auto shutdown = std::make_shared<std::function<void()>>();
     if (!args.strangenet_room.empty() || args.control_stdin) {
         const auto initial_peer = args.strangenet_peer.empty() || args.strangenet_peer == "auto"
             ? std::optional<std::vector<std::uint8_t>>{}
@@ -533,7 +537,7 @@ int main(int argc, char** argv) {
             emit_console_event({{"event", "strangenet.joined"}, {"room", strange->room},
                                 {"peer", args.strangenet_peer.empty() ? "auto" : args.strangenet_peer}});
         }
-        std::thread([node, strange, control = args.control_stdin, &io] {
+        std::thread([node, strange, control = args.control_stdin, shutdown, &io] {
             std::string line;
             while (std::getline(std::cin, line)) {
                 if (control) {
@@ -544,9 +548,11 @@ int main(int argc, char** argv) {
                             emit_console_event({{"event", "control.error"}, {"message", "invalid command"}});
                             continue;
                         }
-                        asio::post(io, [node, strange, command] {
+                        asio::post(io, [node, strange, command, shutdown] {
                             const auto name = command.at("command").get<std::string>();
-                            if (name == "strangenet.join") {
+                            if (name == "node.shutdown") {
+                                if (*shutdown) (*shutdown)();
+                            } else if (name == "strangenet.join") {
                                 const auto room = command.value("room", std::string{});
                                 const auto peer_text = command.value("peer", std::string{"auto"});
                                 const auto peer = peer_text == "auto"
@@ -608,6 +614,7 @@ int main(int argc, char** argv) {
                                                     {"message", "unknown command"}});
                             }
                         });
+                        if (command.at("command") == "node.shutdown") break;
                     } catch (const std::exception& error) {
                         emit_console_event({{"event", "control.error"}, {"message", error.what()}});
                     }
@@ -803,7 +810,7 @@ int main(int argc, char** argv) {
 #endif
 
     asio::signal_set signals(io, SIGINT, SIGTERM);
-    signals.async_wait([&](const asio::error_code&, int) {
+    *shutdown = [&] {
 #ifdef _WIN32
         if (adapter_active) {
             // Remove the installed routes before taking the adapter down, in
@@ -824,6 +831,9 @@ int main(int argc, char** argv) {
         listener.stop();
         if (adapter) adapter->close(); // idempotent per OS
         io.stop();
+    };
+    signals.async_wait([shutdown](const asio::error_code& error, int) {
+        if (!error) (*shutdown)();
     });
 
     // Run session maintenance for the lifetime of the runtime. This loop is

@@ -17,15 +17,18 @@ Security vulnerabilities must be reported privately as described in
 
 ## Development workflow
 
-1. Fork the repository and create a branch from `main`.
+1. Develop on `future`. External contributors can create a branch in their fork from `future`.
 2. Make the smallest change that solves the stated problem.
 3. Add or update tests and documentation when applicable.
 4. Verify the changed files locally.
-5. Open a pull request explaining what changed, why it changed, and how it was
+5. Open a pull request into `main` from `future` (or into `future` from an external fork) explaining what changed, why it changed, and how it was
    validated.
 
 Use the build and test commands in the project [README](README.md). Every pull
 request must keep the affected native targets and hardening checks green.
+Changes to release updates must preserve the documented trust boundary in
+[`docs/update-system.md`](docs/update-system.md) and pass
+`python3 -m unittest discover -s tests/release -v`.
 
 ## Commit and pull request guidance
 
@@ -43,3 +46,7 @@ project's [MIT License](LICENSE).
 [PQVPN website](https://tadaka9.github.io/PQVPN/) ·
 [Star the repository](https://github.com/tadaka9/PQVPN) ·
 [Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
+
+## Branch workflow
+
+Develop and validate changes on `future`, then merge them into protected `main` through a pull request after required checks pass. Keep these two branches; synchronize `future` with `main` after integration.

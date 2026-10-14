@@ -20,6 +20,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "private_file.hpp"
 #include "crypto_module.hpp" // X25519, KEM (ML-KEM-1024)
 #include "hybrid_auth.hpp"   // ed25519_keygen
 #include "../crypto_utils.hpp" // pq_sig_keygen (ML-DSA-87)
@@ -95,16 +96,7 @@ struct NodeIdentity {
             {"mldsa_pk", to_hex(mldsa_pk)},
             {"mldsa_sk", to_hex(mldsa_sk)},
         };
-        const std::string temporary = path + ".tmp";
-        {
-            std::ofstream output(temporary, std::ios::trunc | std::ios::binary);
-            if (!output) throw std::runtime_error("cannot open node identity file for writing");
-            output << document.dump(2) << '\n';
-        }
-#ifdef __unix__
-        ::chmod(temporary.c_str(), 0600);
-#endif
-        std::filesystem::rename(temporary, path);
+        write_private_file(path, document.dump(2) + "\n");
     }
 
     static NodeIdentity load(const std::string& path) {

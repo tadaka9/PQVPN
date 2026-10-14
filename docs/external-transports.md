@@ -58,3 +58,13 @@ encrypted shaping path.
 [PQVPN website](https://tadaka9.github.io/PQVPN/) ·
 [Star the repository](https://github.com/tadaka9/PQVPN) ·
 [Support development](https://github.com/tadaka9/PQVPN/blob/main/docs/SUPPORT.md)
+
+## Engines on demand
+
+The native console downloads engines only when Install / start is selected. No engine binaries are bundled with PQVPN. `packaging/transports/engines.json` pins upstream URLs, versions and SHA-256 archive hashes. Downloads use HTTPS, have size/time limits, and are verified before extraction or execution. Executables are extracted into a per-user cache; no shell command strings or engine credentials are logged. Stop affects only processes started by this console.
+
+Choose an existing configuration for each engine, then edit it locally or start multiple selected engines. The editor saves atomically with owner permissions and rejects invalid JSON for Shadowsocks, V2Ray and obfs4. obfs4 uses a JSON `environment` object containing its existing `TOR_PT_*` managed-transport settings; state is kept in the engine cache. Matching remote servers and credentials remain operator supplied.
+
+Automatic installers cover Shadowsocks and V2Ray on Linux x86_64/ARM64, macOS Intel/ARM64 and Windows x64; udp2raw on Linux x86_64; and the Debian obfs4proxy package on Linux x86_64/ARM64 with compatible libc. Other combinations fail explicitly. Existing V2Ray configurations requiring GeoIP/GeoSite data must continue referencing their existing data files.
+
+Running multiple engines concurrently does not wire them into a valid transport chain. Their existing configurations must link compatible listeners and upstreams. PQVPN currently attaches to a local UDP forwarder; SOCKS and TCP require a separate UDP adapter/relay. Therefore the console distinguishes engine startup from authenticated PQVPN connection, and does not claim unsupported chains provide VPN protection.

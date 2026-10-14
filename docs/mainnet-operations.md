@@ -19,6 +19,11 @@ Set `PQVPN_CONFIG=/var/lib/pqvpn/config.json` in `/etc/pqvpn/mainnet-updater.env
 
 The checksum proves that the downloaded archive matches the GitHub release manifest. It does not replace signed releases; the updater should gain signature verification when the project publishes a stable signing key.
 
+This privileged service updater is separate from the manual Privacy Console
+flow and does not consume the desktop `*.pqvpnpkg` container. The two trust
+boundaries and their current limits are compared in
+[`update-system.md`](update-system.md).
+
 The host should expose only SSH and the configured UDP listener. Use key-only SSH, disable forwarding and X11, keep the firewall default-deny, and run the node without capabilities. The service already applies `NoNewPrivileges`, a closed device policy, a read-only system image, namespace and syscall restrictions, and bounded tasks, memory, and file descriptors. Keep the node configuration and `node_keys.json` owned by `pqvpn` with modes `0640` and `0600` respectively.
 
 The node also limits unauthenticated hybrid-handshake payload size, work per source address, pending handshakes, and total sessions. Signed handshake timestamps must be within five minutes. These bounds are especially relevant to post-quantum deployments because signature and KEM operations make unauthenticated handshake exhaustion more expensive than ordinary packet rejection.

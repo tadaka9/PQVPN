@@ -54,7 +54,7 @@ everyone.
 | 🛡️ **Fail-closed by construction** | Malformed frames, replayed nonces, partial authentication, ambiguous next-hops: rejected with a log line, never guessed at. A hardening gate enforces the posture in CI on every commit. |
 | ✨ **Native privacy console** | A polished Qt 6 interface guides Configure → Verify → Connect → Use, reports authenticated mainnet readiness, controls StrangeNet through the same node process, inspects the native driver, and can stay available in the system tray. Motion is optional and no metric is simulated. |
 | 🔀 **Adaptive PQTP policy** | A bounded C++23 controller measures loss, jitter and send failures, prefers low-latency UDP, and selects a TCP lane only after configurable hysteresis. The Privacy Console exposes the same policy and writes it safely to the node configuration. |
-| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. The Privacy Console can select a healthy peer automatically; public discovery stays disabled until its moderation and abuse model is reviewed. |
+| ∑ **StrangeNet rooms** | A C++23 peer-conversation frame codec provides bounded room, sender, timestamp and monotonic anti-replay metadata for authenticated PQVPN sessions. An opt-in, memory-only salted proof chain exposes a content-free root for an external blockchain/notary anchor. |
 | 🖥️ **Native CI targets** | Linux x86_64 / ARM64 · macOS Intel / Apple Silicon · Windows x86_64 — configure, compile and CLI smoke tests on native runners. |
 
 ## Sixty-second tour
@@ -153,29 +153,30 @@ cmake --build build --target pqvpn_node
 
 ### Linux distribution packages
 
-Every native Linux CI run produces `.deb` and `.rpm` packages for x86-64 and
-ARM64. Download the matching `distribution-packages-linux-*` artifact from the
-successful workflow run, then install it with the platform package manager:
+Every native Linux CI run currently produces a deployed tar archive and `.deb`
+package for x86-64 and ARM64. Download the matching release-candidate artifact
+from the successful workflow run, then install the Debian package with:
 
 ```bash
 sudo apt install ./pqvpn_*.deb
-sudo rpm -U ./pqvpn-*.rpm
 ```
 
-For Arch Linux, download `PKGBUILD` from the release or the
-`arch-linux-pkgbuild` workflow artifact and build it as an unprivileged user:
+RPM and AppImage producers are still release-gate work. Arch Linux users can
+generate the checksum-pinned recipe and build it as an unprivileged user:
 
 ```bash
-makepkg -si
+./packaging/arch/generate-pkgbuild.sh COMMIT packaging/arch/PKGBUILD
+(cd packaging/arch && makepkg -si)
 ```
 
 Packages install `pqvpn_node`, `pqvpn_tui`, and `pqvpn_monitor` plus example
 configuration files. They do not start a network service automatically; copy
 and review an example configuration before starting a node.
 
-Maintainers update the package version once in [`PQVPN_VERSION.txt`](PQVPN_VERSION.txt). The
-native workflow propagates it automatically to DEB, RPM, PKGBUILD and tagged
-release assets.
+Maintainers update the package version once in [`PQVPN_VERSION.txt`](PQVPN_VERSION.txt).
+CMake, DEB metadata, the generated PKGBUILD, artifacts and update containers
+derive from it. RPM metadata exists, while its native producer and lifecycle
+gate remain unimplemented.
 
 ### CLI and terminal console
 
@@ -203,7 +204,7 @@ cmake --build build --target pqvpn_node pqvpn_tui
 
 ### Privacy Console
 
-Install the Qt 6 Core, Gui and Widgets development packages, then build the
+Install the Qt 6 Core, Gui, Widgets and Network development packages, then build the
 native C++23 interface beside the node:
 
 ```bash
@@ -222,6 +223,14 @@ preferences. PQVPN adds an animated aurora, live connection orb, transport
 capability view and system-tray controls. Close hides the window in the tray by
 default without changing the connection; **Exit PQVPN** shuts the node down
 first. Both behaviors are explicit and configurable.
+
+The About page checks GitHub Releases only when requested. It prefers the
+project's deterministic `*.pqvpnpkg` update container for the current operating
+system and architecture, requires a unique entry in the release's
+`SHA256SUMS`, verifies the container and its embedded native-package hash, and
+opens the containing folder. Installation remains a separate user action.
+The full trust and rollback model is documented in
+[`docs/update-system.md`](docs/update-system.md).
 
 **View → Appearance** follows the operating-system light/dark preference by
 default and updates while the console is open. Explicit Light and Dark choices
@@ -248,8 +257,8 @@ readiness, so an untested integration is never presented as working:
 
 ![PQVPN transport capability view](docs/assets/pqvpn-console-transports.png)
 
-Linux x86_64 CI builds the GUI and renders the real window offscreen. Other
-platforms retain their verified node baseline until a native GUI job passes.
+Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x64 CI build the GUI,
+render every page offscreen, and smoke-test the installed runtime.
 For local visual verification:
 
 ```bash

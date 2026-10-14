@@ -6,6 +6,7 @@
 // node output scrolls by live. Everything is self-contained (C++23 standard
 // library + raw console APIs on Windows) so it stays a dumb terminal client.
 #include <atomic>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -18,6 +19,10 @@
 #include <vector>
 
 #include "config_module.hpp"
+#include "console/connection_state.hpp"
+#include "console/event_state.hpp"
+#include "console/default_profile.hpp"
+#include "console/terminal_text.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -30,15 +35,20 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
 #include <unistd.h>
 #endif
 
 namespace {
 
 struct Options {
-    std::string config = "config.json";
+    std::string config;
     std::string node;
     bool smoke_test = false;
+    bool no_tunnel = false;
+    bool help = false;
 };
 
 const char* os_name() {
@@ -66,7 +76,16 @@ const char* tunnel_name() {
 }
 
 std::string default_node(const char* argv0) {
-    const auto directory = std::filesystem::absolute(argv0).parent_path();
+    std::filesystem::path binary=std::filesystem::absolute(argv0);
+    std::error_code error;
+#if defined(__linux__)
+    const auto actual=std::filesystem::read_symlink("/proc/self/exe",error);if(!error)binary=actual;
+#elif defined(__APPLE__)
+    std::array<char,4096> path{};uint32_t size=static_cast<uint32_t>(path.size());if(_NSGetExecutablePath(path.data(),&size)==0)binary=path.data();
+#elif defined(_WIN32)
+    std::array<wchar_t,32768> path{};const DWORD size=GetModuleFileNameW(nullptr,path.data(),static_cast<DWORD>(path.size()));if(size>0&&size<path.size())binary=std::filesystem::path(path.data());
+#endif
+    const auto directory=binary.parent_path();
 #if defined(_WIN32)
     return (directory / "pqvpn_node.exe").string();
 #else
@@ -90,8 +109,7 @@ ScreenSize current_size() {
         size.cols = static_cast<int>(info.srWindow.Right - info.srWindow.Left + 1);
         size.rows = static_cast<int>(info.srWindow.Bottom - info.srWindow.Top + 1);
     }
-    if (size.cols < 40) size.cols = 40;
-    if (size.rows < 12) size.rows = 12;
+    size.cols=std::max(1,size.cols);size.rows=std::max(1,size.rows);
     return size;
 #else
     winsize ws{};
@@ -109,6 +127,7 @@ void set_raw(bool raw);
 bool is_raw = false;
 
 #if defined(_WIN32)
+DWORD saved_input_mode=0;
 void enable_vt() {
     const HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
@@ -125,12 +144,8 @@ void set_raw(const bool raw) {
     const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode = 0;
     if (input == INVALID_HANDLE_VALUE || !GetConsoleMode(input, &mode)) return;
-    if (raw) {
-        mode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
-        SetConsoleMode(input, mode);
-    } else {
-        SetConsoleMode(input, mode);
-    }
+    if(raw&&!is_raw){saved_input_mode=mode;mode&=~(ENABLE_ECHO_INPUT|ENABLE_LINE_INPUT|ENABLE_PROCESSED_INPUT);SetConsoleMode(input,mode);}
+    else if(!raw&&is_raw)SetConsoleMode(input,saved_input_mode);
     is_raw = raw;
 #else
     termios t{};
@@ -186,13 +201,19 @@ public:
     bool finished() const { return finished_.load(); }
     long exit_code() const { return exit_code_.load(); }
 
+    pqvpn::console::ConnectionSnapshot snapshot(bool relay_only) const {
+        std::lock_guard<std::mutex> guard(buffer_mutex_);
+        return {running()&&!finished(),events_.authenticated(),events_.tunnel_ready(),relay_only,stopping_.load(),finished()&&exit_code()!=0&&!stopping_.load()};
+    }
+
     bool start(const std::string& executable, const std::vector<std::string>& args) {
         stop();
         join_reader();
         {
             std::lock_guard<std::mutex> guard(buffer_mutex_);
-            scrollback_.clear();
+            scrollback_.clear();events_.reset();pending_output_.clear();
         }
+        stopping_.store(false);
         finished_.store(false);
         exit_code_.store(0);
         running_.store(true);
@@ -202,31 +223,35 @@ public:
         child_handle_ = nullptr;
 #endif
 
-        std::string command = executable;
-        for (const auto& arg : args) command += " \"" + arg + "\"";
+#ifdef _WIN32
+        auto quote=[](const std::string& value){std::string result="\"";std::size_t slashes=0;for(char c:value){if(c=='\\'){++slashes;continue;}if(c=='\"'){result.append(slashes*2+1,'\\');result+=c;}else{result.append(slashes,'\\');result+=c;}slashes=0;}result.append(slashes*2,'\\');return result+'\"';};
+        std::string command=quote(executable);for(const auto& arg:args)command+=' '+quote(arg);
+#endif
 
 #ifdef _WIN32
         SECURITY_ATTRIBUTES sa{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
         HANDLE read_pipe = nullptr, write_pipe = nullptr;
         if (!CreatePipe(&read_pipe, &write_pipe, &sa, 0)) { running_.store(false); return false; }
-        SetHandleInformation(write_pipe, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+        SetHandleInformation(read_pipe,HANDLE_FLAG_INHERIT,0);
 
         STARTUPINFOW si{};
         si.cb = sizeof(si);
         si.dwFlags = STARTF_USESTDHANDLES;
         si.hStdOutput = si.hStdError = write_pipe;
-        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        const HANDLE null_input=CreateFileW(L"NUL",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,&sa,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);
+        if(null_input==INVALID_HANDLE_VALUE){CloseHandle(read_pipe);CloseHandle(write_pipe);running_.store(false);return false;}
+        si.hStdInput=null_input;
         PROCESS_INFORMATION pi{};
         const int wide = MultiByteToWideChar(CP_UTF8, 0, command.c_str(), -1, nullptr, 0);
         std::wstring wcommand(static_cast<std::size_t>(wide), L'\0');
         MultiByteToWideChar(CP_UTF8, 0, command.c_str(), -1, wcommand.data(), wide);
         if (!CreateProcessW(nullptr, wcommand.data(), nullptr, nullptr, TRUE,
                             CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-            CloseHandle(read_pipe); CloseHandle(write_pipe);
+            CloseHandle(null_input);CloseHandle(read_pipe); CloseHandle(write_pipe);
             running_.store(false);
             return false;
         }
-        CloseHandle(write_pipe);
+        CloseHandle(null_input);CloseHandle(write_pipe);
         CloseHandle(pi.hThread);
         child_handle_ = pi.hProcess;
         reader_ = std::thread([this, read_pipe, handle = pi.hProcess] {
@@ -243,7 +268,6 @@ public:
             WaitForSingleObject(handle, INFINITE);
             DWORD code = 0;
             GetExitCodeProcess(handle, &code);
-            CloseHandle(handle);
             exit_code_.store(static_cast<long>(static_cast<int>(code)));
             finished_.store(true);
             running_.store(false);
@@ -257,7 +281,9 @@ public:
             dup2(fds[1], STDOUT_FILENO);
             dup2(fds[1], STDERR_FILENO);
             close(fds[0]); close(fds[1]);
-            execl("/bin/sh", "sh", "-c", command.c_str(), static_cast<char*>(nullptr));
+            const int input=::open("/dev/null",O_RDONLY);if(input>=0){dup2(input,STDIN_FILENO);close(input);}
+            std::vector<char*> argv;argv.push_back(const_cast<char*>(executable.c_str()));for(const auto& arg:args)argv.push_back(const_cast<char*>(arg.c_str()));argv.push_back(nullptr);
+            execvp(executable.c_str(),argv.data());
             _exit(127);
         }
         close(fds[1]);
@@ -285,6 +311,7 @@ public:
 
     void stop() {
         if (!running_.load()) return;
+        stopping_.store(true);
 #ifdef _WIN32
         HANDLE handle = child_handle_;
         if (handle != nullptr) {
@@ -314,18 +341,21 @@ public:
 private:
     void append(const char* data, const std::size_t length) {
         std::lock_guard<std::mutex> guard(buffer_mutex_);
-        constexpr std::size_t kMaxLines = 2000;
-        scrollback_.push_back(std::string(data, length));
-        if (scrollback_.size() > kMaxLines) {
-            scrollback_.erase(scrollback_.begin(),
-                              scrollback_.begin() + static_cast<std::int64_t>(scrollback_.size()) - kMaxLines);
-        }
+        pending_output_.append(data,length);
+        constexpr std::size_t kMaxLine=16384,kMaxLines=2000;
+        for(;;){const auto end=pending_output_.find('\n');if(end==std::string::npos)break;const auto line=pending_output_.substr(0,std::min(end,kMaxLine));pending_output_.erase(0,end+1);events_.accept_line(line);scrollback_.push_back(pqvpn::console::terminal_safe(line));}
+        if(pending_output_.size()>kMaxLine){scrollback_.push_back("[Long node output truncated]");pending_output_.clear();}
+        if(scrollback_.size()>kMaxLines)scrollback_.erase(scrollback_.begin(),scrollback_.end()-kMaxLines);
     }
 
     void join_reader() {
         if (reader_.joinable()) reader_.join();
+#ifdef _WIN32
+        if(child_handle_){CloseHandle(child_handle_);child_handle_=nullptr;}
+#endif
     }
 
+    std::atomic<bool> stopping_{false};
     std::atomic<bool> running_{false};
     std::atomic<bool> finished_{false};
     std::atomic<long> exit_code_{0};
@@ -336,6 +366,8 @@ private:
 #endif
     mutable std::mutex buffer_mutex_;
     std::vector<std::string> scrollback_;
+    std::string pending_output_;
+    pqvpn::console::EventState events_;
     std::thread reader_;
 };
 
@@ -343,47 +375,30 @@ private:
 
 void render(const ScreenSize& size, const pqvpn::config::Config& config,
             const std::string& path, const std::string& executable,
-            const NodeProcess& node, const std::string& notice) {
+            const NodeProcess& node, const std::string& notice, bool relay_only) {
     home();
-    const int pad = 1;
-    auto row = [&](const std::string& s) {
-        const int available = std::max(0, size.cols - pad);
-        const std::string clipped = s.substr(0, static_cast<std::size_t>(available));
-        std::cout << (pad ? " " : "") << clipped << "\033[K\n";
-    };
-    auto rule = [&]() { row(std::string(static_cast<std::size_t>(std::max(0, size.cols - 0)), '-')); };
-
-    row("\033[1;36mPQVPN\033[0m \033[2mPRIVACY CONSOLE\033[0m  ·  live node monitor");
+    int emitted=0;
+    auto row=[&](const std::string& value){if(emitted>=size.rows)return;std::cout<<"\033["<<emitted+1<<";1H "<<pqvpn::console::clip_ansi(value,std::max(0,size.cols-2))<<"\033[0m\033[K";++emitted;};
+    auto rule=[&]{row(std::string(static_cast<std::size_t>(std::max(0,size.cols-2)),'-'));};
+    const bool compact=size.cols<80||size.rows<24;
+    const auto state=node.snapshot(relay_only);const auto phase=pqvpn::console::connection_phase(state);
+    const std::string color=phase==pqvpn::console::ConnectionPhase::Protected||phase==pqvpn::console::ConnectionPhase::Relay?"32":phase==pqvpn::console::ConnectionPhase::Failed?"31":phase==pqvpn::console::ConnectionPhase::Disconnected?"90":"33";
+    row("\033[1;36mPQVPN\033[0m  Privacy console");
+    row("\033["+color+"m"+std::string(pqvpn::console::phase_label(phase))+"\033[0m");
+    if(size.rows<12){row("Resize terminal for details");row("[d] connect  [x] stop  [q] quit");std::cout<<"\033[J"<<std::flush;return;}
     rule();
-
-    const std::string state = node.finished() ? "stopped · exit " + std::to_string(node.exit_code())
-                             : node.running() ? "running"
-                                              : "idle";
-    std::string status = "state    \033["
-                         + std::string(node.running() && !node.finished() ? "32m●" : "31m○")
-                         + "\033[0m " + state;
-    row(status);
-    row("os       " + std::string(os_name()));
-    row("tunnel   " + std::string(tunnel_name()));
-    row("config   " + path);
-    row("node     " + executable);
-    row("listen   " + config.network.bind_address + ":" + std::to_string(config.network.port));
-    row("verify   " + std::string(config.security.strict_sig_verify ? "strict" : "relaxed"));
-    row("adaptive " + std::string(config.adaptive_transport.enabled ? "enabled" : "disabled")
-        + " · " + pqvpn::transport::to_string(config.adaptive_transport.mode));
-    row("shaping  " + std::string(config.traffic_shaping.enabled ? "enabled" : "disabled"));
-    if (!notice.empty()) row("\033[33m" + notice + "\033[0m");
+    row("CONFIG  "+pqvpn::console::terminal_safe(path));
+    row("MODE    "+std::string(relay_only?"Relay / exit only - local traffic unchanged":"Tunnel - readiness required before Protected"));
+    row("LISTEN  "+config.network.bind_address+":"+std::to_string(config.network.port));
+    if(!compact){row("NODE    "+pqvpn::console::terminal_safe(executable));row("PLATFORM "+std::string(os_name())+" / "+tunnel_name());row("POLICY  "+std::string(config.security.strict_sig_verify?"Strict hybrid authentication":"Relaxed verification")+" / "+(config.security.tofu?"TOFU":"Pinned peers"));row("TRANSPORT "+std::string(config.external_transport?config.external_transport->engine:"Native UDP")+" / "+pqvpn::transport::to_string(config.adaptive_transport.mode));}
+    if(!notice.empty())row("\033[33m"+pqvpn::console::terminal_safe(notice)+"\033[0m");
     rule();
-
-    // Live log area.
-    const std::vector<std::string> lines = node.tail(static_cast<std::size_t>(std::max(0, size.rows - 22)));
-    for (const auto& line : lines) row(line);
-    for (int i = static_cast<int>(lines.size()); i < std::max(0, size.rows - 22); ++i) {
-        std::cout << "\033[K\n";
-    }
-
-    rule();
-    row("\033[90m[d] start   [x] stop   [c] clear   [r] refresh   [q] quit\033[0m");
+    const int available=std::max(0,size.rows-emitted-3);
+    const auto lines=node.tail(static_cast<std::size_t>(available));
+    for(const auto& line:lines)row(line);
+    for(int i=static_cast<int>(lines.size());i<available;++i)row("");
+    rule();row("[v] verify  [d] connect  [x] disconnect  [m] mode  [c] clear  [q] quit");
+    std::cout<<"\033[J";
     std::cout << std::flush;
 }
 
@@ -391,17 +406,19 @@ bool parse(int argc, char** argv, Options& options) {
     options.node = default_node(argv[0]);
     for (int index = 1; index < argc; ++index) {
         const std::string arg = argv[index];
-        if (arg == "--smoke-test") options.smoke_test = true;
+        if(arg=="--no-tunnel")options.no_tunnel=true;
+        else if (arg == "--smoke-test") options.smoke_test = true;
         else if ((arg == "--config" || arg == "-c") && index + 1 < argc) options.config = argv[++index];
         else if (arg == "--node" && index + 1 < argc) options.node = argv[++index];
         else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--smoke-test]\n";
-            return false;
+            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--smoke-test]\n";
+            options.help=true;return true;
         } else {
             std::cerr << "Unknown or incomplete argument: " << arg << '\n';
             return false;
         }
     }
+    if(options.config.empty())options.config=pqvpn::console::default_profile(std::filesystem::path(options.node).parent_path()).generic_string();
     return !options.node.empty() && !options.config.empty();
 }
 
@@ -415,6 +432,7 @@ int main(int argc, char** argv) {
 #endif
     Options options;
     if (!parse(argc, argv, options)) return argc > 1 ? 2 : 0;
+    if(options.help)return 0;
     auto loaded = pqvpn::config::load_config(options.config);
     if (!loaded) {
         std::cerr << "Cannot load a valid configuration: " << options.config << '\n';
@@ -425,21 +443,28 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+#ifdef _WIN32
+    DWORD console_mode=0;
+    if(!GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE),&console_mode)){std::cerr<<"Interactive terminal required; use --smoke-test for automation\n";return 1;}
+#else
+    if(!isatty(STDIN_FILENO)||!isatty(STDOUT_FILENO)){std::cerr<<"Interactive terminal required; use --smoke-test for automation\n";return 1;}
+#endif
     NodeProcess node;
+    std::cout<<"\033[?1049h";
     hide_cursor();
     set_raw(true);
 
     const auto cleanup = [&]() {
         set_raw(false);
         show_cursor();
-        std::cout << "\033[2J\033[H" << std::flush;
+        std::cout << "\033[?1049l" << std::flush;
     };
 
     std::string notice;
     bool quit = false;
     while (!quit) {
         const ScreenSize size = current_size();
-        render(size, *loaded, options.config, options.node, node, notice);
+        render(size, *loaded, options.config, options.node, node, notice, options.no_tunnel);
 
         // Small pause so the terminal can breathe and keys register.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(140);
@@ -447,15 +472,19 @@ int main(int argc, char** argv) {
             const int key = poll_key();
             if (key >= 0) {
                 const char c = static_cast<char>(key);
-                if (c == 'q' || c == 'Q') { quit = true; break; }
+                if (c == 'q' || c == 'Q' || c == 3) { quit = true; break; }
                 else if (c == 'c' || c == 'C') { node.clear_log(); notice.clear(); }
-                else if (c == 'r' || c == 'R') { notice.clear(); }
+                else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else{options.no_tunnel=!options.no_tunnel;notice=options.no_tunnel?"Relay mode selected":"Tunnel mode selected";}}
+                else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{auto checked=pqvpn::config::load_config(options.config);if(checked){loaded=std::move(checked);notice="Configuration verified; connect when ready";}else notice="Invalid configuration; review the file before connecting";}}
                 else if (c == 'd' || c == 'D') {
                     if (node.running() && !node.finished()) {
                         notice = "node already running";
                     } else {
-                        if (node.start(options.node,
-                                       {"--config", options.config})) {
+                        auto checked=pqvpn::config::load_config(options.config);
+                        if(!checked){notice="Configuration changed or is invalid; cannot connect";continue;}
+                        loaded=std::move(checked);
+                        std::vector<std::string> arguments{"--config",options.config};if(options.no_tunnel)arguments.push_back("--no-tunnel");
+                        if (node.start(options.node,arguments)) {
                             notice = "node starting…";
                         } else {
                             notice = "failed to start node";
