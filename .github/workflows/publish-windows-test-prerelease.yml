@@ -1,0 +1,118 @@
+name: Publish Windows test prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing beta tag to publish
+        required: true
+        type: string
+      ci_run_id:
+        description: Successful CI run for the exact tagged commit
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-windows-test-prerelease
+  cancel-in-progress: false
+
+jobs:
+  validate-and-publish:
+    name: Validate and publish Windows test assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - name: Validate tag and CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+-beta-[0-9]+-[0-9A-Za-z.-]+$ ]]
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          tag_sha="$(git rev-list -n 1 "$TAG")"
+          test -n "$tag_sha"
+          test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          test "$(jq -r .path <<<"$run_json")" = ".github/workflows/ci.yml"
+          test "$(jq -r .event <<<"$run_json")" = "push"
+          test "$(jq -r .head_branch <<<"$run_json")" = "main"
+          test "$(jq -r .status <<<"$run_json")" = "completed"
+          test "$(jq -r .conclusion <<<"$run_json")" = "success"
+          test "$(jq -r .head_repository.full_name <<<"$run_json")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r .head_sha <<<"$run_json")" = "$tag_sha"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; refusing to mutate it." >&2
+            exit 1
+          fi
+          echo "PQVPN_RELEASE_SHA=$tag_sha" >> "$GITHUB_ENV"
+
+      - name: Download exact Windows candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir candidate release
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name release-candidate-windows-x86_64 --dir candidate
+
+      - name: Verify and stage public assets
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          test "$(find candidate -maxdepth 1 -type f -name "PQVPN-$version-windows-x64.msi" | wc -l)" = 1
+          test "$(find candidate -maxdepth 1 -type f -name "PQVPN-windows-x64-$version-portable.zip" | wc -l)" = 1
+          test "$(find candidate -maxdepth 1 -type f -name "PQVPN-$version-windows-x86_64.pqvpnpkg" | wc -l)" = 1
+          test -s candidate/BUILD-INFO.txt
+          grep -F "Commit: $PQVPN_RELEASE_SHA" candidate/BUILD-INFO.txt
+          python3 packaging/update/build-package.py verify \
+            "candidate/PQVPN-$version-windows-x86_64.pqvpnpkg"
+          cp "candidate/PQVPN-$version-windows-x64.msi" release/
+          cp "candidate/PQVPN-windows-x64-$version-portable.zip" release/
+          cp "candidate/PQVPN-$version-windows-x86_64.pqvpnpkg" release/
+          cp candidate/BUILD-INFO.txt release/
+          (cd release && sha256sum PQVPN-* BUILD-INFO.txt | sort -k2 > SHA256SUMS)
+          (cd release && sha256sum -c SHA256SUMS)
+          test "$(find release -maxdepth 1 -type f | wc -l)" = 5
+
+      - name: Publish immutable test prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ inputs.ci_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          ## Experimental Windows beta
+
+          This prerelease provides the Windows x86-64 build from commit \`$PQVPN_RELEASE_SHA\`.
+
+          Included: MSI installer, portable ZIP, manual desktop updater package, SHA-256 manifest, and build information.
+
+          The [main CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID) passed the native Windows build, runtime smoke tests, clean MSI install, upgrade from the previous release, old ProductCode removal, uninstall, and update-container verification.
+
+          This is an **unqualified test prerelease**. Production signing and the full native functional release gates are incomplete. The unsigned Windows tunnel driver is excluded. Linux and macOS assets are withheld, so public mainnet nodes do not update from this release.
+          EOF
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --title "PQVPN ${TAG#v} (Windows test prerelease)" \
+            --notes-file release-notes.md

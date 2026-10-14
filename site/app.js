@@ -141,7 +141,7 @@ async function configurePlatformDownload(){
       detectedLabel.textContent=`Detected ${platformDescription(facts)} · recommended package selected`;
     }else{
       for(const button of downloadButtons)button.href=release.html_url;
-      downloadButton.textContent='Choose a verified build';
+      downloadButton.textContent='Choose an available beta package';
       document.querySelector('#download-panel').open=true;
       for(const button of downloadButtons)button.removeAttribute('download');
       const reason=(facts.os==='android'||facts.os==='ios')?'Mobile platforms are not supported':facts.unsupported32?'32-bit builds are not published':'Confirm your architecture or package manager';
@@ -149,7 +149,7 @@ async function configurePlatformDownload(){
     }
   }catch(error){
     for(const button of downloadButtons){button.href=releasePage;button.removeAttribute('download')}
-    downloadButton.textContent='Open verified releases';
+    downloadButton.textContent='Open published releases';
     detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;
     releaseLabel.textContent=error.message;
   }
