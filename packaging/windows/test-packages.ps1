@@ -76,7 +76,9 @@ $oldPluginPath = $env:QT_PLUGIN_PATH
 $oldPlatform = $env:QT_QPA_PLATFORM
 $env:PATH = ($env:PATH -split ';' | Where-Object { -not ($env:QT_ROOT_DIR -and $_.StartsWith($env:QT_ROOT_DIR, [StringComparison]::OrdinalIgnoreCase)) }) -join ';'
 $env:QT_PLUGIN_PATH = $null
-$env:QT_QPA_PLATFORM = 'offscreen'
+# Run the packaged GUI through real Win32 Qt, as in the visual CI gate;
+# the offscreen QPA does not provide dependable Windows font rasterization.
+$env:QT_QPA_PLATFORM = 'windows'
 $codes = @()
 try {
     Test-Payload $portable (Join-Path $portable 'config.json') 'portable verification'
