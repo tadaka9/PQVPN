@@ -447,7 +447,10 @@ jobs:
       - name: Render Privacy Console
         shell: pwsh
         run: |
-          $env:QT_QPA_PLATFORM = 'offscreen'
+          # The Windows offscreen plugin has no reliable system font backend on
+          # hosted Windows runners. Exercise the actual Win32 Qt platform and
+          # preserve all font-rasterization and visual-layout assertions.
+          $env:QT_QPA_PLATFORM = 'windows'
           $renderDir = "$env:RUNNER_TEMP\pqvpn-console"
           New-Item -ItemType Directory -Force -Path $renderDir | Out-Null
           foreach ($theme in @('dark','light')) {
