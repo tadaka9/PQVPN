@@ -153,29 +153,30 @@ cmake --build build --target pqvpn_node
 
 ### Linux distribution packages
 
-Every native Linux CI run produces `.deb` and `.rpm` packages for x86-64 and
-ARM64. Download the matching `distribution-packages-linux-*` artifact from the
-successful workflow run, then install it with the platform package manager:
+Every native Linux CI run currently produces a deployed tar archive and `.deb`
+package for x86-64 and ARM64. Download the matching release-candidate artifact
+from the successful workflow run, then install the Debian package with:
 
 ```bash
 sudo apt install ./pqvpn_*.deb
-sudo rpm -U ./pqvpn-*.rpm
 ```
 
-For Arch Linux, download `PKGBUILD` from the release or the
-`arch-linux-pkgbuild` workflow artifact and build it as an unprivileged user:
+RPM and AppImage producers are still release-gate work. Arch Linux users can
+generate the checksum-pinned recipe and build it as an unprivileged user:
 
 ```bash
-makepkg -si
+./packaging/arch/generate-pkgbuild.sh COMMIT packaging/arch/PKGBUILD
+(cd packaging/arch && makepkg -si)
 ```
 
 Packages install `pqvpn_node`, `pqvpn_tui`, and `pqvpn_monitor` plus example
 configuration files. They do not start a network service automatically; copy
 and review an example configuration before starting a node.
 
-Maintainers update the package version once in [`PQVPN_VERSION.txt`](PQVPN_VERSION.txt). The
-native workflow propagates it automatically to DEB, RPM, PKGBUILD and tagged
-release assets.
+Maintainers update the package version once in [`PQVPN_VERSION.txt`](PQVPN_VERSION.txt).
+CMake, DEB metadata, the generated PKGBUILD, artifacts and update containers
+derive from it. RPM metadata exists, while its native producer and lifecycle
+gate remain unimplemented.
 
 ### CLI and terminal console
 
@@ -223,10 +224,13 @@ capability view and system-tray controls. Close hides the window in the tray by
 default without changing the connection; **Exit PQVPN** shuts the node down
 first. Both behaviors are explicit and configurable.
 
-The About page checks GitHub Releases only when requested. It selects the native
-package for the current operating system and architecture, requires a unique
-entry in the release's `SHA256SUMS`, verifies the complete download, and opens
-the containing folder. Installation remains a separate user action.
+The About page checks GitHub Releases only when requested. It prefers the
+project's deterministic `*.pqvpnpkg` update container for the current operating
+system and architecture, requires a unique entry in the release's
+`SHA256SUMS`, verifies the container and its embedded native-package hash, and
+opens the containing folder. Installation remains a separate user action.
+The full trust and rollback model is documented in
+[`docs/update-system.md`](docs/update-system.md).
 
 **View → Appearance** follows the operating-system light/dark preference by
 default and updates while the console is open. Explicit Light and Dark choices
@@ -253,8 +257,8 @@ readiness, so an untested integration is never presented as working:
 
 ![PQVPN transport capability view](docs/assets/pqvpn-console-transports.png)
 
-Linux x86_64 CI builds the GUI and renders the real window offscreen. Other
-platforms retain their verified node baseline until a native GUI job passes.
+Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x64 CI build the GUI,
+render every page offscreen, and smoke-test the installed runtime.
 For local visual verification:
 
 ```bash

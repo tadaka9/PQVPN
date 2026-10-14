@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          [[ "$TAG" =~ ^v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]
           tag_sha="$(git rev-list -n 1 "$TAG")"
           test -n "$tag_sha"
           python3 tools/check-release-readiness.py --tag "$TAG"
@@ -123,6 +123,24 @@ jobs:
             cp "$package" "release/${package##*/}"
           done
           test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "$(jq length packaging/release-targets.json)"
+
+      - name: Build custom update packages from attested candidates
+        env:
+          TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          for directory in candidates/*; do
+            target="${directory##*/}"
+            package="$(find "$directory" -maxdepth 1 -type f -print -quit)"
+            output="release/PQVPN-$version-$target.pqvpnpkg"
+            python3 packaging/update/build-package.py build --payload "$package" \
+              --version "$version" --target "$target" --output "$output"
+            python3 packaging/update/build-package.py verify "$output"
+          done
+          expected="$(($(jq length packaging/release-targets.json) * 2))"
+          test "$(find release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "$expected"
 
       - name: Generate checksums
         working-directory: release

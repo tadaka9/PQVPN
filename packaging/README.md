@@ -39,6 +39,8 @@ a native Arch packaging job has not yet verified this path.
 DEB, RPM, and the generated PKGBUILD in the next workflow. A `v*` tag runs build
 and source readiness checks. Publication uses `Publish qualified prerelease`
 only after native functional qualification.
+The tag is exactly `v` plus that public version, including labels such as
+`valpha-0.6-10142026-cybergun`; source readiness rejects any mismatch.
 
 The Windows x64 MSI is a mandatory release asset. The portable ZIP is a
 separate convenience package and never substitutes for the installer. The MSI
@@ -152,3 +154,12 @@ without a configuration and an installed example exists. They preserve existing
 user profiles and never modify the installed template. GUI transport presets
 keep keys in the external engine's configuration and only prepare supported
 loopback UDP attachment; TCP/SOCKS adapters remain unimplemented.
+
+Qualified publication also wraps each attested native candidate in a
+deterministic `*.pqvpnpkg` update container. The outer release checksum and the
+container's manifest checksum are both verified by the Privacy Console before
+it extracts the original native package. The native package and its platform
+signature remain the installation authority; the container is not an unsigned
+replacement installer. See `packaging/update/README.md` for the bounded format.
+The desktop and headless update trust boundaries are described together in
+`docs/update-system.md`.

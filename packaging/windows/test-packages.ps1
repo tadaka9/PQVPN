@@ -21,8 +21,10 @@ function Test-Payload([string]$Bin, [string]$Config, [string]$Phase) {
     if ($LASTEXITCODE -ne 0) { throw 'Packaged configuration validation failed' }
     & (Join-Path $Bin 'pqvpn_tui.exe') --smoke-test --config $Config
     if ($LASTEXITCODE -ne 0) { throw 'Packaged TUI failed' }
-    $guiOutput = (& (Join-Path $Bin 'pqvpn_monitor.exe') --smoke-test --verify-installation --node $node --config $Config 2>&1 | Out-String).Trim()
+    $guiLines = @(& (Join-Path $Bin 'pqvpn_monitor.exe') --smoke-test --verify-installation --node $node --config $Config 2>&1)
     $guiExit = $LASTEXITCODE
+    $guiOutput = [string]($guiLines -join [Environment]::NewLine)
+    $guiOutput = $guiOutput.Trim()
     if ($guiExit -ne 0) { throw "Packaged GUI failed during $Phase with exit code ${guiExit}: $guiOutput" }
     & (Join-Path $Bin 'pqvpn_tui.exe') --smoke-test
     if ($LASTEXITCODE -ne 0) { throw 'Installed TUI default profile failed' }

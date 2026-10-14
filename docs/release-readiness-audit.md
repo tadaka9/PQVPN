@@ -166,6 +166,9 @@ The next clean-install run reached the installed GUI and returned Windows status
 portable ZIP passed. MSI staging now runs the same `windeployqt` closure used by
 the portable package and requires the offscreen platform plugin before WiX
 harvests any files. This also closes over Qt Network for the release updater.
+The lifecycle harness captures GUI output as an explicit array so a successful,
+silent process cannot turn into a PowerShell null-reference failure; it records
+the native exit code before formatting diagnostics.
 
 The desktop release updater is manual and platform-aware. It ignores drafts,
 compares the installed public version with release tags, requires a matching
@@ -174,3 +177,11 @@ checksum entries, streams downloads through SHA-256 with a size limit, and
 commits only verified bytes. It opens the download folder but never launches an
 installer. The privileged Linux mainnet updater and its atomic rollback remain
 separate.
+
+Qualified publication now produces a deterministic `*.pqvpnpkg` for every
+attested release target. Its bounded manifest binds the version, target, native
+payload name, exact size, installation mode, and payload SHA-256. The GUI
+prefers this package, checks the release checksum, validates and extracts the
+inner native package atomically, then leaves the platform installation step to
+the user. Four regression tests cover round-trip extraction, deterministic
+bytes, corruption rejection, and unsafe metadata rejection.

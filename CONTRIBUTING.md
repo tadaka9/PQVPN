@@ -26,6 +26,9 @@ Security vulnerabilities must be reported privately as described in
 
 Use the build and test commands in the project [README](README.md). Every pull
 request must keep the affected native targets and hardening checks green.
+Changes to release updates must preserve the documented trust boundary in
+[`docs/update-system.md`](docs/update-system.md) and pass
+`python3 -m unittest discover -s tests/release -v`.
 
 ## Commit and pull request guidance
 

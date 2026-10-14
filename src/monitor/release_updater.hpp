@@ -3,6 +3,7 @@
 #include <QCryptographicHash>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -13,10 +14,13 @@
 #include <QObject>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QStandardPaths>
+#include <QStringList>
 #include <QSysInfo>
 #include <QUrl>
 #include <QVector>
+#include <QtEndian>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -115,14 +119,16 @@ private:
         QString architecture = QSysInfo::currentCpuArchitecture();
         if (architecture == "aarch64") architecture = "arm64";
         if (architecture == "amd64") architecture = "x86_64";
+        if (architecture != "x86_64" && architecture != "arm64") return {};
         QStringList suffixes;
 #if defined(Q_OS_WIN)
+        suffixes = {"-windows-" + architecture + ".pqvpnpkg"};
         if (architecture == "x86_64") architecture = "x64";
-        suffixes = {"-windows-" + architecture + ".msi"};
+        suffixes.append("-windows-" + architecture + ".msi");
 #elif defined(Q_OS_MACOS)
-        suffixes = {"-macos-" + architecture + ".pkg", "-macos-" + architecture + ".dmg", "-macos-" + architecture + ".tar.gz"};
+        suffixes = {"-macos-" + architecture + ".pqvpnpkg", "-macos-" + architecture + ".pkg", "-macos-" + architecture + ".dmg", "-macos-" + architecture + ".tar.gz"};
 #elif defined(Q_OS_LINUX)
-        suffixes = architecture == "x86_64" ? QStringList{"_amd64.deb", "-linux-x86_64.tar.gz"} : QStringList{"_arm64.deb", "-linux-arm64.tar.gz"};
+        suffixes = architecture == "x86_64" ? QStringList{"-deb-x86_64.pqvpnpkg", "-linux-x86_64.pqvpnpkg", "_amd64.deb", "-linux-x86_64.tar.gz"} : QStringList{"-deb-arm64.pqvpnpkg", "-linux-arm64.pqvpnpkg", "_arm64.deb", "-linux-arm64.tar.gz"};
 #endif
         for (const auto& suffix : suffixes) for (const auto& value : assets) {
             const auto object = value.toObject(); if (object.value("name").toString().endsWith(suffix)) return object;
@@ -131,6 +137,21 @@ private:
     }
     static bool trustedReleaseUrl(const QUrl& url) {
         return url.scheme() == "https" && url.host() == "github.com" && url.path().startsWith("/tadaka9/PQVPN/releases/download/");
+    }
+    static QStringList platformTargets() {
+        QString architecture = QSysInfo::currentCpuArchitecture();
+        if (architecture == "aarch64") architecture = "arm64";
+        if (architecture == "amd64") architecture = "x86_64";
+        if (architecture != "x86_64" && architecture != "arm64") return {};
+#if defined(Q_OS_WIN)
+        return {"windows-" + architecture};
+#elif defined(Q_OS_MACOS)
+        return {"macos-" + architecture};
+#elif defined(Q_OS_LINUX)
+        return {"deb-" + architecture, "linux-" + architecture};
+#else
+        return {};
+#endif
     }
     void fetch(const QUrl& url, qint64 maximum, std::function<void(const QByteArray&, const QString&)> complete) {
         QNetworkRequest request(url); request.setHeader(QNetworkRequest::UserAgentHeader, "PQVPN-Privacy-Console/" + currentVersion_); request.setTransferTimeout(30000);
@@ -162,8 +183,40 @@ private:
             drain(); const bool valid = !*failed && reply->error() == QNetworkReply::NoError && *bytes > 0 && hash->result() == expected && output->commit();
             reply->deleteLater(); busy_ = false;
             if (!valid) { output->cancelWriting(); setDownloadable(true); message("Update download failed or SHA-256 did not match; file was discarded"); return; }
-            message("Verified " + selectedTag_ + " downloaded to " + destination + ". Install it when ready."); QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
+            QString installable = destination;
+            if (destination.endsWith(".pqvpnpkg")) {
+                QString error; installable = extractCustomPackage(destination, error);
+                if (installable.isEmpty()) { setDownloadable(true); message("Custom update package rejected: " + error); return; }
+            }
+            message("Verified " + selectedTag_ + " downloaded to " + installable + ". Install it when ready."); QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
         });
+    }
+    QString extractCustomPackage(const QString& package, QString& error) const {
+        QFile source(package); if (!source.open(QIODevice::ReadOnly)) { error = "cannot open container"; return {}; }
+        if (source.read(10) != QByteArray("PQVPNPKG1\n", 10)) { error = "invalid container magic"; return {}; }
+        const QByteArray lengthBytes = source.read(4); if (lengthBytes.size() != 4) { error = "truncated container header"; return {}; }
+        const quint32 length = qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(lengthBytes.constData()));
+        if (length == 0 || length > 64 * 1024) { error = "invalid manifest length"; return {}; }
+        const auto document = QJsonDocument::fromJson(source.read(length)); if (!document.isObject()) { error = "invalid manifest JSON"; return {}; }
+        const auto manifest = document.object();
+        const QSet<QString> expectedFields{"schema","product","version","target","payload_name","payload_size","payload_sha256","install_mode"}; const QStringList manifestKeys=manifest.keys(); const QSet<QString> actualFields(manifestKeys.begin(),manifestKeys.end());
+        if (actualFields != expectedFields || manifest.value("schema").toInt() != 1 || manifest.value("product").toString() != "PQVPN") { error = "unsupported manifest"; return {}; }
+        QString releaseVersion = selectedTag_; if (releaseVersion.startsWith('v')) releaseVersion.remove(0,1);
+        const QString target = manifest.value("target").toString();
+        if (manifest.value("version").toString() != releaseVersion || !platformTargets().contains(target) || !selectedAsset_.value("name").toString().endsWith("-" + target + ".pqvpnpkg")) { error = "version or target mismatch"; return {}; }
+        const QString name = manifest.value("payload_name").toString();
+        const QRegularExpression safeName("^[0-9A-Za-z][0-9A-Za-z._+~-]*$");
+        if (!safeName.match(name).hasMatch() || QFileInfo(name).fileName() != name) { error = "unsafe payload name"; return {}; }
+        const qint64 size = manifest.value("payload_size").toInteger();
+        const QString hashText=manifest.value("payload_sha256").toString();const QByteArray expectedHash = QByteArray::fromHex(hashText.toLatin1());const QString mode=manifest.value("install_mode").toString();
+        const bool modeMatches=(mode=="msi"&&name.endsWith(".msi",Qt::CaseInsensitive))||(mode=="deb"&&name.endsWith(".deb",Qt::CaseInsensitive))||(mode=="package"&&(name.endsWith(".pkg",Qt::CaseInsensitive)||name.endsWith(".dmg",Qt::CaseInsensitive)||name.endsWith(".AppImage",Qt::CaseInsensitive)||name.endsWith(".rpm",Qt::CaseInsensitive)||name.contains(".pkg.tar.")))||(mode=="archive"&&(name.endsWith(".tar.gz",Qt::CaseInsensitive)||name.endsWith(".zip",Qt::CaseInsensitive)));
+        if (size <= 0 || size > 1024LL * 1024 * 1024 || !QRegularExpression("^[0-9a-f]{64}$").match(hashText).hasMatch() || expectedHash.size() != 32 || !modeMatches || source.size() - source.pos() != size) { error = "invalid payload metadata"; return {}; }
+        const QString destination = QFileInfo(package).dir().absoluteFilePath(name); QSaveFile output(destination);
+        if (!output.open(QIODevice::WriteOnly) || !output.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner)) { error = "cannot create native package"; return {}; }
+        QCryptographicHash hash(QCryptographicHash::Sha256); qint64 copied = 0;
+        while (!source.atEnd()) { const QByteArray chunk = source.read(qMin<qint64>(1024 * 1024, size - copied)); if (chunk.isEmpty()) break; copied += chunk.size(); hash.addData(chunk); if (output.write(chunk) != chunk.size()) { error = "native package write failed"; output.cancelWriting(); return {}; } }
+        if (copied != size || hash.result() != expectedHash || !output.commit()) { error = "native package checksum mismatch"; output.cancelWriting(); return {}; }
+        return destination;
     }
 };
 } // namespace pqvpn::console

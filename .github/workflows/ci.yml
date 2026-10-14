@@ -238,12 +238,23 @@ jobs:
           # merge-multiple download; a nested artifacts/ prefix would hide them.
           cp artifacts/pqvpn_*.deb ./
 
+      - name: Build verified custom update package
+        shell: bash
+        run: |
+          payload="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz"
+          if [[ "${{ matrix.family }}" == linux ]]; then payload="$(find . -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"; fi
+          output="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.pqvpnpkg"
+          python3 packaging/update/build-package.py build --payload "$payload" \
+            --version "${{ env.PQVPN_VERSION }}" --target "${{ matrix.target }}" --output "$output"
+          python3 packaging/update/build-package.py verify "$output"
+
       - name: Upload release candidate
         uses: actions/upload-artifact@v6
         with:
           name: release-candidate-${{ matrix.target }}
           path: |
             PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz
+            PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.pqvpnpkg
             pqvpn_*.deb
           if-no-files-found: error
           retention-days: 7
@@ -519,6 +530,18 @@ jobs:
         shell: pwsh
         run: packaging/windows/test-packages.ps1 -Artifacts artifacts -Version $env:PQVPN_VERSION
 
+      - name: Build verified custom update package
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem artifacts -Filter '*.msi')
+          if ($packages.Count -ne 1) { throw 'Expected exactly one MSI for the custom update package' }
+          $payload = $packages[0].FullName
+          $output = "artifacts/PQVPN-$env:PQVPN_VERSION-windows-x86_64.pqvpnpkg"
+          python packaging/update/build-package.py build --payload $payload --version $env:PQVPN_VERSION --target windows-x86_64 --output $output
+          if ($LASTEXITCODE -ne 0) { throw 'Custom update package build failed' }
+          python packaging/update/build-package.py verify $output
+          if ($LASTEXITCODE -ne 0) { throw 'Custom update package verification failed' }
+
       - name: Preserve installer test logs
         if: always()
         uses: actions/upload-artifact@v6
@@ -534,6 +557,7 @@ jobs:
           path: |
             artifacts/*.zip
             artifacts/*.msi
+            artifacts/*.pqvpnpkg
           if-no-files-found: error
           retention-days: 7
 

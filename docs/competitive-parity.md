@@ -27,6 +27,7 @@ References:
 | P1 | LAN access | Must remain disabled by default | Enumerated on-link prefixes are the only exception and are visible in GUI and diagnostics |
 | P1 | Server and route selection | Helsinki bootstrap and Stockholm exit are a pilot topology | Signed directory, health checks, latency samples and deterministic geo/load selection drive the GUI |
 | P1 | Profiles and auto-connect | Not implemented | Trusted/untrusted network rules and startup profiles are user-controlled and reversible |
+| P1 | Release updates | Manual release check, double-hashed custom package, and Linux service rollback exist | Signed native packages, verified provenance, staged desktop upgrade/rollback and clean-VM lifecycle tests pass on every supported target |
 | P1 | WireGuard/OpenVPN | Launch adapters exist but lifecycle is incomplete | Availability preflight, safe secret handling, readiness probe and guaranteed teardown pass native tests |
 | P2 | Smart protocol | Policy controller exists but is not wired to the data path | Real UDP/TCP lanes switch under controlled loss/blocking without changing the authenticated session |
 | P2 | Shadowsocks/V2Ray/udp2raw | udp2raw attach mode exists; the others are not integrated | Supervised binaries, pinned versions, local authenticated control and interoperability tests pass |
