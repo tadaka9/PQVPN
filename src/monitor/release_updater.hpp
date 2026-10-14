@@ -34,6 +34,16 @@ public:
     explicit ReleaseUpdater(QString currentVersion, QObject* parent)
         : QObject(parent), currentVersion_(std::move(currentVersion)), network_(this) {}
 
+    static bool selfTest() {
+        const auto legacyAlpha = versionKey("alpha-0.6-10142026-cybergun");
+        const auto alpha = versionKey("0.6-alpha-10142026-test");
+        const auto beta = versionKey("0.6-beta-10142026-David0-OTA");
+        const auto stable = versionKey("0.6.0");
+        return !legacyAlpha.isEmpty() && !alpha.isEmpty() && !beta.isEmpty() && !stable.isEmpty() &&
+               compare(legacyAlpha, alpha) == 0 && compare(alpha, beta) < 0 &&
+               compare(beta, stable) < 0;
+    }
+
     void check() {
         if (busy_) return;
         busy_ = true; selectedAsset_ = {}; selectedSums_ = {};
@@ -97,11 +107,17 @@ private:
     static QVector<qulonglong> versionKey(QString version) {
         QRegularExpressionMatch match;
         const QRegularExpression publicLabel("^alpha-(\\d+)\\.(\\d+)-(\\d+)-[0-9A-Za-z.-]+$");
-        const QRegularExpression semverPrerelease("^(\\d+)\\.(\\d+)\\.(\\d+)-alpha-(\\d+)-[0-9A-Za-z.-]+$");
+        const QRegularExpression publicAlpha("^(\\d+)\\.(\\d+)-alpha-(\\d+)-[0-9A-Za-z.-]+$");
+        const QRegularExpression publicBeta("^(\\d+)\\.(\\d+)-beta-(\\d+)-[0-9A-Za-z.-]+$");
+        const QRegularExpression semverAlpha("^(\\d+)\\.(\\d+)\\.(\\d+)-alpha-(\\d+)-[0-9A-Za-z.-]+$");
+        const QRegularExpression semverBeta("^(\\d+)\\.(\\d+)\\.(\\d+)-beta-(\\d+)-[0-9A-Za-z.-]+$");
         const QRegularExpression semver("^(\\d+)\\.(\\d+)\\.(\\d+)$");
         if ((match = publicLabel.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 0, match.captured(3).toULongLong()};
-        if ((match = semverPrerelease.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 0, match.captured(4).toULongLong()};
-        if ((match = semver.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 1, 0};
+        if ((match = publicAlpha.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 0, match.captured(3).toULongLong()};
+        if ((match = publicBeta.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), 0, 1, match.captured(3).toULongLong()};
+        if ((match = semverAlpha.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 0, match.captured(4).toULongLong()};
+        if ((match = semverBeta.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 1, match.captured(4).toULongLong()};
+        if ((match = semver.match(version)).hasMatch()) return {match.captured(1).toULongLong(), match.captured(2).toULongLong(), match.captured(3).toULongLong(), 2, 0};
         return {};
     }
     static int compare(const QVector<qulonglong>& left, const QVector<qulonglong>& right) {

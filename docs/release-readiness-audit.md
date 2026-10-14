@@ -7,7 +7,7 @@ independent cryptographic security audit or evidence that every platform works.
 ## Corrections implemented
 
 - `PQVPN_VERSION.txt` now selects the unused version
-  `alpha-0.6-10142026-cybergun`. Existing releases/tags are preserved.
+  `0.6-beta-10142026-David0-OTA`. Existing releases/tags are preserved.
 - CLI version and CPack version derive from that file, including the prerelease
   suffix. A CTest regression covers CLI version output.
 - Debian packaging retains the CMake deployment tree under `/usr/lib/pqvpn`,
@@ -149,7 +149,7 @@ The two audit branches propose overlapping corrections. Their unmodified patches
 
 Native packaging checks for the new GUI and installer changes must pass on the consolidated commit before merging. Qualified prerelease requirements remain separate and mandatory.
 
-Public version: `alpha-0.6-10142026-cybergun`; numeric CMake/macOS/MSI version: `0.6.0`; Debian version: `0.6.0~alpha-10142026-cybergun`. Artifact names and CLI output retain the requested public label.
+Public version: `0.6-beta-10142026-David0-OTA`; numeric CMake/macOS/MSI version: `0.6.0`; Debian version: `0.6.0~beta-10142026-David0-OTA`. Artifact names and CLI output retain the requested public label.
 
 Transport profiles set `security.identity_file` to the original absolute identity path. A regression test verifies absolute and relative paths, stable public keys, and preservation of unrelated destination keys. The JSON shutdown regression keeps stdin open to verify the reader exits, in addition to checking diagnostic secrecy.
 

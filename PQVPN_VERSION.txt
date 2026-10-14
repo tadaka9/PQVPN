@@ -1,1 +1,1 @@
-alpha-0.6-10142026-cybergun
+0.6-beta-10142026-David0-OTA
