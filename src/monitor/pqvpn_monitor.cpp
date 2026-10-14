@@ -547,6 +547,9 @@ private:
         const QString directory=QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)+"/profiles";if(!QDir().mkpath(directory))return;
         const QString known=security.value("known_peers_file").toString("known_peers.json");const QString originalKnown=QFileInfo(known).isRelative()?QFileInfo(configPath_->text()).dir().absoluteFilePath(known):known;const QString profileKnown=directory+"/known_peers.json";
         if(!QFileInfo(profileKnown).exists()&&QFileInfo(originalKnown).isFile()){if(!QFile::copy(originalKnown,profileKnown))return;QFile::setPermissions(profileKnown,QFileDevice::ReadOwner|QFileDevice::WriteOwner);}
+        const QString identity=security.value("identity_file").toString("node_keys.json");
+        const QString originalIdentity=QFileInfo(identity).isRelative()?QFileInfo(configPath_->text()).dir().absoluteFilePath(identity):identity;
+        security["identity_file"]=QDir::cleanPath(QFileInfo(originalIdentity).absoluteFilePath());
         security["known_peers_file"]=profileKnown;root["security"]=security;
         QString profile=directory+"/udp2raw.json";if(QFileInfo(profile).exists()&&QDir::cleanPath(QFileInfo(configPath_->text()).absoluteFilePath())!=QDir::cleanPath(profile))profile=directory+"/udp2raw-"+QString::number(QDateTime::currentMSecsSinceEpoch())+".json";QSaveFile output(profile);if(!output.open(QIODevice::WriteOnly))return;output.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);if(output.write(QJsonDocument(root).toJson(QJsonDocument::Indented))<0||!output.commit())return;
         configPath_->setText(profile);invalidate("Local udp2raw profile prepared. Verify the engine and server before connecting.");loadConfig(profile);switchPage(Connection);validateConfig();

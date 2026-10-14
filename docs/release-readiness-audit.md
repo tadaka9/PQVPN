@@ -150,3 +150,5 @@ The two audit branches propose overlapping corrections. Their unmodified patches
 Native packaging checks for the new GUI and installer changes must pass on the consolidated commit before merging. Qualified prerelease requirements remain separate and mandatory.
 
 Public version: `alpha-0.6-10142026-cybergun`; numeric CMake/macOS/MSI version: `0.6.0`; Debian version: `0.6.0~alpha-10142026-cybergun`. Artifact names and CLI output retain the requested public label.
+
+Transport profiles set `security.identity_file` to the original absolute identity path. A regression test verifies absolute and relative paths, stable public keys, and preservation of unrelated destination keys. The JSON shutdown regression keeps stdin open to verify the reader exits, in addition to checking diagnostic secrecy.

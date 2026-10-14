@@ -1590,7 +1590,22 @@ bool PQVPNNode::load_or_create_identity() {
     const auto directory = config_file.has_parent_path()
         ? config_file.parent_path()
         : std::filesystem::current_path(ec);
-    const auto file = (directory / "node_keys.json").string();
+    auto identity_path = directory / "node_keys.json";
+    // An explicit identity path remains stable when a console relocates a profile.
+    try {
+        std::ifstream input(config_file);
+        if (input) {
+            const auto document = nlohmann::json::parse(input);
+            if (document.contains("security")) {
+                const auto configured = document.at("security").value("identity_file", std::string{});
+                if (!configured.empty()) {
+                    identity_path = std::filesystem::path(configured);
+                    if (identity_path.is_relative()) identity_path = directory / identity_path;
+                }
+            }
+        }
+    } catch (const std::exception&) { return false; }
+    const auto file = identity_path.string();
 
     NodeIdentity identity;
     bool needs_generation = false;

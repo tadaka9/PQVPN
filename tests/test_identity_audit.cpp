@@ -37,3 +37,32 @@ TEST_CASE("Existing broken identities fail closed and temporary files are preser
           std::filesystem::perms::none);
 #endif
 }
+
+TEST_CASE("Relocated profiles keep the original identity without touching destination keys", "[identity]") {
+    const auto root = std::filesystem::temp_directory_path() /
+        ("pqvpn-identity-profile-" + std::to_string(std::random_device{}()));
+    std::filesystem::create_directory(root);
+    struct Cleanup { std::filesystem::path path; ~Cleanup() { std::filesystem::remove_all(path); } } cleanup{root};
+    std::filesystem::create_directory(root / "profiles");
+    const auto identity_path = root / "node_keys.json";
+    const auto original = pqvpn::identity::NodeIdentity::generate();
+    original.save(identity_path.string());
+    const auto destination_keys = root / "profiles" / "node_keys.json";
+    { std::ofstream output(destination_keys); output << "unrelated destination identity"; }
+    const auto profile = root / "profiles" / "udp2raw.json";
+    { std::ofstream output(profile); output << nlohmann::json{
+        {"security", {{"identity_file", identity_path.string()}}}}.dump(); }
+    asio::io_context io;
+    pqvpn::PQVPNNode node(io, profile.string());
+    REQUIRE(node.load_or_create_identity());
+    CHECK(node.ed25519_public_key == original.ed25519_pk);
+    CHECK(node.ml_kem_public_key == original.ml_kem_pk);
+    std::ifstream untouched(destination_keys);
+    CHECK(std::string(std::istreambuf_iterator<char>(untouched), {}) == "unrelated destination identity");
+    // Relative explicit paths resolve against the new profile, not the process cwd.
+    { std::ofstream output(profile); output << nlohmann::json{
+        {"security", {{"identity_file", "../node_keys.json"}}}}.dump(); }
+    pqvpn::PQVPNNode relative(io, profile.string());
+    REQUIRE(relative.load_or_create_identity());
+    CHECK(relative.ed25519_public_key == original.ed25519_pk);
+}

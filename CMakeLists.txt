@@ -194,13 +194,13 @@ if(PQVPN_BUILD_MONITOR)
         TARGET pqvpn_monitor
         OUTPUT_SCRIPT pqvpn_monitor_deploy_script
         NO_UNSUPPORTED_PLATFORM_ERROR ${PQVPN_QT_DEPLOY_OPTIONS})
-      install(SCRIPT ${pqvpn_monitor_deploy_script})
       # The default Linux deployment selects xcb only. Preserve the headless
       # platform plugin so installed bundles can run the same smoke test as CI.
       if(UNIX AND TARGET Qt6::QOffscreenIntegrationPlugin)
         install(FILES $<TARGET_FILE:Qt6::QOffscreenIntegrationPlugin>
           DESTINATION $<IF:$<BOOL:${APPLE}>,pqvpn_monitor.app/Contents/PlugIns/platforms,plugins/platforms>)
       endif()
+      install(SCRIPT ${pqvpn_monitor_deploy_script})
     endif()
     if(BUILD_TESTING)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)

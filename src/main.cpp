@@ -614,6 +614,7 @@ int main(int argc, char** argv) {
                                                     {"message", "unknown command"}});
                             }
                         });
+                        if (command.at("command") == "node.shutdown") break;
                     } catch (const std::exception& error) {
                         emit_console_event({{"event", "control.error"}, {"message", error.what()}});
                     }

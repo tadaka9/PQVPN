@@ -170,6 +170,7 @@ jobs:
           build/pqvpn_node --platform-info
           build/pqvpn_node --smoke-test --config config.json
           build/pqvpn_node --smoke-test --config config.udp2raw.json
+          python3 tests/check_console_runtime.py --node build/pqvpn_node --template config.json
           build/pqvpn_tui --smoke-test --config config.json
           if [[ "${{ matrix.family }}" == macos ]]; then
             otool -L build/pqvpn_node | tee runtime-dependencies.txt
@@ -186,6 +187,7 @@ jobs:
       - name: Package verified native build
         shell: bash
         run: |
+          trap 'echo "::error::Native package verification failed; $(tail -n 15 "$RUNNER_TEMP/package-smoke.log" 2>/dev/null | tr "\n" " ")"' ERR
           stage="PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}"
           mkdir -p "$stage"
           cmake --install build --prefix "$GITHUB_WORKSPACE/$stage"
@@ -201,7 +203,7 @@ jobs:
           if [[ "${{ matrix.family }}" == linux || "${{ matrix.family }}" == macos ]]; then
             installed_monitor="$GITHUB_WORKSPACE/$monitor"
             (cd "$stage"; env -u LD_LIBRARY_PATH -u DYLD_LIBRARY_PATH -u DYLD_FRAMEWORK_PATH -u QT_PLUGIN_PATH QT_QPA_PLATFORM=offscreen \
-              "$installed_monitor" --smoke-test --verify-installation)
+              "$installed_monitor" --smoke-test --verify-installation 2>&1 | tee "$RUNNER_TEMP/package-smoke.log")
           fi
           tar -czf "PQVPN-${{ env.PQVPN_VERSION }}-${{ matrix.target }}.tar.gz" "$stage"
 
@@ -423,6 +425,8 @@ jobs:
           & $binary --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw "Default config smoke test failed" }
           & $binary --smoke-test --config config.udp2raw.json
+          python tests/check_console_runtime.py --node $binary --template config.json
+          if ($LASTEXITCODE -ne 0) { throw "Console runtime regression failed" }
           if ($LASTEXITCODE -ne 0) { throw 'CLI smoke test failed' }
           & build/Release/pqvpn_tui.exe --smoke-test --config config.json
           if ($LASTEXITCODE -ne 0) { throw 'TUI smoke test failed' }
