@@ -117,8 +117,8 @@ def check_deb(package, version, arch):
         if not (root / "etc/pqvpn/config.json.example").is_file():
             raise GateError("Debian package lacks operator configuration example")
         launcher = root / "usr/bin/pqvpn_node"
-        if not launcher.is_symlink():
-            raise GateError("Debian package lacks the expected launch symlink")
+        if not launcher.is_symlink() or launcher.resolve() != binary.resolve():
+            raise GateError("Debian package lacks the expected safe launch symlink")
         if arch == native_arch():
             actual = run(str(binary), "--version", timeout=30)
             if actual != f"PQVPN {version}":
@@ -170,8 +170,20 @@ def check_appimage(package, version, arch):
         raise GateError("Expected versioned AppImage candidate")
     with package.open("rb") as source:
         assert_elf(source.read(20), arch)
-    # AppImage metadata/content checks and sandboxed lifecycle tests still
-    # need a native AppImage builder and fixture; never infer qualification.
+    if arch != native_arch() or not os.access(package, os.X_OK):
+        raise GateError("AppImage extraction requires a native executable runner")
+    with tempfile.TemporaryDirectory(prefix="pqvpn-appimage-gate-") as tmp:
+        # Type-2 AppImage extraction does not require FUSE; it exercises the
+        # actual runtime and reveals the embedded SquashFS payload.
+        run(str(package), "--appimage-extract", cwd=tmp, timeout=120)
+        root = Path(tmp) / "squashfs-root"
+        if not (root / "AppRun").is_file():
+            raise GateError("AppImage payload lacks AppRun")
+        node = root / "usr/bin/pqvpn_node"
+        if not node.is_file():
+            raise GateError("AppImage payload lacks usr/bin/pqvpn_node")
+        with node.open("rb") as source:
+            assert_elf(source.read(20), arch)
 
 
 def verify(target, package, version):
