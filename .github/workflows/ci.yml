@@ -293,6 +293,18 @@ jobs:
             --target "$deb_target" --package "$deb_package" --version "$version"
           echo 'Distribution artifact checks passed; privileged VPN qualification remains separate.'
 
+      - name: Native Debian install, upgrade from pinned old release, and purge
+        if: matrix.family == 'linux'
+        shell: bash
+        timeout-minutes: 15
+        env:
+          PQVPN_NATIVE_APT_LIFECYCLE: '1'
+        run: |
+          set -euo pipefail
+          package="$(find . -maxdepth 1 -name 'pqvpn_*.deb' -print -quit)"
+          test -n "$package"
+          bash tests/release/native-deb-lifecycle.sh "$package" "${{ env.PQVPN_VERSION }}"
+
       - name: Build verified custom update package
         shell: bash
         run: |

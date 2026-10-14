@@ -36,6 +36,19 @@ class NativeGateSourceTests(unittest.TestCase):
                         for issue in report["issue_details"]))
         self.assertFalse(report["ready"])
 
+    def test_native_debian_upgrade_script_is_safe_and_syntax_valid(self):
+        script = ROOT / "tests/release/native-deb-lifecycle.sh"
+        result = subprocess.run(["bash", "-n", str(script)],
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = script.read_text()
+        for required in ("SHA256SUMS", "sha256(", "dpkg --compare-versions",
+                         "apt-get install", "apt-get remove",
+                         "apt-get purge", "--force-confold", "trap cleanup EXIT"):
+            with self.subTest(required=required):
+                self.assertIn(required, text)
+        self.assertNotIn("privileged_tunnel_e2e\": True", text)
+
     def test_linux_native_scripts_run_real_source_regressions(self):
         for arch in ("x86_64", "arm64"):
             source = (ROOT / "packaging/gates" / f"linux-{arch}").read_text()

@@ -62,3 +62,21 @@ kernel/network tests, isolated system-state rollback and package lifecycle,
 trusted signing identity and verification, and immutable attestations.
 Signing keys, notarization, Windows ARM64 hardware/driver pipeline and
 native distro environments cannot be manufactured by a source commit.
+
+## Debian: real native package lifecycle in build CI
+
+Linux x86_64 and ARM64 **build CI** now exercise a further **real** test:
+`tests/release/native-deb-lifecycle.sh` downloads the old published Debian
+package for that exact CPU, verifies its SHA-256 against the historical
+release's `SHA256SUMS`, installs it with APT on an ephemeral runner, edits
+operator conffile whitespace, upgrades to the newly built native DEB, verifies
+the installed version, preservation of the conffile, CLI/TUI/Qt smoke tests,
+then removes and purges the package. A cleanup trap attempts a purge after
+failures. The test requires the explicit CI-only opt-in
+`PQVPN_NATIVE_APT_LIFECYCLE=1`; do **not** run it on a persistent workstation.
+
+This establishes a native **Debian package lifecycle** regression, rather than
+merely inspecting a .deb archive. It does not by itself attest distro-specific
+RPM/Arch/AppImage lifecycles, privileged encrypted TUN traffic, route/DNS
+rollback, signatures, notarization or external build provenance. Build CI
+success remains distinct from fully qualified publication.
