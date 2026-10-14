@@ -178,8 +178,15 @@ def check_deb(package, version, arch, *, target=None, trusted_node=None):
     if package.suffix != ".deb":
         raise GateError("Expected a Debian .deb archive")
     metadata = run("dpkg-deb", "-f", str(package), "Package", "Version", "Architecture")
-    fields = metadata.splitlines()
-    if len(fields) != 3 or fields[0] != "pqvpn":
+    lines = metadata.splitlines()
+    expected_keys = ("Package", "Version", "Architecture")
+    pairs = [line.partition(": ") for line in lines]
+    if (len(pairs) != 3 or
+            tuple(key for key, separator, value in pairs) != expected_keys or
+            any(separator != ": " or not value for key, separator, value in pairs)):
+        raise GateError(f"Invalid Debian control metadata: {metadata}")
+    fields = [value for key, separator, value in pairs]
+    if fields[0] != "pqvpn":
         raise GateError(f"Wrong Debian package name/metadata: {metadata}")
     expected_version = version_with_bash("pqvpn_debian_version", version)
     expected_arch = {"x86_64": "amd64", "arm64": "arm64"}[arch]
