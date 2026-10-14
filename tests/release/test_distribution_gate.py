@@ -213,7 +213,7 @@ class DistributionArtifactTests(unittest.TestCase):
 
     def test_deb_invalid_metadata_order_rejected(self):
         with patch.object(gate, "run", return_value=
-                          "Architecture: amd64\\nVersion: 0.6.0~beta-10142026-David0-OTA\\nPackage: pqvpn"):
+                          "Architecture: amd64\nVersion: 0.6.0~beta-10142026-David0-OTA\nPackage: pqvpn"):
             with self.assertRaisesRegex(gate.GateError, "Invalid Debian control metadata"):
                 gate.check_deb(self.root / "candidate.deb", VERSION, "x86_64")
 
