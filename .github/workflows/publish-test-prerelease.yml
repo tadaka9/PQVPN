@@ -49,9 +49,13 @@ jobs:
           test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
           test "$(jq -r .path <<<"$run_json")" = ".github/workflows/ci.yml"
-          test "$(jq -r .event <<<"$run_json")" = "push"
+          event="$(jq -r .event <<<"$run_json")"
+          [[ "$event" == push || "$event" == workflow_dispatch ]]
           branch="$(jq -r .head_branch <<<"$run_json")"
-          test "$branch" = "$TAG" -o "$branch" = "main"
+          # Only the build of this EXACT tag can supply test assets; a normal
+          # branch CI run must never qualify for publication.
+          test "$branch" = "$TAG"
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$(git rev-parse HEAD)"
           git merge-base --is-ancestor "$tag_sha" origin/main
           test "$(jq -r .status <<<"$run_json")" = "completed"
           test "$(jq -r .conclusion <<<"$run_json")" = "success"
