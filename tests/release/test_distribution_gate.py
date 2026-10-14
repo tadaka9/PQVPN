@@ -204,12 +204,18 @@ class DistributionArtifactTests(unittest.TestCase):
         fake.wait.return_value = 0
         fake.poll.return_value = 0
         with patch.object(gate, "run", return_value=
-                          "pqvpn\n0.6.0~beta-10142026-David0-OTA\namd64"), \
+                          "Package: pqvpn\nVersion: 0.6.0~beta-10142026-David0-OTA\nArchitecture: amd64"), \
              patch.object(gate, "version_with_bash",
                           return_value="0.6.0~beta-10142026-David0-OTA"), \
              patch.object(gate.subprocess, "Popen", return_value=fake) as popen:
             gate.check_deb(self.root / "candidate.deb", VERSION, "x86_64")
         self.assertEqual(popen.call_args.args[0][1], "--fsys-tarfile")
+
+    def test_deb_invalid_metadata_order_rejected(self):
+        with patch.object(gate, "run", return_value=
+                          "Architecture: amd64\\nVersion: 0.6.0~beta-10142026-David0-OTA\\nPackage: pqvpn"):
+            with self.assertRaisesRegex(gate.GateError, "Invalid Debian control metadata"):
+                gate.check_deb(self.root / "candidate.deb", VERSION, "x86_64")
 
     def test_deb_path_escape_rejected_before_writing(self):
         fake = unittest.mock.MagicMock()
@@ -217,7 +223,7 @@ class DistributionArtifactTests(unittest.TestCase):
         fake.wait.return_value = 0
         fake.poll.return_value = 0
         with patch.object(gate, "run", return_value=
-                          "pqvpn\n0.6.0~beta-10142026-David0-OTA\namd64"), \
+                          "Package: pqvpn\nVersion: 0.6.0~beta-10142026-David0-OTA\nArchitecture: amd64"), \
              patch.object(gate, "version_with_bash",
                           return_value="0.6.0~beta-10142026-David0-OTA"), \
              patch.object(gate.subprocess, "Popen", return_value=fake):
