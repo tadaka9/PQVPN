@@ -156,3 +156,5 @@ Transport profiles set `security.identity_file` to the original absolute identit
 On-demand engine catalog: all four Linux x86_64 downloads passed pinned archive SHA-256, extraction, and native executable smoke. Equivalent checks are now included in native CI for each catalog-supported platform. Configurable concurrent engine processes do not imply an interoperable chain or replace missing SOCKS/UDP and TCP/UDP relays. No engine binaries are included in installers.
 
 The macOS installed-bundle smoke exposed a missing `LC_RPATH` for Qt frameworks. The GUI now retains `@executable_path/../Frameworks` in its install RPATH; native package smoke runs without SDK loader overrides.
+
+The dependency updater now checks out and fast-forward-pushes `future`, preserves concurrent work by refusing non-fast-forward pushes, and prepares the existing integration PR without automatically merging unrelated development. It no longer recreates a third automation branch.
