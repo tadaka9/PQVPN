@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QDebug>
 #include <QDialog>
 #include <QDir>
 #include <QDragEnterEvent>
@@ -250,7 +251,7 @@ public:
         setWindowIcon(QIcon(":/brand/logo.svg"));
         setMinimumSize(940,650); resize(1240,800); setAcceptDrops(true);
         process_.setProcessChannelMode(QProcess::MergedChannels);
-        buildMenus(); buildUi(); buildTray(); connectProcess(); applyPreferences(); loadConfig(configPath_->text());
+        buildMenus(); buildUi(); buildTray(); connectProcess(); applyPreferences(); applyStartupArguments(); loadConfig(configPath_->text());
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){if(themeMode_=="system")applyTheme("system");});
 #else
@@ -265,9 +266,13 @@ public:
         switchPage(pages.value(request,Overview)); QApplication::processEvents();
     }
     bool verifyInstallation() const {
-        if(!QFileInfo(executablePath_->text()).isExecutable()||!QFileInfo(configPath_->text()).isFile())return false;
+        if(!QFileInfo(executablePath_->text()).isExecutable()){qCritical().noquote()<<"PQVPN installation check: node is not executable:"<<executablePath_->text();return false;}
+        if(!QFileInfo(configPath_->text()).isFile()){qCritical().noquote()<<"PQVPN installation check: configuration is not a file:"<<configPath_->text();return false;}
         QProcess check;check.start(executablePath_->text(),{"--validate-config","--config",configPath_->text()});
-        return check.waitForFinished(10000)&&check.exitStatus()==QProcess::NormalExit&&check.exitCode()==0;
+        if(!check.waitForStarted(5000)){qCritical().noquote()<<"PQVPN installation check: could not start node:"<<check.errorString();return false;}
+        if(!check.waitForFinished(10000)){check.kill();check.waitForFinished();qCritical()<<"PQVPN installation check: node validation timed out";return false;}
+        if(check.exitStatus()!=QProcess::NormalExit||check.exitCode()!=0){qCritical().noquote()<<"PQVPN installation check: node validation failed with exit code"<<check.exitCode()<<QString::fromUtf8(check.readAll()).trimmed();return false;}
+        return true;
     }
     bool verifyTrayIcons() const {
         using pqvpn::console::ConnectionPhase;
@@ -466,6 +471,16 @@ private:
         const QDir directory(QCoreApplication::applicationDirPath());
         for(const QString& candidate:{directory.absoluteFilePath(name),directory.absoluteFilePath("../../../bin/"+name),directory.absoluteFilePath("../../../"+name)})if(QFileInfo::exists(candidate))return QDir::cleanPath(candidate);
         return QDir::current().absoluteFilePath("build/"+name); }
+
+    void applyStartupArguments(){
+        const QStringList arguments=QApplication::arguments();
+        for(int index=1;index<arguments.size();++index){
+            if((arguments[index]=="--config"||arguments[index]=="--node")&&index+1<arguments.size()){
+                const QString value=QFileInfo(arguments[++index]).absoluteFilePath();
+                if(arguments[index-1]=="--config")configPath_->setText(value);else executablePath_->setText(value);
+            }
+        }
+    }
 
     bool strangeRecipientReady() const {return mainnetReady_&&(activeStrangePeer_=="auto"||authenticatedPeers_.contains(activeStrangePeer_));}
     void refreshPeerDirectory(){

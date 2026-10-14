@@ -12,7 +12,7 @@ $portable = Join-Path $root 'portable'
 Expand-Archive $zip[0].FullName $portable -Force
 if (Get-ChildItem $portable -Recurse -Filter '*.sys') { throw 'Unsigned driver must not be packaged' }
 
-function Test-Payload([string]$Bin, [string]$Config) {
+function Test-Payload([string]$Bin, [string]$Config, [string]$Phase) {
     $node = Join-Path $Bin 'pqvpn_node.exe'
     Push-Location $Bin
     try {
@@ -21,8 +21,9 @@ function Test-Payload([string]$Bin, [string]$Config) {
     if ($LASTEXITCODE -ne 0) { throw 'Packaged configuration validation failed' }
     & (Join-Path $Bin 'pqvpn_tui.exe') --smoke-test --config $Config
     if ($LASTEXITCODE -ne 0) { throw 'Packaged TUI failed' }
-    & (Join-Path $Bin 'pqvpn_monitor.exe') --smoke-test --verify-installation
-    if ($LASTEXITCODE -ne 0) { throw 'Packaged GUI failed' }
+    $guiOutput = (& (Join-Path $Bin 'pqvpn_monitor.exe') --smoke-test --verify-installation --node $node --config $Config 2>&1 | Out-String).Trim()
+    $guiExit = $LASTEXITCODE
+    if ($guiExit -ne 0) { throw "Packaged GUI failed during $Phase with exit code ${guiExit}: $guiOutput" }
     & (Join-Path $Bin 'pqvpn_tui.exe') --smoke-test
     if ($LASTEXITCODE -ne 0) { throw 'Installed TUI default profile failed' }
     } finally { Pop-Location }
@@ -57,13 +58,13 @@ $env:QT_PLUGIN_PATH = $null
 $env:QT_QPA_PLATFORM = 'offscreen'
 $codes = @()
 try {
-    Test-Payload $portable (Join-Path $portable 'config.json')
+    Test-Payload $portable (Join-Path $portable 'config.json') 'portable verification'
     $install = Join-Path $root 'installed'
     $currentCode = Product-Code $msi[0].FullName
     $codes += $currentCode
     # Exercise an actual clean install, not just file extraction.
     Invoke-Msi @('/i', "`"$($msi[0].FullName)`"", "INSTALLDIR=`"$install`"") 'clean-install.log'
-    Test-Payload (Join-Path $install 'bin') (Join-Path $install 'share\pqvpn\examples\config.json')
+    Test-Payload (Join-Path $install 'bin') (Join-Path $install 'share\pqvpn\examples\config.json') 'clean MSI install'
     if (Get-ChildItem $install -Recurse -Filter '*.sys') { throw 'Installer unexpectedly ships a driver' }
     Invoke-Msi @('/x', $currentCode) 'clean-remove.log'
     if (Test-Path (Join-Path $install 'bin\pqvpn_node.exe')) { throw 'Clean removal left the node installed' }
@@ -85,7 +86,7 @@ try {
     $codes += $oldCode
     Invoke-Msi @('/i', "`"$oldMsi`"", "INSTALLDIR=`"$install`"") 'old-install.log'
     Invoke-Msi @('/i', "`"$($msi[0].FullName)`"", "INSTALLDIR=`"$install`"") 'upgrade.log'
-    Test-Payload (Join-Path $install 'bin') (Join-Path $install 'share\pqvpn\examples\config.json')
+    Test-Payload (Join-Path $install 'bin') (Join-Path $install 'share\pqvpn\examples\config.json') 'MSI upgrade'
     $installer = New-Object -ComObject WindowsInstaller.Installer
     if ($installer.ProductState($oldCode) -eq 5) { throw 'Upgrade left the old product installed' }
     [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
