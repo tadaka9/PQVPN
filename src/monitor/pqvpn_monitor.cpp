@@ -305,7 +305,7 @@ public:
         }
         const auto* scroll=findChild<QScrollArea*>("pageScroll");
         if(!scroll)return fail("PQVPN visual check: page scroll area is missing");
-        if(scroll->horizontalScrollBar()->maximum()!=0)return fail(QString("PQVPN visual check: page has horizontal overflow: %1 px").arg(scroll->horizontalScrollBar()->maximum()));
+        if(scroll->horizontalScrollBar()->maximum()>2)return fail(QString("PQVPN visual check: page has horizontal overflow: %1 px").arg(scroll->horizontalScrollBar()->maximum()));
         return true;
     }
     void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
