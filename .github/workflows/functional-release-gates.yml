@@ -15,17 +15,29 @@ permissions:
 
 jobs:
   readiness:
-    name: Refuse until native gate implementations exist
+    name: Validate immutable tag and manifest before native tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           ref: ${{ inputs.tag }}
-      - name: Require dispatch from the same immutable tag
+      - name: Verify tag checkout and source integrity
         shell: bash
-        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-      - name: Check all native qualification prerequisites
-        run: python3 tools/check-release-readiness.py --tag "${{ inputs.tag }}"
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/tags/$TAG" ]]; then
+            echo '::error::Start this workflow from the exact release tag ref, not from main.'
+            exit 1
+          fi
+          test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$(git rev-parse HEAD)"
+          python3 tools/check-release-readiness.py --tag "$TAG" --integrity-only
+      - name: Report source qualification gaps
+        run: |
+          echo 'Source integrity validated; each native target must now satisfy the full evidence contract.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Missing native drivers or signatures will fail their respective jobs.' >> "$GITHUB_STEP_SUMMARY"
 
   native-gate:
     name: Functional gate ${{ matrix.target }}
@@ -66,6 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           ref: ${{ inputs.tag }}
       - name: Resolve qualified commit
         shell: bash
@@ -75,27 +88,38 @@ jobs:
         env:
           PQVPN_TARGET: ${{ matrix.target }}
           PQVPN_OUTPUT_DIR: ${{ runner.temp }}/pqvpn-gate-output
-        run: packaging/gates/${{ matrix.target }}
-      - name: Validate gate output contract
+          PQVPN_RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          driver="packaging/gates/$PQVPN_TARGET"
+          if [[ ! -f "$driver" || ! -x "$driver" ]]; then
+            echo "::error::Missing executable native qualification driver: $driver"
+            exit 1
+          fi
+          "$driver"
+      - name: Preserve native gate diagnostic logs on all outcomes
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: qualification-diagnostics-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/pqvpn-gate-output/evidence.json
+            ${{ runner.temp }}/pqvpn-gate-output/verification.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Validate exact candidate and full evidence contract
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
           OUTPUT: ${{ runner.temp }}/pqvpn-gate-output
         run: |
-          test -s "$OUTPUT/evidence.json"
-          test -s "$OUTPUT/verification.log"
-          test "$(find "$OUTPUT/candidate" -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
-          jq -e --arg target "$TARGET" --arg sha "$PQVPN_COMMIT_SHA" '
-            .schema == 1 and .target == $target and .commit_sha == $sha and
-            .passed == true and .native_runner == true and
-            .privileged_tunnel_e2e == true and
-            .bidirectional_traffic == true and .route_dns_rollback == true and
-            .clean_install_upgrade_remove == true and
-            .architecture_verified == true and
-            .runtime_dependencies_verified == true and
-            .platform_signature_verified == true and
-            .provenance_verified == true
-          ' "$OUTPUT/evidence.json"
+          set -euo pipefail
+          python3 tools/validate-functional-evidence.py \
+            --target "$TARGET" --commit "$PQVPN_COMMIT_SHA" \
+            --version "$(cat PQVPN_VERSION.txt)" \
+            --runner-os "$RUNNER_OS" --runner-arch "$RUNNER_ARCH" \
+            --evidence-dir "$OUTPUT" --candidate-dir "$OUTPUT/candidate"
+          echo 'Evidence structure and hashes verified; independent provenance attestation follows.'
       - name: Attest exact release candidate
         uses: actions/attest@v4
         with:

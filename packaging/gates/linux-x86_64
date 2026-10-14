@@ -61,7 +61,7 @@ cat > "$OUTPUT_DIR/evidence.json" << EOF
   "schema": 1,
   "target": "$TARGET",
   "commit_sha": "$COMMIT_SHA",
-  "passed": true,
+  "passed": false,
   "native_runner": true,
   "privileged_tunnel_e2e": false,
   "bidirectional_traffic": false,
@@ -75,6 +75,9 @@ cat > "$OUTPUT_DIR/evidence.json" << EOF
 EOF
 
 echo ""
-echo "=== Gate completed successfully ==="
+echo "=== Native qualification INCOMPLETE ==="
+echo "A successful build/smoke test is insufficient: privileged tunnel, rollback,"
+echo "signing, provenance and lifecycle evidence remain unverified."
 echo "Evidence: $OUTPUT_DIR/evidence.json"
 echo "Package: $OUTPUT_DIR/candidate/$PACKAGE_NAME"
+exit 1

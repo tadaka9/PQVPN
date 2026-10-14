@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 import tempfile
 import subprocess
+import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("readiness", ROOT / "tools/check-release-readiness.py")
@@ -21,6 +23,10 @@ class ReadinessTests(unittest.TestCase):
         (self.root / "packaging/release-targets.json").write_text(json.dumps(["linux-x86_64"]))
         (self.root / "PQVPN_VERSION.txt").write_text("0.0.6-alpha-test\n")
         self.gate = self.root / "packaging/gates/linux-x86_64"
+        self.canonical_targets = readiness.EXPECTED_TARGETS
+        manifest_fixture = patch.object(readiness, "EXPECTED_TARGETS", ("linux-x86_64",))
+        manifest_fixture.start()
+        self.addCleanup(manifest_fixture.stop)
 
     def test_missing_gate_is_rejected(self):
         report = readiness.inspect(self.root)
@@ -40,7 +46,7 @@ class ReadinessTests(unittest.TestCase):
 
     def test_invalid_target_cannot_escape_gate_directory(self):
         (self.root / "packaging/release-targets.json").write_text(json.dumps(["../elsewhere"]))
-        self.assertIn("invalid target", readiness.inspect(self.root)["issues"][0])
+        self.assertTrue(any("invalid target" in msg for msg in readiness.inspect(self.root)["issues"]))
 
     def test_duplicate_targets_are_rejected(self):
         (self.root / "packaging/release-targets.json").write_text(json.dumps(["linux-x86_64"] * 2))
@@ -117,6 +123,51 @@ class ReadinessTests(unittest.TestCase):
                       [issue["code"] for issue in report["issue_details"]])
         self.assertIn("integrity",
                       [issue["category"] for issue in report["issue_details"]])
+
+
+    def test_incomplete_canonical_manifest_is_integrity_failure(self):
+        with patch.object(readiness, "EXPECTED_TARGETS", self.canonical_targets):
+            report = readiness.inspect(self.root)
+        self.assertFalse(report["integrity_valid"])
+        self.assertIn("manifest_incomplete",
+                      [entry["code"] for entry in report["issue_details"]])
+
+    def test_missing_gate_does_not_invalidate_tag_integrity(self):
+        report = readiness.inspect(self.root)
+        self.assertFalse(report["ready"])
+        self.assertTrue(report["integrity_valid"])
+        self.assertFalse(report["qualification_ready"])
+
+    def test_integrity_only_cli_allows_gate_gaps_but_not_bad_manifest(self):
+        (self.root / "packaging/release-targets.json").write_text(
+            json.dumps(list(self.canonical_targets)))
+        tool = ROOT / "tools/check-release-readiness.py"
+        good = subprocess.run(
+            [sys.executable, str(tool), "--root", str(self.root), "--integrity-only"],
+            text=True, capture_output=True, check=False)
+        self.assertEqual(good.returncode, 0, good.stdout + good.stderr)
+        report = json.loads(good.stdout)
+        self.assertFalse(report["ready"])
+        self.assertTrue(report["integrity_valid"])
+        bad = (self.root / "packaging/release-targets.json")
+        bad.write_text(json.dumps(["linux-x86_64"]))
+        rejected = subprocess.run(
+            [sys.executable, str(tool), "--root", str(self.root), "--integrity-only"],
+            text=True, capture_output=True, check=False)
+        self.assertEqual(rejected.returncode, 1)
+
+    def test_malformed_manifest_object_does_not_crash(self):
+        (self.root / "packaging/release-targets.json").write_text('{"bad":1}')
+        report = readiness.inspect(self.root)
+        self.assertFalse(report["integrity_valid"])
+        self.assertIn("manifest_invalid",
+                      [entry["code"] for entry in report["issue_details"]])
+
+    def test_invalid_calendar_date_is_integrity_failure(self):
+        (self.root / "PQVPN_VERSION.txt").write_text("0.0.9-02302026-David0-beta-OTA")
+        report = readiness.inspect(self.root)
+        self.assertFalse(report["integrity_valid"])
+        self.assertIn("invalid release calendar date", report["issues"])
 
 if __name__ == "__main__":
     unittest.main()
