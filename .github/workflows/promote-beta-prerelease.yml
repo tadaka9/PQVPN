@@ -4,6 +4,10 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  # Recovery: workflow_run is not reliably chained after token-dispatched CI.
+  # The recovery job still demands completed successful exact-tag CI evidence.
+  push:
+    branches: [main]
 
 # Trusted workflow_run event from successful CI in this repository only.
 # Tags created with GITHUB_TOKEN do not trigger push workflows, so we
@@ -50,10 +54,14 @@ jobs:
             exit 0
           fi
           if existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null)"; then
-            test "$existing" = "$CI_SHA" || {
-              echo "::error::Tag $tag exists at a different commit; refusing to retag."
+            if [[ "$existing" != "$CI_SHA" ]]; then
+              if git merge-base --is-ancestor "$existing" "$CI_SHA"; then
+                echo "Tag $tag is immutable at an earlier commit already on main."
+                exit 0
+              fi
+              echo "::error::Tag $tag is not in main ancestry; refusing any retag."
               exit 1
-            }
+            fi
           else
             gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f "ref=refs/tags/$tag" -f "sha=$CI_SHA" >/dev/null
@@ -99,3 +107,58 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
             -f "tag=$TAG" -f "ci_run_id=$CI_RUN_ID"
           echo "Dispatched attestation and protected beta publication for $TAG."
+
+  resume-existing-tag-publisher:
+    name: Resume publication of all exact-tag CI assets
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Find successful exact-tag CI and dispatch protected publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          tag="v$version"
+          git fetch origin main --tags
+          tag_sha="$(git rev-parse --verify "refs/tags/$tag^{commit}")"
+          test -n "$tag_sha"
+          git merge-base --is-ancestor "$tag_sha" origin/main
+          test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Prerelease $tag already exists; not mutating published artifacts."
+            exit 0
+          fi
+          # Only a successful CI run on this exact tag and commit is eligible;
+          # a green PR or branch build is never a substitute.
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100")"
+          run_id="$(jq -r --arg tag "$tag" --arg sha "$tag_sha" --arg repo "$GITHUB_REPOSITORY" '
+            [.workflow_runs[] | select(
+              .event == "workflow_dispatch" and
+              .head_branch == $tag and .head_sha == $sha and
+              .status == "completed" and .conclusion == "success" and
+              .head_repository.full_name == $repo
+            )] | sort_by(.run_number) | last | .id // empty' <<< "$run_json")"
+          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::No successful, immutable-tag CI exists for $tag ($tag_sha)."
+            exit 1
+          fi
+          names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[].name')"
+          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+            if ! grep -Fxq "release-candidate-$target" <<< "$names"; then
+              echo "::error::Exact-tag CI is missing candidate artifact: $target"
+              exit 1
+            fi
+          done
+          echo "All five native build candidates exist in tagged CI run $run_id."
+          # Execute the publisher workflow from trusted main, while it checks
+          # out the immutable TAG and verifies candidates from the tagged CI.
+          gh workflow run publish-test-prerelease.yml --repo "$GITHUB_REPOSITORY" \
+            --ref main -f "tag=$tag" -f "ci_run_id=$run_id"
+          echo "Triggered protected prerelease publication for $tag."
