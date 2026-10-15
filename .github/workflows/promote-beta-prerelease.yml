@@ -7,7 +7,7 @@ on:
   # Recovery: workflow_run is not reliably chained after token-dispatched CI.
   # The recovery job still demands completed successful exact-tag CI evidence.
   push:
-    branches: [main]
+    branches: [future]
 
 # Trusted workflow_run event from successful CI in this repository only.
 # Tags created with GITHUB_TOKEN do not trigger push workflows, so we
@@ -22,11 +22,11 @@ concurrency:
 
 jobs:
   create-immutable-beta-tag:
-    name: Create new beta tag after green main CI
+    name: Create new beta tag after green future CI
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_branch == 'future' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     steps:
@@ -34,7 +34,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Verify main commit, create immutable tag and dispatch tagged CI
+      - name: Verify future commit, create immutable tag and dispatch tagged CI
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,9 +43,9 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$CI_SHA" =~ ^[0-9a-f]{40}$ ]]
-          git fetch --no-tags origin main
+          git fetch --no-tags origin future
           test "$(git rev-parse HEAD)" = "$CI_SHA"
-          test "$(git rev-parse origin/main)" = "$CI_SHA"
+          test "$(git rev-parse origin/future)" = "$CI_SHA"
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
           tag="v$version"
@@ -56,10 +56,10 @@ jobs:
           if existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null)"; then
             if [[ "$existing" != "$CI_SHA" ]]; then
               if git merge-base --is-ancestor "$existing" "$CI_SHA"; then
-                echo "Tag $tag is immutable at an earlier commit already on main."
+                echo "Tag $tag is immutable at an earlier commit already on future."
                 exit 0
               fi
-              echo "::error::Tag $tag is not in main ancestry; refusing any retag."
+              echo "::error::Tag $tag is not in future ancestry; refusing any retag."
               exit 1
             fi
           else
@@ -68,7 +68,7 @@ jobs:
             echo "Created immutable tag $tag at $CI_SHA"
           fi
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
-          echo "Dispatched tagged CI for $tag from main CI $CI_RUN_ID."
+          echo "Dispatched tagged CI for $tag from future CI $CI_RUN_ID."
 
   publish-verified-tag-build:
     name: Dispatch experimental prerelease after green tagged CI
@@ -94,11 +94,11 @@ jobs:
           set -euo pipefail
           [[ "$CI_SHA" =~ ^[0-9a-f]{40}$ && "$CI_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
-          git fetch origin main --tags
+          git fetch origin future --tags
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CI_SHA"
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
-          git merge-base --is-ancestor "$CI_SHA" origin/main
+          git merge-base --is-ancestor "$CI_SHA" origin/future
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Prerelease $TAG exists; no duplicate publication."
             exit 0
@@ -110,7 +110,7 @@ jobs:
 
   resume-existing-tag-publisher:
     name: Resume publication of all exact-tag CI assets
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/future'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -126,10 +126,10 @@ jobs:
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
           tag="v$version"
-          git fetch origin main --tags
+          git fetch origin future --tags
           tag_sha="$(git rev-parse --verify "refs/tags/$tag^{commit}")"
           test -n "$tag_sha"
-          git merge-base --is-ancestor "$tag_sha" origin/main
+          git merge-base --is-ancestor "$tag_sha" origin/future
           test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Prerelease $tag already exists; not mutating published artifacts."
