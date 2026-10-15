@@ -56,7 +56,8 @@ jobs:
           # branch CI run must never qualify for publication.
           test "$branch" = "$TAG"
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$(git rev-parse HEAD)"
-          git merge-base --is-ancestor "$tag_sha" origin/main
+          git fetch origin future
+          git merge-base --is-ancestor "$tag_sha" origin/future
           test "$(jq -r .status <<<"$run_json")" = "completed"
           test "$(jq -r .conclusion <<<"$run_json")" = "success"
           test "$(jq -r .head_repository.full_name <<<"$run_json")" = "$GITHUB_REPOSITORY"
