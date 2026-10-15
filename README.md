@@ -19,7 +19,7 @@ hasn't been built yet.
 [![Test suite](https://img.shields.io/badge/test%20suite-verified-00d084?style=for-the-badge)](#verification-grid)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#project-status)
 
-[Project site](https://tadaka9.github.io/PQVPN/) · [Mainnet peer registry](https://tadaka9.github.io/PQVPN/mainnet/peers.json) · [Verified releases](https://github.com/tadaka9/PQVPN/releases)
+[Project site](https://tadaka9.github.io/PQVPN/) · [Branch policy: `future` development / `main` stable](docs/branch-policy.md) · [Mainnet peer registry](https://tadaka9.github.io/PQVPN/mainnet/peers.json) · [Verified releases](https://github.com/tadaka9/PQVPN/releases)
 
 </div>
 
