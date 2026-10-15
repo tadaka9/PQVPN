@@ -49,6 +49,13 @@ jobs:
           tag_sha="$(git rev-parse "refs/tags/$TAG^{commit}")"
           test -n "$tag_sha"
           test "$tag_sha" = "$(git rev-parse HEAD)"
+          # Qualified/stable-target releases must come from the protected
+          # main history; future beta candidates use a separate publisher.
+          git fetch origin main
+          git merge-base --is-ancestor "$tag_sha" origin/main || {
+            echo "::error::Qualified release tag is not part of protected main history."
+            exit 1
+          }
           python3 tools/check-release-readiness.py --tag "$TAG"
           run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
           test "$(jq -r .path <<<"$run_json")" = ".github/workflows/functional-release-gates.yml"
