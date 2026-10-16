@@ -1,5 +1,6 @@
 #include <asio.hpp>
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
 #include <csignal>
 #include <iostream>
@@ -9,8 +10,15 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#ifdef __linux__
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 #include "platform/adapter.hpp"
+#ifdef __linux__
+#include "platform/linux_tun_framing.hpp"
+#endif
 #ifdef _WIN32
 #include "platform/windows_adapter.hpp"
 #include "platform/windows_routes.hpp"
@@ -29,6 +37,30 @@
 #include "external_tunnel_process.hpp"
 
 namespace {
+
+#ifdef __linux__
+bool run_linux_network_manager(const char* action, const std::string& interface_name,
+                               const std::string& exit_host, int exit_port) {
+    if (interface_name.empty() || exit_host.empty() || exit_port <= 0) return false;
+    const auto port = std::to_string(exit_port);
+    const pid_t child = ::fork();
+    if (child == 0) {
+        constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-linux-network";
+        if (::geteuid() == 0) {
+            ::execl(helper, "pqvpn-linux-network", action, interface_name.c_str(),
+                    exit_host.c_str(), port.c_str(), nullptr);
+        } else {
+            ::execlp("pkexec", "pkexec", helper, action, interface_name.c_str(),
+                     exit_host.c_str(), port.c_str(), nullptr);
+        }
+        _exit(127);
+    }
+    if (child < 0) return false;
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+#endif
 
 struct CliArgs {
     std::string config_path = "config.json";
@@ -361,6 +393,15 @@ int main(int argc, char** argv) {
         return 1;
     }
     node->transport = &listener.socket();
+    if (!config->tunnel.exit_host.empty()) {
+        asio::error_code error;
+        const auto address = asio::ip::make_address(config->tunnel.exit_host, error);
+        if (error) {
+            std::cerr << "tunnel.exit_host must be a numeric IP address: " << error.message() << "\n";
+            return 1;
+        }
+        node->set_preferred_exit({address, static_cast<std::uint16_t>(config->tunnel.exit_port)});
+    }
     if (config->external_transport) {
         asio::error_code error;
         listener.socket().connect(config->external_transport->endpoint(), error);
@@ -406,7 +447,17 @@ int main(int argc, char** argv) {
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
     // the kernel-selected default.
-    if (!args.no_tunnel) adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
+    if (!args.no_tunnel) {
+#ifdef __linux__
+        if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "Cannot create the protected Linux TUN device\n";
+            listener.stop();
+            return 1;
+        }
+#endif
+        adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
+    }
 #endif
 
     // User-space egress (OpenVPN-server style NAT): when enabled, decrypted
@@ -432,22 +483,44 @@ int main(int argc, char** argv) {
     }
 
     bool adapter_active = false;
+    bool linux_network_active = false;
     if (adapter) {
         if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
                 // Adapter -> tunnel: forward to the selected established session.
+#ifdef __linux__
+                auto ethernet = pqvpn::platform::tun_packet_to_ethernet(frame);
+                if (!ethernet) return;
+                frame = std::move(*ethernet);
+#endif
                 asio::co_spawn(node->get_io_context(),
                     node->forward_adapter_packet(std::move(frame)), asio::detached);
             })) {
             adapter_active = true;
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
+#ifdef __linux__
+            if (!run_linux_network_manager("up", config->tunnel.interface_name,
+                                           config->tunnel.exit_host, config->tunnel.exit_port)) {
+                std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
+                adapter->close();
+                listener.stop();
+                return 1;
+            }
+            linux_network_active = true;
+            emit_console_event({{"event", "tunnel.ready"}, {"ipv4", "full"},
+                                {"ipv6", "blocked"}, {"dns", "tunnel"},
+                                {"fail_closed", true}});
+#endif
         } else {
-#ifdef _WIN32
-            // A VPN node without its TAP device is useless on Windows; fail
-            // closed. The adapter open() already logged the Windows error.
+#if defined(_WIN32) || defined(__linux__)
+            // A client without its tunnel device must never imply protection.
             std::cerr << "Cannot open the PQVPN tunnel adapter. Install the PQVPN "
                          "driver (and run this node elevated), or start with "
                          "--no-tunnel to test peer connectivity without tunneling.\n";
             listener.stop();
+#ifdef __linux__
+            run_linux_network_manager("down", config->tunnel.interface_name,
+                                      config->tunnel.exit_host, config->tunnel.exit_port);
+#endif
             return 1;
 #else
             std::cerr << "tunnel adapter unavailable; continuing in UDP-only mode\n";
@@ -470,7 +543,14 @@ int main(int argc, char** argv) {
         }
         // Tunnel -> adapter. The adapter may already be closed during shutdown;
         // drop the frame instead of unwinding the coroutine.
-        if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
+        if (raw_adapter) {
+#ifdef __linux__
+            auto packet = pqvpn::platform::ethernet_to_tun_packet(frame);
+            if (!packet || !raw_adapter->write(*packet)) { /* dropped */ }
+#else
+            if (!raw_adapter->write(frame)) { /* dropped */ }
+#endif
+        }
     });
 
     auto shutdown = std::make_shared<std::function<void()>>();
@@ -847,6 +927,15 @@ int main(int argc, char** argv) {
                 std::cerr << "route cleanup incomplete: " << removal.error << "\n";
             }
         }
+#endif
+#ifdef __linux__
+        if (adapter) adapter->close();
+        if (linux_network_active &&
+            !run_linux_network_manager("down", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
+        }
+        linux_network_active = false;
 #endif
         node->stop_traffic_shaping();
         node->transport = nullptr;

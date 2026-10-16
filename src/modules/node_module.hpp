@@ -228,6 +228,9 @@ public:
     void set_tunnel_packet_handler(TunnelPacketHandler handler) {
         tunnel_packet_handler_ = std::move(handler);
     }
+    void set_preferred_exit(asio::ip::udp::endpoint endpoint) {
+        preferred_exit_ = std::move(endpoint);
+    }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
     void leave_strangenet_room(const std::string& room) {
         strangenet_replay_guard_.leave_room(room);
@@ -436,6 +439,7 @@ private:
     strangenet::ReplayGuard strangenet_replay_guard_;
     strangenet::FloodGuard strangenet_flood_guard_;
     PeerRouteHook peer_route_hook_;
+    std::optional<asio::ip::udp::endpoint> preferred_exit_;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
     struct PreAuthBucket {
         double tokens = 16.0;

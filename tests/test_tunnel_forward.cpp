@@ -7,6 +7,9 @@
 #include <vector>
 
 #include "node_module.hpp"
+#ifdef __linux__
+#include "platform/linux_tun_framing.hpp"
+#endif
 
 namespace {
 
@@ -82,6 +85,44 @@ TEST_CASE("peer selection prefers recent activity with a stable tie-break", "[tu
     active_session.last_activity = idle_session.last_activity;
     REQUIRE(node.select_tunnel_peer() == idle);
 }
+
+TEST_CASE("configured exit never falls back to another live peer", "[tunnel][forward][leak]") {
+    asio::io_context io;
+    pqvpn::PQVPNNode node{io};
+    const std::vector<uint8_t> bootstrap(32, 0x10);
+    const std::vector<uint8_t> exit(32, 0x20);
+    const std::vector<uint8_t> x_secret(32, 0x33), y_secret(32, 0x44);
+    const std::vector<uint8_t> transcript{'E', 'X', 'I', 'T'};
+    const asio::ip::udp::endpoint bootstrap_endpoint{asio::ip::make_address("127.0.0.1"), 9173};
+    const asio::ip::udp::endpoint exit_endpoint{asio::ip::make_address("127.0.0.1"), 9174};
+    node.establish_hybrid_session(bootstrap, bootstrap_endpoint, x_secret, y_secret, transcript, true);
+    node.establish_hybrid_session(exit, exit_endpoint, x_secret, y_secret, transcript, false);
+    node.set_preferred_exit(exit_endpoint);
+    REQUIRE(node.select_tunnel_peer() == exit);
+    node.sessions_by_peer_id.at(exit)->state = pqvpn::PQVPNNode::SessionState::CLOSING;
+    REQUIRE_FALSE(node.select_tunnel_peer().has_value());
+}
+
+#ifdef __linux__
+TEST_CASE("Linux TUN packets round trip through the Ethernet exit contract", "[tunnel][linux][leak]") {
+    const std::vector<uint8_t> ipv4{0x45, 0x00, 0x00, 0x14};
+    const auto frame = pqvpn::platform::tun_packet_to_ethernet(ipv4);
+    REQUIRE(frame.has_value());
+    REQUIRE(frame->size() == ipv4.size() + 14);
+    CHECK((*frame)[12] == 0x08);
+    CHECK((*frame)[13] == 0x00);
+    REQUIRE(pqvpn::platform::ethernet_to_tun_packet(*frame) == ipv4);
+
+    const std::vector<uint8_t> ipv6{0x60, 0x00, 0x00, 0x00};
+    const auto frame6 = pqvpn::platform::tun_packet_to_ethernet(ipv6);
+    REQUIRE(frame6.has_value());
+    CHECK((*frame6)[12] == 0x86);
+    CHECK((*frame6)[13] == 0xdd);
+    REQUIRE(pqvpn::platform::ethernet_to_tun_packet(*frame6) == ipv6);
+
+    CHECK_FALSE(pqvpn::platform::tun_packet_to_ethernet(std::vector<uint8_t>{0x10}));
+}
+#endif
 
 TEST_CASE("peer selection ignores sessions that are not established", "[tunnel][forward]") {
     asio::io_context io;

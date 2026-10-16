@@ -155,6 +155,9 @@ TEST_CASE("Shipped config is the editable experimental mainnet profile", "[confi
     CHECK(profile->security.tofu);
     CHECK(profile->security.known_peers_file=="known_peers.json");
     REQUIRE_FALSE(profile->bootstrap.empty());
+    CHECK(profile->tunnel.interface_name=="pqvpn0");
+    CHECK(profile->tunnel.exit_host=="45.248.37.87");
+    CHECK(profile->tunnel.exit_port==9090);
 
     std::ifstream registry_file(registry_path);
     REQUIRE(registry_file.good());
@@ -167,4 +170,10 @@ TEST_CASE("Shipped config is the editable experimental mainnet profile", "[confi
                std::find(peer.at("roles").begin(),peer.at("roles").end(),"bootstrap")!=peer.at("roles").end();
     });
     CHECK(published!=peers.end());
+    const auto exit_endpoint=profile->tunnel.exit_host+":"+std::to_string(profile->tunnel.exit_port);
+    const auto published_exit=std::find_if(peers.begin(),peers.end(),[&](const auto& peer){
+        return peer.value("endpoint",std::string{})==exit_endpoint &&
+               std::find(peer.at("roles").begin(),peer.at("roles").end(),"egress")!=peer.at("roles").end();
+    });
+    CHECK(published_exit!=peers.end());
 }

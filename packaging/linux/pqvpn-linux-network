@@ -1,0 +1,88 @@
+#!/bin/bash
+set -euo pipefail
+
+action="${1:-}"
+tun="${2:-}"
+exit_ip="${3:-}"
+exit_port="${4:-}"
+state=/run/pqvpn/network.env
+
+[[ $EUID -eq 0 ]] || { echo "PQVPN network setup requires root" >&2; exit 1; }
+[[ "$tun" =~ ^[a-zA-Z0-9_.-]{1,15}$ ]] || { echo "invalid TUN interface" >&2; exit 2; }
+[[ "$exit_ip" =~ ^[0-9.]+$ && "$exit_port" =~ ^[0-9]{1,5}$ ]] || { echo "invalid exit endpoint" >&2; exit 2; }
+
+down() {
+  nft delete table inet pqvpn 2>/dev/null || true
+  resolvectl revert "$tun" 2>/dev/null || true
+  ip -4 route del default dev "$tun" metric 5 2>/dev/null || true
+  ip -6 route del unreachable default metric 5 2>/dev/null || true
+  if [[ -r "$state" ]]; then
+    # shellcheck disable=SC1090
+    source "$state"
+    if [[ -n "${physical_dev:-}" ]]; then
+      ip -4 route del "$exit_ip/32" dev "$physical_dev" 2>/dev/null || true
+    fi
+  fi
+  ip addr flush dev "$tun" scope global 2>/dev/null || true
+  ip link set "$tun" down 2>/dev/null || true
+  ip tuntap del dev "$tun" mode tun 2>/dev/null || true
+  rm -f "$state"
+}
+
+if [[ "$action" == down ]]; then down; exit 0; fi
+if [[ "$action" == prepare ]]; then
+  command -v ip >/dev/null || { echo "missing required tool: ip" >&2; exit 3; }
+  owner="${PKEXEC_UID:-${SUDO_UID:-}}"
+  [[ "$owner" =~ ^[0-9]+$ && "$owner" -gt 0 ]] || { echo "cannot identify requesting desktop user" >&2; exit 2; }
+  if ! ip link show dev "$tun" >/dev/null 2>&1; then
+    ip tuntap add dev "$tun" mode tun user "$owner"
+  fi
+  exit 0
+fi
+[[ "$action" == up ]] || { echo "usage: $0 prepare|up|down TUN EXIT_IP EXIT_PORT" >&2; exit 2; }
+trap 'down' ERR
+
+for tool in ip nft resolvectl; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool" >&2; exit 3; }; done
+route="$(ip -4 route get "$exit_ip" | head -n1)"
+physical_dev="$(awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' <<<"$route")"
+physical_via="$(awk '{for(i=1;i<=NF;i++) if($i=="via") print $(i+1)}' <<<"$route")"
+[[ -n "$physical_dev" && "$physical_dev" != "$tun" ]] || { echo "cannot determine physical exit route" >&2; exit 4; }
+install -d -m 0700 /run/pqvpn
+printf 'physical_dev=%q\nphysical_via=%q\n' "$physical_dev" "$physical_via" >"$state"
+chmod 0600 "$state"
+
+# Start from a known owned state. A crash intentionally leaves the firewall
+# closed; the next authenticated start replaces it transactionally.
+nft delete table inet pqvpn 2>/dev/null || true
+ip link set "$tun" up mtu 1380
+ip addr replace 10.79.0.2/30 dev "$tun"
+if [[ -n "$physical_via" ]]; then
+  ip -4 route replace "$exit_ip/32" via "$physical_via" dev "$physical_dev"
+else
+  ip -4 route replace "$exit_ip/32" dev "$physical_dev"
+fi
+
+nft -f - <<EOF
+table inet pqvpn {
+  chain output {
+    type filter hook output priority -200; policy drop;
+    oifname "lo" accept
+    oifname "$tun" accept
+    oifname "$physical_dev" ip daddr $exit_ip udp dport $exit_port accept
+    oifname "$physical_dev" udp sport 68 udp dport 67 accept
+  }
+}
+EOF
+
+# The host route above keeps the encrypted control/data socket outside the
+# tunnel. Everything else moves through pqvpn0; IPv6 is explicitly unreachable
+# until the exit's IPv6 data path is independently verified.
+ip -4 route replace default dev "$tun" metric 5
+ip -6 route replace unreachable default metric 5
+resolvectl dns "$tun" 9.9.9.9 149.112.112.112
+resolvectl domain "$tun" '~.'
+resolvectl default-route "$tun" yes
+
+ip -4 route get 9.9.9.9 | grep -q "dev $tun"
+nft list chain inet pqvpn output | grep -q 'policy drop'
+trap - ERR
