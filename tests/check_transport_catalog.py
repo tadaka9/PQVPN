@@ -24,6 +24,8 @@ for entry in catalog["engines"]:
     assert entry["engine"] in {"udp2raw", "shadowsocks", "v2ray", "obfs4"}
     assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
     assert entry["url"].startswith(("https://github.com/", "https://deb.debian.org/debian/pool/"))
+    if entry["url"].endswith(".zip"):
+        assert entry["format"] == "zip", "ZIP downloads must use the ZIP extractor"
     assert ".." not in PurePosixPath(entry["member"]).parts and not entry["member"].startswith("/")
     if args.platform != entry["platform"]:
         continue

@@ -58,6 +58,15 @@ class NativeGateSourceTests(unittest.TestCase):
             self.assertIn('"passed": False', source)
             self.assertIn("exit 1", source)
 
+    def test_mainnet_updater_accepts_protected_gui_archives(self):
+        updater = ROOT / "packaging/linux/pqvpn-mainnet-update"
+        result = subprocess.run(["bash", "-n", str(updater)],
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('platform + "-desktop-test.tar.gz"', updater.read_text())
+        service = (ROOT / "packaging/linux/pqvpn-mainnet.service").read_text()
+        self.assertIn("--no-tunnel", service)
+
 
 if __name__ == "__main__":
     unittest.main()

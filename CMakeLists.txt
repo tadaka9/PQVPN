@@ -309,6 +309,13 @@ install(FILES README.md LICENSE
 if(UNIX AND NOT APPLE)
   install(FILES packaging/linux/pqvpn-monitor.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+  install(FILES assets/brand/logo.svg
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
+    RENAME pqvpn.svg)
+  install(PROGRAMS packaging/linux/pqvpn-linux-network
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(FILES packaging/linux/49-pqvpn-network.rules
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/rules.d)
 endif()
 
 set(CPACK_PACKAGE_NAME "pqvpn")

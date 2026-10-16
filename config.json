@@ -18,8 +18,17 @@
     {
       "host": "65.108.251.110",
       "port": 9090
+    },
+    {
+      "host": "45.248.37.87",
+      "port": 9090
     }
   ],
+  "tunnel": {
+    "interface_name": "pqvpn0",
+    "exit_host": "45.248.37.87",
+    "exit_port": 9090
+  },
   "adaptive_transport": {
     "enabled": false,
     "mode": "auto",

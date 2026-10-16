@@ -15,3 +15,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Enforce attribution policy
         run: tools/check-attribution-policy.sh
+      - name: Verify release participation suffix
+        run: tools/check-release-participation.sh

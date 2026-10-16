@@ -145,6 +145,12 @@ namespace pqvpn::config {
     // (empty = auto-detect). CLI flags still take precedence where they exist.
     struct TunnelConfig {
         std::string interface_name;
+        // Client traffic is allowed to leave through this exact peer only.
+        // When configured, absence of a live session to this endpoint is a
+        // hard failure: bootstrap/relay peers are never used as an implicit
+        // exit.
+        std::string exit_host;
+        int exit_port = 0;
         // Optional external tunnel backend. The native PQVPN backend remains
         // the default; external backends are explicit and never fall back
         // silently because they have different trust and privilege models.
@@ -157,16 +163,25 @@ namespace pqvpn::config {
             }
             value.plugin = j.value("plugin", value.plugin);
             value.config_path = j.value("config_path", value.config_path);
+            value.exit_host = j.value("exit_host", value.exit_host);
+            value.exit_port = j.value("exit_port", value.exit_port);
             if (value.plugin != "pqvpn" && value.plugin != "wireguard" && value.plugin != "openvpn") {
                 throw std::invalid_argument("tunnel.plugin must be pqvpn, wireguard or openvpn");
             }
             if ((value.plugin == "wireguard" || value.plugin == "openvpn") && value.config_path.empty()) {
                 throw std::invalid_argument("external tunnel plugins require tunnel.config_path");
             }
+            if (value.exit_host.empty() != (value.exit_port == 0) || value.exit_port < 0 || value.exit_port > 65535) {
+                throw std::invalid_argument("tunnel.exit_host and tunnel.exit_port must define one valid endpoint together");
+            }
         }
         friend void to_json(nlohmann::json& j, const TunnelConfig& value) {
             j = {{"interface_name", value.interface_name}, {"plugin", value.plugin}};
             if (!value.config_path.empty()) j["config_path"] = value.config_path;
+            if (!value.exit_host.empty()) {
+                j["exit_host"] = value.exit_host;
+                j["exit_port"] = value.exit_port;
+            }
         }
     };
 
@@ -240,7 +255,7 @@ namespace pqvpn::config {
                 j["tuning"] = value.tuning;
             }
             if (!value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
-                !value.tunnel.config_path.empty()) j["tunnel"] = value.tunnel;
+                !value.tunnel.config_path.empty() || !value.tunnel.exit_host.empty()) j["tunnel"] = value.tunnel;
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;

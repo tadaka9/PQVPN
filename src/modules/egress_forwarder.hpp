@@ -56,6 +56,14 @@ struct TcpFlow {
     std::uint32_t send_next = 0;
     std::vector<uint8_t> sbuf;
     std::size_t sbuf_off = 0;
+    // Bytes already emitted into the lossy tunnel but not cumulatively ACKed
+    // by the client.  The egress bridge terminates TCP, so it must retain and
+    // retransmit these bytes itself; the upstream kernel socket cannot do it.
+    std::map<std::uint32_t, std::vector<uint8_t>> unacked;
+    std::shared_ptr<asio::steady_timer> retransmit_timer;
+    std::uint32_t last_ack = 0;
+    unsigned duplicate_acks = 0;
+    unsigned retransmit_attempts = 0;
     bool s_eof = false;
     bool fin_sent_c = false;
 
@@ -241,6 +249,9 @@ private:
     void try_flush(std::weak_ptr<TcpFlow> w);
     void start_server_read(std::weak_ptr<TcpFlow> w);
     void deliver_server_bytes(std::shared_ptr<TcpFlow> f);
+    void process_client_ack(const std::shared_ptr<TcpFlow>& f, std::uint32_t ack);
+    void arm_retransmit(const std::shared_ptr<TcpFlow>& f);
+    void retransmit_oldest(const std::shared_ptr<TcpFlow>& f);
     void send_ack_to_client(const std::shared_ptr<TcpFlow>& f, std::uint16_t extra_flags = 0);
     void abort_flow(const std::shared_ptr<TcpFlow>& f, bool reset_client);
 

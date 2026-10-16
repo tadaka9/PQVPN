@@ -1,5 +1,6 @@
 #include <asio.hpp>
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
 #include <csignal>
 #include <iostream>
@@ -9,8 +10,15 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#ifdef __linux__
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 #include "platform/adapter.hpp"
+#ifdef __linux__
+#include "platform/linux_tun_framing.hpp"
+#endif
 #ifdef _WIN32
 #include "platform/windows_adapter.hpp"
 #include "platform/windows_routes.hpp"
@@ -25,10 +33,35 @@
 #include "metrics_module.hpp"
 #include "network_module.hpp"
 #include "node_module.hpp"
+#include "group_chat.hpp"
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
 
 namespace {
+
+#ifdef __linux__
+bool run_linux_network_manager(const char* action, const std::string& interface_name,
+                               const std::string& exit_host, int exit_port) {
+    if (interface_name.empty() || exit_host.empty() || exit_port <= 0) return false;
+    const auto port = std::to_string(exit_port);
+    const pid_t child = ::fork();
+    if (child == 0) {
+        constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-linux-network";
+        if (::geteuid() == 0) {
+            ::execl(helper, "pqvpn-linux-network", action, interface_name.c_str(),
+                    exit_host.c_str(), port.c_str(), nullptr);
+        } else {
+            ::execlp("pkexec", "pkexec", helper, action, interface_name.c_str(),
+                     exit_host.c_str(), port.c_str(), nullptr);
+        }
+        _exit(127);
+    }
+    if (child < 0) return false;
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+#endif
 
 struct CliArgs {
     std::string config_path = "config.json";
@@ -361,6 +394,15 @@ int main(int argc, char** argv) {
         return 1;
     }
     node->transport = &listener.socket();
+    if (!config->tunnel.exit_host.empty()) {
+        asio::error_code error;
+        const auto address = asio::ip::make_address(config->tunnel.exit_host, error);
+        if (error) {
+            std::cerr << "tunnel.exit_host must be a numeric IP address: " << error.message() << "\n";
+            return 1;
+        }
+        node->set_preferred_exit({address, static_cast<std::uint16_t>(config->tunnel.exit_port)});
+    }
     if (config->external_transport) {
         asio::error_code error;
         listener.socket().connect(config->external_transport->endpoint(), error);
@@ -406,7 +448,17 @@ int main(int argc, char** argv) {
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
     // the kernel-selected default.
-    if (!args.no_tunnel) adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
+    if (!args.no_tunnel) {
+#ifdef __linux__
+        if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "Cannot create the protected Linux TUN device\n";
+            listener.stop();
+            return 1;
+        }
+#endif
+        adapter = pqvpn::platform::make_adapter(config->tunnel.interface_name);
+    }
 #endif
 
     // User-space egress (OpenVPN-server style NAT): when enabled, decrypted
@@ -432,22 +484,44 @@ int main(int argc, char** argv) {
     }
 
     bool adapter_active = false;
+    bool linux_network_active = false;
     if (adapter) {
         if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
                 // Adapter -> tunnel: forward to the selected established session.
+#ifdef __linux__
+                auto ethernet = pqvpn::platform::tun_packet_to_ethernet(frame);
+                if (!ethernet) return;
+                frame = std::move(*ethernet);
+#endif
                 asio::co_spawn(node->get_io_context(),
                     node->forward_adapter_packet(std::move(frame)), asio::detached);
             })) {
             adapter_active = true;
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
+#ifdef __linux__
+            if (!run_linux_network_manager("up", config->tunnel.interface_name,
+                                           config->tunnel.exit_host, config->tunnel.exit_port)) {
+                std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
+                adapter->close();
+                listener.stop();
+                return 1;
+            }
+            linux_network_active = true;
+            emit_console_event({{"event", "tunnel.ready"}, {"ipv4", "full"},
+                                {"ipv6", "blocked"}, {"dns", "tunnel"},
+                                {"fail_closed", true}});
+#endif
         } else {
-#ifdef _WIN32
-            // A VPN node without its TAP device is useless on Windows; fail
-            // closed. The adapter open() already logged the Windows error.
+#if defined(_WIN32) || defined(__linux__)
+            // A client without its tunnel device must never imply protection.
             std::cerr << "Cannot open the PQVPN tunnel adapter. Install the PQVPN "
                          "driver (and run this node elevated), or start with "
                          "--no-tunnel to test peer connectivity without tunneling.\n";
             listener.stop();
+#ifdef __linux__
+            run_linux_network_manager("down", config->tunnel.interface_name,
+                                      config->tunnel.exit_host, config->tunnel.exit_port);
+#endif
             return 1;
 #else
             std::cerr << "tunnel adapter unavailable; continuing in UDP-only mode\n";
@@ -470,7 +544,14 @@ int main(int argc, char** argv) {
         }
         // Tunnel -> adapter. The adapter may already be closed during shutdown;
         // drop the frame instead of unwinding the coroutine.
-        if (raw_adapter && !raw_adapter->write(frame)) { /* dropped */ }
+        if (raw_adapter) {
+#ifdef __linux__
+            auto packet = pqvpn::platform::ethernet_to_tun_packet(frame);
+            if (!packet || !raw_adapter->write(*packet)) { /* dropped */ }
+#else
+            if (!raw_adapter->write(frame)) { /* dropped */ }
+#endif
+        }
     });
 
     auto shutdown = std::make_shared<std::function<void()>>();
@@ -487,6 +568,7 @@ int main(int argc, char** argv) {
         struct StrangeNetRuntime {
             std::string room;
             std::optional<std::vector<std::uint8_t>> peer;
+            std::vector<std::vector<std::uint8_t>> group_peers;
             // Sequence numbers remain monotonic for every room during this
             // authenticated process lifetime, including leave/rejoin cycles.
             std::unordered_map<std::string, std::uint64_t> sequences;
@@ -559,6 +641,26 @@ int main(int argc, char** argv) {
                                 const auto peer = peer_text == "auto"
                                     ? std::optional<std::vector<std::uint8_t>>{}
                                     : decode_peer_id(peer_text);
+                                std::vector<std::vector<std::uint8_t>> group_peers;
+                                std::vector<std::string> group_text;
+                                if (command.contains("peers")) {
+                                    if (!command.at("peers").is_array()) {
+                                        emit_console_event({{"event", "control.error"},
+                                                            {"message", "group peers must be an array"}});
+                                        return;
+                                    }
+                                    for (const auto& value : command.at("peers")) {
+                                        if (!value.is_string()) { group_text.clear(); break; }
+                                        group_text.push_back(value.get<std::string>());
+                                    }
+                                    const auto local = node->my_id_ ? encode_peer_id(*node->my_id_) : std::string{};
+                                    if (!pqvpn::group_chat::canonicalize_members(local, group_text)) {
+                                        emit_console_event({{"event", "control.error"},
+                                                            {"message", "a group requires two to 63 distinct authenticated peers"}});
+                                        return;
+                                    }
+                                    for (const auto& value : group_text) group_peers.push_back(*decode_peer_id(value));
+                                }
                                 if (!valid_strangenet_room(room) || (peer_text != "auto" && !peer)) {
                                     emit_console_event({{"event", "control.error"},
                                                         {"message", "invalid StrangeNet room or peer"}});
@@ -568,13 +670,16 @@ int main(int argc, char** argv) {
                                     node->leave_strangenet_room(strange->room);
                                 strange->room = room;
                                 strange->peer = peer;
+                                strange->group_peers = std::move(group_peers);
                                 emit_console_event({{"event", "strangenet.joined"},
-                                                    {"room", room}, {"peer", peer_text}});
+                                                    {"room", room}, {"peer", peer_text},
+                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1}});
                             } else if (name == "strangenet.leave") {
                                 const auto room = strange->room;
                                 if (!room.empty()) node->leave_strangenet_room(room);
                                 strange->room.clear();
                                 strange->peer.reset();
+                                strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
                             } else if (name == "strangenet.send" || name == "strangenet.sticker" ||
                                        name == "strangenet.react") {
@@ -606,11 +711,17 @@ int main(int argc, char** argv) {
                                 }
                                 auto& sequence = strange->sequences[strange->room];
                                 const auto current = ++sequence;
-                                const std::size_t recipients = strange->peer
-                                    ? (node->send_strangenet_message(*strange->peer, strange->room,
-                                          current, timestamp, text, kind, reply_to) ? 1u : 0u)
-                                    : node->broadcast_strangenet_message(strange->room, current,
-                                          timestamp, text, kind, reply_to);
+                                std::size_t recipients = 0;
+                                if (!strange->group_peers.empty()) {
+                                    recipients = node->send_strangenet_group(strange->group_peers,
+                                        strange->room, current, timestamp, text, kind, reply_to);
+                                } else if (strange->peer) {
+                                    recipients = node->send_strangenet_message(*strange->peer, strange->room,
+                                        current, timestamp, text, kind, reply_to) ? 1u : 0u;
+                                } else {
+                                    recipients = node->broadcast_strangenet_message(strange->room, current,
+                                        timestamp, text, kind, reply_to);
+                                }
                                 if (recipients == 0) {
                                     emit_console_event({{"event", "strangenet.deferred"},
                                                         {"message", "authenticated peer session is unavailable"}});
@@ -847,6 +958,15 @@ int main(int argc, char** argv) {
                 std::cerr << "route cleanup incomplete: " << removal.error << "\n";
             }
         }
+#endif
+#ifdef __linux__
+        if (adapter) adapter->close();
+        if (linux_network_active &&
+            !run_linux_network_manager("down", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
+        }
+        linux_network_active = false;
 #endif
         node->stop_traffic_shaping();
         node->transport = nullptr;

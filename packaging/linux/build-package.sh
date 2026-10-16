@@ -40,8 +40,9 @@ mkdir -p \
     "$PKG_ROOT/etc/pqvpn" \
     "$PKG_ROOT/usr/share/pqvpn" \
     "$PKG_ROOT/usr/lib/systemd/system" \
+    "$PKG_ROOT/usr/share/polkit-1/rules.d" \
     "$PKG_ROOT/usr/share/applications" \
-    "$PKG_ROOT/usr/share/icons/hicolor/256x256/apps"
+    "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps"
 
 # Keep the GUI beside its deployed Qt libraries, plugins, and qt.conf. Copying
 # only the executable selects an incompatible system Qt on clean machines.
@@ -100,13 +101,15 @@ while IFS= read -r -d '' object; do
 done < <(find "$PRIVATE_ROOT" -type f -print0)
 test "${#elfs[@]}" -gt 0
 dependencies="$(cd "$PKG_ROOT"; dpkg-shlibdeps -O -xpqvpn -l"$PRIVATE_ROOT/lib" "${elfs[@]}")"
-DEPENDENCIES="${dependencies#shlibs:Depends=}"
+DEPENDENCIES="${dependencies#shlibs:Depends=}, iproute2, nftables, policykit-1"
 test -n "$DEPENDENCIES"
 rm -rf "$PKG_ROOT/debian"
 
 install -m 0644 config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
 install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
 install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
+install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
+install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
 
 if [ -f "packaging/linux/pqvpn.service" ]; then
     install -m 0644 packaging/linux/pqvpn.service "$PKG_ROOT/usr/lib/systemd/system/"
@@ -131,6 +134,8 @@ fi
 
 if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desktop" ]; then
     install -m 0644 packaging/linux/pqvpn-monitor.desktop "$PKG_ROOT/usr/share/applications/"
+    install -m 0644 assets/brand/logo.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
+    test -s "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
 fi
 
 cat > "$PKG_ROOT/DEBIAN/control" << EOF
