@@ -127,7 +127,10 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
           tag="v$version"
           git fetch origin future --tags
-          tag_sha="$(git rev-parse --verify "refs/tags/$tag^{commit}")"
+          if ! tag_sha="$(git rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null)"; then
+            echo "Tag $tag is not created yet; waiting for the successful future CI promotion."
+            exit 0
+          fi
           test -n "$tag_sha"
           git merge-base --is-ancestor "$tag_sha" origin/future
           test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
@@ -146,8 +149,8 @@ jobs:
               .head_repository.full_name == $repo
             )] | sort_by(.run_number) | last | .id // empty' <<< "$run_json")"
           if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::No successful, immutable-tag CI exists for $tag ($tag_sha)."
-            exit 1
+            echo "Exact-tag CI for $tag ($tag_sha) is not green yet; publication remains pending."
+            exit 0
           fi
           names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[].name')"
           for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
