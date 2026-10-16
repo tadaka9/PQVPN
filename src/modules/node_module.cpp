@@ -918,6 +918,29 @@ bool PQVPNNode::send_strangenet_message(
     return !error;
 }
 
+std::size_t PQVPNNode::send_strangenet_group(
+    const std::vector<std::vector<uint8_t>>& peer_ids, const std::string& room,
+    const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
+    const strangenet::Kind kind, const std::uint64_t reply_to) {
+    // Fail closed before sending the first datagram. A temporarily offline
+    // member must not turn a private group send into a smaller conversation.
+    if (peer_ids.size() < 2 || peer_ids.size() + 1 > 64 || !transport) return 0;
+    for (const auto& peer_id : peer_ids) {
+        const auto found = sessions_by_peer_id.find(peer_id);
+        if (found == sessions_by_peer_id.end() || !found->second ||
+            found->second->state != SessionState::ESTABLISHED ||
+            found->second->remote_addr.address().is_unspecified() ||
+            !transport_allows(transport, found->second->remote_addr)) return 0;
+    }
+    std::size_t sent = 0;
+    for (const auto& peer_id : peer_ids) {
+        if (!send_strangenet_message(peer_id, room, sequence, timestamp_ms, text, kind, reply_to))
+            return 0;
+        ++sent;
+    }
+    return sent;
+}
+
 std::size_t PQVPNNode::broadcast_strangenet_message(
     const std::string& room, const std::uint64_t sequence, const std::uint64_t timestamp_ms,
     const std::string& text, const strangenet::Kind kind, const std::uint64_t reply_to,

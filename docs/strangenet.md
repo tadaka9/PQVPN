@@ -2,6 +2,21 @@
 
 StrangeNet v2 is a bounded, session-only chat carried by authenticated PQVPN mainnet sessions. The desktop console joins `mainnet` as a universal room and fans each outbound item out to as many as 512 established authenticated peers. Each recipient gets a separately encrypted frame; there is no shared plaintext broadcast packet.
 
+Version 0.0.15 adds explicit groups. Selecting at least two authenticated
+remote identities creates a group of at least three participants including the
+local user. Membership is canonical, bounded to 64 participants and pinned for
+the joined room. Every send targets exactly that set and fails closed for an
+offline member; it never substitutes another peer or falls back to universal
+fan-out. This beta remains live-session P2P: it does not yet claim asynchronous
+store-and-forward delivery or unbounded global reach.
+
+Public-identity verification is implemented as an optional hybrid-signed claim
+for organizations, national political parties and public figures. Claims bind a
+display name and evidence URI to a PQVPN peer identity and an expiry time. A
+badge is valid only under issuers explicitly trusted by the local user; PQVPN
+has no global verifier, does not transmit identity documents, and verification
+never grants access to encrypted messages.
+
 ## Security boundary
 
 StrangeNet derives a dedicated 256-bit application key from each directional PQVPN session key with HKDF-SHA3-512 and the session identifier as salt. The fixed context `PQVPN StrangeNet E2E v2` separates chat encryption from tunnel-packet encryption. The outer frame header is AEAD associated data, the nonce counter is shared with the session's authenticated data domain, and the decoded sender must match the identity bound to the receiving session.

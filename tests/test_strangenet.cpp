@@ -126,3 +126,13 @@ TEST_CASE("StrangeNet travels through an authenticated PQVPN session", "[strange
     io.run();
     CHECK(received.size() == 1);
 }
+
+TEST_CASE("StrangeNet group delivery fails closed unless every member is ready", "[strangenet][group]") {
+    asio::io_context io;
+    pqvpn::PQVPNNode alice{io};
+    alice.set_my_id(std::vector<std::uint8_t>(32, 0x41));
+    const std::vector<std::vector<std::uint8_t>> group{
+        std::vector<std::uint8_t>(32, 0x42), std::vector<std::uint8_t>(32, 0x43)};
+    CHECK(alice.send_strangenet_group(group, "three-person-room", 1, 42, "hello") == 0);
+    CHECK(alice.send_strangenet_group({group.front()}, "too-small", 2, 43, "blocked") == 0);
+}

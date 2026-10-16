@@ -33,6 +33,7 @@
 #include "metrics_module.hpp"
 #include "network_module.hpp"
 #include "node_module.hpp"
+#include "group_chat.hpp"
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
 
@@ -567,6 +568,7 @@ int main(int argc, char** argv) {
         struct StrangeNetRuntime {
             std::string room;
             std::optional<std::vector<std::uint8_t>> peer;
+            std::vector<std::vector<std::uint8_t>> group_peers;
             // Sequence numbers remain monotonic for every room during this
             // authenticated process lifetime, including leave/rejoin cycles.
             std::unordered_map<std::string, std::uint64_t> sequences;
@@ -639,6 +641,26 @@ int main(int argc, char** argv) {
                                 const auto peer = peer_text == "auto"
                                     ? std::optional<std::vector<std::uint8_t>>{}
                                     : decode_peer_id(peer_text);
+                                std::vector<std::vector<std::uint8_t>> group_peers;
+                                std::vector<std::string> group_text;
+                                if (command.contains("peers")) {
+                                    if (!command.at("peers").is_array()) {
+                                        emit_console_event({{"event", "control.error"},
+                                                            {"message", "group peers must be an array"}});
+                                        return;
+                                    }
+                                    for (const auto& value : command.at("peers")) {
+                                        if (!value.is_string()) { group_text.clear(); break; }
+                                        group_text.push_back(value.get<std::string>());
+                                    }
+                                    const auto local = node->my_id_ ? encode_peer_id(*node->my_id_) : std::string{};
+                                    if (!pqvpn::group_chat::canonicalize_members(local, group_text)) {
+                                        emit_console_event({{"event", "control.error"},
+                                                            {"message", "a group requires two to 63 distinct authenticated peers"}});
+                                        return;
+                                    }
+                                    for (const auto& value : group_text) group_peers.push_back(*decode_peer_id(value));
+                                }
                                 if (!valid_strangenet_room(room) || (peer_text != "auto" && !peer)) {
                                     emit_console_event({{"event", "control.error"},
                                                         {"message", "invalid StrangeNet room or peer"}});
@@ -648,13 +670,16 @@ int main(int argc, char** argv) {
                                     node->leave_strangenet_room(strange->room);
                                 strange->room = room;
                                 strange->peer = peer;
+                                strange->group_peers = std::move(group_peers);
                                 emit_console_event({{"event", "strangenet.joined"},
-                                                    {"room", room}, {"peer", peer_text}});
+                                                    {"room", room}, {"peer", peer_text},
+                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1}});
                             } else if (name == "strangenet.leave") {
                                 const auto room = strange->room;
                                 if (!room.empty()) node->leave_strangenet_room(room);
                                 strange->room.clear();
                                 strange->peer.reset();
+                                strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
                             } else if (name == "strangenet.send" || name == "strangenet.sticker" ||
                                        name == "strangenet.react") {
@@ -686,11 +711,17 @@ int main(int argc, char** argv) {
                                 }
                                 auto& sequence = strange->sequences[strange->room];
                                 const auto current = ++sequence;
-                                const std::size_t recipients = strange->peer
-                                    ? (node->send_strangenet_message(*strange->peer, strange->room,
-                                          current, timestamp, text, kind, reply_to) ? 1u : 0u)
-                                    : node->broadcast_strangenet_message(strange->room, current,
-                                          timestamp, text, kind, reply_to);
+                                std::size_t recipients = 0;
+                                if (!strange->group_peers.empty()) {
+                                    recipients = node->send_strangenet_group(strange->group_peers,
+                                        strange->room, current, timestamp, text, kind, reply_to);
+                                } else if (strange->peer) {
+                                    recipients = node->send_strangenet_message(*strange->peer, strange->room,
+                                        current, timestamp, text, kind, reply_to) ? 1u : 0u;
+                                } else {
+                                    recipients = node->broadcast_strangenet_message(strange->room, current,
+                                        timestamp, text, kind, reply_to);
+                                }
                                 if (recipients == 0) {
                                     emit_console_event({{"event", "strangenet.deferred"},
                                                         {"message", "authenticated peer session is unavailable"}});

@@ -243,6 +243,10 @@ public:
     bool send_strangenet_message(const std::vector<uint8_t>& peer_id, const std::string& room,
         std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
         strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0);
+    std::size_t send_strangenet_group(const std::vector<std::vector<uint8_t>>& peer_ids,
+        const std::string& room, std::uint64_t sequence, std::uint64_t timestamp_ms,
+        const std::string& text, strangenet::Kind kind = strangenet::Kind::Text,
+        std::uint64_t reply_to = 0);
     std::size_t broadcast_strangenet_message(const std::string& room, std::uint64_t sequence,
         std::uint64_t timestamp_ms, const std::string& text,
         strangenet::Kind kind = strangenet::Kind::Text, std::uint64_t reply_to = 0,

@@ -68,7 +68,8 @@ mathematical anonymity against a global passive adversary.
 | **Adaptive transport** | PQTP can prefer UDP, fall back to TCP after bounded loss/jitter thresholds, and probe before returning to UDP. |
 | **Traffic shaping you control** | Optional encrypted padding and bounded timing shaping are configured locally. No model download, telemetry, or payload inspection is involved. |
 | **Verified transport engines** | The GUI can checksum, extract, start, and stop pinned udp2raw, Shadowsocks, V2Ray, and obfs4 builds where a native catalog entry exists. |
-| **StrangeNet** | Ephemeral rooms run over authenticated PQVPN sessions with bounded messages, replay protection, explicit recipients, and an optional memory-only proof chain. |
+| **StrangeNet groups** | Ephemeral P2P rooms support explicit groups of 3–64 participants. Each recipient gets a separately encrypted authenticated frame; offline membership fails closed instead of silently shrinking the group. |
+| **User-chosen identity verification** | Hybrid-signed, expiring claims can bind a peer to an organization, national party, or public figure. Trust anchors stay local and verification never grants message access. |
 
 ## Native privacy console
 
