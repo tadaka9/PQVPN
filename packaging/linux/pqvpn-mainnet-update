@@ -51,7 +51,11 @@ for release in releases:
     if release.get("draft") or (release.get("prerelease") and not allow_prerelease):
         continue
     assets = release.get("assets", [])
-    archive = next((a for a in assets if a["name"].endswith(platform + ".tar.gz")), None)
+    accepted_suffixes = (
+        platform + ".tar.gz",
+        platform + "-desktop-test.tar.gz",
+    )
+    archive = next((a for a in assets if a["name"].endswith(accepted_suffixes)), None)
     sums = next((a for a in assets if a["name"] == "SHA256SUMS"), None)
     if archive and sums:
         print(release["tag_name"])
