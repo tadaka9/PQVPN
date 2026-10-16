@@ -103,8 +103,8 @@ QLabel[muted="true"] { color: #9ba6c7; }
 QFrame[accent="true"] QLabel { color: white; }
 QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.78); }
 QLabel[chip="true"] { background: rgba(101,230,255,.10); color: #a5f3ff; border: 1px solid rgba(101,230,255,.28); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
-QLineEdit, QComboBox, QPlainTextEdit, QListWidget { background: rgba(6,10,25,.82); color: #f4f6ff; border: 1px solid #303a60; border-radius: 10px; padding: 10px; selection-background-color: #724cff; }
-QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus { border-color: #65e6ff; }
+QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: rgba(6,10,25,.82); color: #f4f6ff; border: 1px solid #303a60; border-radius: 10px; padding: 10px; selection-background-color: #724cff; }
+QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #65e6ff; }
 QComboBox::drop-down { border: 0; width: 28px; }
 QComboBox QAbstractItemView { background: #11162a; color: white; border: 1px solid #354064; selection-background-color: #724cff; }
 QPushButton { background: #724cff; color: white; border: 1px solid #8e72ff; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
@@ -149,8 +149,8 @@ QLabel[muted="true"] { color: #68738e; }
 QFrame[accent="true"] QLabel { color: white; }
 QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.82); }
 QLabel[chip="true"] { background: rgba(15,143,168,.09); color: #086d81; border: 1px solid rgba(15,143,168,.25); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
-QLineEdit, QComboBox, QPlainTextEdit, QListWidget { background: #ffffff; color: #171d31; border: 1px solid #cbd3e5; border-radius: 10px; padding: 10px; selection-background-color: #6842e8; selection-color: white; }
-QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus { border-color: #0f8fa8; }
+QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: #ffffff; color: #171d31; border: 1px solid #cbd3e5; border-radius: 10px; padding: 10px; selection-background-color: #6842e8; selection-color: white; }
+QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #0f8fa8; }
 QComboBox::drop-down { border: 0; width: 28px; }
 QComboBox QAbstractItemView { background: white; color: #171d31; border: 1px solid #cbd3e5; selection-background-color: #6842e8; selection-color: white; }
 QPushButton { background: #6842e8; color: white; border: 1px solid #7b5aeb; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
@@ -823,7 +823,7 @@ private:
         log(QString("Connect requested · config %1 · log %2%3").arg(configPath_->text(),logLevel_->currentText(),noTunnel?" · no-tunnel":""));QStringList args={"--config",configPath_->text(),"--log-level",logLevel_->currentText(),"--control-stdin"};if(noTunnel)args<<"--no-tunnel";
         process_.start(executablePath_->text(),args);
         }else requestStop();}
-    void appendStrangeText(const QString& value){strangeTranscript_->append(QString("<div style='margin:6px 0;color:#eef1ff'>%1</div>").arg(value.toHtmlEscaped().replace("\n","<br>")));}
+    void appendStrangeText(const QString& value){strangeTranscript_->append(QString("<div style='margin:6px 0'>%1</div>").arg(value.toHtmlEscaped().replace("\n","<br>")));}
     void appendStrangeSticker(const QString& payload,const QString& sender){QJsonParseError error;const auto object=QJsonDocument::fromJson(payload.toUtf8(),&error).object();const QString emoji=object.value("emoji").toString(),caption=object.value("caption").toString(),color=object.value("color").toString();const QStringList palette{"#5432c9","#0f8fa8","#b83280","#b86b18","#226c4a","#3d4d73"};if(error.error!=QJsonParseError::NoError||emoji.isEmpty()||emoji.size()>16||caption.size()>48||!palette.contains(color)){appendStrangeText("Invalid sticker was discarded.");return;}strangeTranscript_->append(QString("<table width='260' cellpadding='12' bgcolor='%1'><tr><td><span style='font-size:34pt'>%2</span><br><b>%3</b><br><small>%4</small></td></tr></table>").arg(color,emoji.toHtmlEscaped(),caption.toHtmlEscaped(),sender.toHtmlEscaped()));}
     void appendStrangeReaction(const QString& payload,const QString& sender,qulonglong fallbackSequence){QJsonParseError error;const auto object=QJsonDocument::fromJson(payload.toUtf8(),&error).object();const QString emoji=object.value("emoji").toString(),target=object.value("target").toString().left(12);const auto sequence=object.value("sequence").toVariant().toULongLong();if(error.error!=QJsonParseError::NoError||emoji.isEmpty()||emoji.size()>16){appendStrangeText("Invalid reaction was discarded.");return;}appendStrangeText(QString("%1 reacted %2 to %3 · message %4").arg(sender,emoji,target.isEmpty()?QString("a message"):target).arg(sequence?sequence:fallbackSequence));}
     void recordStrangeProof(const QString& name,const QJsonObject& event){if(!strangeProofEnabled_||!strangeProofEnabled_->isChecked())return;const QStringList committed{"strangenet.message","strangenet.sticker","strangenet.reaction","strangenet.delivered","strangenet.sent"};if(!committed.contains(name))return;const bool accepted=strangeProofChain_.append(QJsonDocument(event).toJson(QJsonDocument::Compact));if(!accepted){strangeProofStatus_->setText("Proof chain limit reached; copy this anchor before starting a new chain.");return;}strangeProofCopy_->setEnabled(true);strangeProofStatus_->setText(QString("%1 event(s) committed in memory · content excluded from the anchor.").arg(strangeProofChain_.size()));}

@@ -655,6 +655,7 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
     if (flags & kFlagAck) {
         f->c_ack = ack;
         f->have_c_ack = true;
+        process_client_ack(f, ack);
     }
 
     if (flags & kFlagRst) {
@@ -849,22 +850,88 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
             break; // resume on the next ACK from the client
         }
         const auto chunk = std::min(max_seg, f->sbuf.size() - f->sbuf_off);
+        const auto segment_seq = f->send_next;
+        std::vector<std::uint8_t> segment(
+            f->sbuf.begin() + static_cast<std::ptrdiff_t>(f->sbuf_off),
+            f->sbuf.begin() + static_cast<std::ptrdiff_t>(f->sbuf_off + chunk));
         const bool ok = emit(build_tcp_frame(
                              f->client_mac, kEgressMac, f->server_addr, f->client_addr,
                              f->server_port, f->client_port, kFlagAck, f->send_next, f->recv_next,
-                             65535, {}, f->sbuf.data() + f->sbuf_off, chunk),
+                             65535, {}, segment.data(), segment.size()),
                          f->owner_peer);
         if (!ok) {
             pqvpn::logging::Logger::warn("egress: tunnel send failed; dropping flow");
             abort_flow(f, false);
             return;
         }
+        f->unacked.emplace(segment_seq, std::move(segment));
         f->send_next += static_cast<std::uint32_t>(chunk);
         f->sbuf_off += chunk;
     }
     if (f->sbuf_off >= f->sbuf.size()) {
         f->sbuf.clear();
         f->sbuf_off = 0;
+    }
+    arm_retransmit(f);
+}
+
+void EgressForwarder::process_client_ack(const std::shared_ptr<TcpFlow>& f,
+                                         const std::uint32_t ack) {
+    if (!f || f->closed) return;
+    bool advanced = false;
+    for (auto it = f->unacked.begin(); it != f->unacked.end();) {
+        const auto end = it->first + static_cast<std::uint32_t>(it->second.size());
+        if (!seq_lt(ack, end)) {
+            it = f->unacked.erase(it);
+            advanced = true;
+        } else {
+            ++it;
+        }
+    }
+    if (advanced || !seq_eq(ack, f->last_ack)) {
+        f->last_ack = ack;
+        f->duplicate_acks = 0;
+        f->retransmit_attempts = 0;
+    } else if (!f->unacked.empty() && ++f->duplicate_acks >= 3) {
+        f->duplicate_acks = 0;
+        retransmit_oldest(f);
+    }
+    if (f->unacked.empty() && f->retransmit_timer) {
+        asio::error_code ignored;
+        f->retransmit_timer->cancel(ignored);
+    } else {
+        arm_retransmit(f);
+    }
+}
+
+void EgressForwarder::arm_retransmit(const std::shared_ptr<TcpFlow>& f) {
+    if (!f || f->closed || f->unacked.empty()) return;
+    if (!f->retransmit_timer)
+        f->retransmit_timer = std::make_shared<asio::steady_timer>(io_);
+    f->retransmit_timer->expires_after(std::chrono::milliseconds(1200));
+    std::weak_ptr<TcpFlow> weak = f;
+    f->retransmit_timer->async_wait([this, weak](const asio::error_code& ec) {
+        if (ec == asio::error::operation_aborted) return;
+        auto flow = weak.lock();
+        if (!flow || flow->closed || flow->unacked.empty()) return;
+        retransmit_oldest(flow);
+        arm_retransmit(flow);
+    });
+}
+
+void EgressForwarder::retransmit_oldest(const std::shared_ptr<TcpFlow>& f) {
+    if (!f || f->closed || f->unacked.empty()) return;
+    if (++f->retransmit_attempts > 8) {
+        pqvpn::logging::Logger::warn("egress: client did not ACK tunnel data; dropping flow");
+        abort_flow(f, true);
+        return;
+    }
+    const auto& [sequence, payload] = *f->unacked.begin();
+    if (!emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
+                              f->server_port, f->client_port, kFlagAck, sequence, f->recv_next,
+                              65535, {}, payload.data(), payload.size()),
+              f->owner_peer)) {
+        abort_flow(f, false);
     }
 }
 
@@ -880,6 +947,10 @@ void EgressForwarder::send_ack_to_client(const std::shared_ptr<TcpFlow>& f,
 void EgressForwarder::abort_flow(const std::shared_ptr<TcpFlow>& f, bool reset_client) {
     if (!f || f->closed) return;
     f->closed = true;
+    if (f->retransmit_timer) {
+        asio::error_code ignored;
+        f->retransmit_timer->cancel(ignored);
+    }
     if (reset_client) {
         emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
                              f->server_port, f->client_port, kFlagRst | kFlagAck, f->send_next,
