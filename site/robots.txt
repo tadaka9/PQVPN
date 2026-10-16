@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://tadaka9.github.io/PQVPN/sitemap.xml

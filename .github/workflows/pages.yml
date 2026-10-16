@@ -26,6 +26,8 @@ jobs:
           test -s site/index.html
           test -s site/styles.css
           test -s site/app.js
+          test -s site/robots.txt
+          test -s site/sitemap.xml
           test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
@@ -33,6 +35,9 @@ jobs:
           grep -F 'id="strangenet-peer"' site/index.html >/dev/null
           grep -F -- '--strangenet-peer ${values.peer.toLowerCase()}' site/app.js >/dev/null
           grep -F 'api.github.com/repos/tadaka9/PQVPN' site/app.js >/dev/null
+          grep -F 'max-image-preview:large' site/index.html >/dev/null
+          grep -F 'https://tadaka9.github.io/PQVPN/' site/sitemap.xml >/dev/null
+          ! grep -F '/releases/tag/v0.0.9-' site/index.html
           grep -F 'bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll' site/index.html >/dev/null
           grep -F 'setInterval(()=>{if(!document.hidden)loadRegistry()},60000)' site/app.js >/dev/null
           jq -e '.bootstrap[0].host == "65.108.251.110"' config.json >/dev/null

@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible PQVPN failure without publishing secrets.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing PQVPN. Remove private keys, peer identities, public IPs and credentials from every field and attachment.
+  - type: input
+    id: version
+    attributes:
+      label: PQVPN version
+      description: Paste the exact value from `pqvpn_node --version`.
+      placeholder: PQVPN 0.0.x-...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x86-64
+        - Linux ARM64
+        - Windows x86-64
+        - macOS Intel
+        - macOS Apple Silicon
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and reproduction steps
+      description: Include the smallest repeatable sequence and whether relay-only or full-tunnel mode was selected.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Paste only non-secret output. Never include config files, keys, passphrases or unredacted IP addresses.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed keys, credentials, peer identities and personal network addresses.
+          required: true
+        - label: I understand PQVPN is experimental and not independently audited.
+          required: true
