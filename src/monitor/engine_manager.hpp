@@ -22,6 +22,7 @@ namespace pqvpn::console {
 class EngineManager : public QObject {
 public:
     std::function<void(const QString&)> report;
+    std::function<void(const QString&, bool)> activityChanged;
     explicit EngineManager(QObject* parent) : QObject(parent) {}
     ~EngineManager() override { const auto processes=jobs_.values(); for (auto* process : processes) { disconnect(process,nullptr,this,nullptr); process->terminate(); if(!process->waitForFinished(1500)){process->kill();process->waitForFinished(300);} } }
     bool active(const QString& id) const { return jobs_.contains(id); }
@@ -69,11 +70,11 @@ public:
         if (!temporary->isValid()) return;
         const QString downloaded = temporary->filePath("archive");
         auto* process = new QProcess(this);
-        jobs_[id] = process;
+        jobs_[id] = process; activity(id, true);
         message(id + ": downloading pinned " + entry.value("version").toString());
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [=, this](int code, QProcess::ExitStatus status) {
-                jobs_.remove(id); process->deleteLater();
+                jobs_.remove(id); activity(id, false); process->deleteLater();
                 if (status != QProcess::NormalExit || code != 0 || !verified(downloaded)) {
                     message(id + ": download failed or checksum mismatch; nothing executed"); return;
                 }
@@ -82,7 +83,7 @@ public:
                 extract(id, configuration, entry, archive, directory);
             });
         connect(process, &QProcess::errorOccurred, this, [=, this](QProcess::ProcessError error) {
-            if (error == QProcess::FailedToStart) { jobs_.remove(id); process->deleteLater(); message(id + ": downloader could not start"); }
+            if (error == QProcess::FailedToStart) { jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": downloader could not start"); }
         });
         process->start(curl, {"--fail", "--location", "--silent", "--show-error", "--proto", "=https", "--proto-redir", "=https", "--max-time", "120", "--max-filesize", "67108864", "--output", downloaded, entry.value("url").toString()});
         QTimer::singleShot(150000, process, [process] { if (process->state() != QProcess::NotRunning) process->kill(); });
@@ -90,18 +91,23 @@ public:
 private:
     QMap<QString, QProcess*> jobs_;
     void message(const QString& text) { if (report) report(text); }
+    void activity(const QString& id, bool active) { if (activityChanged) activityChanged(id, active); }
     void extract(const QString& id, const QString& configuration, const QJsonObject& entry,
                  const QString& archive, const QString& directory) {
         auto temporary = std::make_shared<QTemporaryDir>(directory + "/extract-XXXXXX");
         if (!temporary->isValid()) return;
-        const bool deb = entry.value("format").toString() == "deb";
-        const QString tool = QStandardPaths::findExecutable(deb ? "dpkg-deb" : "tar");
+        const QString format = entry.value("format").toString();
+        const bool deb = format == "deb";
+        const bool zip = format == "zip";
+        QString tool = QStandardPaths::findExecutable(deb ? "dpkg-deb" : zip ? "unzip" : "tar");
+        // bsdtar can read ZIP archives on platforms where unzip is not shipped.
+        if (zip && tool.isEmpty()) tool = QStandardPaths::findExecutable("tar");
         if (tool.isEmpty()) { message(id + ": archive extraction tool unavailable"); return; }
-        auto* process = new QProcess(this); jobs_[id] = process;
+        auto* process = new QProcess(this); jobs_[id] = process; activity(id, true);
         const QString executable = directory + "/" + QFileInfo(entry.value("member").toString()).fileName();
         auto output = std::make_shared<QSaveFile>(executable);
         if (!output->open(QIODevice::WriteOnly) || !output->setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner)) {
-            jobs_.remove(id); process->deleteLater(); message(id + ": cannot create private engine executable"); return;
+            jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": cannot create private engine executable"); return;
         }
         auto size = std::make_shared<qint64>(0);
         auto good = std::make_shared<bool>(true);
@@ -112,7 +118,7 @@ private:
         if (!deb) connect(process, &QProcess::readyReadStandardOutput, this, drain);
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [=, this](int code, QProcess::ExitStatus status) {
-                jobs_.remove(id);
+                jobs_.remove(id); activity(id, false);
                 if (!deb) drain();
                 if (deb && code == 0) {
                     QFile file(temporary->filePath(entry.value("member").toString()));
@@ -126,14 +132,15 @@ private:
                 launch(id, executable, configuration, directory);
             });
         connect(process, &QProcess::errorOccurred, this, [=, this](QProcess::ProcessError error) {
-            if (error == QProcess::FailedToStart) { jobs_.remove(id); process->deleteLater(); message(id + ": extractor could not start"); }
+            if (error == QProcess::FailedToStart) { jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": extractor could not start"); }
         });
         if (deb) process->start(tool, {"--extract", archive, temporary->path()});
+        else if (zip && QFileInfo(tool).fileName().startsWith("unzip")) process->start(tool, {"-p", archive, entry.value("member").toString()});
         else process->start(tool, {"-xOf", archive, entry.value("member").toString()});
         QTimer::singleShot(30000, process, [process] { if (process->state() != QProcess::NotRunning) process->kill(); });
     }
     void launch(const QString& id, const QString& executable, const QString& configuration, const QString& directory) {
-        auto* process = new QProcess(this); jobs_[id] = process;
+        auto* process = new QProcess(this); jobs_[id] = process; activity(id, true);
         process->setWorkingDirectory(QFileInfo(configuration).absolutePath());
         QStringList arguments;
         if (id == "shadowsocks") arguments = {"-c", configuration};
@@ -141,13 +148,13 @@ private:
         else if (id == "udp2raw") arguments = {"--conf-file", configuration};
         else {
             QFile file(configuration);
-            if (!file.open(QIODevice::ReadOnly)) { jobs_.remove(id); process->deleteLater(); return; }
+            if (!file.open(QIODevice::ReadOnly)) { jobs_.remove(id); activity(id, false); process->deleteLater(); return; }
             const auto config = QJsonDocument::fromJson(file.readAll()).object();
             const auto variables = config.value("environment").toObject();
-            if (variables.isEmpty()) { jobs_.remove(id); process->deleteLater(); message(id + ": configuration needs managed-transport environment settings"); return; }
+            if (variables.isEmpty()) { jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": configuration needs managed-transport environment settings"); return; }
             auto environment = QProcessEnvironment::systemEnvironment();
             for (auto it = variables.begin(); it != variables.end(); ++it) {
-                if (!it.key().startsWith("TOR_PT_") || !it.value().isString()) { jobs_.remove(id); process->deleteLater(); message(id + ": invalid managed-transport configuration"); return; }
+                if (!it.key().startsWith("TOR_PT_") || !it.value().isString()) { jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": invalid managed-transport configuration"); return; }
                 environment.insert(it.key(), it.value().toString());
             }
             environment.insert("TOR_PT_STATE_LOCATION", directory + "/state");
@@ -158,10 +165,10 @@ private:
         connect(process, &QProcess::readyReadStandardError, this, [process] { process->readAllStandardError(); });
         connect(process, &QProcess::started, this, [=, this] { message(id + ": engine started; peer authentication is still required"); });
         connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [=, this](int code, QProcess::ExitStatus) {
-            jobs_.remove(id); process->deleteLater(); message(id + ": engine stopped (exit " + QString::number(code) + ")");
+            jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": engine stopped (exit " + QString::number(code) + ")");
         });
         connect(process, &QProcess::errorOccurred, this, [=, this](QProcess::ProcessError error) {
-            if (error == QProcess::FailedToStart) { jobs_.remove(id); process->deleteLater(); message(id + ": engine could not start on this system"); }
+            if (error == QProcess::FailedToStart) { jobs_.remove(id); activity(id, false); process->deleteLater(); message(id + ": engine could not start on this system"); }
         });
         process->start(executable, arguments);
     }
