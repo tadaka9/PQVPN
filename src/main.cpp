@@ -432,6 +432,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Profiles without a tunnel section are relay-only. --no-tunnel remains
+    // an explicit runtime override for a fully configured client profile.
+    const bool no_tunnel = args.no_tunnel || !config->tunnel.enabled ||
+                           config->tunnel.plugin != "pqvpn";
+    if (!config->tunnel.enabled && !args.no_tunnel)
+        std::cout << "relay-only profile: local tunnel is disabled by configuration\n";
+
     // Per-OS tunnel adapter: PQVPN's driver on Windows, /dev/net/tun on Linux, and the
     // Network Extension boundary on macOS (see src/platform/adapter.hpp).
     std::unique_ptr<pqvpn::platform::Adapter> adapter;
@@ -442,13 +449,13 @@ int main(int argc, char** argv) {
     // signal handler can roll back peer exclusions on shutdown. Safe to leave
     // unused when no_tunnel is set: remove_all() on an empty manager succeeds.
     pqvpn::routing::PeerRouteManager peer_routes(route_backend);
-    if (!args.no_tunnel) {
+    if (!no_tunnel) {
         adapter = pqvpn::platform::make_adapter(args.tunnel_device);
     }
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
     // the kernel-selected default.
-    if (!args.no_tunnel) {
+    if (!no_tunnel) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
                                        config->tunnel.exit_host, config->tunnel.exit_port)) {

@@ -35,8 +35,41 @@ TEST_CASE("Config loading valid", "[config]") {
     CHECK(cfg.network.port == 9090);
     CHECK(cfg.network.bind_address == "127.0.0.1");
     CHECK(cfg.security.kdf.time_cost == 5);
+    CHECK_FALSE(cfg.tunnel.enabled);
 
     std::remove(config_path.c_str());
+}
+
+TEST_CASE("Relay-only and full-tunnel profiles validate before startup", "[config][tunnel]") {
+    pqvpn::config::Config relay;
+    CHECK_FALSE(relay.tunnel.enabled);
+    CHECK_FALSE(pqvpn::config::validate_config(relay).has_value());
+
+    pqvpn::config::Config incomplete;
+    incomplete.tunnel.enabled = true;
+    auto missing = pqvpn::config::validate_config(incomplete);
+    REQUIRE(missing.has_value());
+    CHECK(missing->message.find("interface_name") != std::string::npos);
+
+    incomplete.tunnel.interface_name = "pqvpn0";
+    missing = pqvpn::config::validate_config(incomplete);
+    REQUIRE(missing.has_value());
+    CHECK(missing->message.find("exit_host") != std::string::npos);
+
+    pqvpn::config::Config client;
+    client.tunnel.enabled = true;
+    client.tunnel.interface_name = "pqvpn0";
+    client.tunnel.exit_host = "45.248.37.87";
+    client.tunnel.exit_port = 9090;
+    CHECK_FALSE(pqvpn::config::validate_config(client).has_value());
+
+    const std::string incomplete_path = temp_config_path("pqvpn_test_incomplete_tunnel.json");
+    {
+        std::ofstream output(incomplete_path);
+        output << R"({"network":{"port":9090},"tunnel":{}})";
+    }
+    CHECK_FALSE(pqvpn::config::load_config(incomplete_path).has_value());
+    std::remove(incomplete_path.c_str());
 }
 
 TEST_CASE("Config loading invalid port", "[config]") {
@@ -134,6 +167,7 @@ TEST_CASE("Config rejects invalid adaptive policy", "[config][transport]") {
 TEST_CASE("Normalized configuration preserves an external backend without interface name", "[config][transport]") {
     for(const std::string backend:{"wireguard","openvpn"}) {
         pqvpn::config::Config original;
+        original.tunnel.enabled=true;
         original.tunnel.plugin=backend;
         original.tunnel.config_path="/operator/client.conf";
         const nlohmann::json normalized=original;
@@ -141,6 +175,7 @@ TEST_CASE("Normalized configuration preserves an external backend without interf
         CHECK(normalized.at("tunnel").at("plugin")==backend);
         const auto restored=normalized.get<pqvpn::config::Config>();
         CHECK(restored.tunnel.plugin==backend);
+        CHECK(restored.tunnel.enabled);
         CHECK(restored.tunnel.config_path==original.tunnel.config_path);
     }
 }
@@ -155,6 +190,7 @@ TEST_CASE("Shipped config is the editable experimental mainnet profile", "[confi
     CHECK(profile->security.tofu);
     CHECK(profile->security.known_peers_file=="known_peers.json");
     REQUIRE_FALSE(profile->bootstrap.empty());
+    CHECK(profile->tunnel.enabled);
     CHECK(profile->tunnel.interface_name=="pqvpn0");
     CHECK(profile->tunnel.exit_host=="45.248.37.87");
     CHECK(profile->tunnel.exit_port==9090);

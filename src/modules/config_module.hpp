@@ -141,9 +141,13 @@ namespace pqvpn::config {
     };
 
     // Tunnel device selection. interface_name is platform-specific: a TUN
-    // name on Linux (empty = kernel-selected) or a TAP GUID on Windows
-    // (empty = auto-detect). CLI flags still take precedence where they exist.
+    // name on Linux or a TAP GUID on Windows. Full-tunnel profiles require a
+    // concrete value; CLI flags still take precedence where they exist.
     struct TunnelConfig {
+        // A profile with no tunnel section is a relay-only profile.  When the
+        // section exists, full-tunnel mode remains the backwards-compatible
+        // default; operators can also state "enabled": false explicitly.
+        bool enabled = false;
         std::string interface_name;
         // Client traffic is allowed to leave through this exact peer only.
         // When configured, absence of a live session to this endpoint is a
@@ -158,6 +162,7 @@ namespace pqvpn::config {
         std::string config_path;
 
         friend void from_json(const nlohmann::json& j, TunnelConfig& value) {
+            value.enabled = j.value("enabled", true);
             if (j.contains("interface_name") && j.at("interface_name").is_string()) {
                 value.interface_name = j.at("interface_name").get<std::string>();
             }
@@ -176,7 +181,7 @@ namespace pqvpn::config {
             }
         }
         friend void to_json(nlohmann::json& j, const TunnelConfig& value) {
-            j = {{"interface_name", value.interface_name}, {"plugin", value.plugin}};
+            j = {{"enabled", value.enabled}, {"interface_name", value.interface_name}, {"plugin", value.plugin}};
             if (!value.config_path.empty()) j["config_path"] = value.config_path;
             if (!value.exit_host.empty()) {
                 j["exit_host"] = value.exit_host;
@@ -254,7 +259,7 @@ namespace pqvpn::config {
                 value.tuning.replay_window_size || value.tuning.bootstrap_retry_seconds) {
                 j["tuning"] = value.tuning;
             }
-            if (!value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
+            if (value.tunnel.enabled || !value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
                 !value.tunnel.config_path.empty() || !value.tunnel.exit_host.empty()) j["tunnel"] = value.tunnel;
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
@@ -282,6 +287,20 @@ namespace pqvpn::config {
     };
 
     inline std::optional<ConfigError> validate_config(const Config& cfg) {
+        if (cfg.tunnel.enabled && cfg.tunnel.plugin == "pqvpn") {
+            if (cfg.tunnel.interface_name.empty())
+                return ConfigError{"full tunnel mode requires tunnel.interface_name"};
+            if (cfg.tunnel.exit_host.empty() || cfg.tunnel.exit_port <= 0 || cfg.tunnel.exit_port > 65535)
+                return ConfigError{"full tunnel mode requires tunnel.exit_host and a valid tunnel.exit_port"};
+            asio::error_code address_error;
+            (void)asio::ip::make_address(cfg.tunnel.exit_host, address_error);
+            if (address_error)
+                return ConfigError{"full tunnel mode requires a numeric tunnel.exit_host"};
+        } else if (!cfg.tunnel.interface_name.empty() || !cfg.tunnel.exit_host.empty() ||
+                   cfg.tunnel.exit_port != 0 || cfg.tunnel.plugin != "pqvpn" ||
+                   !cfg.tunnel.config_path.empty()) {
+            return ConfigError{"relay-only mode cannot define local tunnel fields"};
+        }
         if (cfg.external_transport) {
             try {
                 const auto endpoint = cfg.external_transport->endpoint();
