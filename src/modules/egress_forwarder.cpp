@@ -897,8 +897,7 @@ void EgressForwarder::process_client_ack(const std::shared_ptr<TcpFlow>& f,
         retransmit_oldest(f);
     }
     if (f->unacked.empty() && f->retransmit_timer) {
-        asio::error_code ignored;
-        f->retransmit_timer->cancel(ignored);
+        f->retransmit_timer->cancel();
     } else {
         arm_retransmit(f);
     }
@@ -948,8 +947,7 @@ void EgressForwarder::abort_flow(const std::shared_ptr<TcpFlow>& f, bool reset_c
     if (!f || f->closed) return;
     f->closed = true;
     if (f->retransmit_timer) {
-        asio::error_code ignored;
-        f->retransmit_timer->cancel(ignored);
+        f->retransmit_timer->cancel();
     }
     if (reset_client) {
         emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
