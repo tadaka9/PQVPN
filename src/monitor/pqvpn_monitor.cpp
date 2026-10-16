@@ -122,6 +122,38 @@ QStatusBar { background: #080b17; color: #8f9aba; border-top: 1px solid rgba(255
 QToolTip { background: #65e6ff; color: #07101d; border: 0; padding: 6px; }
 )CSS";
 
+const char* soulsThemeOverrides = R"CSS(
+QMainWindow, QDialog { background: #090806; color: #efe6cf; }
+QLabel { color: #d8cdb6; }
+QMenuBar, QStatusBar { background: #090806; color: #b7a98c; border-color: #3c3121; }
+QMenu { background: #14110c; color: #efe6cf; border-color: #594626; }
+QMenuBar::item:selected, QMenu::item:selected { background: #7a241c; color: #fff2d2; }
+#sidebar { background: rgba(10,8,5,.98); border-right-color: #3c3121; }
+#wordmark, #pageTitle, #heroTitle, #sectionTitle, #metric { color: #f3e5c1; }
+#brandSub, #eyebrow { color: #d4aa55; }
+QPushButton[nav="true"] { color: #aa9b7e; }
+QPushButton[nav="true"]:hover { background: rgba(212,170,85,.10); color: #fff2d2; }
+QPushButton[nav="true"]:checked { background: rgba(122,36,28,.34); color: #fff2d2; border-color: #9f6d31; }
+QFrame[card="true"] { background: rgba(22,18,12,.95); border-color: rgba(191,145,66,.25); }
+QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #2a160f,stop:.52 #7a241c,stop:1 #9f6d31); border-color: #c09548; }
+QLabel[muted="true"] { color: #aa9d83; }
+QLabel[chip="true"] { background: rgba(212,170,85,.10); color: #e8c97d; border-color: rgba(212,170,85,.35); }
+QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: #0e0c09; color: #eee3cb; border-color: #594626; selection-background-color: #7a241c; }
+QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #d4aa55; }
+QComboBox QAbstractItemView { background: #14110c; color: #efe6cf; border-color: #594626; selection-background-color: #7a241c; }
+QPushButton { background: #7a241c; color: #fff2d2; border-color: #b56339; }
+QPushButton:hover { background: #913126; }
+QPushButton:pressed { background: #551711; }
+QPushButton:disabled { background: #211d17; color: #6f6657; border-color: #383027; }
+QPushButton[quiet="true"] { background: rgba(212,170,85,.05); color: #cbbd9e; border-color: #594626; }
+QPushButton[danger="true"] { background: #9b1c16; border-color: #df5b3f; }
+QCheckBox { color: #d8cdb6; }
+QCheckBox::indicator { background: #0e0c09; border-color: #6c5735; }
+QCheckBox::indicator:checked { background: #d4aa55; border-color: #f0ca75; }
+QScrollBar::handle:vertical { background: #6c5735; }
+QToolTip { background: #d4aa55; color: #130f08; }
+)CSS";
+
 const char* lightTheme = R"CSS(
 QMainWindow, QDialog { background: #f4f6fb; color: #161b2d; }
 QLabel { color: #202840; }
@@ -203,18 +235,20 @@ public:
     qreal phase() const { return phase_; }
     void setPhase(qreal value) { phase_ = value; update(); }
     void setDark(bool value) { dark_ = value; update(); }
+    void setSouls(bool value) { souls_ = value; update(); }
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.fillRect(rect(), QColor(dark_ ? "#080b17" : "#f4f6fb"));
+        painter.fillRect(rect(), QColor(souls_ ? "#090806" : dark_ ? "#080b17" : "#f4f6fb"));
         const qreal extent = std::max(width(), height()) * .48;
         const QPointF points[] = {{width() * (.12 + .04 * std::sin(phase_)), height() * .17},
             {width() * (.80 + .05 * std::cos(phase_ * .8)), height() * .25},
             {width() * (.55 + .05 * std::sin(phase_ * .6)), height() * .84}};
         const QColor darkColors[] = {QColor(80,43,220,78), QColor(0,201,231,54), QColor(217,65,171,42)};
+        const QColor soulsColors[] = {QColor(122,36,28,82), QColor(212,170,85,58), QColor(99,48,20,48)};
         const QColor lightColors[] = {QColor(104,66,232,32), QColor(15,143,168,27), QColor(217,65,171,20)};
-        const QColor* colors = dark_ ? darkColors : lightColors;
+        const QColor* colors = souls_ ? soulsColors : dark_ ? darkColors : lightColors;
         for (int i = 0; i < 3; ++i) {
             QRadialGradient gradient(points[i], extent);
             gradient.setColorAt(0, colors[i]); gradient.setColorAt(1, QColor(0,0,0,0));
@@ -225,6 +259,7 @@ protected:
 private:
     qreal phase_ = 0;
     bool dark_ = true;
+    bool souls_ = false;
 };
 
 class StatusOrb final : public QWidget {
@@ -235,11 +270,13 @@ public:
     qreal pulse() const { return pulse_; }
     void setPulse(qreal value) { pulse_ = value; update(); }
     void setConnected(bool value) { connected_ = value; update(); }
+    void setSouls(bool value) { souls_ = value; update(); }
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter painter(this); painter.setRenderHint(QPainter::Antialiasing);
         const QPointF center(width()/2.0, height()/2.0);
-        const QColor color = connected_ ? QColor("#65e6ff") : QColor("#ff7aac");
+        const QColor color = souls_ ? (connected_ ? QColor("#d4aa55") : QColor("#9b1c16"))
+                                    : (connected_ ? QColor("#65e6ff") : QColor("#ff7aac"));
         painter.setPen(QPen(QColor(color.red(),color.green(),color.blue(),int(80*(1-pulse_))),2));
         painter.setBrush(Qt::NoBrush); painter.drawEllipse(center,34+pulse_*17,34+pulse_*17);
         QRadialGradient glow(center,34); glow.setColorAt(0,color.lighter(140)); glow.setColorAt(.52,color); glow.setColorAt(1,QColor(color.red(),color.green(),color.blue(),12));
@@ -249,6 +286,7 @@ protected:
 private:
     qreal pulse_ = 0;
     bool connected_ = false;
+    bool souls_ = false;
 };
 
 class ResponsiveStack final : public QStackedWidget {
@@ -459,7 +497,7 @@ private:
     QComboBox* strangeAudience_=nullptr; QListWidget* peerDirectory_=nullptr;
     QTextBrowser* strangeTranscript_=nullptr; QPushButton *strangeJoin_=nullptr,*strangeSend_=nullptr,*strangeSticker_=nullptr,*strangeReaction_=nullptr,*strangeProofCopy_=nullptr; QLabel *strangeBytes_=nullptr,*peerCount_=nullptr,*strangeProofStatus_=nullptr,*strangeFloodStatus_=nullptr;QCheckBox* strangeProofEnabled_=nullptr;
     QPlainTextEdit* activity_=nullptr; QAction *reduceMotion_=nullptr,*compactSidebar_=nullptr,*minimizeToTray_=nullptr,*strangeNotifications_=nullptr;
-    QActionGroup* themeGroup_=nullptr; QAction *systemTheme_=nullptr,*darkThemeAction_=nullptr,*lightThemeAction_=nullptr;
+    QActionGroup* themeGroup_=nullptr; QAction *systemTheme_=nullptr,*darkThemeAction_=nullptr,*lightThemeAction_=nullptr,*soulsThemeAction_=nullptr;
     QSystemTrayIcon* tray_=nullptr; QMenu* trayMenu_=nullptr; QAction *trayStatus_=nullptr,*trayToggle_=nullptr;
     QByteArray processBuffer_;
     QByteArray validatedConfigHash_,validatedExecutableHash_;
@@ -484,6 +522,16 @@ private:
         const auto phase=pqvpn::console::connection_phase({active,mainnetReady_,tunnelReady_,relay,stopping_,processFailed_});
         if(phase==pqvpn::console::ConnectionPhase::Stopping){title="Disconnecting";statusText_->setText("Stopping the node and restoring its owned network state…");}
         if(phase==pqvpn::console::ConnectionPhase::Failed){title="Connection failed";statusText_->setText("Open Activity for the node error, then review and validate the configuration.");}
+        if(themeMode_=="souls"){
+            using Phase=pqvpn::console::ConnectionPhase;
+            if(phase==Phase::Disconnected){title="UNLIT";statusText_->setText("No tunnel is active. Begin again when you are ready.");}
+            else if(phase==Phase::Connecting){title="ENTERING THE FOG";statusText_->setText("Seeking an authenticated path through the mainnet…");}
+            else if(phase==Phase::Securing){title="KINDLING THE ROUTE";statusText_->setText("The peer answered. Fail-closed routes are not yet ready.");}
+            else if(phase==Phase::Relay){title="WAY OF WHITE · RELAY";statusText_->setText("The peer is authenticated; this computer's traffic remains outside the tunnel.");}
+            else if(phase==Phase::Protected){title="EMBER RESTORED";statusText_->setText("Peer, tunnel and leak-safe routes stand together.");}
+            else if(phase==Phase::Stopping){title="RETURNING TO BONFIRE";statusText_->setText("Restoring the network state owned by PQVPN…");}
+            else if(phase==Phase::Failed){title="YOU DIED · FAIL CLOSED";statusText_->setText("The protected path fell. Traffic remains sealed; inspect Activity before trying again.");}
+        }
         stateLabel_->setText(title);
         tray_->setIcon(connectionTrayIcon(phase));
         trayStatus_->setText(title);tray_->setToolTip("PQVPN · "+title);
@@ -509,7 +557,7 @@ private:
 
     void buildMenus() {
         auto* file=menuBar()->addMenu("File"); file->addAction("Choose configuration…",QKeySequence::Open,this,&Window::chooseConfig); file->addAction("Validate configuration",QKeySequence("Ctrl+Shift+V"),this,&Window::validateConfig); file->addSeparator(); file->addAction("Exit PQVPN",QKeySequence::Quit,this,&Window::quitApplication);
-        auto* view=menuBar()->addMenu("View");auto* themeMenu=view->addMenu("Appearance");themeGroup_=new QActionGroup(this);themeGroup_->setExclusive(true);systemTheme_=themeMenu->addAction("Follow system");darkThemeAction_=themeMenu->addAction("Dark");lightThemeAction_=themeMenu->addAction("Light");for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_}){action->setCheckable(true);themeGroup_->addAction(action);}systemTheme_->setData("system");darkThemeAction_->setData("dark");lightThemeAction_->setData("light");systemTheme_->setChecked(true);view->addSeparator();reduceMotion_=view->addAction("Reduce motion"); reduceMotion_->setCheckable(true); compactSidebar_=view->addAction("Compact sidebar"); compactSidebar_->setCheckable(true); minimizeToTray_=view->addAction("Close window to tray"); minimizeToTray_->setCheckable(true); minimizeToTray_->setChecked(true);strangeNotifications_=view->addAction("Private StrangeNet notifications");strangeNotifications_->setCheckable(true);strangeNotifications_->setChecked(true);
+        auto* view=menuBar()->addMenu("View");auto* themeMenu=view->addMenu("Appearance");themeGroup_=new QActionGroup(this);themeGroup_->setExclusive(true);systemTheme_=themeMenu->addAction("Follow system");darkThemeAction_=themeMenu->addAction("Dark");lightThemeAction_=themeMenu->addAction("Light");soulsThemeAction_=themeMenu->addAction("Dark Souls mode · fail closed");for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_}){action->setCheckable(true);themeGroup_->addAction(action);}systemTheme_->setData("system");darkThemeAction_->setData("dark");lightThemeAction_->setData("light");soulsThemeAction_->setData("souls");systemTheme_->setChecked(true);view->addSeparator();reduceMotion_=view->addAction("Reduce motion"); reduceMotion_->setCheckable(true); compactSidebar_=view->addAction("Compact sidebar"); compactSidebar_->setCheckable(true); minimizeToTray_=view->addAction("Close window to tray"); minimizeToTray_->setCheckable(true); minimizeToTray_->setChecked(true);strangeNotifications_=view->addAction("Private StrangeNet notifications");strangeNotifications_->setCheckable(true);strangeNotifications_->setChecked(true);
         connect(themeGroup_,&QActionGroup::triggered,this,[this](QAction* action){applyTheme(action->data().toString());});
         connect(reduceMotion_,&QAction::toggled,this,[this](bool checked){QSettings("PQVPN","Privacy Console").setValue("reduceMotion",checked);setMotion(!checked);});
         connect(compactSidebar_,&QAction::toggled,this,&Window::setSidebarCompact);
@@ -845,22 +893,24 @@ private:
     void applyTheme(QString mode){
         if(applyingTheme_)return;
         applyingTheme_=true;
-        if(mode!="dark"&&mode!="light")mode="system";
+        if(mode!="dark"&&mode!="light"&&mode!="souls")mode="system";
         bool dark=systemDark_;
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
         if(mode=="system")dark=QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Dark;
 #endif
-        if(mode=="dark")dark=true;else if(mode=="light")dark=false;
+        if(mode=="dark"||mode=="souls")dark=true;else if(mode=="light")dark=false;
         const bool changed=themeMode_!=mode||activeDarkTheme_!=dark;
         themeMode_=mode;activeDarkTheme_=dark;
-        qApp->setStyleSheet(dark?darkTheme:lightTheme);if(aurora_)aurora_->setDark(dark);
-        const QColor pageColor(dark?"#080b17":"#f4f6fb");
+        const bool souls=mode=="souls";
+        qApp->setStyleSheet(souls?QString::fromUtf8(darkTheme)+QString::fromUtf8(soulsThemeOverrides):QString::fromUtf8(dark?darkTheme:lightTheme));if(aurora_){aurora_->setDark(dark);aurora_->setSouls(souls);}if(orb_)orb_->setSouls(souls);
+        const QColor pageColor(souls?"#090806":dark?"#080b17":"#f4f6fb");
         QList<QWidget*> opaquePages{pageScroll_,pageScroll_?pageScroll_->viewport():nullptr,pages_};
         if(pages_)for(int index=0;index<pages_->count();++index)opaquePages.append(pages_->widget(index));
         for(QWidget* widget:opaquePages){if(!widget)continue;QPalette palette=widget->palette();palette.setColor(QPalette::Window,pageColor);widget->setPalette(palette);widget->setAutoFillBackground(true);widget->setAttribute(Qt::WA_TranslucentBackground,false);widget->update();}
-        for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_})if(action){QSignalBlocker guard(action);action->setChecked(action->data().toString()==mode);}
+        for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_})if(action){QSignalBlocker guard(action);action->setChecked(action->data().toString()==mode);}
         QSettings("PQVPN","Privacy Console").setValue("theme",mode);
         applyingTheme_=false;
+        refreshConnectionPresentation();
         if(changed&&isVisible())fadeWidget(centralWidget(),220);
     }
     void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());minimizeToTray_->setChecked(settings.value("minimizeToTray",true).toBool());strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());applyTheme(settings.value("theme","system").toString());}

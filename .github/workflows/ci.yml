@@ -164,7 +164,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pqvpn-console"
           monitor=build/pqvpn_monitor
           if [[ "${{ matrix.family }}" == macos ]]; then monitor=build/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor; fi
-          for theme in dark light; do
+          for theme in dark light souls; do
             for page in overview connection transports strangenet activity privacy about; do
               QT_QPA_PLATFORM=offscreen \
                 PQVPN_SMOKE_THEME="$theme" \
@@ -465,7 +465,7 @@ jobs:
           $env:QT_QPA_PLATFORM = 'windows'
           $renderDir = "$env:RUNNER_TEMP\pqvpn-console"
           New-Item -ItemType Directory -Force -Path $renderDir | Out-Null
-          foreach ($theme in @('dark','light')) {
+          foreach ($theme in @('dark','light','souls')) {
             foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
               $env:PQVPN_SMOKE_THEME = $theme
               $env:PQVPN_SMOKE_PAGE = $page
