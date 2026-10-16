@@ -34,6 +34,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QOpenGLWidget>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -260,14 +261,28 @@ public:
 };
 
 class StableScrollArea final : public QScrollArea {
+public:
+    StableScrollArea() {
+        const QString platform=qEnvironmentVariable("QT_QPA_PLATFORM");
+        const bool headless=platform=="offscreen"||platform=="minimal";
+        const bool software=QApplication::arguments().contains("--software-rendering")||qEnvironmentVariableIsSet("PQVPN_DISABLE_OPENGL");
+        if(!headless&&!software){
+            auto* glViewport=new QOpenGLWidget;
+            glViewport->setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
+            setViewport(glViewport);
+            openGlViewport_=true;
+        }
+    }
+    bool usesOpenGL() const { return openGlViewport_; }
 protected:
     void scrollContentsBy(int dx,int dy) override {
         QScrollArea::scrollContentsBy(dx,dy);
-        // The pages are translucent over an animated background.  QScrollArea's
-        // pixel-copy optimization can otherwise leave pixels from the previous
-        // position in the viewport on some native Qt backends.
+        // Repaint the complete OpenGL surface after QScrollArea moves its child.
+        // This avoids stale pixel copies on Wayland compositors.
         viewport()->update();
     }
+private:
+    bool openGlViewport_=false;
 };
 
 class Window final : public QMainWindow {
@@ -358,11 +373,25 @@ public:
     bool verifyScrollNavigation() {
         if(!pageScroll_)return false;
         setMotion(false);
+        bool exercisedScrolling=false;
         for(int index=0;index<pages_->count();++index){
             pages_->setCurrentIndex(index);
+            pageScroll_->verticalScrollBar()->setValue(0);
             QApplication::processEvents();
             const int maximum=pageScroll_->verticalScrollBar()->maximum();
-            if(maximum>0)pageScroll_->verticalScrollBar()->setValue(maximum);
+            const QImage before=pageScroll_->viewport()->grab().toImage();
+            if(maximum>0){
+                exercisedScrolling=true;
+                for(int step=1;step<=6;++step){pageScroll_->verticalScrollBar()->setValue(maximum*step/6);QApplication::processEvents();}
+                pageScroll_->verticalScrollBar()->setValue(0);
+                QApplication::processEvents();
+                const QImage after=pageScroll_->viewport()->grab().toImage();
+                if(before.isNull()||after.isNull()||before!=after){
+                    qCritical()<<"PQVPN rendering check: viewport changed after a round-trip scroll on page"<<index;
+                    return false;
+                }
+                pageScroll_->verticalScrollBar()->setValue(maximum);
+            }
             QApplication::processEvents();
             const int next=(index+1)%pages_->count();
             pageButtons_.value(next)->click();
@@ -377,6 +406,7 @@ public:
                 return false;
             }
         }
+        if(!exercisedScrolling){qCritical()<<"PQVPN interaction check: smoke layout did not exercise a scrollable page";return false;}
         return true;
     }
     void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
@@ -477,7 +507,7 @@ private:
     void buildUi() {
         auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
         auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new ResponsiveStack; pages_->setAttribute(Qt::WA_TranslucentBackground);pages_->setAutoFillBackground(false);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAttribute(Qt::WA_TranslucentBackground);pageScroll_->setAutoFillBackground(false);pageScroll_->viewport()->setAttribute(Qt::WA_TranslucentBackground);pageScroll_->viewport()->setAutoFillBackground(false);pageScroll_->setWidget(pages_);row->addWidget(pageScroll_,1);
+        pages_=new ResponsiveStack;pages_->setAutoFillBackground(true);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->addWidget(buildOverview());pages_->addWidget(buildConnection());pages_->addWidget(buildTransports());pages_->addWidget(buildStrangeNet());pages_->addWidget(buildActivity());pages_->addWidget(buildPrivacy());pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->widget(index)->setAutoFillBackground(true);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAutoFillBackground(true);pageScroll_->viewport()->setAutoFillBackground(true);pageScroll_->setWidget(pages_);row->addWidget(pageScroll_,1);
         stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
     }
     void buildSidebar(QHBoxLayout* shell) {
@@ -806,6 +836,10 @@ private:
         const bool changed=themeMode_!=mode||activeDarkTheme_!=dark;
         themeMode_=mode;activeDarkTheme_=dark;
         qApp->setStyleSheet(dark?darkTheme:lightTheme);if(aurora_)aurora_->setDark(dark);
+        const QColor pageColor(dark?"#080b17":"#f4f6fb");
+        QList<QWidget*> opaquePages{pageScroll_,pageScroll_?pageScroll_->viewport():nullptr,pages_};
+        if(pages_)for(int index=0;index<pages_->count();++index)opaquePages.append(pages_->widget(index));
+        for(QWidget* widget:opaquePages){if(!widget)continue;QPalette palette=widget->palette();palette.setColor(QPalette::Window,pageColor);widget->setPalette(palette);widget->setAutoFillBackground(true);widget->setAttribute(Qt::WA_TranslucentBackground,false);widget->update();}
         for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_})if(action){QSignalBlocker guard(action);action->setChecked(action->data().toString()==mode);}
         QSettings("PQVPN","Privacy Console").setValue("theme",mode);
         applyingTheme_=false;
@@ -818,7 +852,7 @@ private:
     void showCommandPalette(){QDialog dialog(this);dialog.setWindowTitle("Command palette");dialog.resize(540,410);auto* layout=new QVBoxLayout(&dialog);auto* search=new QLineEdit;search->setPlaceholderText("Type a command…");auto* list=new QListWidget;const QList<QPair<QString,QString>> commands={{"Go to overview","overview"},{"Review connection","connection"},{"Inspect transports","transports"},{"Open activity","activity"},{"Privacy principles","privacy"},{"Validate configuration","validate"},{"Copy diagnostics","diagnostics"},{"About PQVPN","about"}};for(const auto& command:commands){auto* item=new QListWidgetItem(command.first,list);item->setData(Qt::UserRole,command.second);}layout->addWidget(search);layout->addWidget(list);connect(search,&QLineEdit::textChanged,&dialog,[list](const QString& query){for(int row=0;row<list->count();++row)list->item(row)->setHidden(!list->item(row)->text().contains(query,Qt::CaseInsensitive));});connect(list,&QListWidget::itemActivated,&dialog,[this,&dialog](QListWidgetItem* item){const QString command=item->data(Qt::UserRole).toString();const QHash<QString,int> pages={{"overview",Overview},{"connection",Connection},{"transports",Transports},{"activity",Activity},{"privacy",Privacy},{"about",About}};if(pages.contains(command))switchPage(pages.value(command));else if(command=="validate")validateConfig();else if(command=="diagnostics")copyDiagnostics();dialog.accept();});list->setCurrentRow(0);search->setFocus();dialog.exec();}
 };
 
-int main(int argc,char** argv){QApplication app(argc,argv);QFont uiFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+int main(int argc,char** argv){bool softwareRendering=false;for(int index=1;index<argc;++index)if(QString::fromLocal8Bit(argv[index])=="--software-rendering")softwareRendering=true;if(!softwareRendering&&!qEnvironmentVariableIsSet("PQVPN_DISABLE_OPENGL"))QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);QApplication app(argc,argv);QFont uiFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
 #ifdef Q_OS_WIN
     for(const QString& name:QStringList{QStringLiteral("Segoe UI"),QStringLiteral("Arial"),QStringLiteral("Tahoma")}){
         const QFont candidate(name);
