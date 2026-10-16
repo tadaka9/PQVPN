@@ -1,6 +1,7 @@
 name: Promote verified beta tag and prerelease
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -110,7 +111,9 @@ jobs:
 
   resume-existing-tag-publisher:
     name: Resume publication of all exact-tag CI assets
-    if: github.event_name == 'push' && github.ref == 'refs/heads/future'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/future')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
