@@ -1,1 +1,260 @@
-PGRpdiBhbGlnbj0iY2VudGVyIj4KCiFbUFFWUE4g4oCUIHBvc3QtcXVhbnR1bSBwcml2YWN5IHdpdGggYSBuYXRpdmUgQysrMjMgY29uc29sZV0oYXNzZXRzL2JyYW5kL3JlYWRtZS1oZXJvLnN2ZykKCiMgUFFWUE4KCiMjIyBCdWlsZCBhIHByaXZhdGUgcGF0aC4gS2VlcCBjb250cm9sIG9mIGV2ZXJ5IGtleS4KCioqQW4gZXhwZXJpbWVudGFsLCBvcGVuLXNvdXJjZSBWUE4gYW5kIHBlZXIgbmV0d29yayB3aXRoIGh5YnJpZCBwb3N0LXF1YW50dW0KaGFuZHNoYWtlcywgZmFpbC1jbG9zZWQgcm91dGluZywgYSBuYXRpdmUgZGVza3RvcCBhcHAsIGFuZCBubyByZXF1aXJlZCBhY2NvdW50Cm9yIGhvc3RlZCBjb250cm9sIHBsYW5lLioqCgpbIVtDKysyM10oaHR0cHM6Ly9pbWcuc2hpZWxkcy5pby9iYWRnZS9DJTJCJTJCLTIzLTAwZTVmZj9zdHlsZT1mb3ItdGhlLWJhZGdlJmxvZ289Y3BsdXNwbHVzJmxvZ29Db2xvcj13aGl0ZSldKGh0dHBzOi8vZW4uY3BwcmVmZXJlbmNlLmNvbS93L2NwcC8yMykKWyFbTGljZW5zZTogTUlUXShodHRwczovL2ltZy5zaGllbGRzLmlvL2JhZGdlL2xpY2Vuc2UtTUlULThhMmJlMj9zdHlsZT1mb3ItdGhlLWJhZGdlKV0oTElDRU5TRSkKWyFbUGxhdGZvcm1zXShodHRwczovL2ltZy5zaGllbGRzLmlvL2JhZGdlL0xpbnV4JTIwJUMyJUI3JTIwbWFjT1MlMjAlQzIlQjclMjBXaW5kb3dzLW5hdGl2ZS05YjVjZmY/c3R5bGU9Zm9yLXRoZS1iYWRnZSldKCNwbGF0Zm9ybXMtYW5kLXJlbGVhc2VzKQpbIVtTdGF0dXNdKGh0dHBzOi8vaW1nLnNoaWVsZHMuaW8vYmFkZ2Uvc3RhdHVzLWV4cGVyaW1lbnRhbC1mZjUwNmY/c3R5bGU9Zm9yLXRoZS1iYWRnZSldKCNzZWN1cml0eS1hbmQtcHJvamVjdC1zdGF0dXMpCgpbRG93bmxvYWQgYSB2ZXJpZmllZCBwcmVyZWxlYXNlXShodHRwczovL2dpdGh1Yi5jb20vdGFkYWthOS9QUVZQTi9yZWxlYXNlcykgwrcKW1Byb2plY3Qgc2l0ZV0oaHR0cHM6Ly90YWRha2E5LmdpdGh1Yi5pby9QUVZQTi8pIMK3CltNYWlubmV0IHBlZXJzXShodHRwczovL3RhZGFrYTkuZ2l0aHViLmlvL1BRVlBOL21haW5uZXQvcGVlcnMuanNvbikgwrcKW1JvYWRtYXBdKFJPQURNQVAubWQpCgo8L2Rpdj4KCi0tLQoKIyMgUHJpdmFjeSB3aXRob3V0IHN1cnJlbmRlcmluZyB0aGUgbmV0d29yawoKTW9zdCBWUE5zIG1vdmUgdHJ1c3QgZnJvbSBhbiBJU1AgdG8gYSBWUE4gb3BlcmF0b3IuIFBRVlBOIGlzIGZvciBwZW9wbGUgd2hvCndhbnQgYW5vdGhlciBvcHRpb246IHJ1biB0aGUgbm9kZXMsIGNob29zZSB0aGUgcGVlcnMsIG93biB0aGUgaWRlbnRpdGllcywgYW5kCmluc3BlY3QgdGhlIGNvZGUgdGhhdCBwcm90ZWN0cyB0aGUgcGF0aC4KClBRVlBOIGNvbWJpbmVzIGNsYXNzaWNhbCBhbmQgcG9zdC1xdWFudHVtIGFsZ29yaXRobXMgaW4gZXZlcnkgYXV0aGVudGljYXRlZApzZXNzaW9uLiBJdCBjYW4gb3BlcmF0ZSBhcyBhIGRpcmVjdCBwZWVyIGxpbmssIGEgcmVsYXkgbmV0d29yaywgb3IgYSBmdWxsCkxpbnV4IHR1bm5lbCB0aHJvdWdoIGFuIGV4aXQgbm9kZS4gVGhlIHNhbWUgQysrMjMgY29yZSBwb3dlcnMgdGhlIGRlc2t0b3AgR1VJLAp0ZXJtaW5hbCBjb25zb2xlLCBhbmQgYXV0b21hdGlvbi1mcmllbmRseSBDTEkuCgojIyMgRGVzaWduZWQgZm9yIHByYWN0aWNhbCBhbm9ueW1pdHkKClBRVlBOIGlzIGRlc2lnbmVkIHRvIGhpZGUgdGhlIG9yaWdpbiBJUCBmcm9tIGRlc3RpbmF0aW9uIHNlcnZpY2VzIGFuZCByZWR1Y2UKbGlua2FiaWxpdHkgYWNyb3NzIHRoZSBwYXRoOiBib290c3RyYXAsIHJlbGF5LCBhbmQgZXhpdCByb2xlcyBjYW4gYmUgc2VwYXJhdGVkOwpETlMgZm9sbG93cyB0aGUgcHJvdGVjdGVkIHR1bm5lbDsgSVB2NCBhbmQgSVB2NiBmYWlsIGNsb3NlZDsgbXVsdGktaG9wIHJvdXRlcwpsaW1pdCB3aGF0IG9uZSBpbnRlcm1lZGlhcnkgY2FuIG9ic2VydmU7IGFuZCBvcHRpb25hbCBzaGFwaW5nIGNoYW5nZXMgc2ltcGxlCnNpemUvdGltaW5nIHBhdHRlcm5zLiBUaGUgaW50ZW5kZWQgYW5vbnltaXR5IHNldCBncm93cyB3aGVuIGluZGVwZW5kZW50bHkKb3BlcmF0ZWQgcGVlcnMgc2hhcmUgcmVsYXlzIGFuZCBleGl0cyBpbnN0ZWFkIG9mIGV2ZXJ5IHVzZXIgcnVubmluZyBhIHVuaXF1ZSwKaWRlbnRpZmlhYmxlIHJvdXRlLgoKVGhhdCBwcm90ZWN0aW9uIGlzIGNvbmRpdGlvbmFsLiBJdCByZXF1aXJlcyBhIGhlYWx0aHkgdHVubmVsIGFuZCBraWxsIHN3aXRjaCwKYW4gZXhpdCB0aGF0IGRvZXMgbm90IGNvbGx1ZGUgd2l0aCB0aGUgb2JzZXJ2ZXIsIGVub3VnaCBjb25jdXJyZW50IHVzZXJzIHRvCmF2b2lkIGEgb25lLXBlcnNvbiBhbm9ueW1pdHkgc2V0LCBhbmQgYXBwbGljYXRpb24gaHlnaWVuZTogbm8gcGVyc29uYWwgbG9naW4sCnN0YWJsZSBicm93c2VyIGZpbmdlcnByaW50LCBpZGVudGlmeWluZyBjb29raWUsIG9yIGRvY3VtZW50IG1ldGFkYXRhLiBUaGUgR1VJCnJlcG9ydHMgbmV0d29yayBwcm90ZWN0aW9uOyBpdCBjYW5ub3QgY2VydGlmeSB1c2VyIGJlaGF2aW9yIG9yIHByb21pc2UKbWF0aGVtYXRpY2FsIGFub255bWl0eSBhZ2FpbnN0IGEgZ2xvYmFsIHBhc3NpdmUgYWR2ZXJzYXJ5LgoKPiBQUVZQTiBpcyBleHBlcmltZW50YWwgc2VjdXJpdHkgc29mdHdhcmUuIEl0IGlzIG5vdCBhIHByb21pc2Ugb2YgYW5vbnltaXR5LAo+IGFuIGF1ZGl0ZWQgcmVwbGFjZW1lbnQgZm9yIGEgbWF0dXJlIFZQTiwgb3IgYSB3YXkgdG8gbWFrZSBhbiB1bnRydXN0ZWQgZXhpdAo+IHRydXN0d29ydGh5LiBSZWFkIFtTZWN1cml0eSBhbmQgcHJvamVjdCBzdGF0dXNdKCNzZWN1cml0eS1hbmQtcHJvamVjdC1zdGF0dXMpCj4gYmVmb3JlIHJlbHlpbmcgb24gaXQuCgojIyBXaGF0IG1ha2VzIFBRVlBOIGRpZmZlcmVudAoKfCBDYXBhYmlsaXR5IHwgV2hhdCBpdCBtZWFucyB8CnwtLS18LS0tfAp8ICoqSHlicmlkIHBvc3QtcXVhbnR1bSBzZXNzaW9ucyoqIHwgWDI1NTE5ICsgTUwtS0VNLTEwMjQgZXN0YWJsaXNoIGtleSBtYXRlcmlhbDsgRWQyNTUxOSArIE1MLURTQS04NyBhdXRoZW50aWNhdGUgdGhlIHNhbWUgU0hBMy01MTIgdHJhbnNjcmlwdC4gQm90aCBoYWx2ZXMgYXJlIHJlcXVpcmVkLiB8CnwgKipObyByZXF1aXJlZCBjbG91ZCBhY2NvdW50KiogfCBQZWVycyBhcmUgY29uZmlndXJlZCBkaXJlY3RseS4gQWRtaXNzaW9uIHVzZXMgVE9GVSBvciBhbiBleHBsaWNpdCBhbGxvd2xpc3Q7IGlkZW50aXRpZXMgcmVtYWluIG9uIHlvdXIgbWFjaGluZXMuIHwKfCAqKkZhaWwtY2xvc2VkIHR1bm5lbCBwb2xpY3kqKiB8IExpbnV4IHJvdXRlcywgRE5TLCBJUHY0L0lQdjYgaGFuZGxpbmcsIGFuZCB0aGUga2lsbCBzd2l0Y2ggYXJlIGFwcGxpZWQgYXMgb25lIG93bmVkIHN0YXRlIGFuZCByb2xsZWQgYmFjayBvbiBzaHV0ZG93biBvciBmYWlsdXJlLiB8CnwgKipVc2VyLXNwYWNlIGV4aXQgbm9kZSoqIHwgVENQIGFuZCBVRFAgZWdyZXNzIGNhbiBydW4gd2l0aG91dCBwcml2aWxlZ2VkIHBhY2tldCBmb3J3YXJkaW5nIG9uIHRoZSBleGl0IGhvc3QuIENyZWF0aW5nIGEgbG9jYWwgT1MgdHVubmVsIHN0aWxsIHJlcXVpcmVzIHRoZSBwbGF0Zm9ybSBwZXJtaXNzaW9ucyBleHBlY3RlZCBmb3Igcm91dGUgYW5kIGFkYXB0ZXIgY2hhbmdlcy4gfAp8ICoqQWRhcHRpdmUgdHJhbnNwb3J0KiogfCBQUVRQIGNhbiBwcmVmZXIgVURQLCBmYWxsIGJhY2sgdG8gVENQIGFmdGVyIGJvdW5kZWQgbG9zcy9qaXR0ZXIgdGhyZXNob2xkcywgYW5kIHByb2JlIGJlZm9yZSByZXR1cm5pbmcgdG8gVURQLiB8CnwgKipUcmFmZmljIHNoYXBpbmcgeW91IGNvbnRyb2wqKiB8IE9wdGlvbmFsIGVuY3J5cHRlZCBwYWRkaW5nIGFuZCBib3VuZGVkIHRpbWluZyBzaGFwaW5nIGFyZSBjb25maWd1cmVkIGxvY2FsbHkuIE5vIG1vZGVsIGRvd25sb2FkLCB0ZWxlbWV0cnksIG9yIHBheWxvYWQgaW5zcGVjdGlvbiBpcyBpbnZvbHZlZC4gfAp8ICoqVmVyaWZpZWQgdHJhbnNwb3J0IGVuZ2luZXMqKiB8IFRoZSBHVUkgY2FuIGNoZWNrc3VtLCBleHRyYWN0LCBzdGFydCwgYW5kIHN0b3AgcGlubmVkIHVkcDJyYXcsIFNoYWRvd3NvY2tzLCBWMlJheSwgYW5kIG9iZnM0IGJ1aWxkcyB3aGVyZSBhIG5hdGl2ZSBjYXRhbG9nIGVudHJ5IGV4aXN0cy4gfAp8ICoqU3RyYW5nZU5ldCoqIHwgRXBoZW1lcmFsIHJvb21zIHJ1biBvdmVyIGF1dGhlbnRpY2F0ZWQgUFFWUE4gc2Vzc2lvbnMgd2l0aCBib3VuZGVkIG1lc3NhZ2VzLCByZXBsYXkgcHJvdGVjdGlvbiwgZXhwbGljaXQgcmVjaXBpZW50cywgYW5kIGFuIG9wdGlvbmFsIG1lbW9yeS1vbmx5IHByb29mIGNoYWluLiB8CgojIyBOYXRpdmUgcHJpdmFjeSBjb25zb2xlCgo8ZGl2IGFsaWduPSJjZW50ZXIiPgoKIVtQUVZQTiBQcml2YWN5IENvbnNvbGVdKGRvY3MvYXNzZXRzL3BxdnBuLWNvbnNvbGUucG5nKQoKPC9kaXY+CgpUaGUgUXQgNiBkZXNrdG9wIGFwcCB0dXJucyBjb25maWd1cmF0aW9uIGludG8gYSBzaG9ydCwgdmlzaWJsZSBmbG93OgoKMS4gQ2hvb3NlIGFuZCB2YWxpZGF0ZSBhIHByb2ZpbGUuCjIuIEluc3BlY3QgdGhlIGV4YWN0IGJvb3RzdHJhcCwgZXhpdCwgdHVubmVsLCBETlMsIGFuZCBwZWVyIHBvbGljeS4KMy4gQ29ubmVjdCBvbmx5IGFmdGVyIHZhbGlkYXRpb24gc3VjY2VlZHMuCjQuIFdhdGNoIGF1dGhlbnRpY2F0ZWQgc2Vzc2lvbiBhbmQgdHVubmVsLXJlYWR5IGV2ZW50cy4KNS4gRGlzY29ubmVjdCBhbmQgcmVzdG9yZSB0aGUgbmV0d29yayBzdGF0ZSBvd25lZCBieSBQUVZQTi4KClRoZSAqKlRyYW5zcG9ydHMqKiBwYWdlIGV4cG9zZXMgYWRhcHRpdmUgVURQL1RDUCBwb2xpY3ksIHRyYWZmaWMtc2hhcGluZwpjb250cm9scywgZW5naW5lIGNvbmZpZ3VyYXRpb24sIHZlcmlmaWVkIGluc3RhbGxhdGlvbiwgbGl2ZSBzdGFydC9zdG9wIHN0YXRlLAphbmQgYWN0aW9uYWJsZSBlcnJvcnMuIFRoZSBVSSBuZXZlciB0cmVhdHMgYSBkb3dubG9hZGVkIGVuZ2luZSBvciBhbiBvcGVuCnNvY2tldCBhcyBwcm9vZiB0aGF0IHRoZSBWUE4gaXMgY29ubmVjdGVkLgoKIVtQUVZQTiB0cmFuc3BvcnQgY29udHJvbHNdKGRvY3MvYXNzZXRzL3BxdnBuLWNvbnNvbGUtdHJhbnNwb3J0cy5wbmcpCgojIyBUcnkgaXQKCiMjIyBJbnN0YWxsIGEgcHJlcmVsZWFzZQoKT3BlbiBbR2l0SHViIFJlbGVhc2VzXShodHRwczovL2dpdGh1Yi5jb20vdGFkYWthOS9QUVZQTi9yZWxlYXNlcykgYW5kIGNob29zZSB0aGUKcGFja2FnZSBmb3IgeW91ciBwbGF0Zm9ybS4gRWFjaCBwcm90ZWN0ZWQgcHJlcmVsZWFzZSBpcyBhc3NlbWJsZWQgZnJvbSBhCnN1Y2Nlc3NmdWwgZml2ZS10YXJnZXQgQ0kgcnVuIGFuZCBpbmNsdWRlcyBgU0hBMjU2U1VNU2AgcGx1cyBidWlsZCBtZXRhZGF0YS4KCk9uIFVidW50dSwgRGViaWFuLCBhbmQgY29tcGF0aWJsZSBkaXN0cmlidXRpb25zOgoKYGBgYmFzaApzdWRvIGFwdCBpbnN0YWxsIC4vcHF2cG5fKl9hbWQ2NC5kZWIKYGBgCgpUaGUgcGFja2FnZSBpbnN0YWxscyBgcHF2cG5fbW9uaXRvcmAsIGBwcXZwbl90dWlgLCBhbmQgYHBxdnBuX25vZGVgLiBJdCBkb2VzCm5vdCBzaWxlbnRseSBzdGFydCBhIHNlcnZpY2Ugb3IgY29ubmVjdCB0byBhIG5ldHdvcmsuCgojIyMgQnVpbGQgZnJvbSBzb3VyY2UKClRoZSBleGFjdCB1cHN0cmVhbSBkZXBlbmRlbmN5IHZlcnNpb25zIGFyZSBwaW5uZWQgaW4KW2AuZ2l0aHViL2RlcGVuZGVuY2llcy5lbnZgXSguZ2l0aHViL2RlcGVuZGVuY2llcy5lbnYpLiBBIHJlbGVhc2UgYnVpbGQgbmVlZHMKQ01ha2UgMy4yOCssIE5pbmphLCBhIEMrKzIzIGNvbXBpbGVyLCBPcGVuU1NMLCBBcmdvbjIsIGxpYm9xcywgYW5kIFF0IDYgZm9yIHRoZQpkZXNrdG9wIGFwcC4KCmBgYGJhc2gKZ2l0IGNsb25lIGh0dHBzOi8vZ2l0aHViLmNvbS90YWRha2E5L1BRVlBOLmdpdApjZCBQUVZQTgoKY21ha2UgLVMgLiAtQiBidWlsZCAtRyBOaW5qYSBcCiAgLURDTUFLRV9CVUlMRF9UWVBFPVJlbGVhc2UgXAogIC1EUFFWUE5fQlVJTERfTU9OSVRPUj1PTgpjbWFrZSAtLWJ1aWxkIGJ1aWxkIC0tdGFyZ2V0IHBxdnBuX25vZGUgcHF2cG5fdHVpIHBxdnBuX21vbml0b3IKYGBgCgpWYWxpZGF0ZSBiZWZvcmUgY29ubmVjdGluZzoKCmBgYGJhc2gKLi9idWlsZC9wcXZwbl9ub2RlIC0tdmFsaWRhdGUtY29uZmlnIC0tY29uZmlnIGNvbmZpZy5qc29uCi4vYnVpbGQvcHF2cG5fbm9kZSAtLXBsYXRmb3JtLWluZm8KLi9idWlsZC9wcXZwbl9tb25pdG9yCmBgYAoKIyMgQSBtaW5pbWFsIHBhdGgKCmBgYHRleHQKeW91ciBkZXZpY2UgICAgICAgICAgICAgICAgICBib290c3RyYXAgLyByZWxheSAgICAgICAgICAgICAgICAgZXhpdCBub2RlCuKUjOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUkCAgaHlicmlkICAgICDilIzilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilJAgIGF1dGhlbnRpY2F0ZWQg4pSM4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSQCuKUgiBwcXZwbjAgKyBETlMg4pSC4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pa64pSCIHBlZXIgeW91IGNob3NlIOKUguKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKWuuKUgiB1c2VyLXNwYWNlICAg4pSCCuKUgiBraWxsIHN3aXRjaCAg4pSC4peE4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pWQ4pSCIG9wdGlvbmFsIGhvcCAgIOKUguKXhOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKVkOKUgiBlZ3Jlc3MgICAgICAg4pSCCuKUlOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUmCAgc2Vzc2lvbiAgICAg4pSU4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSYICBQUVZQTiBmcmFtZXMgIOKUlOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUmApgYGAKClRoZSByZXBvc2l0b3J5IHNoaXBzIHJldmlld2VkIGV4YW1wbGUgcHJvZmlsZXMuIEEgcHJvZmlsZSBzZWxlY3RzIGJvb3RzdHJhcApwZWVycywgYW4gb3B0aW9uYWwgZXhpdCwgc2VjdXJpdHkgcG9saWN5LCB0dW5uZWwgc2V0dGluZ3MsIGFkYXB0aXZlIHRyYW5zcG9ydCwKYW5kIHNoYXBpbmcgbGltaXRzLiBQcml2YXRlIGlkZW50aXR5IG1hdGVyaWFsIGlzIG5ldmVyIGVtYmVkZGVkIGluIHJlbGVhc2UKYXJ0aWZhY3RzLgoKYGBganNvbgp7CiAgImJvb3RzdHJhcCI6IFsKICAgIHsgImhvc3QiOiAiWU9VUl9CT09UU1RSQVAiLCAicG9ydCI6IDkwOTAgfQogIF0sCiAgInR1bm5lbCI6IHsKICAgICJpbnRlcmZhY2VfbmFtZSI6ICJwcXZwbjAiLAogICAgImV4aXRfaG9zdCI6ICJZT1VSX0VYSVQiLAogICAgImV4aXRfcG9ydCI6IDkwOTAKICB9LAogICJhZGFwdGl2ZV90cmFuc3BvcnQiOiB7CiAgICAiZW5hYmxlZCI6IHRydWUsCiAgICAibW9kZSI6ICJhdXRvIgogIH0sCiAgInRyYWZmaWNfc2hhcGluZyI6IHsKICAgICJlbmFibGVkIjogZmFsc2UsCiAgICAibWF4X3BhZGRpbmdfYnl0ZXMiOiAxMDI0LAogICAgIm1heF9kZWxheV9tcyI6IDIwCiAgfQp9CmBgYAoKU2VlIFtjb25maWd1cmF0aW9uIGFuZCBleHRlcm5hbCB0cmFuc3BvcnRzXShkb2NzL2V4dGVybmFsLXRyYW5zcG9ydHMubWQpLApbbWFpbm5ldCBvcGVyYXRpb25zXShkb2NzL21haW5uZXQtb3BlcmF0aW9ucy5tZCksIGFuZCB0aGUKW3VwZGF0ZSB0cnVzdCBtb2RlbF0oZG9jcy91cGRhdGUtc3lzdGVtLm1kKSBiZWZvcmUgZGVwbG95aW5nIGEgcmVhbCBwYXRoLgoKIyMgU2VjdXJpdHkgbW9kZWwgaW4gb25lIG1pbnV0ZQoKYGBgbWVybWFpZApmbG93Y2hhcnQgTFIKICAgIEFbQ29uZmlndXJlZCBwZWVyXSAtLT4gQltIeWJyaWQgYXV0aGVudGljYXRlZCBoYW5kc2hha2VdCiAgICBCIC0tPiBDW1gyNTUxOSArIE1MLUtFTS0xMDI0XQogICAgQiAtLT4gRFtFZDI1NTE5ICsgTUwtRFNBLTg3XQogICAgQyAtLT4gRVtIS0RGLVNIQTMtNTEyIHNlc3Npb24ga2V5c10KICAgIEQgLS0+IEUKICAgIEUgLS0+IEZbQXV0aGVudGljYXRlZCBkYXRhIC8gcmVsYXkgZnJhbWVzXQogICAgRiAtLT4gR1tTZWxlY3RlZCByZWxheSBvciBleGl0XQogICAgWFtNYWxmb3JtZWQgwrcgcmVwbGF5ZWQgwrcgcGFydGlhbCBhdXRoXSAtLiByZWplY3QgLi0+IFJbRmFpbCBjbG9zZWRdCmBgYAoKLSBCb3RoIGNsYXNzaWNhbCBhbmQgcG9zdC1xdWFudHVtIGF1dGhlbnRpY2F0aW9uIGNvbXBvbmVudHMgbXVzdCB2ZXJpZnkuCi0gU2Vzc2lvbiBrZXlzIGFuZCBkaXJlY3Rpb25zIGFyZSBzZXBhcmF0ZWQgYnkgSEtERi1TSEEzLTUxMi4KLSBSZXBsYXkgZG9tYWlucyBhcmUgYm91bmRlZCBhbmQgaW5kZXBlbmRlbnQuCi0gUGFyc2VycyBlbmZvcmNlIHNpemUgbGltaXRzIGJlZm9yZSBhbGxvY2F0aW9uIG9yIHN0YXRlIGNoYW5nZXMuCi0gVHVubmVsIHNldHVwIGlzIHRyYW5zYWN0aW9uYWw7IG93bmVkIHJvdXRlcywgRE5TLCBhbmQgZmlyZXdhbGwgcnVsZXMgYXJlCiAgcmVtb3ZlZCBkdXJpbmcgcm9sbGJhY2suCi0gRW5naW5lIGRvd25sb2FkcyBhcmUgcGlubmVkIGJ5IFNIQS0yNTYgYW5kIGV4dHJhY3RlZCB0byBwcml2YXRlIHVzZXIgZGF0YS4KCk1vcmUgZGV0YWlsIGxpdmVzIGluIHRoZSBbcmVsZWFzZS1yZWFkaW5lc3MgYXVkaXRdKGRvY3MvcmVsZWFzZS1yZWFkaW5lc3MtYXVkaXQubWQpCmFuZCBbbmF0aXZlIHF1YWxpZmljYXRpb24gY29udHJhY3RdKGRvY3MvbmF0aXZlLXF1YWxpZmljYXRpb24tY29udHJhY3QubWQpLgoKIyMgUGxhdGZvcm1zIGFuZCByZWxlYXNlcwoKUHJvdGVjdGVkIENJIGJ1aWxkcyBhbmQgZXhlcmNpc2VzIGZpdmUgbmF0aXZlIHRhcmdldHM6CgotIExpbnV4IHg4Nl82NAotIExpbnV4IEFSTTY0Ci0gV2luZG93cyB4ODZfNjQKLSBtYWNPUyB4ODZfNjQKLSBtYWNPUyBBUk02NAoKVGhlIG1hdHJpeCBjb21waWxlcyB0aGUgbm9kZSwgVFVJLCBhbmQgR1VJOyByZW5kZXJzIGV2ZXJ5IEdVSSBwYWdlIGluIGxpZ2h0LApkYXJrLCBhbmQgY29tcGFjdCBsYXlvdXRzOyB0ZXN0cyBzY3JvbGwvbmF2aWdhdGlvbiBiZWhhdmlvcjsgdmFsaWRhdGVzIHBpbm5lZAp0cmFuc3BvcnQgZG93bmxvYWRzIG9uIG5hdGl2ZSBydW5uZXJzOyBhbmQgcnVucyBwYWNrYWdlIGxpZmVjeWNsZSBnYXRlcy4KCkRldmVsb3BtZW50IGhhcHBlbnMgb24gW2BmdXR1cmVgXShodHRwczovL2dpdGh1Yi5jb20vdGFkYWthOS9QUVZQTi90cmVlL2Z1dHVyZSkuClZlcmlmaWVkIHdvcmsgaXMgcHJvbW90ZWQgdG8gYG1haW5gIHVuZGVyIHRoZQpbYnJhbmNoIHBvbGljeV0oZG9jcy9icmFuY2gtcG9saWN5Lm1kKS4gVGFncyBhcmUgaW1tdXRhYmxlOyByZWxlYXNlcyBhcmUKcHVibGlzaGVkIG9ubHkgZnJvbSBzdWNjZXNzZnVsIGV4YWN0LXRhZyBDSSBhcnRpZmFjdHMuCgojIyBTZWN1cml0eSBhbmQgcHJvamVjdCBzdGF0dXMKClBRVlBOIGlzIGFuIGFtYml0aW91cyBleHBlcmltZW50YWwgcHJvamVjdCwgbm90IHlldCBpbmRlcGVuZGVudGx5IGF1ZGl0ZWQuClRoZSBjcnlwdG9ncmFwaGljIGJ1aWxkaW5nIGJsb2NrcyBhcmUgZXN0YWJsaXNoZWQgYWxnb3JpdGhtcywgYnV0IHRoZSBwcm90b2NvbApjb21wb3NpdGlvbiBhbmQgaW1wbGVtZW50YXRpb24gc3RpbGwgcmVxdWlyZSBicm9hZGVyIHJldmlldyBhbmQgcmVhbC13b3JsZAppbnRlcm9wZXJhYmlsaXR5IHRlc3RpbmcuCgpVc2UgaXQgZm9yIHRlc3RpbmcsIGxlYXJuaW5nLCBhbmQgY29udHJvbGxlZCBuZXR3b3Jrcy4gRG8gbm90IHRyZWF0IGl0IGFzIHlvdXIKb25seSBzYWZldHkgbGF5ZXIgaW4gYSBoaWdoLXJpc2sgZW52aXJvbm1lbnQuIEVuZHBvaW50IGNvbXByb21pc2UsIHRyYWZmaWMKYW5hbHlzaXMsIG1hbGljaW91cyBleGl0cywgYnJvd3NlciBpZGVudGl0eSwgYWNjb3VudCBjb3JyZWxhdGlvbiwgYW5kIHNlcnZpY2UKcHJvdmlkZXIgYmxvY2tpbmcgcmVtYWluIG91dHNpZGUgd2hhdCBhIFZQTiBhbG9uZSBjYW4gc29sdmUuCgpQbGVhc2UgcmVwb3J0IHZ1bG5lcmFiaWxpdGllcyBwcml2YXRlbHkgdXNpbmcgdGhlIGluc3RydWN0aW9ucyBpbgpbU0VDVVJJVFkubWRdKFNFQ1VSSVRZLm1kKS4KCiMjIEhlbHAgYnVpbGQgdGhlIG5ldHdvcmsKClVzZWZ1bCBjb250cmlidXRpb25zIGluY2x1ZGUgcHJvdG9jb2wgcmV2aWV3LCBob3N0aWxlLW5ldHdvcmsgdGVzdGluZywKcGFja2FnaW5nLCBhY2Nlc3NpYmlsaXR5LCBuYXRpdmUgZHJpdmVyIHdvcmssIHJlcHJvZHVjaWJsZSBiZW5jaG1hcmtzLCBhbmQKZG9jdW1lbnRhdGlvbiB0aGF0IHR1cm5zIGEgZmFpbHVyZSBpbnRvIGEgY2xlYXIgbmV4dCBhY3Rpb24uCgoxLiBSZWFkIFtDT05UUklCVVRJTkcubWRdKENPTlRSSUJVVElORy5tZCkuCjIuIFN0YXJ0IGZyb20gdGhlIGBmdXR1cmVgIGJyYW5jaC4KMy4gS2VlcCBjbGFpbXMgdGllZCB0byBhIHRlc3Qgb3Igb2JzZXJ2YWJsZSBydW50aW1lIHN0YXRlLgo0LiBTdWJtaXQgZm9jdXNlZCBjaGFuZ2VzIHdpdGggdGhlIHJlbGV2YW50IHJlZ3Jlc3Npb24gY292ZXJhZ2UuCgpJZiB0aGUgaWRlYSByZXNvbmF0ZXMsIHN0YXIgdGhlIHJlcG9zaXRvcnksIHRlc3QgYSBwcmVyZWxlYXNlLCBhbmQgc2hhcmUgdGhlCmZhaWx1cmUgbG9ncyB0aGF0IGhlbHAgbWFrZSB0aGUgbmV4dCBidWlsZCBzdHJvbmdlci4KCi0tLQoKPGRpdiBhbGlnbj0iY2VudGVyIj4KCkNyZWF0ZWQgYW5kIG1haW50YWluZWQgYnkgW3RhZGFrYTldKGh0dHBzOi8vZ2l0aHViLmNvbS90YWRha2E5KSDCtyBNSVQgbGljZW5zZWQKCioqT3duIHRoZSBub2Rlcy4gT3duIHRoZSBrZXlzLiBWZXJpZnkgdGhlIHBhdGguKioKCjwvZGl2Pgo=
+<div align="center">
+
+![PQVPN — post-quantum privacy with a native C++23 console](assets/brand/readme-hero.svg)
+
+# PQVPN
+
+### Build a private path. Keep control of every key.
+
+**An experimental, open-source VPN and peer network with hybrid post-quantum
+handshakes, fail-closed routing, a native desktop app, and no required account
+or hosted control plane.**
+
+[![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
+[![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
+[![Platforms](https://img.shields.io/badge/Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-native-9b5cff?style=for-the-badge)](#platforms-and-releases)
+[![Status](https://img.shields.io/badge/status-experimental-ff506f?style=for-the-badge)](#security-and-project-status)
+
+[Download a verified prerelease](https://github.com/tadaka9/PQVPN/releases) ·
+[Project site](https://tadaka9.github.io/PQVPN/) ·
+[Mainnet peers](https://tadaka9.github.io/PQVPN/mainnet/peers.json) ·
+[Roadmap](ROADMAP.md)
+
+</div>
+
+---
+
+## Privacy without surrendering the network
+
+Most VPNs move trust from an ISP to a VPN operator. PQVPN is for people who
+want another option: run the nodes, choose the peers, own the identities, and
+inspect the code that protects the path.
+
+PQVPN combines classical and post-quantum algorithms in every authenticated
+session. It can operate as a direct peer link, a relay network, or a full
+Linux tunnel through an exit node. The same C++23 core powers the desktop GUI,
+terminal console, and automation-friendly CLI.
+
+### Designed for practical anonymity
+
+PQVPN is designed to hide the origin IP from destination services and reduce
+linkability across the path: bootstrap, relay, and exit roles can be separated;
+DNS follows the protected tunnel; IPv4 and IPv6 fail closed; multi-hop routes
+limit what one intermediary can observe; and optional shaping changes simple
+size/timing patterns. The intended anonymity set grows when independently
+operated peers share relays and exits instead of every user running a unique,
+identifiable route.
+
+That protection is conditional. It requires a healthy tunnel and kill switch,
+an exit that does not collude with the observer, enough concurrent users to
+avoid a one-person anonymity set, and application hygiene: no personal login,
+stable browser fingerprint, identifying cookie, or document metadata. The GUI
+reports network protection; it cannot certify user behavior or promise
+mathematical anonymity against a global passive adversary.
+
+> PQVPN is experimental security software. It is not a promise of anonymity,
+> an audited replacement for a mature VPN, or a way to make an untrusted exit
+> trustworthy. Read [Security and project status](#security-and-project-status)
+> before relying on it.
+
+## What makes PQVPN different
+
+| Capability | What it means |
+|---|---|
+| **Hybrid post-quantum sessions** | X25519 + ML-KEM-1024 establish key material; Ed25519 + ML-DSA-87 authenticate the same SHA3-512 transcript. Both halves are required. |
+| **No required cloud account** | Peers are configured directly. Admission uses TOFU or an explicit allowlist; identities remain on your machines. |
+| **Fail-closed tunnel policy** | Linux routes, DNS, IPv4/IPv6 handling, and the kill switch are applied as one owned state and rolled back on shutdown or failure. |
+| **User-space exit node** | TCP and UDP egress can run without privileged packet forwarding on the exit host. Creating a local OS tunnel still requires the platform permissions expected for route and adapter changes. |
+| **Adaptive transport** | PQTP can prefer UDP, fall back to TCP after bounded loss/jitter thresholds, and probe before returning to UDP. |
+| **Traffic shaping you control** | Optional encrypted padding and bounded timing shaping are configured locally. No model download, telemetry, or payload inspection is involved. |
+| **Verified transport engines** | The GUI can checksum, extract, start, and stop pinned udp2raw, Shadowsocks, V2Ray, and obfs4 builds where a native catalog entry exists. |
+| **StrangeNet** | Ephemeral rooms run over authenticated PQVPN sessions with bounded messages, replay protection, explicit recipients, and an optional memory-only proof chain. |
+
+## Native privacy console
+
+<div align="center">
+
+![PQVPN Privacy Console](docs/assets/pqvpn-console.png)
+
+</div>
+
+The Qt 6 desktop app turns configuration into a short, visible flow:
+
+1. Choose and validate a profile.
+2. Inspect the exact bootstrap, exit, tunnel, DNS, and peer policy.
+3. Connect only after validation succeeds.
+4. Watch authenticated session and tunnel-ready events.
+5. Disconnect and restore the network state owned by PQVPN.
+
+The **Transports** page exposes adaptive UDP/TCP policy, traffic-shaping
+controls, engine configuration, verified installation, live start/stop state,
+and actionable errors. The UI never treats a downloaded engine or an open
+socket as proof that the VPN is connected.
+
+![PQVPN transport controls](docs/assets/pqvpn-console-transports.png)
+
+## Try it
+
+### Install a prerelease
+
+Open [GitHub Releases](https://github.com/tadaka9/PQVPN/releases) and choose the
+package for your platform. Each protected prerelease is assembled from a
+successful five-target CI run and includes `SHA256SUMS` plus build metadata.
+
+On Ubuntu, Debian, and compatible distributions:
+
+```bash
+sudo apt install ./pqvpn_*_amd64.deb
+```
+
+The package installs `pqvpn_monitor`, `pqvpn_tui`, and `pqvpn_node`. It does
+not silently start a service or connect to a network.
+
+### Build from source
+
+The exact upstream dependency versions are pinned in
+[`.github/dependencies.env`](.github/dependencies.env). A release build needs
+CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, liboqs, and Qt 6 for the
+desktop app.
+
+```bash
+git clone https://github.com/tadaka9/PQVPN.git
+cd PQVPN
+
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DPQVPN_BUILD_MONITOR=ON
+cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor
+```
+
+Validate before connecting:
+
+```bash
+./build/pqvpn_node --validate-config --config config.json
+./build/pqvpn_node --platform-info
+./build/pqvpn_monitor
+```
+
+## A minimal path
+
+```text
+your device                  bootstrap / relay                 exit node
+┌──────────────┐  hybrid     ┌────────────────┐  authenticated ┌──────────────┐
+│ pqvpn0 + DNS │════════════►│ peer you chose │═══════════════►│ user-space   │
+│ kill switch  │◄════════════│ optional hop   │◄═══════════════│ egress       │
+└──────────────┘  session     └────────────────┘  PQVPN frames  └──────────────┘
+```
+
+The repository ships reviewed example profiles. A profile selects bootstrap
+peers, an optional exit, security policy, tunnel settings, adaptive transport,
+and shaping limits. Private identity material is never embedded in release
+artifacts.
+
+```json
+{
+  "bootstrap": [
+    { "host": "YOUR_BOOTSTRAP", "port": 9090 }
+  ],
+  "tunnel": {
+    "interface_name": "pqvpn0",
+    "exit_host": "YOUR_EXIT",
+    "exit_port": 9090
+  },
+  "adaptive_transport": {
+    "enabled": true,
+    "mode": "auto"
+  },
+  "traffic_shaping": {
+    "enabled": false,
+    "max_padding_bytes": 1024,
+    "max_delay_ms": 20
+  }
+}
+```
+
+See [configuration and external transports](docs/external-transports.md),
+[mainnet operations](docs/mainnet-operations.md), and the
+[update trust model](docs/update-system.md) before deploying a real path.
+
+## Security model in one minute
+
+```mermaid
+flowchart LR
+    A[Configured peer] --> B[Hybrid authenticated handshake]
+    B --> C[X25519 + ML-KEM-1024]
+    B --> D[Ed25519 + ML-DSA-87]
+    C --> E[HKDF-SHA3-512 session keys]
+    D --> E
+    E --> F[Authenticated data / relay frames]
+    F --> G[Selected relay or exit]
+    X[Malformed · replayed · partial auth] -. reject .-> R[Fail closed]
+```
+
+- Both classical and post-quantum authentication components must verify.
+- Session keys and directions are separated by HKDF-SHA3-512.
+- Replay domains are bounded and independent.
+- Parsers enforce size limits before allocation or state changes.
+- Tunnel setup is transactional; owned routes, DNS, and firewall rules are
+  removed during rollback.
+- Engine downloads are pinned by SHA-256 and extracted to private user data.
+
+More detail lives in the [release-readiness audit](docs/release-readiness-audit.md)
+and [native qualification contract](docs/native-qualification-contract.md).
+
+## Platforms and releases
+
+Protected CI builds and exercises five native targets:
+
+- Linux x86_64
+- Linux ARM64
+- Windows x86_64
+- macOS x86_64
+- macOS ARM64
+
+The matrix compiles the node, TUI, and GUI; renders every GUI page in light,
+dark, and compact layouts; tests scroll/navigation behavior; validates pinned
+transport downloads on native runners; and runs package lifecycle gates.
+
+Development happens on [`future`](https://github.com/tadaka9/PQVPN/tree/future).
+Verified work is promoted to `main` under the
+[branch policy](docs/branch-policy.md). Tags are immutable; releases are
+published only from successful exact-tag CI artifacts.
+
+## Security and project status
+
+PQVPN is an ambitious experimental project, not yet independently audited.
+The cryptographic building blocks are established algorithms, but the protocol
+composition and implementation still require broader review and real-world
+interoperability testing.
+
+Use it for testing, learning, and controlled networks. Do not treat it as your
+only safety layer in a high-risk environment. Endpoint compromise, traffic
+analysis, malicious exits, browser identity, account correlation, and service
+provider blocking remain outside what a VPN alone can solve.
+
+Please report vulnerabilities privately using the instructions in
+[SECURITY.md](SECURITY.md).
+
+## Help build the network
+
+Useful contributions include protocol review, hostile-network testing,
+packaging, accessibility, native driver work, reproducible benchmarks, and
+documentation that turns a failure into a clear next action.
+
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Start from the `future` branch.
+3. Keep claims tied to a test or observable runtime state.
+4. Submit focused changes with the relevant regression coverage.
+
+If the idea resonates, star the repository, test a prerelease, and share the
+failure logs that help make the next build stronger.
+
+---
+
+<div align="center">
+
+Created and maintained by [tadaka9](https://github.com/tadaka9) · MIT licensed
+
+**Own the nodes. Own the keys. Verify the path.**
+
+</div>
