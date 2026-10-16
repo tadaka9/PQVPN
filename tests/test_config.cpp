@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../src/modules/config_module.hpp"
+#include <algorithm>
 #include <fstream>
 #include <cstdio>
 #include <filesystem>
@@ -142,4 +143,28 @@ TEST_CASE("Normalized configuration preserves an external backend without interf
         CHECK(restored.tunnel.plugin==backend);
         CHECK(restored.tunnel.config_path==original.tunnel.config_path);
     }
+}
+
+TEST_CASE("Shipped config is the editable experimental mainnet profile", "[config][mainnet]") {
+    const auto source_root=std::filesystem::path(__FILE__).parent_path().parent_path();
+    const auto config_path=source_root/"config.json";
+    const auto registry_path=source_root/"site/mainnet/peers.json";
+    const auto profile=pqvpn::config::load_config(config_path.string());
+    REQUIRE(profile.has_value());
+    CHECK(profile->security.strict_sig_verify);
+    CHECK(profile->security.tofu);
+    CHECK(profile->security.known_peers_file=="known_peers.json");
+    REQUIRE_FALSE(profile->bootstrap.empty());
+
+    std::ifstream registry_file(registry_path);
+    REQUIRE(registry_file.good());
+    const auto registry=nlohmann::json::parse(registry_file);
+    CHECK(registry.at("network")=="pqvpn-mainnet-alpha");
+    const auto endpoint=profile->bootstrap.front().host+":"+std::to_string(profile->bootstrap.front().port);
+    const auto& peers=registry.at("peers");
+    const auto published=std::find_if(peers.begin(),peers.end(),[&](const auto& peer){
+        return peer.value("endpoint",std::string{})==endpoint &&
+               std::find(peer.at("roles").begin(),peer.at("roles").end(),"bootstrap")!=peer.at("roles").end();
+    });
+    CHECK(published!=peers.end());
 }

@@ -259,6 +259,17 @@ public:
     }
 };
 
+class StableScrollArea final : public QScrollArea {
+protected:
+    void scrollContentsBy(int dx,int dy) override {
+        QScrollArea::scrollContentsBy(dx,dy);
+        // The pages are translucent over an animated background.  QScrollArea's
+        // pixel-copy optimization can otherwise leave pixels from the previous
+        // position in the viewport on some native Qt backends.
+        viewport()->update();
+    }
+};
+
 class Window final : public QMainWindow {
     Q_OBJECT
 public:
@@ -344,6 +355,30 @@ public:
         if(scroll->horizontalScrollBar()->maximum()>2)return fail(QString("PQVPN visual check: page has horizontal overflow: %1 px").arg(scroll->horizontalScrollBar()->maximum()));
         return true;
     }
+    bool verifyScrollNavigation() {
+        if(!pageScroll_)return false;
+        setMotion(false);
+        for(int index=0;index<pages_->count();++index){
+            pages_->setCurrentIndex(index);
+            QApplication::processEvents();
+            const int maximum=pageScroll_->verticalScrollBar()->maximum();
+            if(maximum>0)pageScroll_->verticalScrollBar()->setValue(maximum);
+            QApplication::processEvents();
+            const int next=(index+1)%pages_->count();
+            pageButtons_.value(next)->click();
+            QApplication::processEvents();
+            if(pages_->currentIndex()!=next||pageScroll_->verticalScrollBar()->value()!=0){
+                qCritical()<<"PQVPN interaction check: navigation failed after scrolling"<<index<<next;
+                return false;
+            }
+            const QImage frame=pageScroll_->viewport()->grab().toImage();
+            if(frame.isNull()){
+                qCritical()<<"PQVPN interaction check: scroll viewport did not render";
+                return false;
+            }
+        }
+        return true;
+    }
     void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
 protected:
     void closeEvent(QCloseEvent* event) override {
@@ -369,7 +404,7 @@ private:
     QProcess process_;
     pqvpn::console::EngineManager* engines_=nullptr;
     pqvpn::console::ReleaseUpdater* updater_=nullptr;
-    QStackedWidget* pages_=nullptr; QWidget* sidebar_=nullptr; QWidget* brandWords_=nullptr;
+    QStackedWidget* pages_=nullptr; QScrollArea* pageScroll_=nullptr; QWidget* sidebar_=nullptr; QWidget* brandWords_=nullptr;
     Aurora* aurora_=nullptr; StatusOrb* orb_=nullptr; QPropertyAnimation *auroraAnimation_=nullptr,*pulseAnimation_=nullptr;
     QHash<int,QPushButton*> pageButtons_; QList<QPushButton*> navButtons_;
     QLineEdit *configPath_=nullptr,*executablePath_=nullptr; QComboBox *logLevel_=nullptr,*adaptiveMode_=nullptr; QCheckBox* noTunnel_=nullptr;
@@ -442,7 +477,7 @@ private:
     void buildUi() {
         auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
         auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new ResponsiveStack; pages_->setAttribute(Qt::WA_TranslucentBackground);pages_->setAutoFillBackground(false);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);}auto* pageScroll=new QScrollArea;pageScroll->setObjectName("pageScroll");pageScroll->setFrameShape(QFrame::NoFrame);pageScroll->setWidgetResizable(true);pageScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll->setAttribute(Qt::WA_TranslucentBackground);pageScroll->setAutoFillBackground(false);pageScroll->viewport()->setAttribute(Qt::WA_TranslucentBackground);pageScroll->viewport()->setAutoFillBackground(false);pageScroll->setWidget(pages_);row->addWidget(pageScroll,1);
+        pages_=new ResponsiveStack; pages_->setAttribute(Qt::WA_TranslucentBackground);pages_->setAutoFillBackground(false);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred); pages_->addWidget(buildOverview()); pages_->addWidget(buildConnection()); pages_->addWidget(buildTransports()); pages_->addWidget(buildStrangeNet()); pages_->addWidget(buildActivity()); pages_->addWidget(buildPrivacy()); pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAttribute(Qt::WA_TranslucentBackground);pageScroll_->setAutoFillBackground(false);pageScroll_->viewport()->setAttribute(Qt::WA_TranslucentBackground);pageScroll_->viewport()->setAutoFillBackground(false);pageScroll_->setWidget(pages_);row->addWidget(pageScroll_,1);
         stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
     }
     void buildSidebar(QHBoxLayout* shell) {
@@ -755,8 +790,8 @@ private:
     void requestStop(){if(process_.state()==QProcess::NotRunning)return;stopping_=true;refreshConnectionPresentation();statusText_->setText("Disconnecting cleanly…");log("Disconnect requested");process_.write("{\"command\":\"node.shutdown\"}\n");process_.closeWriteChannel();QTimer::singleShot(5000,this,[this]{if(process_.state()!=QProcess::NotRunning){log("Clean shutdown timed out; process termination escalated");process_.kill();}});}
     void quitApplication(){quitting_=true;if(process_.state()!=QProcess::NotRunning){pendingQuit_=true;requestStop();}else{savePreferences();qApp->quit();}}
     void restoreFromTray(){showNormal();raise();activateWindow();}
-    void fadeWidget(QWidget* widget,int duration=240){if(!widget||!reduceMotion_||reduceMotion_->isChecked())return;auto* effect=new QGraphicsOpacityEffect(widget);widget->setGraphicsEffect(effect);auto* animation=new QPropertyAnimation(effect,"opacity",effect);animation->setDuration(duration);animation->setStartValue(0.18);animation->setEndValue(1.0);animation->setEasingCurve(QEasingCurve::OutCubic);connect(animation,&QPropertyAnimation::finished,effect,[effect]{effect->setEnabled(false);});animation->start(QAbstractAnimation::DeleteWhenStopped);}
-    void switchPage(int index){if(!pages_||index<0||index>=pages_->count())return;pageButtons_.value(index)->setChecked(true);if(index==StrangeNet&&unreadStrange_){unreadStrange_=0;const QString label="04   StrangeNet";pageButtons_[StrangeNet]->setProperty("fullText",label);if(sidebar_->width()>100)pageButtons_[StrangeNet]->setText(label);}if(pages_->currentIndex()==index)return;pages_->setCurrentIndex(index);fadeWidget(pages_->currentWidget(),260);}
+    void fadeWidget(QWidget* widget,int duration=240){if(!widget||!reduceMotion_||reduceMotion_->isChecked())return;if(widget->graphicsEffect())widget->setGraphicsEffect(nullptr);auto* effect=new QGraphicsOpacityEffect(widget);widget->setGraphicsEffect(effect);auto* animation=new QPropertyAnimation(effect,"opacity",effect);animation->setDuration(duration);animation->setStartValue(0.18);animation->setEndValue(1.0);animation->setEasingCurve(QEasingCurve::OutCubic);connect(animation,&QPropertyAnimation::finished,widget,[widget,effect]{if(widget->graphicsEffect()!=effect)return;effect->setEnabled(false);QTimer::singleShot(0,widget,[widget,effect]{if(widget->graphicsEffect()==effect)widget->setGraphicsEffect(nullptr);});});animation->start(QAbstractAnimation::DeleteWhenStopped);}
+    void switchPage(int index){if(!pages_||index<0||index>=pages_->count())return;pageButtons_.value(index)->setChecked(true);if(index==StrangeNet&&unreadStrange_){unreadStrange_=0;const QString label="04   StrangeNet";pageButtons_[StrangeNet]->setProperty("fullText",label);if(sidebar_->width()>100)pageButtons_[StrangeNet]->setText(label);}const bool changed=pages_->currentIndex()!=index;if(changed)pages_->setCurrentIndex(index);if(pageScroll_)pageScroll_->verticalScrollBar()->setValue(0);if(changed)fadeWidget(pages_->currentWidget(),260);}
     void setMotion(bool enabled){if(!auroraAnimation_){auroraAnimation_=new QPropertyAnimation(aurora_,"phase",this);auroraAnimation_->setStartValue(0.0);auroraAnimation_->setEndValue(6.283185307);auroraAnimation_->setDuration(15000);auroraAnimation_->setLoopCount(-1);pulseAnimation_=new QPropertyAnimation(orb_,"pulse",this);pulseAnimation_->setStartValue(0.0);pulseAnimation_->setEndValue(1.0);pulseAnimation_->setDuration(1700);pulseAnimation_->setEasingCurve(QEasingCurve::InOutSine);pulseAnimation_->setLoopCount(-1);}if(enabled){auroraAnimation_->start();pulseAnimation_->start();}else{auroraAnimation_->stop();pulseAnimation_->stop();aurora_->setPhase(0);orb_->setPulse(0);}}
     void setSidebarCompact(bool compact){QSettings("PQVPN","Privacy Console").setValue("compactSidebar",compact);const int width=compact?82:238;brandWords_->setVisible(!compact);for(int i=0;i<navButtons_.size();++i)navButtons_[i]->setText(compact?QString("%1").arg(i+1,2,10,QChar('0')):navButtons_[i]->property("fullText").toString());sidebar_->setFixedWidth(width);}
     void applyTheme(QString mode){
@@ -790,6 +825,6 @@ int main(int argc,char** argv){QApplication app(argc,argv);QFont uiFont=QFontDat
         if(QFontDatabase::families().contains(name,Qt::CaseInsensitive)&&QFontMetrics(candidate).inFont(QChar('A'))){uiFont=candidate;break;}
     }
 #endif
-    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
+    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
 
 #include "pqvpn_monitor.moc"
