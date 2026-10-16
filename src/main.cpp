@@ -562,6 +562,41 @@ int main(int argc, char** argv) {
     });
 
     auto shutdown = std::make_shared<std::function<void()>>();
+    // Install the shutdown callback before starting the stdin controller.
+    // A fast controller (notably Windows CI) can deliver node.shutdown as soon
+    // as the process starts; publishing the callback later loses that command
+    // and leaves the runtime alive indefinitely.
+    *shutdown = [&] {
+#ifdef _WIN32
+        if (adapter_active) {
+            // Remove the installed routes before taking the adapter down, in
+            // reverse build order: peer exclusions first, then the default.
+            // Removal is idempotent, so this is safe even on partial installs.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
+            const auto removal = route_plan.remove_all(route_backend);
+            if (!removal.complete) {
+                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
+            }
+        }
+#endif
+#ifdef __linux__
+        if (adapter) adapter->close();
+        if (linux_network_active &&
+            !run_linux_network_manager("down", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
+        }
+        linux_network_active = false;
+#endif
+        node->stop_traffic_shaping();
+        node->transport = nullptr;
+        listener.stop();
+        if (adapter) adapter->close(); // idempotent per OS
+        io.stop();
+    };
     if (!args.strangenet_room.empty() || args.control_stdin) {
         const auto initial_peer = args.strangenet_peer.empty() || args.strangenet_peer == "auto"
             ? std::optional<std::vector<std::uint8_t>>{}
@@ -950,37 +985,6 @@ int main(int argc, char** argv) {
 #endif
 
     asio::signal_set signals(io, SIGINT, SIGTERM);
-    *shutdown = [&] {
-#ifdef _WIN32
-        if (adapter_active) {
-            // Remove the installed routes before taking the adapter down, in
-            // reverse build order: peer exclusions first, then the default.
-            // Removal is idempotent, so this is safe even on partial installs.
-            const auto peer_cleanup = peer_routes.remove_all();
-            if (!peer_cleanup.complete) {
-                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
-            }
-            const auto removal = route_plan.remove_all(route_backend);
-            if (!removal.complete) {
-                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
-            }
-        }
-#endif
-#ifdef __linux__
-        if (adapter) adapter->close();
-        if (linux_network_active &&
-            !run_linux_network_manager("down", config->tunnel.interface_name,
-                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
-            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
-        }
-        linux_network_active = false;
-#endif
-        node->stop_traffic_shaping();
-        node->transport = nullptr;
-        listener.stop();
-        if (adapter) adapter->close(); // idempotent per OS
-        io.stop();
-    };
     signals.async_wait([shutdown](const asio::error_code& error, int) {
         if (!error) (*shutdown)();
     });
