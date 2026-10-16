@@ -76,7 +76,6 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
-      startsWith(github.event.workflow_run.head_branch, 'v') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
     steps:
@@ -90,12 +89,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CI_SHA: ${{ github.event.workflow_run.head_sha }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
-          TAG: ${{ github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
           [[ "$CI_SHA" =~ ^[0-9a-f]{40}$ && "$CI_RUN_ID" =~ ^[0-9]+$ ]]
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
           git fetch origin future --tags
+          version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
+          TAG="v$version"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CI_SHA"
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"

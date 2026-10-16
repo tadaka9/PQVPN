@@ -5,6 +5,6 @@ Comment=Control and inspect the PQVPN node
 Exec=pqvpn_monitor
 Icon=pqvpn
 Terminal=false
-Categories=Network;Security;Utility;
+Categories=Network;
 Keywords=VPN;privacy;network;relay;
 StartupNotify=true
