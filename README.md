@@ -220,6 +220,12 @@ Verified work is promoted to `main` under the
 [branch policy](docs/branch-policy.md). Tags are immutable; releases are
 published only from successful exact-tag CI artifacts.
 
+Release names use an explicit, CI-enforced participation marker: `David1`
+means David contributed requirements, implementation, review, or testing to
+that release; `David0` means he did not. Automation never infers human
+participation merely because an API commit used the repository owner's
+identity.
+
 ## Security and project status
 
 PQVPN is an ambitious experimental project, not yet independently audited.
