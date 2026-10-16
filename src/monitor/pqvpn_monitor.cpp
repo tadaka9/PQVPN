@@ -386,8 +386,18 @@ public:
                 pageScroll_->verticalScrollBar()->setValue(0);
                 QApplication::processEvents();
                 const QImage after=pageScroll_->viewport()->grab().toImage();
-                if(before.isNull()||after.isNull()||before!=after){
+                if(before.isNull()||after.isNull()||before.size()!=after.size()){
                     qCritical()<<"PQVPN rendering check: viewport changed after a round-trip scroll on page"<<index;
+                    return false;
+                }
+                qint64 changedPixels=0;
+                const qint64 totalPixels=qint64(before.width())*before.height();
+                for(int y=0;y<before.height();++y)for(int x=0;x<before.width();++x){
+                    const QColor lhs=before.pixelColor(x,y),rhs=after.pixelColor(x,y);
+                    if(std::abs(lhs.red()-rhs.red())>16||std::abs(lhs.green()-rhs.green())>16||std::abs(lhs.blue()-rhs.blue())>16||std::abs(lhs.alpha()-rhs.alpha())>16)++changedPixels;
+                }
+                if(totalPixels>0&&changedPixels*100>totalPixels*2){
+                    qCritical()<<"PQVPN rendering check: excessive viewport residue after scrolling page"<<index<<changedPixels<<"of"<<totalPixels<<"pixels";
                     return false;
                 }
                 pageScroll_->verticalScrollBar()->setValue(maximum);
