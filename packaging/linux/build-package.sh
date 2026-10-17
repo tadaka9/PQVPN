@@ -40,6 +40,7 @@ mkdir -p \
     "$PKG_ROOT/etc/pqvpn" \
     "$PKG_ROOT/usr/share/pqvpn" \
     "$PKG_ROOT/usr/lib/systemd/system" \
+    "$PKG_ROOT/usr/lib/sysctl.d" \
     "$PKG_ROOT/usr/share/polkit-1/rules.d" \
     "$PKG_ROOT/usr/share/applications" \
     "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps"
@@ -111,6 +112,8 @@ install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
 install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
 install -m 0755 packaging/linux/pqvpn-shield-helper "$PKG_ROOT/usr/lib/pqvpn/pqvpn-shield-helper"
 install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
+install -m 0644 packaging/linux/60-pqvpn-network-performance.conf \
+    "$PKG_ROOT/usr/lib/sysctl.d/60-pqvpn-network-performance.conf"
 
 if [ -f "packaging/linux/pqvpn.service" ]; then
     install -m 0644 packaging/linux/pqvpn.service "$PKG_ROOT/usr/lib/systemd/system/"
@@ -151,6 +154,11 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
 fi
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database --quiet /usr/share/applications || true
+fi
+# Apply PQVPN's socket-buffer ceilings immediately when systemd-sysctl is
+# available. This changes maxima only; unrelated sockets keep their defaults.
+if command -v systemd-sysctl >/dev/null 2>&1; then
+    systemd-sysctl --prefix=/net/core/rmem_max --prefix=/net/core/wmem_max || true
 fi
 exit 0
 EOF
