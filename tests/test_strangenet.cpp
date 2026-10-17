@@ -1,8 +1,30 @@
 #include <catch2/catch_test_macros.hpp>
 #include "strangenet.hpp"
 #include "node_module.hpp"
+#include "woockie.hpp"
 
 using namespace pqvpn::strangenet;
+
+TEST_CASE("Woockie combines a canonical peer identity with a safe resource path", "[woockie]") {
+    const std::string peer(64, 'A');
+    const auto address = pqvpn::woockie::parse(
+        "woockie://" + peer + "/strangenet/mainnet/friends/poetry");
+    REQUIRE(address.has_value());
+    CHECK(address->peer_id == std::string(64, 'a'));
+    CHECK(address->service == "strangenet");
+    CHECK(address->resource == "mainnet/friends/poetry");
+    CHECK(pqvpn::woockie::canonical(*address) ==
+        "woockie://" + std::string(64, 'a') + "/strangenet/mainnet/friends/poetry");
+}
+
+TEST_CASE("Woockie rejects web ambiguity and unregistered capabilities", "[woockie][hardening]") {
+    const std::string peer(64, '1');
+    CHECK_FALSE(pqvpn::woockie::parse("https://" + peer + "/strangenet/room"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://user@" + peer + "/strangenet/room"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/strangenet/../secret"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/shell/run"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/asgard/object?token=secret"));
+}
 
 TEST_CASE("StrangeNet messages round-trip with bounded metadata", "[strangenet]") {
     const Message sent{"riemann-lab", "peer-alice", 7, 1700000000123ULL, "hello 👋 from the other sheet"};

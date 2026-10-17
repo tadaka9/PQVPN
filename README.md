@@ -349,6 +349,14 @@ broader product requests to implemented evidence and explicit release gates.
 It prevents a mock UI, roadmap sentence or optimistic claim from being counted
 as a finished security feature.
 
+### Woockie addresses
+
+A Woockie combines a canonical authenticated Peer ID with a URL-shaped,
+allowlisted service path, for example
+`woockie://<peer-id>/strangenet/mainnet/friends`. It contains no participant IP,
+DNS hostname, credential, query or fragment and grants no authority merely by
+being shared. See [`docs/woockie.md`](docs/woockie.md).
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 
