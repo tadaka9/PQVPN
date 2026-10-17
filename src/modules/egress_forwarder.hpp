@@ -60,6 +60,7 @@ struct TcpFlow {
     // by the client.  The egress bridge terminates TCP, so it must retain and
     // retransmit these bytes itself; the upstream kernel socket cannot do it.
     std::map<std::uint32_t, std::vector<uint8_t>> unacked;
+    std::size_t unacked_bytes = 0;
     std::shared_ptr<asio::steady_timer> retransmit_timer;
     std::uint32_t last_ack = 0;
     unsigned duplicate_acks = 0;
