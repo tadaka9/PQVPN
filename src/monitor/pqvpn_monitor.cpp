@@ -125,6 +125,7 @@ QPushButton:hover { background: #825eff; }
 QPushButton:pressed { background: #5e3bd8; }
 QPushButton:disabled { background: #252a41; color: #68718f; border-color: #30364e; }
 QPushButton[quiet="true"] { background: rgba(255,255,255,.04); color: #b9c2df; border-color: #343d61; }
+QPushButton[quiet="true"]:checked { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
 QPushButton[danger="true"] { background: #d94172; border-color: #ff6494; }
 QPushButton[milestone="active"] { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
 QPushButton[milestone="done"] { background: rgba(42,190,135,.16); color: #9ff3d0; border-color: rgba(77,224,166,.48); }
@@ -161,6 +162,7 @@ QPushButton:hover { background: #913126; }
 QPushButton:pressed { background: #551711; }
 QPushButton:disabled { background: #211d17; color: #6f6657; border-color: #383027; }
 QPushButton[quiet="true"] { background: rgba(212,170,85,.05); color: #cbbd9e; border-color: #594626; }
+QPushButton[quiet="true"]:checked { background: rgba(122,36,28,.45); color: #fff2d2; border-color: #c09548; }
 QPushButton[danger="true"] { background: #9b1c16; border-color: #df5b3f; }
 QPushButton[milestone="active"] { background: rgba(122,36,28,.45); color: #fff2d2; border-color: #c09548; }
 QPushButton[milestone="done"] { background: rgba(212,170,85,.14); color: #f0d48c; border-color: #9f7b38; }
@@ -210,6 +212,7 @@ QPushButton:hover { background: #7653e9; }
 QPushButton:pressed { background: #5433c5; }
 QPushButton:disabled { background: #e2e6ef; color: #8a93a8; border-color: #d3d9e5; }
 QPushButton[quiet="true"] { background: #ffffff; color: #4c5875; border-color: #cbd3e5; }
+QPushButton[quiet="true"]:checked { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
 QPushButton[danger="true"] { background: #c83363; border-color: #d95079; }
 QPushButton[milestone="active"] { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
 QPushButton[milestone="done"] { background: rgba(25,145,102,.10); color: #146b50; border-color: rgba(25,145,102,.35); }
@@ -515,6 +518,10 @@ public:
     }
     bool verifyPrimaryActions() {
         if(!journeyConfigure_||!journeyAuthenticate_||!journeyProtect_)return false;
+        const bool restoreGeek=geekTelemetry_&&geekTelemetry_->isChecked();
+        setGeekMode(false);for(auto* widget:geekWidgets_)if(widget&&!widget->isHidden())return false;
+        setGeekMode(true);for(auto* widget:geekWidgets_)if(widget&&widget->isHidden())return false;
+        setGeekMode(restoreGeek);
         journeyConfigure_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
         journeyAuthenticate_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
         journeyProtect_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
@@ -1073,7 +1080,7 @@ private:
         refreshConnectionPresentation();
         if(changed&&isVisible())fadeWidget(centralWidget(),220);
     }
-    void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");settings.remove("minimizeToTray");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());geekTelemetry_->setChecked(settings.value("geekTelemetry",false).toBool());strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());if(shieldProfile_)shieldProfile_->setCurrentIndex(qBound(0,settings.value("shieldProfile",0).toInt(),shieldProfile_->count()-1));if(shieldRegex_)shieldRegex_->setPlainText(settings.value("shieldRegex").toString());applyTheme(settings.value("theme","system").toString());}
+    void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");settings.remove("minimizeToTray");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());const bool geekEnabled=settings.value("geekTelemetry",false).toBool();geekTelemetry_->setChecked(geekEnabled);setGeekMode(geekEnabled);strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());if(shieldProfile_)shieldProfile_->setCurrentIndex(qBound(0,settings.value("shieldProfile",0).toInt(),shieldProfile_->count()-1));if(shieldRegex_)shieldRegex_->setPlainText(settings.value("shieldRegex").toString());applyTheme(settings.value("theme","system").toString());}
     void savePreferences(){QSettings settings("PQVPN","Privacy Console");settings.setValue("geometry",saveGeometry());settings.setValue("config",configPath_->text());settings.remove("minimizeToTray");settings.setValue("strangeNotifications",strangeNotifications_->isChecked());settings.setValue("theme",themeMode_);}
     void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line.left(16384));}
     void copyDiagnostics(){const auto phase=pqvpn::console::connection_phase({process_.state()!=QProcess::NotRunning,mainnetReady_,tunnelReady_,noTunnel_&&noTunnel_->isChecked(),stopping_,processFailed_});const QString state=QString::fromUtf8(pqvpn::console::phase_label(phase).data());const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
