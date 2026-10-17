@@ -35,7 +35,8 @@ async function loadRegistry(){
     const registry=await response.json();
     const peers=Array.isArray(registry.peers)?registry.peers:[];
     document.querySelector('#registry-status').textContent=peers.length?`${peers.length} declared peer${peers.length===1?'':'s'} · live`:'Registry online · no public peers yet';
-    document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · source ${registry.updated_at} · synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    const releaseBasis=registry.release_basis?` · ${registry.release_basis}`:'';
+    document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · source ${registry.updated_at}${releaseBasis} · synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
     document.querySelector('#registry-network').textContent=registry.network||'pqvpn-mainnet-alpha';
     document.querySelector('#registry-notice').textContent=registry.notice||'Opt-in discovery only.';
     const list=document.querySelector('#peer-list');
