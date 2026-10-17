@@ -25,7 +25,7 @@ TOPICS = {
     "medicine": ("rosetta", "sidock", "world community grid", "denis@home"),
     "physics": ("lhc@home", "einstein", "yoyo@home"),
     "mathematics": ("primegrid", "yafu", "numberfields", "odlk", "rake search"),
-    "agi": ("mindmodeling", "boinc central", "artificial intelligence", "machine learning"),
+    "agi": ("mindmodeling", "boinc central", "machine learning", "cognitive modeling"),
 }
 TRUSTED_HOSTS = {
     "asteroidsathome.net", "climateprediction.net", "denis.usj.es",
