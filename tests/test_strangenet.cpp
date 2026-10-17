@@ -30,6 +30,33 @@ TEST_CASE("StrangeNet carries delivery receipts, stickers and reactions", "[stra
     }
 }
 
+TEST_CASE("StrangeNet text can reply to a prior message", "[strangenet][reply]") {
+    const Message reply{"mainnet/friends", "peer-bob", 11, 1700000000127ULL,
+        "I agree", Kind::Text, 7};
+    const auto wire = encode(reply);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::Text);
+    CHECK(decoded->reply_to == 7);
+}
+
+TEST_CASE("StrangeNet carries bounded voice chunks but no arbitrary media kind", "[strangenet][voice]") {
+    const Message voice{"mainnet/lounge", "peer-alice", 11, 1700000000127ULL,
+        R"({"rate":16000,"channels":1,"sample":"s16","audio":"AAECAwQ="})", Kind::Voice};
+    const auto wire = encode(voice);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::Voice);
+    CHECK(decoded->room == "mainnet/lounge");
+    CHECK(decoded->text == voice.text);
+
+    Message forbidden = voice;
+    forbidden.kind = static_cast<Kind>(6); // images/video/unknown attachments are not wire kinds
+    CHECK_FALSE(encode(forbidden).has_value());
+}
+
 TEST_CASE("StrangeNet rejects invalid UTF-8 and malformed acknowledgements", "[strangenet]") {
     Message invalid{"mainnet", "peer", 1, 1, std::string{"\xF0\x28\x8C\x28", 4}};
     CHECK_FALSE(encode(invalid).has_value());
