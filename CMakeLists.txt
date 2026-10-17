@@ -453,6 +453,7 @@ set(CATCH_TESTS
   test_wallet_dashboard
   test_dns_shield_policy
   test_crypto_agility
+  test_audible_fingerprint
   test_resource_market
   adhoc_verify_send_onion
   test_crypto_kem_keygen
