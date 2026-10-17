@@ -721,7 +721,9 @@ int main(int argc, char** argv) {
                                 strange->group_peers = std::move(group_peers);
                                 emit_console_event({{"event", "strangenet.joined"},
                                                     {"room", room}, {"peer", peer_text},
-                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1}});
+                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1},
+                                                    {"group_security", strange->group_peers.empty() ? "pairwise-hybrid" : "all-members-pairwise-hybrid"},
+                                                    {"central_group_secret", false}});
                             } else if (name == "strangenet.leave") {
                                 const auto room = strange->room;
                                 if (!room.empty()) node->leave_strangenet_room(room);
