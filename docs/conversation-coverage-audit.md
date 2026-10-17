@@ -11,7 +11,7 @@ manufacture.
 | Requirement family | Current implementation | Evidence boundary |
 |---|---|---|
 | Bootstrap + mainnet exit | Explicit roles, registry, updater and service units | Fleet deployment is separate from source correctness |
-| Fast/stable data plane | TCP backpressure, adaptive window, bounded queues, replay bitmap and socket buffers | Reproducible path benchmarks remain required |
+| Fast/stable data plane | TCP backpressure, ACK-clocked 8 MiB per-flow window, 64 MiB aggregate budget, paced batches, bounded queues, replay bitmap and socket buffers | Reproducible path benchmarks remain required |
 | GUI reliability | Raster-safe scrolling, close-to-tray, action smoke checks, one-click preflight and honest phases | Native CI determines platform support |
 | StrangeNet social | Text, replies, DM, voice, reactions, profiles, pinned groups and notifications | Live-session mesh; no asynchronous global-delivery claim |
 | Pixel Commons | Playable local web quest plus authenticated native E2E movement, four zones, fixed emotes and Peer-ID avatars | Web progress is device-local; native presence is session-only; PQ have no monetary value |

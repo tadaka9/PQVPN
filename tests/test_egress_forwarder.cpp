@@ -593,6 +593,7 @@ TEST_CASE("TCP egress sustains multi-megabyte downloads with adaptive backpressu
     };
 
     std::uint32_t acknowledged = syn_ack.seq + 1 + static_cast<std::uint32_t>(first_flight);
+    std::size_t largest_ack_clocked_flight = 0;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (static_cast<std::size_t>(acknowledged - (syn_ack.seq + 1)) < body_size &&
            std::chrono::steady_clock::now() < deadline) {
@@ -600,6 +601,9 @@ TEST_CASE("TCP egress sustains multi-megabyte downloads with adaptive backpressu
         const auto available = highest_payload_end();
         if (available == acknowledged) continue;
         REQUIRE(pqvpn::egress::seq_lt(acknowledged, available));
+        largest_ack_clocked_flight = std::max<std::size_t>(
+            largest_ack_clocked_flight,
+            static_cast<std::size_t>(available - acknowledged));
         acknowledged = available;
         REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
             egress, client, client_addr, server_addr, 54321, port, 0x10,
@@ -607,6 +611,10 @@ TEST_CASE("TCP egress sustains multi-megabyte downloads with adaptive backpressu
     }
 
     REQUIRE(static_cast<std::size_t>(acknowledged - (syn_ack.seq + 1)) == body_size);
+    // The old fixed 512 KiB ceiling limited a 64 ms path to about 8 MB/s.
+    // ACK-clocked growth must now move beyond it while pacing keeps the first
+    // flight conservative.
+    REQUIRE(largest_ack_clocked_flight > 512u * 1024u);
     for (const auto& frame : h.sent) {
         TcpSegment segment;
         if (parse_tcp_segment(frame, segment)) REQUIRE((segment.flags & 0x04) == 0);

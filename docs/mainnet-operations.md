@@ -66,6 +66,14 @@ concurrency and loss conditions. Linux UDP GSO/GRO can reduce per-packet cost,
 but must remain capability-gated and verified against the existing wire-format
 tests before deployment.
 
+The user-space TCP egress bridge grows an ACK-clocked flight from 32 KiB to at
+most 8 MiB. At a 64 ms round trip that removes the former 512 KiB / 8 MB/s
+bandwidth-delay ceiling. A 64 MiB aggregate unacknowledged-payload budget and
+128 KiB paced batches keep the larger single-flow window from becoming an
+unbounded multi-client allocation or one event-loop-blocking UDP burst. These
+are safety bounds, not a throughput guarantee: validate releases with the same
+path, object, concurrency and packet-loss conditions before publishing a rate.
+
 An exit node should set `egress.enabled` to `true`. The default `egress.allow_private_destinations: false` rejects loopback, private, link-local, carrier-grade NAT, benchmark, multicast and reserved destinations before an outbound socket is opened. Keep the same restrictions at the host firewall for defense in depth, and reject outbound SMTP ports from the `pqvpn` service account. A dedicated bootstrap node should leave egress disabled and publish only its discovery role.
 
 The threat model follows deterministic controls rather than an unaudited ML classifier. Relevant research includes [PQC handshake exhaustion and IDS degradation](https://arxiv.org/abs/2607.12504), the [A2PM adversarial NIDS evaluation framework](https://arxiv.org/abs/2502.15561), and the [systematic review of adversarial attacks against intrusion detection](https://arxiv.org/abs/2112.03315). The practical controls here are bounded pre-authentication work, strict parsing, resource limits, least privilege, egress filtering, audit trails and reproducible updates.

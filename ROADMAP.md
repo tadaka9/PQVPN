@@ -52,9 +52,10 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Make Linux user-space TCP egress apply upstream backpressure instead of
   resetting long downloads when its bounded server buffer fills.
 - [x] Negotiate TCP window scaling and use an adaptive tunnel congestion window:
-  fast growth for short interactive bursts and available high-bandwidth paths,
-  bounded additive growth at larger windows, and multiplicative reduction on
-  retransmission.
+  ACK-clocked growth for available high-bandwidth paths and multiplicative
+  reduction on retransmission. The egress bridge now permits an 8 MiB flight,
+  paces it in bounded event-loop batches and enforces a 64 MiB aggregate
+  retained-payload budget across clients.
 - [x] Preserve a strict per-flow memory ceiling while pausing and resuming
   upstream reads, so sustained download and upload performance does not trade
   away exit-node stability.
