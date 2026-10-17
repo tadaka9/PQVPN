@@ -58,7 +58,6 @@ public:
             if (address_error) return std::unexpected(NetworkError::AddressInvalid);
             asio::ip::udp::endpoint endpoint(address, port_);
             socket_.open(endpoint.protocol());
-            socket_.set_option(asio::socket_base::reuse_address(true));
             socket_.bind(endpoint);
 
             // Absorb short high-throughput bursts instead of dropping frames
