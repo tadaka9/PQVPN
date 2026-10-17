@@ -315,6 +315,17 @@ must not claim VPN protection until Android `VPNService` and iOS Network
 Extension backends have passed the same fail-closed, route, DNS and rollback
 qualification required by the desktop client. See [`mobile/`](mobile/).
 
+### Asgard Cloud storage foundation
+
+[`tools/asgard-cloud.py`](tools/asgard-cloud.py) is a tested, zero-telemetry
+storage core: it chunks locally, encrypts each chunk independently with
+AES-256-GCM and HKDF-derived keys, content-addresses the ciphertext and places
+replicas across explicitly enabled storage roots. No bootstrap, relay or exit
+is silently enrolled as storage. It currently supports local paths and
+operator-mounted volumes; PQVPN-native transport, repair, quotas and hostile
+network testing remain gates before it can be called a public distributed
+cloud. See [`docs/asgard-cloud.md`](docs/asgard-cloud.md).
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 

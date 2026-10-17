@@ -88,6 +88,20 @@ verification on an elevated host with a connected adapter is still pending.
 - [ ] Add interoperability and known-answer coverage for externally observable
   protocol behavior where applicable.
 
+## Asgard Cloud distributed storage
+
+- [x] Implement a local encrypted multi-root core with 4 MiB chunks,
+  per-chunk HKDF keys, AES-256-GCM, ciphertext addressing, rendezvous placement,
+  atomic writes, replication quorum and hostile-manifest validation.
+- [ ] Advertise storage capability with signed, expiring PQVPN records; node
+  roles must never imply storage consent.
+- [ ] Move encrypted chunks over authenticated PQVPN sessions with explicit
+  quotas, backpressure and per-peer resource isolation.
+- [ ] Add repair, garbage collection, encrypted metadata, key rotation and a
+  user-controlled keystore integration.
+- [ ] Evaluate erasure coding only after replication recovery is proven under
+  loss, corruption, churn, disk-full and malicious-peer tests.
+
 ## Release engineering
 
 - [ ] Define supported operating systems, compilers, and dependency versions.
