@@ -23,6 +23,7 @@ enum class Kind : std::uint8_t {
     Sticker = 3,
     Reaction = 4,
     Voice = 5,
+    DirectText = 6,
 };
 
 struct Message {
