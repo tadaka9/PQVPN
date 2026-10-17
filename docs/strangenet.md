@@ -1,6 +1,8 @@
 # StrangeNet universal encrypted chat
 
-StrangeNet v2 is a bounded, session-only chat carried by authenticated PQVPN mainnet sessions. The desktop console joins `mainnet` as a universal room and fans each outbound item out to as many as 512 established authenticated peers. Each recipient gets a separately encrypted frame; there is no shared plaintext broadcast packet.
+StrangeNet is a bounded, session-only social chat carried by authenticated PQVPN mainnet sessions. It is designed for borderless friendship, conversation and consensual romantic connection without turning location or network metadata into a profile. Rooms use hierarchical paths such as `mainnet/friends/poetry`, with at most eight levels. Each outbound item is encrypted separately for as many as 512 established authenticated peers; there is no shared plaintext broadcast packet.
+
+The GUI is room-first and does not expose one-to-one DMs. A participant is shown only by a self-certifying 32-byte Peer ID after hybrid authentication and admission-policy checks. Participant, bootstrap and local-listener IP addresses are not shown in chat UI or peer lifecycle events. An exit address may be shown separately as a connection fact because it is the public address websites observe; it is never presented as a participant identity.
 
 Version 0.0.15 adds explicit groups. Selecting at least two authenticated
 remote identities creates a group of at least three participants including the
@@ -70,7 +72,7 @@ authenticated sessions, bounding encryption and UDP work per click. Larger
 communities require an authenticated room distribution layer; the current
 direct-session protocol does not claim unbounded global fanout.
 
-## Optional blockchain anchor
+## Decentralized identity, Web3 and optional blockchain anchor
 
 The Privacy Console can build a private StrangeNet proof chain when the user
 explicitly enables **Build a private session proof chain**. Each accepted,
@@ -100,7 +102,7 @@ Version 2 frames support:
 - bounded per-sender and aggregate room token buckets;
 - a maximum of 512 direct recipients per broadcast operation.
 
-Version 1 text frames remain decodable. New senders emit version 2.
+Version 1 text frames remain decodable. Text, replies and reactions use version 2. Version 3 extends the same bounded envelope with live 16 kHz mono voice chunks. The GUI provides hold-to-talk audio only: chunks are played from memory and are not saved as files. There is no image, video, HTML, arbitrary attachment or remote-media wire kind.
 
 Sticker payloads contain only an emoji, a caption of at most 48 characters and one color from the built-in palette. The GUI escapes all text before rendering and rejects arbitrary colors or malformed JSON. No HTML, script, URL, remote image or executable attachment crosses the chat protocol.
 
