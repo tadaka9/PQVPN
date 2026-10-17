@@ -169,7 +169,7 @@ target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIB
 
 # ... (previous lines)
 if(PQVPN_BUILD_MONITOR)
-    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network OpenGLWidgets)
+    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network OpenGLWidgets Multimedia)
     # The privacy console controls the canonical pqvpn_node process; it does
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
@@ -189,7 +189,7 @@ if(PQVPN_BUILD_MONITOR)
       set_target_properties(pqvpn_monitor PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
     endif()
     target_include_directories(pqvpn_monitor PRIVATE ${PQVPN_INCLUDE_DIRS})
-    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Network Qt6::OpenGLWidgets)
+    target_link_libraries(pqvpn_monitor PRIVATE Qt6::Widgets Qt6::Gui Qt6::Core Qt6::Network Qt6::OpenGLWidgets Qt6::Multimedia)
     target_compile_definitions(pqvpn_monitor PRIVATE PQVPN_BUILD_VERSION="${PQVPN_PROJECT_VERSION}")
     target_compile_options(pqvpn_monitor PRIVATE
       $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
