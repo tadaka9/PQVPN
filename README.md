@@ -379,6 +379,9 @@ If you want to fund CI and continued development, read
 **[`docs/SUPPORT.md`](docs/SUPPORT.md)** and verify every payment address in this
 repository before sending anything.
 
+- **Bitcoin:** `bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll`
+- **SEPA:** `DE29100110012626679655` — beneficiary: Davide Di Pino
+
 Donations purchase no influence, support guarantee or security assurance.
 They simply give an open experiment more time to become measurable.
 
