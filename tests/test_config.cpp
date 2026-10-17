@@ -1,5 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../src/modules/config_module.hpp"
+#include "../src/console/inner_tunnel_policy.hpp"
+#include "../src/modules/external_tunnel_process.hpp"
 #include <algorithm>
 #include <fstream>
 #include <cstdio>
@@ -178,20 +180,64 @@ TEST_CASE("Config bounds replay memory per session", "[config][security]") {
     std::remove(config_path.c_str());
 }
 
-TEST_CASE("Normalized configuration preserves an external backend without interface name", "[config][transport]") {
+TEST_CASE("Legacy external tunnel plugin migrates to an inner tunnel", "[config][transport]") {
     for(const std::string backend:{"wireguard","openvpn"}) {
         pqvpn::config::Config original;
         original.tunnel.enabled=true;
+        original.tunnel.interface_name="pqvpn0";
+        original.tunnel.exit_host="127.0.0.1";
+        original.tunnel.exit_port=9090;
         original.tunnel.plugin=backend;
         original.tunnel.config_path="/operator/client.conf";
         const nlohmann::json normalized=original;
         REQUIRE(normalized.contains("tunnel"));
         CHECK(normalized.at("tunnel").at("plugin")==backend);
         const auto restored=normalized.get<pqvpn::config::Config>();
-        CHECK(restored.tunnel.plugin==backend);
+        CHECK(restored.tunnel.plugin=="pqvpn");
         CHECK(restored.tunnel.enabled);
-        CHECK(restored.tunnel.config_path==original.tunnel.config_path);
+        CHECK(restored.inner_tunnel.enabled);
+        CHECK(restored.inner_tunnel.backend==backend);
+        CHECK(restored.inner_tunnel.config_path==original.tunnel.config_path);
     }
+}
+
+TEST_CASE("Inner tunnel policy is canonical and idempotent", "[config][transport]") {
+    pqvpn::config::Config config;
+    config.tunnel.enabled=true;
+    config.tunnel.interface_name="pqvpn0";
+    config.tunnel.exit_host="127.0.0.1";
+    config.tunnel.exit_port=9090;
+    pqvpn::console::InnerTunnelOverride request;
+    request.backend="wireguard";
+    request.config_path="/operator/wg.conf";
+    CHECK_FALSE(pqvpn::console::apply_inner_tunnel_override(config,request).has_value());
+    const nlohmann::json once=config;
+    CHECK_FALSE(pqvpn::console::apply_inner_tunnel_override(config,request).has_value());
+    const nlohmann::json twice=config;
+    CHECK(once==twice);
+    CHECK(std::string(pqvpn::console::inner_tunnel_label(config.inner_tunnel))=="WireGuard inside PQVPN");
+}
+
+TEST_CASE("Inner tunnel requires the native outer tunnel", "[config][transport]") {
+    pqvpn::config::Config config;
+    config.inner_tunnel={true,"openvpn","/operator/client.ovpn"};
+    const auto error=pqvpn::config::validate_config(config);
+    REQUIRE(error.has_value());
+    CHECK(error->message=="inner_tunnel requires the native PQVPN full tunnel");
+}
+
+TEST_CASE("External tunnel commands have symmetric lifecycle", "[config][transport]") {
+    const auto path=std::filesystem::temp_directory_path()/"pqvpn-inner-tunnel.conf";
+    { std::ofstream file(path); file << "test"; }
+    const auto wireguard=pqvpn::tunnel::make_external_process_spec(pqvpn::tunnel::Backend::WireGuard,path.string());
+    CHECK(wireguard.argv()==std::vector<std::string>{"wg-quick","up",path.string()});
+    CHECK(wireguard.stop_argv()==std::vector<std::string>{"wg-quick","down",path.string()});
+    CHECK_FALSE(wireguard.persistent());
+    const auto openvpn=pqvpn::tunnel::make_external_process_spec(pqvpn::tunnel::Backend::OpenVPN,path.string());
+    CHECK(openvpn.argv()==std::vector<std::string>{"openvpn","--config",path.string()});
+    CHECK(openvpn.stop_argv().empty());
+    CHECK(openvpn.persistent());
+    std::filesystem::remove(path);
 }
 
 TEST_CASE("Shipped config is the editable experimental mainnet profile", "[config][mainnet]") {
