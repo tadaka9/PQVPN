@@ -14,7 +14,7 @@ struct InnerTunnelOverride {
 
 inline const char* inner_tunnel_label(const config::InnerTunnelConfig& value) {
     if (!value.enabled) return "Off";
-    return value.backend == "wireguard" ? "WireGuard inside PQVPN" : "OpenVPN inside PQVPN";
+    return value.backend == "wireguard" ? "WireGuard inside PQVPN" : "OpenVPN 3 inside PQVPN";
 }
 
 // One canonical override operation is shared by the node CLI and TUI.  It is
@@ -37,8 +37,8 @@ inline bool parse_inner_tunnel_argument(const std::string& argument,
                                         const std::string& following,
                                         InnerTunnelOverride& request) {
     if (argument == "--inner-tunnel-backend") {
-        if (following != "wireguard" && following != "openvpn") return false;
-        request.backend = following;
+        if (following != "wireguard" && following != "openvpn3" && following != "openvpn") return false;
+        request.backend = following == "openvpn" ? "openvpn3" : following;
         return true;
     }
     if (argument == "--inner-tunnel-config") {
