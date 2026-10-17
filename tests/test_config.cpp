@@ -196,7 +196,7 @@ TEST_CASE("Legacy external tunnel plugin migrates to an inner tunnel", "[config]
         CHECK(restored.tunnel.plugin=="pqvpn");
         CHECK(restored.tunnel.enabled);
         CHECK(restored.inner_tunnel.enabled);
-        CHECK(restored.inner_tunnel.backend==backend);
+        CHECK(restored.inner_tunnel.backend==(backend=="openvpn"?"openvpn3":backend));
         CHECK(restored.inner_tunnel.config_path==original.tunnel.config_path);
     }
 }
@@ -220,7 +220,7 @@ TEST_CASE("Inner tunnel policy is canonical and idempotent", "[config][transport
 
 TEST_CASE("Inner tunnel requires the native outer tunnel", "[config][transport]") {
     pqvpn::config::Config config;
-    config.inner_tunnel={true,"openvpn","/operator/client.ovpn"};
+    config.inner_tunnel={true,"openvpn3","/operator/client.ovpn"};
     const auto error=pqvpn::config::validate_config(config);
     REQUIRE(error.has_value());
     CHECK(error->message=="inner_tunnel requires the native PQVPN full tunnel");
@@ -233,10 +233,10 @@ TEST_CASE("External tunnel commands have symmetric lifecycle", "[config][transpo
     CHECK(wireguard.argv()==std::vector<std::string>{"wg-quick","up",path.string()});
     CHECK(wireguard.stop_argv()==std::vector<std::string>{"wg-quick","down",path.string()});
     CHECK_FALSE(wireguard.persistent());
-    const auto openvpn=pqvpn::tunnel::make_external_process_spec(pqvpn::tunnel::Backend::OpenVPN,path.string());
-    CHECK(openvpn.argv()==std::vector<std::string>{"openvpn","--config",path.string()});
-    CHECK(openvpn.stop_argv().empty());
-    CHECK(openvpn.persistent());
+    const auto openvpn=pqvpn::tunnel::make_external_process_spec(pqvpn::tunnel::Backend::OpenVPN3,path.string());
+    CHECK(openvpn.argv()==std::vector<std::string>{"openvpn3","session-start","--config",path.string()});
+    CHECK(openvpn.stop_argv()==std::vector<std::string>{"openvpn3","session-manage","--config",path.string(),"--disconnect"});
+    CHECK_FALSE(openvpn.persistent());
     std::filesystem::remove(path);
 }
 
