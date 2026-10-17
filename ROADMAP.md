@@ -102,18 +102,23 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Implement a local encrypted multi-root core with 4 MiB chunks,
   per-chunk HKDF keys, AES-256-GCM, ciphertext addressing, rendezvous placement,
   atomic writes, replication quorum and hostile-manifest validation.
-- [ ] Advertise storage capability with signed, expiring PQVPN records; node
-  roles must never imply storage consent.
+- [x] Issue and verify signed, expiring, zero-address storage capabilities with
+  a separate Ed25519 identity; node roles never imply storage consent. Wire
+  propagation remains gated on authenticated PQVPN storage sessions.
 - [ ] Move encrypted chunks over authenticated PQVPN sessions with explicit
   quotas, backpressure and per-peer resource isolation.
 - [ ] Implement local-only capacity samples and hysteresis-controlled scaling:
   warn at 60%, prepare one independent failure domain at 75%, fail closed for
   new writes above 85%, and never purchase or enroll capacity automatically.
-- [ ] Add repair, garbage collection, encrypted metadata, key rotation and a
+- [x] Audit replicas by independent failure domain and repair only from a
+  ciphertext whose content commitment verifies; never recreate missing mounts.
+- [ ] Add garbage collection, encrypted metadata, key rotation and a
   user-controlled keystore integration.
 - [ ] Evaluate erasure coding only after replication recovery is proven under
   loss, corruption, churn, disk-full and malicious-peer tests.
-- [ ] Specify and implement a shared Asgard receipt ledger before enabling any
+- [x] Implement the non-consensus foundation: bounded Ed25519-signed receipts
+  linked by hashes without IPs, paths, object IDs or placement history.
+- [ ] Specify and implement a shared Asgard consensus ledger before enabling any
   credit purchase: consensus/finality, replay and double-spend resistance,
   idempotent payment intents, refund/chargeback handling and separate custody.
 - [ ] Make credits non-transferable service units, keep VPN access independent
@@ -124,6 +129,13 @@ verification on an elevated host with a connected adapter is still pending.
   reviewed. Do not represent the current storage foundation as a blockchain.
 
 ## Release engineering
+
+- [x] Make the Linux mainnet updater choose the highest comparable release,
+  refuse downgrade below root-owned state, pin exact tag URLs and reject
+  duplicate archive/checksum ambiguity before staging.
+- [ ] Add an offline release-signing key, pinned public verification key and
+  threshold recovery procedure; repository-hosted checksums alone are not a
+  production signature.
 
 - [x] Define an ethical interaction-psychology standard for GUI, TUI, CLI,
   website and Pixel Commons; prohibit deceptive state and dark patterns.

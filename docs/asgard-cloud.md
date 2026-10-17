@@ -9,9 +9,9 @@ encryption or expose plaintext to a peer.
 
 `tools/asgard-cloud.py` currently targets local paths and operator-mounted
 remote volumes. It is a functional storage core, not yet a public cloud: PQVPN
-wire transport, signed storage capability advertisements, quotas, garbage
-collection, erasure coding, repair and adversarial integration testing remain
-release gates. Bootstrap and exit roles never imply storage consent.
+wire transport, garbage collection, erasure coding and adversarial network
+testing remain release gates. Bootstrap and exit roles never imply storage
+consent.
 
 Example two-root development configuration:
 
@@ -19,8 +19,8 @@ Example two-root development configuration:
 {
   "replicas": 2,
   "nodes": [
-    {"name": "asgard-a", "root": "/srv/asgard/a", "enabled": true},
-    {"name": "asgard-b", "root": "/srv/asgard/b", "enabled": true}
+    {"name": "asgard-a", "root": "/srv/asgard/a", "failure_domain": "host-a", "enabled": true},
+    {"name": "asgard-b", "root": "/srv/asgard/b", "failure_domain": "host-b", "enabled": true}
   ]
 }
 ```
@@ -30,13 +30,51 @@ Store and restore:
 ```bash
 tools/asgard-cloud.py --config asgard.json --key asgard.key put file.bin file.asgard.json
 tools/asgard-cloud.py --config asgard.json --key asgard.key get file.asgard.json restored.bin
+tools/asgard-cloud.py --config asgard.json audit file.asgard.json
+tools/asgard-cloud.py --config asgard.json repair file.asgard.json
 ```
+
+`audit` exits non-zero when any encrypted chunk lacks the requested number of
+independent failure domains. `repair` finds a surviving ciphertext whose
+SHA-256 commitment matches, copies only that ciphertext to available distinct
+domains, and atomically replaces the manifest only after every chunk regains
+quorum. A missing root is never recreated: this prevents a disconnected mount
+from being mistaken for healthy local storage.
+
+## Paranoid profile
+
+The core is fail-closed by default: at most 128 explicitly enabled peers, 1–8
+replicas, a 1 TiB object bound, bounded JSON inputs, a 64 MiB free-space reserve
+per root, private key files restricted to mode `0600`, authenticated encryption,
+atomic writes and no unbounded write queue. Replicas sharing a failure domain
+do not satisfy quorum. Operators can raise `min_free_bytes` per node, but cannot
+disable integrity verification or make an unavailable path silently writable.
+
+Storage consent can be represented with a separate Ed25519 identity and a
+signed capability valid for at most 24 hours:
+
+```bash
+tools/asgard-cloud.py --identity asgard-identity.key capability-issue capability.json \
+  --node asgard-a --capacity-bytes 107374182400 --max-object-bytes 1073741824
+tools/asgard-cloud.py capability-verify capability.json
+tools/asgard-cloud.py --identity asgard-identity.key receipt-append \
+  capability.json file.asgard.json receipts.json
+tools/asgard-cloud.py receipt-verify receipts.json
+```
+
+Receipts contain only commitments, byte count and a signed hash-chain link: no
+IP, filesystem path, filename, object identifier or placement list. Trust still
+requires out-of-band public-key pinning. The receipt chain is not consensus,
+proof of payment or a blockchain and cannot honestly support credits yet.
 
 The key and manifest are mode `0600`. Losing the key loses access; leaking it
 exposes every object encrypted under it. Production must use an OS keystore or
 hardware-backed secret, not synchronization of the raw key to storage peers.
 The manifest reveals object size, chunk count and placement names; keep it
 private. It is validated as hostile input before any chunk path is accessed.
+Availability requires at least two genuinely independent devices and periodic
+audits; replication cannot save a file if every replica and the private key are
+lost together.
 
 ## Gradual scaling policy
 

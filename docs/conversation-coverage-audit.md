@@ -20,7 +20,7 @@ manufacture.
 | External/inner transports | Architecture-aware sidecars plus config-driven WireGuard/OpenVPN | A running helper does not prove traffic uses it |
 | Exit selection | Health/capacity weighted assignment, flow affinity and fail-closed choice | More peers help only when independently healthy |
 | Flux console | Aggregate fleet health over hardened SSH aliases | No participant/payload telemetry or billing-provider access |
-| Asgard core | Encrypted chunks, rendezvous placement and local replication quorum | Network transport, repair and public cloud are gated |
+| Asgard core | Encrypted chunks, independent-domain quorum, signed capabilities/receipts, audit and verified repair | Network transport, garbage collection and public cloud are gated |
 | Releases/site | Future development, protected promotion, versioned registry and refreshed metadata | Automation alone creates qualifying releases |
 
 ## Gated or deliberately not claimed
@@ -30,7 +30,7 @@ manufacture.
 | Android/iOS full VPN | VPNService/Network Extension, signing and device tests are absent | Implement adapters and pass device leak/rollback qualification |
 | Asgard blockchain/credits | Asgard has no consensus, wallet or payment processor | Specify/test ledger, custody, refunds and 90/10 accounting; review it |
 | Real credit purchase | Charity, jurisdiction, fee denominator and settlement evidence are unspecified | Configure charity + processor + terms; remain fail-closed until then |
-| Storage over PQVPN | Current storage peers are local/operator-mounted roots | Signed capabilities, quotas, authenticated transport and hostile tests |
+| Storage over PQVPN | Current storage peers are local/operator-mounted roots; signed consent records do not move data | Quotas, authenticated transport and hostile network tests |
 | Guaranteed anonymity | Endpoint compromise and traffic analysis remain possible | Publish threat model and complete independent audit |
 | LAN access with WAN fail-closed on every OS | Policy exists, native WFP/route/DNS proof does not | Implement policy engine and capture-based LAN on/off qualification |
 | Global asynchronous StrangeNet | Origin-signed store-and-forward and abuse controls do not exist | Bounded envelopes, expiry, quotas and adversarial tests |

@@ -43,36 +43,67 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$api" -o "$tmp/releases.json"
 
-selection="$(python3 - "$tmp/releases.json" "$platform" "$allow_prerelease" <<'PY'
-import json, pathlib, sys
+installed=""
+if [[ -r "$install_root/current-version" ]]; then
+  IFS= read -r installed <"$install_root/current-version"
+fi
+
+selection="$(python3 - "$tmp/releases.json" "$platform" "$allow_prerelease" "$installed" <<'PY'
+import datetime, json, pathlib, re, sys
 releases = json.loads(pathlib.Path(sys.argv[1]).read_text())
 platform, allow_prerelease = sys.argv[2], sys.argv[3] == "1"
+installed = sys.argv[4]
+
+def version_key(value):
+    value = value.removeprefix("v")
+    stable = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", value)
+    if stable:
+        return tuple(map(int, stable.groups())) + (2, 0)
+    dated = re.fullmatch(
+        r"(\d+)\.(\d+)\.(\d+)-(\d{8})-[0-9A-Za-z.]+-(alpha|beta)(?:-[0-9A-Za-z.-]+)?",
+        value)
+    if not dated:
+        return None
+    major, minor, patch, compact, stage = dated.groups()
+    try:
+        date = datetime.datetime.strptime(compact, "%m%d%Y").date()
+    except ValueError:
+        return None
+    return int(major), int(minor), int(patch), 0 if stage == "alpha" else 1, int(date.strftime("%Y%m%d"))
+
+installed_key = version_key(installed) if installed else None
+candidates = []
 for release in releases:
     if release.get("draft") or (release.get("prerelease") and not allow_prerelease):
+        continue
+    tag = release.get("tag_name", "")
+    key = version_key(tag)
+    if key is None or (installed_key is not None and key < installed_key):
         continue
     assets = release.get("assets", [])
     accepted_suffixes = (
         platform + ".tar.gz",
         platform + "-desktop-test.tar.gz",
     )
-    archive = next((a for a in assets if a["name"].endswith(accepted_suffixes)), None)
-    sums = next((a for a in assets if a["name"] == "SHA256SUMS"), None)
-    if archive and sums:
-        print(release["tag_name"])
-        print(archive["name"])
-        print(archive["browser_download_url"])
-        print(sums["browser_download_url"])
-        break
-else:
-    raise SystemExit("No release contains both the requested archive and SHA256SUMS")
+    archives = [a for a in assets if a.get("name", "").endswith(accepted_suffixes)]
+    sums = [a for a in assets if a.get("name") == "SHA256SUMS"]
+    if len(archives) == 1 and len(sums) == 1:
+        candidates.append((key, tag, archives[0], sums[0]))
+if not candidates:
+    raise SystemExit("No strictly newer release contains one archive and one SHA256SUMS")
+_, tag, archive, sums = max(candidates, key=lambda item: item[0])
+print(tag)
+print(archive["name"])
+print(archive["browser_download_url"])
+print(sums["browser_download_url"])
 PY
 )"
 mapfile -t selected <<<"$selection"
 tag="${selected[0]}"; asset="${selected[1]}"; asset_url="${selected[2]}"; sums_url="${selected[3]}"
 [[ "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "Release returned an unsafe tag" >&2; exit 3; }
 [[ "$asset" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] || { echo "Release returned an unsafe asset name" >&2; exit 3; }
-release_prefix="https://github.com/${repo}/releases/download/"
-[[ "$asset_url" == "$release_prefix"* && "$sums_url" == "$release_prefix"* ]] || { echo "Release returned an unexpected download host" >&2; exit 3; }
+release_prefix="https://github.com/${repo}/releases/download/${tag}/"
+[[ "$asset_url" == "$release_prefix$asset" && "$sums_url" == "${release_prefix}SHA256SUMS" ]] || { echo "Release returned an unexpected download URL" >&2; exit 3; }
 target="$install_root/releases/$tag"
 
 if [[ -x "$target/bin/pqvpn_node" && -L "$install_root/current" && "$(readlink -f "$install_root/current")" == "$target" ]]; then
@@ -90,7 +121,9 @@ fi
 
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$asset_url" -o "$tmp/$asset"
 curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "$sums_url" -o "$tmp/SHA256SUMS"
-expected="$(awk -v name="$asset" '$2 == name || $2 == "*" name {print $1; exit}' "$tmp/SHA256SUMS")"
+mapfile -t checksum_matches < <(awk -v name="$asset" '$2 == name || $2 == "*" name {print $1}' "$tmp/SHA256SUMS")
+[[ "${#checksum_matches[@]}" -eq 1 ]] || { echo "Release must contain exactly one checksum for $asset" >&2; exit 3; }
+expected="${checksum_matches[0]}"
 [[ "$expected" =~ ^[0-9A-Fa-f]{64}$ ]] || { echo "Release checksum for $asset is missing" >&2; exit 3; }
 actual="$(sha256sum "$tmp/$asset" | awk '{print $1}')"
 [[ "${actual,,}" == "${expected,,}" ]] || { echo "SHA-256 verification failed for $asset" >&2; exit 3; }

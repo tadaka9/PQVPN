@@ -2,7 +2,7 @@
 
 The public mainnet node runs as the dedicated `pqvpn` user with its configuration and identity under `/var/lib/pqvpn`. Keeping both files together matters because the node derives the persistent identity path from the configuration directory. The systemd service in `packaging/linux` denies privilege escalation, hides home directories and kernel interfaces, grants write access only to PQVPN state, and limits sockets to IPv4/IPv6.
 
-`pqvpn-mainnet-update` checks the repository's newest release that contains a native archive for the host architecture and `SHA256SUMS`. It downloads both over HTTPS, verifies the exact archive checksum, validates the production configuration with the candidate node, runs its smoke test, installs it under `/opt/pqvpn/releases/<tag>`, and atomically moves `/opt/pqvpn/current`. If the service does not become active, the updater restores the previous symlink and restarts the previous release.
+`pqvpn-mainnet-update` chooses the highest comparable release containing exactly one native archive for the host architecture and one `SHA256SUMS`. It refuses a tag older than root-owned `current-version`, pins downloads to the exact repository/tag path, requires one unique archive checksum, validates the production configuration with the candidate node, runs its smoke test, installs it under `/opt/pqvpn/releases/<tag>`, and atomically moves `/opt/pqvpn/current`. If the service does not become active, the updater restores the previous symlink and restarts the previous release.
 
 Install the files as root:
 

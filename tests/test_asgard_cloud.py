@@ -18,9 +18,11 @@ class AsgardTests(unittest.TestCase):
             source = root / "source.bin"
             source.write_bytes((b"asgard\0" * 700000) + b"tail")
             config = {"replicas": 2, "nodes": [
-                {"name": "a", "root": str(root / "a")},
-                {"name": "b", "root": str(root / "b")},
-                {"name": "c", "root": str(root / "c")}]}
+                {"name": "a", "root": str(root / "a"), "failure_domain": "device-a"},
+                {"name": "b", "root": str(root / "b"), "failure_domain": "device-b"},
+                {"name": "c", "root": str(root / "c"), "failure_domain": "device-c"}]}
+            for node in config["nodes"]:
+                pathlib.Path(node["root"]).mkdir()
             key = bytes(range(32))
             manifest = ASGARD.put(source, config, key)
             self.assertGreaterEqual(len(manifest["chunks"]), 2)
@@ -33,6 +35,44 @@ class AsgardTests(unittest.TestCase):
             restored = root / "restored.bin"
             ASGARD.get(manifest, restored, config, key)
             self.assertEqual(restored.read_bytes(), source.read_bytes())
+
+    def test_offline_device_is_repaired_from_an_independent_replica(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            nodes = [
+                {"name": "a", "root": str(root / "a"), "failure_domain": "device-a"},
+                {"name": "b", "root": str(root / "b"), "failure_domain": "device-b"},
+                {"name": "c", "root": str(root / "c"), "failure_domain": "device-c"},
+            ]
+            for node in nodes:
+                pathlib.Path(node["root"]).mkdir()
+            config = {"replicas": 2, "nodes": nodes}
+            source = root / "source.bin"
+            source.write_bytes(b"survives-one-device-offline" * 4096)
+            key = bytes(range(32))
+            manifest = ASGARD.put(source, config, key)
+            offline = manifest["chunks"][0]["nodes"][0]
+            offline_node = next(node for node in nodes if node["name"] == offline)
+            import shutil
+            shutil.rmtree(offline_node["root"])
+
+            report = ASGARD.replica_audit(manifest, config)
+            self.assertEqual(report["state"], "degraded")
+            repaired = ASGARD.repair_replicas(manifest, config)
+            healthy = ASGARD.replica_audit(repaired, config)
+            self.assertEqual(healthy["state"], "healthy")
+            self.assertNotIn(offline, repaired["chunks"][0]["nodes"])
+            restored = root / "restored-after-repair.bin"
+            ASGARD.get(repaired, restored, config, key)
+            self.assertEqual(restored.read_bytes(), source.read_bytes())
+
+    def test_same_device_roots_do_not_count_as_independent_replicas(self):
+        nodes = [
+            {"name": "a", "root": "/tmp/a", "failure_domain": "device-one"},
+            {"name": "b", "root": "/tmp/b", "failure_domain": "device-one"},
+        ]
+        with self.assertRaisesRegex(RuntimeError, "independent failure domains"):
+            ASGARD.select_nodes(nodes, "00" * 32, 2)
 
     def test_quorum_failure_is_explicit(self):
         with self.assertRaisesRegex(RuntimeError, "insufficient enabled storage peers"):
@@ -53,6 +93,66 @@ class AsgardTests(unittest.TestCase):
                                 "nodes": ["a"]}]}
         with self.assertRaisesRegex(ValueError, "unique and contiguous"):
             ASGARD.validate_manifest(manifest, config)
+
+    def test_signed_expiring_storage_capability(self):
+        with tempfile.TemporaryDirectory() as directory:
+            identity = ASGARD.load_identity(pathlib.Path(directory) / "identity.key", create=True)
+            capability = ASGARD.issue_capability(
+                "storage-a", 64 * ASGARD.CHUNK_BYTES, 8 * ASGARD.CHUNK_BYTES,
+                expires_at=10_000, private=identity, now=9_000)
+            ASGARD.verify_capability(capability, now=9_500)
+            self.assertEqual(capability["transport"], "pqvpn-authenticated-session")
+            self.assertNotIn("root", capability)
+            self.assertNotIn("ip", capability)
+
+            tampered = dict(capability)
+            tampered["capacity_bytes"] += 1
+            with self.assertRaisesRegex(ValueError, "verification failed"):
+                ASGARD.verify_capability(tampered, now=9_500)
+            with self.assertRaisesRegex(ValueError, "expired"):
+                ASGARD.verify_capability(capability, now=10_001)
+
+    def test_receipts_form_a_signed_tamper_evident_chain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            identity = ASGARD.load_identity(pathlib.Path(directory) / "identity.key", create=True)
+            capability = ASGARD.issue_capability(
+                "storage-a", 64 * ASGARD.CHUNK_BYTES, 8 * ASGARD.CHUNK_BYTES,
+                expires_at=10_000, private=identity, now=9_000)
+            manifest = {"schema": 1, "object_id": "11" * 16, "size": 5,
+                        "chunks": [{"index": 0, "id": "22" * 32,
+                                    "size": 5, "nodes": ["storage-a"]}]}
+            ledger = []
+            first = ASGARD.append_receipt(ledger, capability, manifest, identity, now=9_100)
+            second = ASGARD.append_receipt(ledger, capability, manifest, identity, now=9_200)
+            ASGARD.verify_receipt_ledger(ledger)
+            self.assertEqual(first["previous"], "0" * 64)
+            self.assertEqual(second["previous"], ASGARD.record_digest(first))
+            self.assertNotIn("object_id", second)
+            self.assertNotIn("nodes", second)
+
+            ledger[0] = dict(ledger[0])
+            ledger[0]["bytes"] = 6
+            with self.assertRaisesRegex(ValueError, "verification failed"):
+                ASGARD.verify_receipt_ledger(ledger)
+
+    def test_paranoid_bounds_and_private_key_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            oversized = root / "oversized.json"
+            oversized.write_bytes(b"{}" + b" " * 32)
+            with self.assertRaisesRegex(ValueError, "oversized JSON"):
+                ASGARD.read_json(oversized, 16)
+
+            identity_path = root / "identity.key"
+            ASGARD.load_identity(identity_path, create=True)
+            identity_path.chmod(0o644)
+            with self.assertRaisesRegex(PermissionError, "0600"):
+                ASGARD.load_identity(identity_path)
+
+            nodes = [{"name": f"n{i}", "root": f"/tmp/n{i}",
+                      "failure_domain": f"d{i}"} for i in range(9)]
+            with self.assertRaisesRegex(ValueError, "between 1 and 8"):
+                ASGARD.validate_config({"replicas": 9, "nodes": nodes})
 
 
 if __name__ == "__main__":

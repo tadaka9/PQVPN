@@ -323,12 +323,17 @@ storage core: it chunks locally, encrypts each chunk independently with
 AES-256-GCM and HKDF-derived keys, content-addresses the ciphertext and places
 replicas across explicitly enabled storage roots. No bootstrap, relay or exit
 is silently enrolled as storage. It currently supports local paths and
-operator-mounted volumes; PQVPN-native transport, repair, quotas and hostile
-network testing remain gates before it can be called a public distributed
-cloud. See [`docs/asgard-cloud.md`](docs/asgard-cloud.md).
+operator-mounted volumes. Signed 24-hour storage capabilities, a privacy-safe
+receipt hash chain, independent-failure-domain audit and verified replica
+repair are implemented. Missing mounts are never recreated, and bounded inputs,
+disk reserves and mode-`0600` identities enforce a fail-closed paranoid profile.
+PQVPN-native transport, garbage collection and hostile network testing remain
+gates before it can be called a public distributed cloud. See
+[`docs/asgard-cloud.md`](docs/asgard-cloud.md).
 
-Asgard is not currently a blockchain or payment network. A proposed shared
-receipt ledger for non-transferable service credits remains fail-closed until
+Asgard is not currently a blockchain or payment network. Its signed receipt
+chain proves local record integrity, not global consensus or payment. Proposed
+non-transferable service credits remain fail-closed until
 consensus, custody, refunds, jurisdiction and independently reconcilable
 accounting are implemented. Its declared allocation is 90% of net
 distributable proceeds to a named eligible charity and 10% to PQVPN; no client
