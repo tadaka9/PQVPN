@@ -62,8 +62,20 @@ TEST_CASE("StrangeNet carries bounded voice chunks but no arbitrary media kind",
     CHECK(decoded->text == voice.text);
 
     Message forbidden = voice;
-    forbidden.kind = static_cast<Kind>(7); // images/video/unknown attachments are not wire kinds
+    forbidden.kind = static_cast<Kind>(0xff); // images/video/unknown attachments are not wire kinds
     CHECK_FALSE(encode(forbidden).has_value());
+}
+
+TEST_CASE("StrangeNet carries explicit session profiles without opening arbitrary media", "[strangenet][profile]") {
+    const Message profile{"mainnet/friends", "peer-alice", 13, 1700000000129ULL,
+        R"({"name":"Alice","intent":"friendship","bio":"Here for thoughtful conversation"})",
+        Kind::Profile};
+    const auto wire = encode(profile);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::Profile);
+    CHECK(decoded->text == profile.text);
 }
 
 TEST_CASE("StrangeNet rejects invalid UTF-8 and malformed acknowledgements", "[strangenet]") {
