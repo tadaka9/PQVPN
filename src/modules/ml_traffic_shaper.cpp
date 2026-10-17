@@ -46,7 +46,12 @@ std::vector<uint8_t> MLTrafficShaper::pad(std::span<const uint8_t> packet) const
         throw std::length_error("packet does not fit the padded UDP envelope");
     const std::size_t minimum = packet.size() + 3;
     std::size_t target = minimum;
-    const auto desired = std::max(minimum + 44, static_cast<std::size_t>(model_.predicted_size()) + 47);
+    // The public-policy mode is deliberately deterministic: its buckets are
+    // configured/finalized by the control plane and never depend on private
+    // per-user traffic observations. LocalAI keeps adapting on-device only.
+    const auto desired = config_.mode == ShapingMode::BlockchainPolicy
+        ? minimum + config_.max_padding_bytes
+        : std::max(minimum + 44, static_cast<std::size_t>(model_.predicted_size()) + 47);
     for (const std::size_t wire_bucket : {256U, 512U, 1024U, 1200U}) {
         const auto bucket = wire_bucket - 44;
         if (bucket >= minimum && bucket - minimum <= config_.max_padding_bytes) {
@@ -78,9 +83,11 @@ bool MLTrafficShaper::enqueue(std::vector<uint8_t> frame, std::size_t original_s
         return false;
     }
     const auto now = Clock::now();
-    model_.observe(original_size, now);
-    const int delay = std::min(config_.max_delay_ms,
-        static_cast<int>(std::ceil(model_.predicted_gap_ms() / 5.0)) * 5);
+    if (config_.mode == ShapingMode::LocalAI) model_.observe(original_size, now);
+    const int delay = config_.mode == ShapingMode::BlockchainPolicy
+        ? config_.max_delay_ms
+        : std::min(config_.max_delay_ms,
+            static_cast<int>(std::ceil(model_.predicted_gap_ms() / 5.0)) * 5);
     auto due = now + std::chrono::milliseconds(delay);
     if (!queue_.empty()) due = std::max(due, queue_.back().due);
     const bool first = queue_.empty();

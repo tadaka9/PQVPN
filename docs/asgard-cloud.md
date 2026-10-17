@@ -9,9 +9,12 @@ encryption or expose plaintext to a peer.
 
 `tools/asgard-cloud.py` currently targets local paths and operator-mounted
 remote volumes. It is a functional storage core, not yet a public cloud: PQVPN
-wire transport, garbage collection, erasure coding and adversarial network
-testing remain release gates. Bootstrap and exit roles never imply storage
-consent.
+wire transport, garbage collection and adversarial network testing remain
+release gates. A tested bounded `k+1` XOR erasure codec can reconstruct any one
+missing shard and relies on the existing ciphertext hash plus AEAD for
+integrity. Manifests still place full independent replicas; live peer shard
+placement is not advertised until repair and audit are wired end to end.
+Bootstrap and exit roles never imply storage consent.
 
 Retrieval may use optional integer `latency_ms`, `capacity_bps` and
 `availability_ppm` fields on each configured node. Values are strictly bounded;

@@ -41,6 +41,47 @@ MAX_OBJECT_BYTES = 1024 * 1024 * 1024 * 1024
 DEFAULT_MIN_FREE_BYTES = 64 * 1024 * 1024
 
 
+def erasure_encode(blob: bytes, data_shards: int) -> list[bytes]:
+    """Return k data shards plus one XOR parity shard."""
+    if not blob or data_shards < 2 or data_shards > 32:
+        raise ValueError("erasure coding requires 2..32 data shards and nonempty data")
+    width = (len(blob) + data_shards - 1) // data_shards
+    padded = blob + bytes(width * data_shards - len(blob))
+    shards = [padded[index * width:(index + 1) * width]
+              for index in range(data_shards)]
+    parity = bytearray(width)
+    for shard in shards:
+        for index, value in enumerate(shard):
+            parity[index] ^= value
+    return shards + [bytes(parity)]
+
+
+def erasure_reconstruct(shards: list[bytes | None], original_size: int) -> bytes:
+    """Reconstruct data when at most one of k+1 shards is unavailable."""
+    if len(shards) < 3 or len(shards) > 33 or original_size < 1:
+        raise ValueError("invalid erasure shard set")
+    present = [shard for shard in shards if shard is not None]
+    if not present or any(len(shard) != len(present[0]) for shard in present):
+        raise ValueError("erasure shards must have one fixed width")
+    missing = [index for index, shard in enumerate(shards) if shard is None]
+    if len(missing) > 1:
+        raise RuntimeError("XOR erasure set cannot recover more than one missing shard")
+    restored = list(shards)
+    data_count = len(shards) - 1
+    if missing and missing[0] < data_count:
+        recovered = bytearray(len(present[0]))
+        for shard in present:
+            for index, value in enumerate(shard):
+                recovered[index] ^= value
+        restored[missing[0]] = bytes(recovered)
+    if any(restored[index] is None for index in range(data_count)):
+        raise RuntimeError("data shard remains unavailable")
+    value = b"".join(restored[:data_count])[:original_size]
+    if len(value) != original_size:
+        raise RuntimeError("reconstructed data is shorter than declared size")
+    return value
+
+
 def canonical_json(value: dict) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=True).encode("utf-8")

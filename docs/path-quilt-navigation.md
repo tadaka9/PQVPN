@@ -24,11 +24,21 @@ addresses, file names and plaintext never belong in a block or receipt.
 7. Validators may later admit valid, non-replayed receipts into a bounded
    reward block. A receipt is evidence, not automatic mint authority.
 
-Current multipath is path selection with liveness failover. Concurrent striping
-is intentionally gated: TCP and QUIC flows need stable flow affinity, congestion
-control, packet numbering, reordering limits and duplicate suppression before
-multiple paths can safely carry one connection. Advertising “bonding” without
-those mechanisms would make distant connections less stable, not faster.
+Current production multipath is path selection with liveness failover. A tested
+scheduler now provides flow-stable ranking, congestion-window exclusion and a
+bounded duplicate-safe reorder buffer. Concurrent striping stays gated until
+the authenticated wire sequence format and loss/reordering integration tests
+pass. Advertising “bonding” before that would make distant connections less
+stable, not faster.
+
+StrangeNet and the 2D world can request a wallet-signed exploration claim. Its
+ledger-safe payload contains only achievement class, wallet, timestamp, nonce
+and evidence digest. Messages, rooms, coordinates, relationships and participant
+IPs are never claim fields; a validator may include or reject it later.
+
+Traffic shaping exposes the same two modes in configuration and GUI: `ai`
+trains bounded predictors locally without telemetry; `blockchain` applies
+deterministic public bounds and never queries consensus per packet.
 
 ## Privacy and abuse boundaries
 
@@ -37,10 +47,11 @@ those mechanisms would make distant connections less stable, not faster.
 - offers expire within one hour and cannot select unauthenticated peers;
 - storage metrics must remain within configured bounds;
 - exact traffic timing and byte counts are reduced to buckets before receipts;
-- wallet, VPN, StrangeNet and storage identities use separate key domains;
+- VPN/StrangeNet transport and storage identities stay separate; an explicit
+  social claim is intentionally bound to the self-custody wallet;
 - failure to reach consensus stops rewards, never VPN forwarding.
 
-The next engineering gate is flow-stable concurrent multipath plus erasure-coded
-Asgard reconstruction under loss. Until its reorder, congestion and adversarial
-tests pass, PQVPN must describe the feature as latency-aware path selection and
-replica failover.
+The next engineering gate is authenticated sequence framing and live shard
+placement. Until their loss and adversarial tests pass, PQVPN must describe the
+feature as latency-aware path selection, tested scheduling/reordering primitives
+and replica failover—not simultaneous bonding.

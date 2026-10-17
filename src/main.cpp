@@ -38,6 +38,7 @@
 #include "external_tunnel_process.hpp"
 #include "console/inner_tunnel_policy.hpp"
 #include "wallet_identity.hpp"
+#include "social_ledger.hpp"
 
 namespace {
 
@@ -779,7 +780,7 @@ int main(int argc, char** argv) {
             emit_console_event({{"event", "strangenet.joined"}, {"room", strange->room},
                                 {"peer", args.strangenet_peer.empty() ? "auto" : args.strangenet_peer}});
         }
-        std::thread([node, strange, control = args.control_stdin, shutdown, &io] {
+        std::thread([node, strange, control = args.control_stdin, shutdown, &io, wallet] {
             std::string line;
             while (std::getline(std::cin, line)) {
                 if (control) {
@@ -790,7 +791,7 @@ int main(int argc, char** argv) {
                             emit_console_event({{"event", "control.error"}, {"message", "invalid command"}});
                             continue;
                         }
-                        asio::post(io, [node, strange, command, shutdown] {
+                        asio::post(io, [node, strange, command, shutdown, wallet] {
                             const auto name = command.at("command").get<std::string>();
                             if (name == "node.shutdown") {
                                 if (*shutdown) (*shutdown)();
@@ -929,6 +930,14 @@ int main(int argc, char** argv) {
                                                                   : (name == "strangenet.profile" ? "profile"
                                                                   : (name == "strangenet.world" ? "world" : "text")))))}});
                                 }
+                            } else if(name=="strangenet.achievement") {
+                                const auto evidence=command.value("evidence",std::string{});
+                                if(evidence.empty()||evidence.size()>128){emit_console_event({{"event","social.claim.rejected"},{"reason","invalid evidence"}});return;}
+                                const auto now=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                                const pqvpn::research::Bytes evidence_bytes(evidence.begin(),evidence.end());
+                                pqvpn::social::Claim claim{wallet.address(),pqvpn::social::Achievement::DistrictDiscovered,pqvpn::research::digest(evidence_bytes),now,now,{}};
+                                claim.proof=pqvpn::research::sign(pqvpn::social::payload(claim),wallet.ed25519.private_key,wallet.ml_dsa_87.secret_key);
+                                emit_console_event({{"event","social.claim.ready"},{"achievement",pqvpn::social::to_string(claim.achievement)},{"beneficiary",claim.beneficiary},{"evidence_digest",claim.evidence_digest},{"completed_at_ms",claim.completed_at_ms},{"nonce",claim.nonce},{"ed25519",pqvpn::research::hex(wallet.ed25519.public_key)},{"ml_dsa_87",pqvpn::research::hex(wallet.ml_dsa_87.public_key)},{"ed25519_signature",pqvpn::research::hex(claim.proof.ed25519)},{"ml_dsa_87_signature",pqvpn::research::hex(claim.proof.ml_dsa_87)}});
                             } else if(name=="resource.offer") {
                                 const auto ed=pqvpn::research::unhex(command.value("ed25519",std::string{}));
                                 const auto pq=pqvpn::research::unhex(command.value("ml_dsa_87",std::string{}));

@@ -302,6 +302,9 @@ namespace pqvpn::config {
             if (j.contains("traffic_shaping")) {
                 const auto& shape = j.at("traffic_shaping");
                 value.traffic_shaping.enabled = shape.value("enabled", false);
+                const auto shaping_mode = traffic::shaping_mode_from_string(shape.value("mode", std::string{"ai"}));
+                if (!shaping_mode) throw std::runtime_error("traffic_shaping.mode must be ai or blockchain");
+                value.traffic_shaping.mode = *shaping_mode;
                 value.traffic_shaping.max_padding_bytes = shape.value("max_padding_bytes", std::size_t{1024});
                 value.traffic_shaping.max_delay_ms = shape.value("max_delay_ms", 20);
                 value.traffic_shaping.max_queue_packets = shape.value("max_queue_packets", std::size_t{256});
@@ -334,7 +337,7 @@ namespace pqvpn::config {
             }
             if (value.traffic_shaping.enabled) {
                 const auto& shape = value.traffic_shaping;
-                j["traffic_shaping"] = {{"enabled", shape.enabled}, {"max_padding_bytes", shape.max_padding_bytes},
+                j["traffic_shaping"] = {{"enabled", shape.enabled}, {"mode", traffic::to_string(shape.mode)}, {"max_padding_bytes", shape.max_padding_bytes},
                     {"max_delay_ms", shape.max_delay_ms}, {"max_queue_packets", shape.max_queue_packets},
                     {"max_queue_bytes", shape.max_queue_bytes}};
             }

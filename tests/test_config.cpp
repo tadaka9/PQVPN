@@ -187,6 +187,33 @@ TEST_CASE("Config rejects invalid adaptive policy", "[config][transport]") {
     std::remove(config_path.c_str());
 }
 
+TEST_CASE("Config selects a shared traffic shaping policy", "[config][traffic]") {
+    const std::string config_path = temp_config_path("pqvpn_test_config_shaping.json");
+    {
+        std::ofstream ofs(config_path);
+        ofs << R"({
+            "network": {"port": 9090},
+            "traffic_shaping": {"enabled": true, "mode": "blockchain",
+                "max_padding_bytes": 512, "max_delay_ms": 10}
+        })";
+    }
+    auto result = pqvpn::config::load_config(config_path);
+    REQUIRE(result.has_value());
+    CHECK(result->traffic_shaping.mode == pqvpn::traffic::ShapingMode::BlockchainPolicy);
+    CHECK(nlohmann::json(*result)["traffic_shaping"]["mode"] == "blockchain");
+    std::remove(config_path.c_str());
+}
+
+TEST_CASE("Config rejects an unknown traffic shaping policy", "[config][traffic]") {
+    const std::string config_path = temp_config_path("pqvpn_test_config_shaping_invalid.json");
+    {
+        std::ofstream ofs(config_path);
+        ofs << R"({"network":{"port":9090},"traffic_shaping":{"mode":"oracle"}})";
+    }
+    CHECK_FALSE(pqvpn::config::load_config(config_path).has_value());
+    std::remove(config_path.c_str());
+}
+
 TEST_CASE("Config bounds replay memory per session", "[config][security]") {
     const std::string config_path = temp_config_path("pqvpn_test_config_replay_limit.json");
     {

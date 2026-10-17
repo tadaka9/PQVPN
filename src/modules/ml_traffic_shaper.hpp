@@ -9,12 +9,26 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace pqvpn::traffic {
 
+enum class ShapingMode { LocalAI, BlockchainPolicy };
+
+inline const char* to_string(ShapingMode mode) {
+    return mode == ShapingMode::BlockchainPolicy ? "blockchain" : "ai";
+}
+
+inline std::optional<ShapingMode> shaping_mode_from_string(std::string_view value) {
+    if (value == "ai") return ShapingMode::LocalAI;
+    if (value == "blockchain") return ShapingMode::BlockchainPolicy;
+    return std::nullopt;
+}
+
 struct ShapingConfig {
     bool enabled = false;
+    ShapingMode mode = ShapingMode::LocalAI;
     std::size_t max_padding_bytes = 1024;
     int max_delay_ms = 20;
     std::size_t max_queue_packets = 256;
@@ -55,6 +69,7 @@ public:
     std::size_t sent_packets() const { return sent_; }
     std::size_t dropped_packets() const { return dropped_; }
     const TrafficModel& model() const { return model_; }
+    ShapingMode mode() const { return config_.mode; }
 private:
     struct Pending { std::vector<uint8_t> frame; Sender sender; Clock::time_point due; };
     void arm();
