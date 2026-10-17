@@ -166,7 +166,7 @@ jobs:
           monitor=build/pqvpn_monitor
           if [[ "${{ matrix.family }}" == macos ]]; then monitor=build/pqvpn_monitor.app/Contents/MacOS/pqvpn_monitor; fi
           for theme in dark light souls; do
-            for page in overview connection transports strangenet activity privacy about; do
+            for page in overview connection transports strangenet shield activity privacy about; do
               QT_QPA_PLATFORM=offscreen \
                 PQVPN_SMOKE_THEME="$theme" \
                 PQVPN_SMOKE_PAGE="$page" \
@@ -175,7 +175,7 @@ jobs:
               test -s "$RUNNER_TEMP/pqvpn-console/$page-$theme.png"
             done
           done
-          for page in overview connection transports strangenet activity privacy about; do
+          for page in overview connection transports strangenet shield activity privacy about; do
             QT_QPA_PLATFORM=offscreen \
               PQVPN_SMOKE_COMPACT=1 \
               PQVPN_SMOKE_THEME=dark \
@@ -194,7 +194,9 @@ jobs:
 
       - name: Verify pinned on-demand engines on native platform
         shell: bash
-        run: python3 tests/check_transport_catalog.py --platform "${{ matrix.target }}"
+        run: |
+          python3 tests/check_transport_catalog.py --platform "${{ matrix.target }}"
+          python3 tests/check_shield_catalog.py
 
       - name: Verify architecture and CLI startup
         shell: bash
@@ -468,7 +470,7 @@ jobs:
           $renderDir = "$env:RUNNER_TEMP\pqvpn-console"
           New-Item -ItemType Directory -Force -Path $renderDir | Out-Null
           foreach ($theme in @('dark','light','souls')) {
-            foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
+            foreach ($page in @('overview','connection','transports','strangenet','shield','activity','privacy','about')) {
               $env:PQVPN_SMOKE_THEME = $theme
               $env:PQVPN_SMOKE_PAGE = $page
               $env:PQVPN_SMOKE_IMAGE = Join-Path $renderDir "$page-$theme.png"
@@ -480,7 +482,7 @@ jobs:
               }
             }
           }
-          foreach ($page in @('overview','connection','transports','strangenet','activity','privacy','about')) {
+          foreach ($page in @('overview','connection','transports','strangenet','shield','activity','privacy','about')) {
             $env:PQVPN_SMOKE_COMPACT = '1'
             $env:PQVPN_SMOKE_THEME = 'dark'
             $env:PQVPN_SMOKE_PAGE = $page

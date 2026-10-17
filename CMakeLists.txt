@@ -315,6 +315,8 @@ if(UNIX AND NOT APPLE)
     RENAME pqvpn.svg)
   install(PROGRAMS packaging/linux/pqvpn-linux-network
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(PROGRAMS packaging/linux/pqvpn-shield-helper
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(FILES packaging/linux/49-pqvpn-network.rules
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/rules.d)
 endif()

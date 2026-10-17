@@ -109,6 +109,7 @@ install -m 0644 config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
 install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
 install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
 install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
+install -m 0755 packaging/linux/pqvpn-shield-helper "$PKG_ROOT/usr/lib/pqvpn/pqvpn-shield-helper"
 install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
 
 if [ -f "packaging/linux/pqvpn.service" ]; then

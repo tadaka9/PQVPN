@@ -115,6 +115,38 @@ operate and the evidence you have verified.
 | **StrangeNet** | Encrypted, authenticated peer rooms with bounded messages, replay checks and rate limits. |
 | **Release integrity** | Versioned packages, checksums, deterministic update containers and CI evidence gates. |
 
+### DNS Shield: choose once, see the trade-off
+
+The Linux Privacy Console can apply a complete Pi-hole preset with one button.
+The packaged application performs one narrowly scoped administrator action:
+the helper accepts a named preset, adds only the reviewed source URLs below,
+validates optional custom expressions and rebuilds gravity. It cannot execute
+an arbitrary command or accept an arbitrary database path.
+
+| Preset | Coverage | Expected friction | Best fit |
+|---|---|---:|---|
+| **Balanced privacy** · recommended | OISD Big | Low–moderate | Everyday blocking with fewer surprises |
+| **Threat defence** | OISD Big + HaGeZi TIF | Low–moderate | Malware, phishing and command-and-control defence |
+| **Family boundaries** | Threat defence + adult and gambling categories | Intentional restrictions | A household policy discussed with the people it affects |
+| **Maximum** · expert | HaGeZi Pro + TIF + family categories | Higher | Operators prepared to diagnose false positives |
+
+```text
+Privacy Console → Shield → choose a preset → Apply shield in one click
+```
+
+Pi-hole must already be installed locally. PQVPN does not silently install a
+DNS server, change a remote Pi-hole or pretend that DNS filtering can inspect
+encrypted page content. The shield displays aggregate counts only; it does not
+import query history, client addresses or browsing profiles. Category filters
+are a configurable safety aid—not surveillance, a substitute for conversation
+or a guarantee of child safety.
+
+The preset design is inspired by the unusually clear selection guidance in
+[HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists). Filter data
+comes from [HaGeZi](https://github.com/hagezi/dns-blocklists) and
+[OISD](https://oisd.nl/); those projects remain independent and their own
+documentation is authoritative for list contents, licensing and updates.
+
 ### StrangeNet: conversation without a platform account
 
 StrangeNet sends a separately encrypted room message to established,

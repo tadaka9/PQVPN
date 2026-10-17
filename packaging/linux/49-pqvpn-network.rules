@@ -1,6 +1,7 @@
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.policykit.exec" &&
-        action.lookup("program") == "/usr/lib/pqvpn/pqvpn-linux-network" &&
+        (action.lookup("program") == "/usr/lib/pqvpn/pqvpn-linux-network" ||
+         action.lookup("program") == "/usr/lib/pqvpn/pqvpn-shield-helper") &&
         subject.local && subject.active) {
         return polkit.Result.YES;
     }
