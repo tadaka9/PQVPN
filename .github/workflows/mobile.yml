@@ -44,8 +44,11 @@ jobs:
           # ignores its newer compile-SDK target property. Hosted runners ship
           # a broken android-36-ext19 android.jar, so remove only that preview
           # package from this ephemeral job and keep the supported API 35.
-          "$sdkmanager" --uninstall 'platforms;android-36-ext19' || true
+          while IFS= read -r preview; do
+            test -z "$preview" || "$sdkmanager" --uninstall "$preview"
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-36/ {print $1}')
           test -f "$sdk_root/platforms/android-35/android.jar"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d -name 'android-36*' -print -quit)"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
