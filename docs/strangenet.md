@@ -32,6 +32,26 @@ entry in this directory and never grants chat access.
 
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
 
+## Writing experience
+
+The Privacy Console presents StrangeNet as a conversation rather than a raw
+event log. Authenticated messages and local messages use distinct bubbles;
+receipts, rate limits and room changes remain visually separate so operational
+status cannot be mistaken for something another person wrote.
+
+The composer has two explicit keyboard modes:
+
+- **Conversation** sends with Enter and inserts a line break with Shift+Enter.
+- **Poem** preserves Enter for line breaks and sends with Ctrl+Enter (or
+  Command+Enter on macOS).
+
+Both modes transmit the same bounded UTF-8 plaintext inside StrangeNet's
+authenticated encryption. The mode is local presentation state, adds no wire
+metadata and makes no inference about the writer. Pasting text beyond the
+2,048-byte protocol limit is truncated at the composer boundary; blank or
+whitespace-only messages are not sent. **Clear view** removes rendered content
+from this process without changing the room or claiming remote deletion.
+
 ## Antiflood behavior
 
 Every authenticated sender has a process-lifetime token bucket (eight-item
