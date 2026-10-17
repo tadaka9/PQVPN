@@ -326,6 +326,24 @@ operator-mounted volumes; PQVPN-native transport, repair, quotas and hostile
 network testing remain gates before it can be called a public distributed
 cloud. See [`docs/asgard-cloud.md`](docs/asgard-cloud.md).
 
+Asgard is not currently a blockchain or payment network. A proposed shared
+receipt ledger for non-transferable service credits remains fail-closed until
+consensus, custody, refunds, jurisdiction and independently reconcilable
+accounting are implemented. Its declared allocation is 90% of net
+distributable proceeds to a named eligible charity and 10% to PQVPN; no client
+currently accepts money or represents that split as settled on-chain.
+
+### StrangeNet Pixel Commons
+
+The native desktop client now carries bounded `World` presence events through
+the same authenticated, pairwise-encrypted StrangeNet sessions as chat. Users
+can move an original pixel avatar with WASD, arrow keys or a click across Gate,
+Forge, Garden and Commons, and send a fixed set of emotes. Remote avatars show
+only shortened authenticated Peer IDs. Coordinates, emotes and local path
+progress are memory-only and are cleared on leave or disconnect; participant
+IP addresses, inventories and movement histories are neither emitted nor
+persisted. See [`docs/strangenet.md`](docs/strangenet.md).
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 

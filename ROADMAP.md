@@ -104,6 +104,15 @@ verification on an elevated host with a connected adapter is still pending.
   user-controlled keystore integration.
 - [ ] Evaluate erasure coding only after replication recovery is proven under
   loss, corruption, churn, disk-full and malicious-peer tests.
+- [ ] Specify and implement a shared Asgard receipt ledger before enabling any
+  credit purchase: consensus/finality, replay and double-spend resistance,
+  idempotent payment intents, refund/chargeback handling and separate custody.
+- [ ] Make credits non-transferable service units, keep VPN access independent
+  of payment, and publish independently reconcilable allocation evidence for
+  90% of net distributable proceeds to a named charity and 10% to PQVPN.
+- [ ] Keep every purchase control fail-closed until the charity, jurisdiction,
+  processor, fee denominator, terms and monthly accounting are configured and
+  reviewed. Do not represent the current storage foundation as a blockchain.
 
 ## Release engineering
 

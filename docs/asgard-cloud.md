@@ -61,3 +61,30 @@ monthly infrastructure budget. They never purchase resources, change VPN node
 roles or copy the master key automatically. Replicas on the same filesystem,
 host or provider are useful for testing but do not count as independent
 failure domains in production.
+
+## Credits and public-benefit ledger gate
+
+Asgard does **not** currently implement a blockchain, token or payment rail.
+No client may sell credits or claim an on-chain donation until the following
+shared-ledger gates are complete and independently reviewable:
+
+- a specified consensus and finality model with replay, reorganization and
+  double-spend tests;
+- non-transferable service credits with no investment, yield or price claim;
+- idempotent purchase intents and signed receipts binding currency, gross
+  amount, fees, refunds and settlement identifier;
+- an immutable allocation rule sending 90% of net distributable proceeds to a
+  named eligible charity and 10% to the PQVPN project;
+- explicit treatment of processor fees, tax, chargebacks and rounding, so
+  “90%” cannot hide an undefined denominator;
+- published charity identity, jurisdiction, terms, refund policy, accounting
+  period and independently reconcilable monthly totals;
+- wallet and key custody that is separate from VPN, StrangeNet and storage
+  identity keys.
+
+The intended ledger namespace is shared with future Asgard storage receipts so
+storage usage and credit settlement cannot silently fork into incompatible
+economies. Storage peers do not gain wallet authority merely by hosting chunks,
+and the VPN remains usable without credits. Until every gate above is met, the
+purchase capability must remain absent or visibly disabled; a roadmap is not a
+cash register.

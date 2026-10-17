@@ -55,7 +55,8 @@ std::optional<std::vector<std::uint8_t>> encode(const Message& message) {
     const bool voice = message.kind == Kind::Voice;
     const bool direct = message.kind == Kind::DirectText;
     const bool profile = message.kind == Kind::Profile;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile) ||
+    const bool world = message.kind == Kind::World;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile && !world) ||
         message.room.empty() || message.room.size() > kMaxRoomBytes || message.sender.empty() ||
         message.sender.size() > kMaxSenderBytes || (!ack && message.text.empty()) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
@@ -106,7 +107,8 @@ std::optional<Message> decode(const std::span<const std::uint8_t> frame) {
     const bool voice = message.kind == Kind::Voice;
     const bool direct = message.kind == Kind::DirectText;
     const bool profile = message.kind == Kind::Profile;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile) ||
+    const bool world = message.kind == Kind::World;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile && !world) ||
         (voice && frame[4] != 3) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
         (!ack && message.text.empty()) || (reaction && message.reply_to == 0) ||
@@ -155,7 +157,8 @@ FloodDecision FloodGuard::accept(const Message& message, const std::uint64_t now
         static_cast<double>(message.text.empty() ? 0 : message.text.size() - 1) / 512.0;
     const double cost = message.kind == Kind::Acknowledgement ? 0.25
         : (message.kind == Kind::Reaction ? 0.5
-        : (message.kind == Kind::Voice ? 0.02 : payload_cost));
+        : (message.kind == Kind::Voice ? 0.02
+        : (message.kind == Kind::World ? 0.25 : payload_cost)));
     const auto& sender_key = message.sender;
 
     auto expire_idle = [now_ms](auto& buckets, const std::uint64_t expiry) {

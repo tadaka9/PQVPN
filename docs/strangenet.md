@@ -60,14 +60,23 @@ event log. Authenticated messages and local messages use distinct bubbles;
 receipts, rate limits and room changes remain visually separate so operational
 status cannot be mistaken for something another person wrote.
 
-The **Pixel Commons** is an optional retro social-lobby view over that same
-transport. Its spaces map to ordinary validated StrangeNet room paths, and its
-figures represent the local user plus currently authenticated Peer IDs. It is
-not a separate service, directory, account system, or source of presence data:
-selecting a space updates the canonical room field, while join, antiflood,
-direct messages, group fanout, voice and delivery receipts continue through
-the normal StrangeNet controls. The scene is drawn locally by PQVPN and uses no
-third-party game assets.
+The **Pixel Commons** is the native 2D social-world view over that same
+transport. It combines spatial social rooms with a small exploration path,
+using original PQVPN artwork and mechanics rather than third-party game assets.
+After joining, WASD, arrow keys or a click move the local pseudonymous avatar;
+wave, bow, cheer and sit are explicit emotes. Each bounded world-state update
+is encrypted independently to authenticated room peers and is subject to the
+same replay and antiflood boundary as chat.
+
+World state uses normalized coordinates, one of four declared zones
+(`commons`, `forge`, `garden`, `gate`), a facing direction and a fixed emote
+vocabulary. The node rejects malformed JSON, unknown zones, out-of-range
+coordinates and payloads above 512 bytes before delivery. The GUI repeats
+validation before rendering. Remote figures are labelled only with a shortened
+authenticated Peer ID; no participant IP is emitted or displayed. Positions,
+emotes and local path progress exist only in process memory and disappear on
+leave or disconnect. This is a social presence layer, not an authoritative MMO
+server, inventory, economy or anti-cheat system.
 
 The GUI also provides visible-session search, content-free notification levels
 and a session-only peer block list. Blocking is enforced in the node before an
@@ -141,6 +150,7 @@ Version 2 frames support:
 - a hard limit of 4,096 replay streams per process;
 - bounded per-sender and aggregate room token buckets;
 - a maximum of 512 direct recipients per broadcast operation.
+- authenticated, bounded `World` presence frames for the native 2D room.
 
 Version 1 text frames remain decodable. Text, replies and reactions use version 2. Version 3 extends the same bounded envelope with live 16 kHz mono voice chunks. The GUI provides hold-to-talk audio only: chunks are played from memory and are not saved as files. There is no image, video, HTML, arbitrary attachment or remote-media wire kind.
 

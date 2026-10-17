@@ -78,6 +78,18 @@ TEST_CASE("StrangeNet carries explicit session profiles without opening arbitrar
     CHECK(decoded->text == profile.text);
 }
 
+TEST_CASE("StrangeNet carries authenticated bounded world state", "[strangenet][world]") {
+    const Message world{"mainnet/friends", "peer-alice", 14, 1700000000130ULL,
+        R"({"v":1,"op":"move","zone":"commons","x":420,"y":610,"facing":"east","emote":"wave"})",
+        Kind::World};
+    const auto wire = encode(world);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::World);
+    CHECK(decoded->text == world.text);
+}
+
 TEST_CASE("StrangeNet rejects invalid UTF-8 and malformed acknowledgements", "[strangenet]") {
     Message invalid{"mainnet", "peer", 1, 1, std::string{"\xF0\x28\x8C\x28", 4}};
     CHECK_FALSE(encode(invalid).has_value());
