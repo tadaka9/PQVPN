@@ -37,3 +37,13 @@ identity and agency, make the system's interpretation visible, then interact
 with another authenticated peer. **Peer respected. Peer verified.** Respect
 precedes verification; cryptography must not justify coercion, hidden compute,
 identity ranking or ideological conformity.
+
+## Civic integrity is always on
+
+Ethics is an invariant, not a toggle: conceptually **morale = 1**, never a
+user-facing mode that can be set to zero. “Antimafia nel cuore” means opposing
+coercion, corruption, intimidation and opaque concentration of power through
+auditable rules, separation of duties and accountable governance. It never
+authorizes political profiling, ideological tests, vigilantism or collection
+of personal data. Release attribution uses **David1** whenever Davide directly
+contributes to the design or implementation, and **David0** otherwise.
