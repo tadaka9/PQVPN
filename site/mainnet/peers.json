@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "network": "pqvpn-mainnet-alpha",
-  "updated_at": "2026-10-13",
+  "updated_at": "2026-10-17T07:08:00Z",
+  "release_basis": "operator-observed runtime; Pages refreshes the published release channel every six hours",
   "registry_url": "https://tadaka9.github.io/PQVPN/mainnet/peers.json",
   "notice": "Opt-in discovery registry. An entry does not guarantee availability, safety, capacity, egress access or endorsement.",
   "peers": [
@@ -22,7 +23,7 @@
       "policy_url": "https://tadaka9.github.io/PQVPN/mainnet/hel1-bootstrap-policy.html",
       "abuse_contact": "https://github.com/tadaka9/PQVPN/issues/new?labels=abuse",
       "consent_recorded_at": "2026-10-13",
-      "release": "v0.0.5-alpha-10092026-David0",
+      "release": "v0.0.21-10172026-David1-beta-GUI",
       "status": "online · experimental"
     },
     {
@@ -43,7 +44,7 @@
       "policy_url": "https://tadaka9.github.io/PQVPN/mainnet/sth1-exit-policy.html",
       "abuse_contact": "https://github.com/tadaka9/PQVPN/issues/new?labels=abuse",
       "consent_recorded_at": "2026-10-13",
-      "release": "v0.0.5-alpha-10092026-David0",
+      "release": "v0.0.21-10172026-David1-beta-GUI",
       "status": "online \u00b7 experimental"
     }
   ]
