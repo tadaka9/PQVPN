@@ -792,20 +792,20 @@ private:
         auto* controls=new QVBoxLayout;controls->setContentsMargins(20,18,20,18);
         controls->addWidget(text("ENGINES ON DEMAND","eyebrow"));
         QList<QPair<QString,QCheckBox*>> selected;
-        for(const QString& id:QStringList{"udp2raw","shadowsocks","v2ray","obfs4"}){
+        for(const QString& id:QStringList{"udp2raw","shadowsocks","v2ray","obfs4","dnscrypt"}){
             auto* engineBlock=new QVBoxLayout;auto* row=new QHBoxLayout;auto* enabled=new QCheckBox(id);row->addWidget(enabled);selected.append({id,enabled});
             auto* choose=new QPushButton("Choose config…");auto* edit=new QPushButton("Edit config");auto* start=new QPushButton("Install / start");auto* stop=new QPushButton("Stop");
             engineStartButtons_[id]=start;engineStopButtons_[id]=stop;engineConfigButtons_[id]=choose;stop->setEnabled(false);
             for(auto* button:{choose,edit,stop})button->setProperty("quiet",true);
             row->addStretch();row->addWidget(start);row->addWidget(stop);engineBlock->addLayout(row);auto* configRow=new QHBoxLayout;configRow->addWidget(choose);configRow->addWidget(edit);configRow->addStretch();engineBlock->addLayout(configRow);controls->addLayout(engineBlock);
             connect(choose,&QPushButton::clicked,this,[this,id]{if(engines_->active(id))return;const QString path=QFileDialog::getOpenFileName(this,"Choose "+id+" configuration",QDir::homePath());if(!path.isEmpty())QSettings("PQVPN","Privacy Console").setValue(id+"ConfigPath",QFileInfo(path).absoluteFilePath());});
-            connect(edit,&QPushButton::clicked,this,[this,id]{if(!engines_->active(id))editConfiguration(QSettings("PQVPN","Privacy Console").value(id+"ConfigPath").toString(),id!="udp2raw");});
+            connect(edit,&QPushButton::clicked,this,[this,id]{if(!engines_->active(id))editConfiguration(QSettings("PQVPN","Privacy Console").value(id+"ConfigPath").toString(),id!="udp2raw"&&id!="dnscrypt");});
             connect(start,&QPushButton::clicked,this,[this,id]{engines_->start(id,engineConfiguration(id));});
             connect(stop,&QPushButton::clicked,this,[this,id]{engines_->stop(id);});
         }
         auto* startSelected=new QPushButton("Start selected engines");controls->addWidget(startSelected,0,Qt::AlignRight);
         connect(startSelected,&QPushButton::clicked,this,[this,selected]{for(const auto& item:selected)if(item.second->isChecked()&&!engines_->active(item.first))engines_->start(item.first,engineConfiguration(item.first));});
-        auto* note=text("Downloads are verified and stored separately from PQVPN. Multiple engines can run together using your matching configurations. PQVPN can attach directly to udp2raw; SOCKS and TCP engines require a configured UDP relay. Engine startup alone does not mean the VPN is connected.");note->setProperty("muted",true);controls->addWidget(note);auto* engineControls=card(controls);body->addWidget(engineControls);geekWidgets_.append(engineControls);
+        auto* note=text("Downloads are verified and stored separately from PQVPN. Multiple engines can run together using your matching configurations. PQVPN can attach directly to udp2raw; SOCKS and TCP engines require a configured UDP relay. DNSCrypt is a DNS sidecar, not an outer transport, and route/DNS policy must explicitly point to its loopback listener. Engine startup alone does not mean the VPN is connected.");note->setProperty("muted",true);controls->addWidget(note);auto* engineControls=card(controls);body->addWidget(engineControls);geekWidgets_.append(engineControls);
         auto* presets=new QHBoxLayout;auto* udpPreset=new QPushButton("Auto-configure udp2raw");auto* engineInfo=text("Preserves your identity and installs / starts udp2raw from your existing server configuration.");engineInfo->setProperty("muted",true);presets->addWidget(udpPreset);auto* chooseEngine=new QPushButton("Choose engine config…");chooseEngine->setProperty("quiet",true);presets->addWidget(chooseEngine);presets->addWidget(engineInfo,1);
         connect(chooseEngine,&QPushButton::clicked,this,[this]{if(process_.state()!=QProcess::NotRunning)return;const QString path=QFileDialog::getOpenFileName(this,"Choose existing udp2raw client configuration",QDir::homePath(),"Engine configuration (*.conf *.cfg);;All files (*)");if(!path.isEmpty()){QSettings("PQVPN","Privacy Console").setValue("udp2rawConfigPath",path);prepareUdp2rawProfile();}});auto* enginePresets=new QWidget;enginePresets->setLayout(presets);body->addWidget(enginePresets);geekWidgets_.append(enginePresets);
         connect(udpPreset,&QPushButton::clicked,this,&Window::prepareUdp2rawProfile);
@@ -981,7 +981,7 @@ private:
     void setUnknownConfig(){mainnetMetric_->setText("Not loaded");endpointMetric_->setText("Not loaded");verificationMetric_->setText("Unknown");tunnelMetric_->setText("Unknown");egressMetric_->setText("Unknown");shapingMetric_->setText("Unknown");transportMetric_->setText("Configuration unavailable");transportDetails_->setText("Choose a readable JSON configuration.");if(adaptiveMetric_)adaptiveMetric_->setText("Configuration unavailable");}
     QString engineConfiguration(const QString& id){
         QSettings settings("PQVPN","Privacy Console");QString path=settings.value(id+"ConfigPath").toString();if(QFileInfo(path).isFile())return path;
-        const QString extension=id=="udp2raw"?".conf":".json";
+        const QString extension=id=="udp2raw"?".conf":id=="dnscrypt"?".toml":".json";
         for(const QString& candidate:QStringList{QString::fromStdString(pqvpn::console::user_profile_directory().generic_string())+"/"+id+extension,QDir::homePath()+"/.config/"+id+"/config"+extension,QDir::homePath()+"/.config/"+id+"/client"+extension})if(QFileInfo(candidate).isFile()){path=candidate;break;}
         if(!QFileInfo(path).isFile())path=QFileDialog::getOpenFileName(this,"Choose existing "+id+" configuration",QDir::homePath());
         if(!path.isEmpty())settings.setValue(id+"ConfigPath",QFileInfo(path).absoluteFilePath());return path;

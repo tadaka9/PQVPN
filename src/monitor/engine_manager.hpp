@@ -146,6 +146,7 @@ private:
         if (id == "shadowsocks") arguments = {"-c", configuration};
         else if (id == "v2ray") arguments = {"run", "-c", configuration};
         else if (id == "udp2raw") arguments = {"--conf-file", configuration};
+        else if (id == "dnscrypt") arguments = {"-config", configuration};
         else {
             QFile file(configuration);
             if (!file.open(QIODevice::ReadOnly)) { jobs_.remove(id); activity(id, false); process->deleteLater(); return; }

@@ -65,6 +65,12 @@ The native console downloads engines only when Install / start is selected. No e
 
 Choose an existing configuration for each engine, then edit it locally or start multiple selected engines. The editor saves atomically with owner permissions and rejects invalid JSON for Shadowsocks, V2Ray and obfs4. obfs4 uses a JSON `environment` object containing its existing `TOR_PT_*` managed-transport settings; state is kept in the engine cache. Matching remote servers and credentials remain operator supplied.
 
-Automatic installers cover Shadowsocks and V2Ray on Linux x86_64/ARM64, macOS Intel/ARM64 and Windows x64; udp2raw on Linux x86_64; and the Debian obfs4proxy package on Linux x86_64/ARM64 with compatible libc. Other combinations fail explicitly. Existing V2Ray configurations requiring GeoIP/GeoSite data must continue referencing their existing data files.
+Automatic installers cover Shadowsocks and V2Ray on Linux x86_64/ARM64, macOS Intel/ARM64 and Windows x64; udp2raw on Linux x86_64; the Debian obfs4proxy package on Linux x86_64/ARM64 with compatible libc; and the official DNSCrypt Proxy 2.1.18 archive on Linux x86_64/ARM64. Other combinations fail explicitly. Existing V2Ray configurations requiring GeoIP/GeoSite data must continue referencing their existing data files.
+
+DNSCrypt uses an existing TOML configuration and is launched with
+`dnscrypt-proxy -config FILE`. It is a loopback DNS sidecar rather than a PQVPN
+packet transport. Starting it does not alter system DNS or PQVPN routes; the
+selected fail-closed profile must explicitly use its listener, otherwise the
+button reports only that the sidecar is running.
 
 Running multiple engines concurrently does not wire them into a valid transport chain. Their existing configurations must link compatible listeners and upstreams. PQVPN currently attaches to a local UDP forwarder; SOCKS and TCP require a separate UDP adapter/relay. Therefore the console distinguishes engine startup from authenticated PQVPN connection, and does not claim unsupported chains provide VPN protection.

@@ -117,6 +117,24 @@
       "sha256": "177f99092893f391a46150616b5cde84393a46cb7a26a4468cd40edaa66c209f",
       "member": "usr/bin/obfs4proxy",
       "format": "deb"
+    },
+    {
+      "engine": "dnscrypt",
+      "version": "2.1.18",
+      "platform": "linux-x86_64",
+      "url": "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.1.18/dnscrypt-proxy-linux_x86_64-2.1.18.tar.gz",
+      "sha256": "c8c8acb35b0f6619bfe8e4eed0c192672f8fd1964f467a42881905814e261c3e",
+      "member": "linux-x86_64/dnscrypt-proxy",
+      "format": "tar"
+    },
+    {
+      "engine": "dnscrypt",
+      "version": "2.1.18",
+      "platform": "linux-arm64",
+      "url": "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.1.18/dnscrypt-proxy-linux_arm64-2.1.18.tar.gz",
+      "sha256": "0e167fc3d7903f3e2b08de9d1d522d2d57ed6f27db6c9b1371de0e1f2533059c",
+      "member": "linux-arm64/dnscrypt-proxy",
+      "format": "tar"
     }
   ]
 }
