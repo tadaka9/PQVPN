@@ -35,7 +35,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Verify future commit, create immutable tag and dispatch tagged CI
+      - name: Verify future commit and complete immutable prerelease publication
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -54,22 +54,57 @@ jobs:
             echo "Release $tag already exists; no change is allowed."
             exit 0
           fi
+          tag_sha="$CI_SHA"
           if existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null)"; then
             if [[ "$existing" != "$CI_SHA" ]]; then
               if git merge-base --is-ancestor "$existing" "$CI_SHA"; then
-                echo "Tag $tag is immutable at an earlier commit already on future."
-                exit 0
+                echo "Tag $tag is immutable at an earlier commit already on future; resuming its publication."
+                tag_sha="$existing"
+              else
+                echo "::error::Tag $tag is not in future ancestry; refusing any retag."
+                exit 1
               fi
-              echo "::error::Tag $tag is not in future ancestry; refusing any retag."
-              exit 1
             fi
           else
             gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" \
               -f "ref=refs/tags/$tag" -f "sha=$CI_SHA" >/dev/null
             echo "Created immutable tag $tag at $CI_SHA"
           fi
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
-          echo "Dispatched tagged CI for $tag from future CI $CI_RUN_ID."
+          test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
+
+          find_green_tag_run() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" \
+              --jq ".workflow_runs | map(select(.event == \"workflow_dispatch\" and .head_branch == \"$tag\" and .head_sha == \"$tag_sha\" and .status == \"completed\" and .conclusion == \"success\" and .head_repository.full_name == \"$GITHUB_REPOSITORY\")) | sort_by(.run_number) | last | .id // empty"
+          }
+          tagged_run_id="$(find_green_tag_run)"
+          if [[ ! "$tagged_run_id" =~ ^[0-9]+$ ]]; then
+            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
+            echo "Dispatched tagged CI for $tag from future CI $CI_RUN_ID."
+            for _ in {1..120}; do
+              sleep 15
+              tagged_run_id="$(find_green_tag_run)"
+              [[ "$tagged_run_id" =~ ^[0-9]+$ ]] && break
+              failed="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100" \
+                --jq ".workflow_runs | map(select(.event == \"workflow_dispatch\" and .head_branch == \"$tag\" and .head_sha == \"$tag_sha\" and .status == \"completed\" and .conclusion != \"success\")) | sort_by(.run_number) | last | .conclusion // empty")"
+              if [[ -n "$failed" ]]; then
+                echo "::error::Exact-tag CI for $tag completed with: $failed"
+                exit 1
+              fi
+            done
+          fi
+          [[ "$tagged_run_id" =~ ^[0-9]+$ ]] || { echo "::error::Timed out waiting for exact-tag CI for $tag"; exit 1; }
+          names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$tagged_run_id/artifacts?per_page=100" --jq '.artifacts[].name')"
+          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+            grep -Fxq "release-candidate-$target" <<< "$names" || { echo "::error::Exact-tag CI lacks $target"; exit 1; }
+          done
+          gh workflow run publish-test-prerelease.yml --repo "$GITHUB_REPOSITORY" --ref main \
+            -f "tag=$tag" -f "ci_run_id=$tagged_run_id"
+          for _ in {1..160}; do
+            sleep 15
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+          done
+          echo "::error::Publisher did not create $tag within 40 minutes."
+          exit 1
 
   publish-verified-tag-build:
     name: Dispatch experimental prerelease after green tagged CI
@@ -78,6 +113,7 @@ jobs:
       github.event.workflow_run.event == 'workflow_dispatch' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:
@@ -105,9 +141,15 @@ jobs:
             exit 0
           fi
           gh workflow run publish-test-prerelease.yml \
-            --repo "$GITHUB_REPOSITORY" --ref "$TAG" \
+            --repo "$GITHUB_REPOSITORY" --ref main \
             -f "tag=$TAG" -f "ci_run_id=$CI_RUN_ID"
           echo "Dispatched attestation and protected beta publication for $TAG."
+          for _ in {1..160}; do
+            sleep 15
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+          done
+          echo "::error::Publisher did not create $TAG within 40 minutes."
+          exit 1
 
   resume-existing-tag-publisher:
     name: Resume publication of all exact-tag CI assets
@@ -115,7 +157,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == 'refs/heads/future')
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v6
         with:
@@ -126,45 +168,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
-          tag="v$version"
           git fetch origin future --tags
-          if ! tag_sha="$(git rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null)"; then
-            echo "Tag $tag is not created yet; waiting for the successful future CI promotion."
-            exit 0
-          fi
-          test -n "$tag_sha"
-          git merge-base --is-ancestor "$tag_sha" origin/future
-          test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Prerelease $tag already exists; not mutating published artifacts."
-            exit 0
-          fi
-          # Only a successful CI run on this exact tag and commit is eligible;
-          # a green PR or branch build is never a substitute.
-          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100")"
-          run_id="$(jq -r --arg tag "$tag" --arg sha "$tag_sha" --arg repo "$GITHUB_REPOSITORY" '
-            [.workflow_runs[] | select(
-              .event == "workflow_dispatch" and
-              .head_branch == $tag and .head_sha == $sha and
-              .status == "completed" and .conclusion == "success" and
-              .head_repository.full_name == $repo
-            )] | sort_by(.run_number) | last | .id // empty' <<< "$run_json")"
-          if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
-            echo "Exact-tag CI for $tag ($tag_sha) is not green yet; publication remains pending."
-            exit 0
-          fi
-          names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[].name')"
-          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
-            if ! grep -Fxq "release-candidate-$target" <<< "$names"; then
-              echo "::error::Exact-tag CI is missing candidate artifact: $target"
-              exit 1
+          mapfile -t tags < <(git tag --merged origin/future --list 'v*' --sort=version:refname | \
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$')
+          for tag in "${tags[@]}"; do
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && continue
+            tag_sha="$(git rev-parse "refs/tags/$tag^{commit}")"
+            test "v$(git show "$tag_sha:PQVPN_VERSION.txt" | tr -d '[:space:]')" = "$tag"
+            run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?per_page=100")"
+            run_id="$(jq -r --arg tag "$tag" --arg sha "$tag_sha" --arg repo "$GITHUB_REPOSITORY" '
+              [.workflow_runs[] | select(.event == "workflow_dispatch" and .head_branch == $tag and
+                .head_sha == $sha and .status == "completed" and .conclusion == "success" and
+                .head_repository.full_name == $repo)] | sort_by(.run_number) | last | .id // empty' <<< "$run_json")"
+            if [[ ! "$run_id" =~ ^[0-9]+$ ]]; then
+              echo "::warning::Skipping $tag until its exact-tag CI is green."
+              continue
             fi
+            names="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[].name')"
+            for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+              grep -Fxq "release-candidate-$target" <<< "$names" || { echo "::error::$tag lacks $target"; exit 1; }
+            done
+            gh workflow run publish-test-prerelease.yml --repo "$GITHUB_REPOSITORY" \
+              --ref main -f "tag=$tag" -f "ci_run_id=$run_id"
+            echo "Triggered protected publication for $tag from exact-tag CI $run_id."
+            for _ in {1..160}; do
+              sleep 15
+              gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && break
+            done
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+              { echo "::error::Publisher did not create $tag within 40 minutes."; exit 1; }
           done
-          echo "All five native build candidates exist in tagged CI run $run_id."
-          # Execute the publisher workflow from trusted main, while it checks
-          # out the immutable TAG and verifies candidates from the tagged CI.
-          gh workflow run publish-test-prerelease.yml --repo "$GITHUB_REPOSITORY" \
-            --ref main -f "tag=$tag" -f "ci_run_id=$run_id"
-          echo "Triggered protected prerelease publication for $tag."
