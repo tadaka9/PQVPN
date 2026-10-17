@@ -24,6 +24,8 @@
 #include "console/default_profile.hpp"
 #include "console/terminal_text.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "wallet_identity.hpp"
+#include "dns_shield_policy.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -50,6 +52,7 @@ struct Options {
     bool smoke_test = false;
     bool no_tunnel = false;
     pqvpn::console::InnerTunnelOverride inner_tunnel;
+    std::optional<std::string> shield_profile;
     bool help = false;
 };
 
@@ -427,12 +430,13 @@ bool parse(int argc, char** argv, Options& options) {
         const std::string arg = argv[index];
         if(arg=="--no-tunnel")options.no_tunnel=true;
         else if(arg=="--no-inner-tunnel")options.inner_tunnel.disable=true;
+        else if(arg=="--shield-profile"&&index+1<argc){const std::string value=argv[++index];if(!pqvpn::shield::valid_profile(value))return false;options.shield_profile=value;}
         else if((arg=="--inner-tunnel-backend"||arg=="--inner-tunnel-config")&&index+1<argc){if(!pqvpn::console::parse_inner_tunnel_argument(arg,argv[++index],options.inner_tunnel))return false;}
         else if (arg == "--smoke-test") options.smoke_test = true;
         else if ((arg == "--config" || arg == "-c") && index + 1 < argc) options.config = argv[++index];
         else if (arg == "--node" && index + 1 < argc) options.node = argv[++index];
         else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--smoke-test]\n";
+            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--shield-profile off|dnscrypt|privacy|security|family|maximum] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--smoke-test]\n";
             options.help=true;return true;
         } else {
             std::cerr << "Unknown or incomplete argument: " << arg << '\n';
@@ -451,6 +455,7 @@ std::optional<pqvpn::config::Config> load_runtime_config(const Options& options,
     if(const auto override_error=pqvpn::console::apply_inner_tunnel_override(*loaded,options.inner_tunnel)){
         error=*override_error;return std::nullopt;
     }
+    if(options.shield_profile)loaded->dns_shield.profile=*options.shield_profile;
     if(options.no_tunnel&&loaded->inner_tunnel.enabled){error="inner tunnel requires PQVPN tunnel mode";return std::nullopt;}
     return loaded;
 }
@@ -499,7 +504,13 @@ int main(int argc, char** argv) {
     };
 
     std::string notice;
-    if(!options.no_tunnel)notice=tunnel_blocker();
+    try {
+        const auto wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(options.config));
+        notice="Wallet "+wallet.address().substr(0,12)+"… · local self-custody";
+    } catch(const std::exception& error) {
+        std::cerr<<"Wallet unavailable: "<<error.what()<<"\n";return 1;
+    }
+    if(!options.no_tunnel){const auto blocker=tunnel_blocker();if(!blocker.empty())notice=blocker;}
     bool quit = false;
     while (!quit) {
         const ScreenSize size = current_size();
@@ -523,7 +534,7 @@ int main(int argc, char** argv) {
                         std::string error;auto checked=load_runtime_config(options,error);
                         if(!checked){notice="Configuration changed or is invalid: "+error;continue;}
                         loaded=std::move(checked);
-                        std::vector<std::string> arguments{"--config",options.config};if(options.no_tunnel)arguments.push_back("--no-tunnel");if(options.inner_tunnel.disable)arguments.push_back("--no-inner-tunnel");if(options.inner_tunnel.backend){arguments.push_back("--inner-tunnel-backend");arguments.push_back(*options.inner_tunnel.backend);}if(options.inner_tunnel.config_path){arguments.push_back("--inner-tunnel-config");arguments.push_back(*options.inner_tunnel.config_path);}
+                        std::vector<std::string> arguments{"--config",options.config,"--shield-profile",loaded->dns_shield.profile};if(options.no_tunnel)arguments.push_back("--no-tunnel");if(options.inner_tunnel.disable)arguments.push_back("--no-inner-tunnel");if(options.inner_tunnel.backend){arguments.push_back("--inner-tunnel-backend");arguments.push_back(*options.inner_tunnel.backend);}if(options.inner_tunnel.config_path){arguments.push_back("--inner-tunnel-config");arguments.push_back(*options.inner_tunnel.config_path);}
                         if (node.start(options.node,arguments)) {
                             notice = "node starting...";
                         } else {

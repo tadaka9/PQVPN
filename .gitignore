@@ -33,6 +33,7 @@
 /keys/
 /keys.json
 /node_keys.json
+/wallet_keys.json
 /known_peers.json
 /known_peers.yaml
 *.key

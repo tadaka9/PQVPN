@@ -37,6 +37,9 @@
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "wallet_identity.hpp"
+#include "social_ledger.hpp"
+#include "dns_shield_policy.hpp"
 
 namespace {
 
@@ -64,7 +67,9 @@ bool valid_strangenet_world_event(const std::string& payload) {
 
 #ifdef __linux__
 bool run_linux_network_manager(const char* action, const std::string& interface_name,
-                               const std::string& exit_host, int exit_port) {
+                               const std::string& exit_host, int exit_port,
+                               const std::string& internal_ip = {},
+                               const std::string& shield_profile = "off") {
     if (interface_name.empty() || exit_host.empty() || exit_port <= 0) return false;
     const auto port = std::to_string(exit_port);
     const pid_t child = ::fork();
@@ -72,11 +77,25 @@ bool run_linux_network_manager(const char* action, const std::string& interface_
         constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-linux-network";
         if (::geteuid() == 0) {
             ::execl(helper, "pqvpn-linux-network", action, interface_name.c_str(),
-                    exit_host.c_str(), port.c_str(), nullptr);
+                    exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
         } else {
             ::execlp("pkexec", "pkexec", helper, action, interface_name.c_str(),
-                     exit_host.c_str(), port.c_str(), nullptr);
+                     exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
         }
+        _exit(127);
+    }
+    if (child < 0) return false;
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+bool apply_exit_shield(const std::string& internal_ip, const std::string& profile) {
+    if (!pqvpn::shield::valid_profile(profile)) return false;
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::execl("/usr/lib/pqvpn/pqvpn-exit-shield", "pqvpn-exit-shield", "assign",
+                internal_ip.c_str(), profile.c_str(), nullptr);
         _exit(127);
     }
     if (child < 0) return false;
@@ -94,6 +113,8 @@ struct CliArgs {
     bool print_config = false;
     bool platform_info = false;
     bool version = false;
+    bool wallet_info = false;
+    std::optional<std::string> shield_profile;
     std::string strangenet_room;
     std::string strangenet_peer;
     bool control_stdin = false;
@@ -116,6 +137,8 @@ void print_usage(const char* program) {
         << "      --print-config      Print normalized configuration and exit\n"
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
+        << "      --wallet-info       Create/load the local self-custody wallet and print public JSON\n"
+        << "      --shield-profile NAME  DNS policy: off, dnscrypt, privacy, security, family or maximum\n"
         << "      --strangenet-room NAME  Join a bounded room; broadcasts to authenticated peers\n"
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
@@ -145,6 +168,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.platform_info = true;
         } else if (value == "--version") {
             args.version = true;
+        } else if (value == "--wallet-info") {
+            args.wallet_info = true;
+        } else if (value == "--shield-profile") {
+            if (++index >= argc || !pqvpn::shield::valid_profile(argv[index])) {
+                std::cerr << "--shield-profile requires off, dnscrypt, privacy, security, family or maximum\n";
+                return std::nullopt;
+            }
+            args.shield_profile = argv[index];
         } else if (value == "--control-stdin") {
             args.control_stdin = true;
         } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
@@ -353,6 +384,17 @@ int main(int argc, char** argv) {
         print_platform_info();
         return 0;
     }
+    if (args.wallet_info) {
+        try {
+            const auto wallet=pqvpn::wallet::load_or_create(
+                pqvpn::wallet::path_for_config(args.config_path));
+            std::cout<<pqvpn::wallet::public_status(wallet).dump()<<'\n';
+            return 0;
+        } catch(const std::exception& error) {
+            std::cerr<<"Wallet unavailable: "<<error.what()<<'\n';
+            return 1;
+        }
+    }
 
     if (args.validate_config || args.print_config) {
         std::string config_error;
@@ -383,6 +425,15 @@ int main(int argc, char** argv) {
                   << " (" << config_error << ")\n";
         return 1;
     }
+    if (args.shield_profile) config->dns_shield.profile = *args.shield_profile;
+    pqvpn::wallet::SelfCustodyIdentity wallet;
+    try {
+        wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(args.config_path));
+    } catch(const std::exception& error) {
+        std::cerr<<"Failed to load self-custody wallet: "<<error.what()<<'\n';
+        return 1;
+    }
+    if(args.control_stdin){auto status=pqvpn::wallet::public_status(wallet);status["event"]="wallet.status";emit_console_event(status);}
 
     // Start the PQVPN node runtime with the provided configuration
     asio::io_context io;
@@ -418,6 +469,19 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to load or create node identity\n";
         return 1;
     }
+    node->set_dns_shield_profile(config->dns_shield.profile);
+    const auto internal_ip = node->local_peer_id()
+        ? pqvpn::shield::internal_ipv4(*node->local_peer_id()).value_or(std::string{})
+        : std::string{};
+#ifdef __linux__
+    if (config->egress.enabled) {
+        node->set_dns_shield_handler([](const std::vector<uint8_t>&, const std::string& ip,
+                                        const std::string& profile) {
+            if (!apply_exit_shield(ip, profile))
+                throw std::runtime_error("exit Pi-hole policy helper failed closed");
+        });
+    }
+#endif
 
     // Apply the operator's security policy: TOFU admission and the known-peers
     // store location. (The allowlist is intentionally not wired into peer-id
@@ -510,7 +574,8 @@ int main(int argc, char** argv) {
     if (!no_tunnel) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
-                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+                                       config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
+                                       config->dns_shield.profile)) {
             std::cerr << "Cannot create the protected Linux TUN device\n";
             listener.stop();
             return 1;
@@ -560,7 +625,8 @@ int main(int argc, char** argv) {
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
 #ifdef __linux__
             if (!run_linux_network_manager("up", config->tunnel.interface_name,
-                                           config->tunnel.exit_host, config->tunnel.exit_port)) {
+                                           config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
+                                           config->dns_shield.profile)) {
                 std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
                 adapter->close();
                 listener.stop();
@@ -755,7 +821,7 @@ int main(int argc, char** argv) {
             emit_console_event({{"event", "strangenet.joined"}, {"room", strange->room},
                                 {"peer", args.strangenet_peer.empty() ? "auto" : args.strangenet_peer}});
         }
-        std::thread([node, strange, control = args.control_stdin, shutdown, &io] {
+        std::thread([node, strange, control = args.control_stdin, shutdown, &io, wallet] {
             std::string line;
             while (std::getline(std::cin, line)) {
                 if (control) {
@@ -766,7 +832,7 @@ int main(int argc, char** argv) {
                             emit_console_event({{"event", "control.error"}, {"message", "invalid command"}});
                             continue;
                         }
-                        asio::post(io, [node, strange, command, shutdown] {
+                        asio::post(io, [node, strange, command, shutdown, wallet] {
                             const auto name = command.at("command").get<std::string>();
                             if (name == "node.shutdown") {
                                 if (*shutdown) (*shutdown)();
@@ -905,6 +971,27 @@ int main(int argc, char** argv) {
                                                                   : (name == "strangenet.profile" ? "profile"
                                                                   : (name == "strangenet.world" ? "world" : "text")))))}});
                                 }
+                            } else if(name=="strangenet.achievement") {
+                                const auto evidence=command.value("evidence",std::string{});
+                                if(evidence.empty()||evidence.size()>128){emit_console_event({{"event","social.claim.rejected"},{"reason","invalid evidence"}});return;}
+                                const auto now=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                                const pqvpn::research::Bytes evidence_bytes(evidence.begin(),evidence.end());
+                                pqvpn::social::Claim claim{wallet.address(),pqvpn::social::Achievement::DistrictDiscovered,pqvpn::research::digest(evidence_bytes),now,now,{}};
+                                claim.proof=pqvpn::research::sign(pqvpn::social::payload(claim),wallet.ed25519.private_key,wallet.ml_dsa_87.secret_key);
+                                emit_console_event({{"event","social.claim.ready"},{"achievement",pqvpn::social::to_string(claim.achievement)},{"beneficiary",claim.beneficiary},{"evidence_digest",claim.evidence_digest},{"completed_at_ms",claim.completed_at_ms},{"nonce",claim.nonce},{"ed25519",pqvpn::research::hex(wallet.ed25519.public_key)},{"ml_dsa_87",pqvpn::research::hex(wallet.ml_dsa_87.public_key)},{"ed25519_signature",pqvpn::research::hex(claim.proof.ed25519)},{"ml_dsa_87_signature",pqvpn::research::hex(claim.proof.ml_dsa_87)}});
+                            } else if(name=="resource.offer") {
+                                const auto ed=pqvpn::research::unhex(command.value("ed25519",std::string{}));
+                                const auto pq=pqvpn::research::unhex(command.value("ml_dsa_87",std::string{}));
+                                const auto es=pqvpn::research::unhex(command.value("ed25519_signature",std::string{}));
+                                const auto ps=pqvpn::research::unhex(command.value("ml_dsa_87_signature",std::string{}));
+                                if(!ed||!pq||!es||!ps){emit_console_event({{"event","resource.rejected"},{"reason","invalid encoding"}});return;}
+                                pqvpn::resource::Offer offer{pqvpn::resource::Kind::RelayAcceleration,
+                                  command.value("provider_wallet",std::string{}),command.value("peer_id",std::string{}),
+                                  command.value("latency_ms",std::uint32_t{}),command.value("capacity_bps",std::uint64_t{}),
+                                  command.value("availability_ppm",std::uint32_t{}),command.value("expires_at_ms",std::uint64_t{}),{*es,*ps}};
+                                const auto now=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                                const bool accepted=node->accept_acceleration_offer(offer,{*ed,*pq},now);
+                                emit_console_event({{"event",accepted?"resource.accepted":"resource.rejected"},{"kind","relay-acceleration"},{"peer",offer.peer_id}});
                             } else {
                                 emit_console_event({{"event", "control.error"},
                                                     {"message", "unknown command"}});

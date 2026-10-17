@@ -1,4 +1,4 @@
-# StrangeNet Research Commons
+# Path Quilt Research Commons
 
 Research Commons is an explicit, local opt-in to donate **at most 1% of one
 device's CPU time** to established BOINC science projects. It does not measure
@@ -22,9 +22,19 @@ the already-trusted topic and applies the local resource boundary.
 ## Reward and blockchain boundary
 
 A successful task reported by the local BOINC client creates a deduplicated,
-hash-chained receipt claiming **1 PQ**. The receipt contains project URL, result
-name and completion time, but no account key or network address. It is not a
-coin and cannot be spent, transferred or represented as money.
+hash-chained receipt claiming **1 PQC (Path Quilt Coin)**. New v2 receipts retain
+only project and result digests plus an hour-bucketed completion time: no URL,
+result name, account key or network address. Compatibility verification remains
+for existing v1 receipts. A pending receipt is not a coin and cannot be spent,
+transferred or represented as money.
+
+StrangeNet may also originate a contribution claim for useful community work,
+such as independently reproduced classification, a validated correction or a
+successful moderation appeal. Sending messages, collecting reactions, staying
+online, exploring the world or consuming attention never qualifies. A social
+claim needs a permitted project class, two independent confirmations and a
+hybrid signature from an admitted validator before it can become a scientific
+attestation.
 
 The repository now contains the fail-closed consensus core described in
 [`research-ledger-consensus.md`](research-ledger-consensus.md): parent-authorized
@@ -41,7 +51,7 @@ the GUI remains disabled until the remaining runtime gates exist:
 5. adversarial network tests for collusion, partitions and crash recovery.
 
 Without those gates, automatic minting would let a modified client manufacture
-unlimited PQ. The GUI therefore labels receipts as pending 1-PQ claims.
+unlimited PQC. The GUI therefore labels receipts as validator-pending PQC.
 
 ## Operator commands
 

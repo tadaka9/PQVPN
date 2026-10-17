@@ -100,6 +100,66 @@ TEST_CASE("wallet transfers require hybrid signature balance and monotonic nonce
     CHECK_FALSE(ledger.transfer(transfer));
 }
 
+TEST_CASE("transparent genesis premine is exact immutable and recoverable", "[research][genesis]") {
+    const std::vector<Keys> validators(1);
+    auto subnet = policy("mainnet", "", validators);
+    const Keys treasury, recipient;
+    const pqvpn::research::Wallet treasury_wallet{treasury.public_identity(),
+        pqvpn::research::wallet_address(treasury.public_identity())};
+    const pqvpn::research::Wallet recipient_wallet{recipient.public_identity(),
+        pqvpn::research::wallet_address(recipient.public_identity())};
+    subnet.genesis_allocations = {{treasury_wallet.address, 100'000}};
+    pqvpn::research::Ledger ledger(subnet);
+    const pqvpn::research::GenesisManifest genesis{subnet.id, subnet.max_supply,
+        {treasury_wallet}};
+    REQUIRE(ledger.initialize_genesis(genesis));
+    CHECK(ledger.supply() == 100'000);
+    CHECK(ledger.balance(treasury_wallet.address) == 100'000);
+    CHECK(ledger.genesis() == pqvpn::research::genesis_hash(genesis));
+    pqvpn::research::GenesisManifest ordered{subnet.id, subnet.max_supply,
+        {treasury_wallet, recipient_wallet}};
+    auto reordered = ordered;
+    std::reverse(reordered.wallets.begin(), reordered.wallets.end());
+    CHECK(pqvpn::research::genesis_hash(reordered) ==
+          pqvpn::research::genesis_hash(ordered));
+    CHECK_FALSE(ledger.initialize_genesis(genesis));
+    CHECK(ledger.register_wallet(recipient_wallet));
+
+    pqvpn::research::Transfer transfer{subnet.id, treasury_wallet.address,
+        recipient_wallet.address, 25'000, 1, {}};
+    transfer.proof = pqvpn::research::sign(pqvpn::research::transfer_payload(transfer),
+        treasury.ed.private_key, treasury.pq.secret_key);
+    REQUIRE(ledger.transfer(transfer));
+    CHECK(ledger.balance(treasury_wallet.address) == 75'000);
+    CHECK(ledger.balance(recipient_wallet.address) == 25'000);
+    CHECK(ledger.supply() == 100'000);
+
+    const auto snapshot = ledger.audit_snapshot();
+    CHECK(snapshot.at("genesis_supply") == 100'000);
+    CHECK(snapshot.at("genesis_hash") == ledger.genesis());
+    const auto recovered = pqvpn::research::Ledger::recover(subnet, ledger.checkpoint());
+    REQUIRE(recovered);
+    CHECK(recovered->genesis() == ledger.genesis());
+    CHECK(recovered->supply() == 100'000);
+    CHECK(recovered->balance(recipient_wallet.address) == 25'000);
+}
+
+TEST_CASE("genesis rejects hidden recipients and supply overflow", "[research][genesis]") {
+    const std::vector<Keys> validators(1);
+    const Keys declared, hidden;
+    const pqvpn::research::Wallet declared_wallet{declared.public_identity(),
+        pqvpn::research::wallet_address(declared.public_identity())};
+    const pqvpn::research::Wallet hidden_wallet{hidden.public_identity(),
+        pqvpn::research::wallet_address(hidden.public_identity())};
+    auto subnet = policy("mainnet", "", validators);
+    subnet.genesis_allocations = {{declared_wallet.address, 100'000}};
+    pqvpn::research::Ledger ledger(subnet);
+    CHECK_FALSE(ledger.initialize_genesis({subnet.id, subnet.max_supply, {hidden_wallet}}));
+
+    subnet.genesis_allocations = {{declared_wallet.address, subnet.max_supply + 1}};
+    CHECK_FALSE(pqvpn::research::valid_policy(subnet));
+}
+
 TEST_CASE("vote guard rejects equivocation at one height", "[research][fork]") {
     pqvpn::research::VoteGuard guard;
     CHECK(guard.record("mainnet/research", 8, "validator-a", std::string(64, 'a')));

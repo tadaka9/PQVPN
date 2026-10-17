@@ -253,6 +253,18 @@ namespace pqvpn::config {
     };
 
     struct Config {
+        struct DnsShieldConfig {
+            std::string profile = "off";
+            friend void from_json(const nlohmann::json& j, DnsShieldConfig& value) {
+                value.profile = j.value("profile", value.profile);
+                static const std::vector<std::string> allowed{"off", "dnscrypt", "privacy", "security", "family", "maximum"};
+                if (std::find(allowed.begin(), allowed.end(), value.profile) == allowed.end())
+                    throw std::invalid_argument("dns_shield.profile must be off, dnscrypt, privacy, security, family or maximum");
+            }
+            friend void to_json(nlohmann::json& j, const DnsShieldConfig& value) {
+                j = {{"profile", value.profile}};
+            }
+        };
         SecurityConfig security;
         NetworkConfig network;
         std::vector<BootstrapPeer> bootstrap;
@@ -260,6 +272,7 @@ namespace pqvpn::config {
         TunnelConfig tunnel;
         InnerTunnelConfig inner_tunnel;
         EgressConfig egress;
+        DnsShieldConfig dns_shield;
         transport::AdaptiveConfig adaptive_transport;
         traffic::ShapingConfig traffic_shaping;
         std::optional<ExternalTransport> external_transport;
@@ -287,6 +300,7 @@ namespace pqvpn::config {
                 value.tunnel.config_path.clear();
             }
             if (j.contains("egress")) value.egress = j.at("egress").get<EgressConfig>();
+            if (j.contains("dns_shield")) value.dns_shield = j.at("dns_shield").get<DnsShieldConfig>();
             if (j.contains("adaptive_transport")) {
                 const auto& adaptive = j.at("adaptive_transport");
                 value.adaptive_transport.enabled = adaptive.value("enabled", false);
@@ -302,6 +316,9 @@ namespace pqvpn::config {
             if (j.contains("traffic_shaping")) {
                 const auto& shape = j.at("traffic_shaping");
                 value.traffic_shaping.enabled = shape.value("enabled", false);
+                const auto shaping_mode = traffic::shaping_mode_from_string(shape.value("mode", std::string{"ai"}));
+                if (!shaping_mode) throw std::runtime_error("traffic_shaping.mode must be ai or blockchain");
+                value.traffic_shaping.mode = *shaping_mode;
                 value.traffic_shaping.max_padding_bytes = shape.value("max_padding_bytes", std::size_t{1024});
                 value.traffic_shaping.max_delay_ms = shape.value("max_delay_ms", 20);
                 value.traffic_shaping.max_queue_packets = shape.value("max_queue_packets", std::size_t{256});
@@ -323,6 +340,7 @@ namespace pqvpn::config {
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;
+            if (value.dns_shield.profile != "off") j["dns_shield"] = value.dns_shield;
             if (value.adaptive_transport.enabled || value.adaptive_transport.mode != transport::Mode::Auto) {
                 const auto& adaptive = value.adaptive_transport;
                 j["adaptive_transport"] = {{"enabled", adaptive.enabled}, {"mode", transport::to_string(adaptive.mode)},
@@ -334,7 +352,7 @@ namespace pqvpn::config {
             }
             if (value.traffic_shaping.enabled) {
                 const auto& shape = value.traffic_shaping;
-                j["traffic_shaping"] = {{"enabled", shape.enabled}, {"max_padding_bytes", shape.max_padding_bytes},
+                j["traffic_shaping"] = {{"enabled", shape.enabled}, {"mode", traffic::to_string(shape.mode)}, {"max_padding_bytes", shape.max_padding_bytes},
                     {"max_delay_ms", shape.max_delay_ms}, {"max_queue_packets", shape.max_queue_packets},
                     {"max_queue_bytes", shape.max_queue_bytes}};
             }

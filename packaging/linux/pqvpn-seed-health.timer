@@ -1,0 +1,13 @@
+[Unit]
+Description=Continuously verify the PQVPN bootstrap seed
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=pqvpn-seed-health.service
+
+[Install]
+WantedBy=timers.target

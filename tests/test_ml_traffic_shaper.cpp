@@ -53,6 +53,23 @@ TEST_CASE("Shaper queues in order, rejects overflow and stops without bypass") {
     REQUIRE_FALSE(shaper->enqueue({5}, 1, send));
 }
 
+TEST_CASE("Blockchain shaping is deterministic and does not train on private traffic") {
+    using namespace pqvpn::traffic;
+    asio::io_context io;
+    ShapingConfig config;
+    config.mode = ShapingMode::BlockchainPolicy;
+    config.max_padding_bytes = 1024;
+    config.max_delay_ms = 0;
+    auto shaper = std::make_shared<MLTrafficShaper>(io, config);
+    const std::vector<uint8_t> small(80, 1);
+    REQUIRE(shaper->pad(small).size() == 980);
+    REQUIRE(shaper->model().samples() == 0);
+    REQUIRE(shaper->enqueue({1}, small.size(), [](const auto&) { return true; }));
+    io.run();
+    CHECK(shaper->model().samples() == 0);
+    CHECK(shaper->mode() == ShapingMode::BlockchainPolicy);
+}
+
 TEST_CASE("External UDP transport rejects nonlocal endpoints and TCP engines") {
     pqvpn::ExternalTransport external{"udp2raw", "127.0.0.1", 9091};
     REQUIRE(external.endpoint().port() == 9091);

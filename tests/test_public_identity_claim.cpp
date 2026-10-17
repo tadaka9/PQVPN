@@ -12,7 +12,7 @@ TEST_CASE("public identity claims require a trusted hybrid signer", "[strangenet
         "https://verifier.example/claims/1", 1000, 5000};
     const auto payload = pqvpn::identity_claim::canonical_payload(claim);
     claim.ed25519_signature = pqvpn::crypto::ed25519_sign(ed.private_key, payload);
-    claim.ml_dsa_signature = pqvpn::pq_sig_sign(pq.secret_key, payload);
+    claim.ml_dsa_signature = pqvpn::pq_sig_sign(pq.secret_key, payload, "ML-DSA-87");
     const std::unordered_map<std::string, pqvpn::identity_claim::TrustedIssuer> trusted{{
         claim.issuer, {ed.public_key, pq.public_key}}};
 

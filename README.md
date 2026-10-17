@@ -4,12 +4,14 @@
 
 # PQVPN
 
+### PATH QUILT VPN
+
 ### WHAT IF THE NETWORK BELONGED TO THE PEOPLE RUNNING IT?
 
 **Build a private path between machines you control. No account. No telemetry.
 No central control plane.**
 
-PQVPN is an open-source C++23 experiment in peer-to-peer networking, hybrid
+PQVPN (Path Quilt VPN) is an open-source C++23 experiment in peer-to-peer networking, hybrid
 post-quantum handshakes, user-operated relays, egress and encrypted peer chat.
 It is ambitious, inspectable—and not yet independently audited.
 
@@ -182,18 +184,28 @@ Use `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
 peer. Read [`docs/strangenet.md`](docs/strangenet.md) before treating it as more
 than an experimental communication layer.
 
-### Research Commons: opt-in MIMD science at 1%
+### Path Quilt Research Commons: useful work, not wasted energy
 
 StrangeNet can select a scientific field and resume a matching project already
 attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
 disables GPU use, never handles BOINC credentials and never accepts arbitrary
-peer-supplied code. Completed, reported tasks create tamper-evident pending
-1-PQ claims; minting is deliberately disabled until project-validator
-attestations and an audited mesh consensus layer exist. See
+peer-supplied code. Completed, reported tasks create privacy-minimized pending
+PQC claims. Useful StrangeNet contributions additionally require two independent
+confirmations; messages, likes and time online never earn rewards. Minting is
+deliberately disabled until project-validator attestations and an audited mesh
+consensus layer exist. See
 [`docs/research-commons.md`](docs/research-commons.md). The implemented
 permissioned-subnet consensus core, wallet and supply rules are specified in
 [`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
 are not yet a deployed public chain.
+
+The ledger now supports a policy-committed, one-time genesis allocation. The
+proposed PQ testnet parameters are a 21,000,000 PQ cap and a transparent
+100,000 PQ premine (0.476190%): the recipient address must be supplied before
+genesis, every node derives the same genesis hash, and there is no post-launch
+owner mint key. No wallet has been nominated and no public-value network or
+sale has been activated. See [`docs/pq-genesis.md`](docs/pq-genesis.md) and the
+[`PQ Mesh Ledger design`](docs/pq-mesh-ledger-design.md).
 
 ## The cryptographic boundary
 

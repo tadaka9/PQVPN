@@ -117,6 +117,25 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Route research envelopes in a dedicated domain-separated authenticated
   PQVPN datagram frame and add checksummed atomic checkpoint replacement,
   fail-closed recovery and bounded evidence pruning.
+- [x] Implement a deterministic, policy-committed genesis allocation with an
+  auditable 21,000,000 PQ cap and exact 100,000 PQ testnet premine; reject
+  undeclared recipients, repeat initialization and cap overflow.
+- [ ] Nominate the public treasury wallet, publish the final genesis manifest
+  and obtain validator approval. Until then, no production coins exist.
+- [x] Give every installation a distinct self-custodied hybrid wallet keystore,
+  separate from node/StrangeNet/storage keys, with fail-closed loading and a
+  shared public-status surface in CLI, TUI and GUI.
+- [ ] Add encrypted export/import and hardware-backed wallet adapters. Do not
+  enable spend controls in the GUI before backup and recovery tests pass.
+- [x] Define hybrid-signed, expiring capacity offers for latency-aware relay
+  acceleration and storage retrieval; deterministically reject invalid or
+  stale offers without putting user traffic or file contents on-chain.
+- [x] Feed verified, expiring relay offers into the live authenticated-session
+  scheduler with liveness fallback; rank Asgard replicas by bounded capacity,
+  availability and latency metrics with hash-verified failover.
+- [ ] Add packet-level concurrent multipath congestion control and erasure-coded
+  reconstruction; current acceleration selects one best live path per packet
+  and Asgard still relies on full encrypted replicas.
 - [ ] Wire the handler/store into long-running node orchestration; add directory
   fsync, crash fault injection, certified catch-up and explicit state bounds.
 - [ ] Commission an independent audit and publish its signed report plus

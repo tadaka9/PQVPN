@@ -2,6 +2,7 @@
 Description=PQVPN experimental mainnet node
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -12,7 +13,7 @@ WorkingDirectory=/var/lib/pqvpn
 # relay. Older packaged nodes fall back to UDP-only operation; newer nodes also
 # support an explicit --no-tunnel flag for interactive use.
 ExecStart=/opt/pqvpn/current/bin/pqvpn_node --config /var/lib/pqvpn/config.json --log-level info --no-tunnel
-Restart=on-failure
+Restart=always
 RestartSec=5s
 TimeoutStopSec=20s
 NoNewPrivileges=yes

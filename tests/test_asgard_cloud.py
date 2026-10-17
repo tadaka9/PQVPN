@@ -12,6 +12,20 @@ SPEC.loader.exec_module(ASGARD)
 
 
 class AsgardTests(unittest.TestCase):
+    def test_erasure_codec_recovers_each_single_missing_shard(self):
+        blob = bytes(range(251)) * 71
+        encoded = ASGARD.erasure_encode(blob, 4)
+        self.assertEqual(len(encoded), 5)
+        for missing in range(len(encoded)):
+            degraded = list(encoded)
+            degraded[missing] = None
+            self.assertEqual(ASGARD.erasure_reconstruct(degraded, len(blob)), blob)
+        degraded = list(encoded)
+        degraded[0] = None
+        degraded[1] = None
+        with self.assertRaisesRegex(RuntimeError, "more than one"):
+            ASGARD.erasure_reconstruct(degraded, len(blob))
+
     def test_roundtrip_and_replication(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

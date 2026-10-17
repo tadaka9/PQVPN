@@ -26,6 +26,8 @@
 #include <cstdint>
 #include "ml_traffic_shaper.hpp"
 #include "strangenet.hpp"
+#include "resource_market.hpp"
+#include "dns_shield_policy.hpp"
 
 namespace pqvpn {
 
@@ -46,6 +48,8 @@ public:
         std::function<void(const std::vector<uint8_t>&, const std::vector<uint8_t>&)>;
     using PeerSessionHandler =
         std::function<void(const std::vector<uint8_t>&, const asio::ip::udp::endpoint&, bool)>;
+    using DnsShieldHandler =
+        std::function<void(const std::vector<uint8_t>&, const std::string&, const std::string&)>;
     // (address, add) notification for full-tunnel route exclusions: the
     // platform layer pins each known peer address to the physical gateway so
     // tunnel transport traffic is not captured by the VPN default route. The
@@ -238,6 +242,9 @@ public:
     void set_preferred_exit(asio::ip::udp::endpoint endpoint) {
         preferred_exit_ = std::move(endpoint);
     }
+    bool accept_acceleration_offer(const resource::Offer& offer,
+                                   const research::PublicIdentity& identity,
+                                   std::uint64_t now_ms);
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
     void set_research_mesh_handler(ResearchMeshHandler handler) { research_mesh_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_research_mesh_datagram(
@@ -255,6 +262,12 @@ public:
         strangenet_replay_guard_.leave_room(room);
     }
     void set_peer_session_handler(PeerSessionHandler handler) { peer_session_handler_ = std::move(handler); }
+    void set_dns_shield_profile(std::string profile) {
+        dns_shield_profile_ = shield::valid_profile(profile) ? std::move(profile) : "off";
+    }
+    const std::string& dns_shield_profile() const noexcept { return dns_shield_profile_; }
+    void set_dns_shield_handler(DnsShieldHandler handler) { dns_shield_handler_ = std::move(handler); }
+    const std::optional<std::vector<uint8_t>>& local_peer_id() const noexcept { return my_id_; }
     std::optional<std::vector<uint8_t>> build_strangenet_datagram(
         const std::vector<uint8_t>& peer_id, const std::string& room,
         std::uint64_t sequence, std::uint64_t timestamp_ms, const std::string& text,
@@ -461,10 +474,14 @@ private:
     ResearchMeshHandler research_mesh_handler_;
     std::set<std::vector<uint8_t>> strangenet_blocked_peers_;
     PeerSessionHandler peer_session_handler_;
+    DnsShieldHandler dns_shield_handler_;
+    std::string dns_shield_profile_ = "off";
     strangenet::ReplayGuard strangenet_replay_guard_;
     strangenet::FloodGuard strangenet_flood_guard_;
     PeerRouteHook peer_route_hook_;
     std::optional<asio::ip::udp::endpoint> preferred_exit_;
+    std::optional<std::vector<uint8_t>> acceleration_peer_;
+    std::uint64_t acceleration_offer_expires_ms_ = 0;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
     struct PreAuthBucket {
         double tokens = 16.0;
