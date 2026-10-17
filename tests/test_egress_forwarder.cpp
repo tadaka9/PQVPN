@@ -505,6 +505,73 @@ TEST_CASE("TCP connect failure resets the client flow", "[egress][tcp-refused]")
     REQUIRE(got_rst);
 }
 
+TEST_CASE("TCP egress paces large downloads until the client ACKs", "[egress][tcp][backpressure]") {
+    Harness h;
+
+    asio::ip::tcp::acceptor acc(h.io);
+    acc.open(asio::ip::tcp::v4());
+    acc.set_option(asio::socket_base::reuse_address(true));
+    acc.bind({asio::ip::make_address("127.0.0.1"), 0});
+    acc.listen();
+    const auto port = acc.local_endpoint().port();
+
+    auto server = std::make_shared<asio::ip::tcp::socket>(h.io);
+    auto body = std::make_shared<std::vector<std::uint8_t>>(256 * 1024, 0x5a);
+    acc.async_accept(*server, [server, body](const asio::error_code& ec) {
+        if (ec) return;
+        asio::async_write(*server, asio::buffer(*body),
+                          [server, body](const asio::error_code&, std::size_t) {});
+    });
+
+    const auto client_addr = asio::ip::make_address("10.8.0.2");
+    const auto server_addr = asio::ip::make_address("127.0.0.1");
+    constexpr std::uint32_t client_isn = 0x34567890u;
+    const Mac client{kClientMac};
+    const Mac egress{kEgressMacExpected};
+
+    const std::vector<std::uint8_t> mss = {2, 4, 0x05, 0xB4};
+    REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
+        egress, client, client_addr, server_addr, 54321, port, 0x02,
+        client_isn, 0, 65535, mss)));
+
+    TcpSegment syn_ack{};
+    REQUIRE(wait_until(h.io, 3000, [&] {
+        for (const auto& frame : h.sent) {
+            TcpSegment segment;
+            if (parse_tcp_segment(frame, segment) && (segment.flags & 0x12) == 0x12) {
+                syn_ack = std::move(segment);
+                return true;
+            }
+        }
+        return false;
+    }));
+
+    REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
+        egress, client, client_addr, server_addr, 54321, port, 0x10,
+        client_isn + 1, syn_ack.seq + 1, 65535, {})));
+
+    auto captured_payload = [&] {
+        std::size_t bytes = 0;
+        for (const auto& frame : h.sent) {
+            TcpSegment segment;
+            if (parse_tcp_segment(frame, segment)) bytes += segment.payload.size();
+        }
+        return bytes;
+    };
+
+    REQUIRE(wait_until(h.io, 3000, [&] { return captured_payload() >= 32 * 1024; }));
+    const auto first_flight = captured_payload();
+    // A final MSS-sized segment may cross the threshold; a 256 KiB burst must
+    // never be emitted before the first cumulative ACK.
+    REQUIRE(first_flight <= 32 * 1024 + 1460);
+
+    REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
+        egress, client, client_addr, server_addr, 54321, port, 0x10,
+        client_isn + 1, syn_ack.seq + 1 + static_cast<std::uint32_t>(first_flight),
+        65535, {})));
+    REQUIRE(wait_until(h.io, 3000, [&] { return captured_payload() > first_flight; }));
+}
+
 TEST_CASE("ARP requests are answered with a synthesized reply", "[egress][arp]") {
     Harness h;
 
