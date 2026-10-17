@@ -1,0 +1,98 @@
+name: Mobile preview builds
+
+on:
+  push:
+    branches: [main, future]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+      - '.github/dependencies.env'
+  pull_request:
+    branches: [main, future]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+      - '.github/dependencies.env'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android arm64 APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Load Qt version
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK and NDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+      - name: Install Qt for Android
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ env.QT_VERSION }}'
+          host: linux
+          target: android
+          arch: android_arm64_v8a
+          modules: 'qtdeclarative qtshadertools'
+          cache: true
+      - name: Configure Android preview
+        env:
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
+        run: >-
+          "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT"
+          -DANDROID_NDK_ROOT="$ANDROID_NDK_ROOT"
+      - name: Build APK
+        run: cmake --build build-mobile-android --target apk --parallel 2
+      - name: Verify APK
+        run: test "$(find build-mobile-android -type f -name '*.apk' | wc -l)" -ge 1
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pqvpn-mobile-preview-android-arm64
+          path: build-mobile-android/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: iOS unsigned app bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Load Qt version
+        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+      - name: Install Qt for iOS
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ env.QT_VERSION }}'
+          host: mac
+          target: ios
+          arch: ios
+          modules: 'qtdeclarative qtshadertools'
+          cache: true
+      - name: Configure iOS preview
+        run: >-
+          "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-ios -G Xcode
+          -DCMAKE_BUILD_TYPE=Release
+      - name: Build unsigned iOS bundle
+        run: >-
+          cmake --build build-mobile-ios --config Release --
+          -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+      - name: Package unsigned bundle
+        run: |
+          app="$(find build-mobile-ios -type d -name 'pqvpn_mobile.app' -print -quit)"
+          test -n "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" pqvpn-mobile-preview-ios-unsigned.zip
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pqvpn-mobile-preview-ios-unsigned
+          path: pqvpn-mobile-preview-ios-unsigned.zip
+          if-no-files-found: error
+          retention-days: 14

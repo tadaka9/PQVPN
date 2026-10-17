@@ -36,15 +36,34 @@ namespace pqvpn::config {
     struct NetworkConfig {
         int port = 8080;
         std::string bind_address = "0.0.0.0";
+        // legacy preserves existing profiles. New profiles should declare one
+        // of: loopback, lan, public. The validator then makes the exposure
+        // contract enforceable instead of treating a UI label as protection.
+        std::string exposure = "legacy";
 
         friend void from_json(const nlohmann::json& j, NetworkConfig& value) {
             value.port = j.value("port", value.port);
             value.bind_address = j.value("bind_address", value.bind_address);
+            value.exposure = j.value("exposure", value.exposure);
         }
         friend void to_json(nlohmann::json& j, const NetworkConfig& value) {
-            j = {{"port", value.port}, {"bind_address", value.bind_address}};
+            j = {{"port", value.port}, {"bind_address", value.bind_address},
+                 {"exposure", value.exposure}};
         }
     };
+
+    inline bool is_lan_address(const asio::ip::address& address) {
+        if (address.is_v4()) {
+            const auto bytes = address.to_v4().to_bytes();
+            return bytes[0] == 10 ||
+                   (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) ||
+                   (bytes[0] == 192 && bytes[1] == 168) ||
+                   (bytes[0] == 169 && bytes[1] == 254);
+        }
+        const auto bytes = address.to_v6().to_bytes();
+        return (bytes[0] & 0xfe) == 0xfc ||
+               (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80);
+    }
 
     struct SecurityConfig {
         bool strict_sig_verify = false;
@@ -381,6 +400,19 @@ namespace pqvpn::config {
         if (cfg.network.bind_address.empty()) {
             return ConfigError{"Bind address cannot be empty"};
         }
+        if (cfg.network.exposure != "legacy" && cfg.network.exposure != "loopback" &&
+            cfg.network.exposure != "lan" && cfg.network.exposure != "public") {
+            return ConfigError{"network.exposure must be loopback, lan, or public"};
+        }
+        asio::error_code bind_error;
+        const auto bind_address = asio::ip::make_address(cfg.network.bind_address, bind_error);
+        if (bind_error) return ConfigError{"network.bind_address must be a numeric address"};
+        if (cfg.network.exposure == "loopback" && !bind_address.is_loopback())
+            return ConfigError{"loopback exposure requires a loopback bind_address"};
+        if (cfg.network.exposure == "lan" && !is_lan_address(bind_address))
+            return ConfigError{"lan exposure requires an explicit private or link-local bind_address"};
+        if (cfg.network.exposure == "public" && bind_address.is_loopback())
+            return ConfigError{"public exposure cannot use a loopback bind_address"};
         if (cfg.security.kdf.time_cost <= 0) {
             return ConfigError{"KDF time_cost must be positive"};
         }

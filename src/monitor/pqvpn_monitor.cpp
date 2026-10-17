@@ -55,6 +55,7 @@
 #include <QPropertyAnimation>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QResizeEvent>
 #include <QSettings>
 #include <QSaveFile>
 #include <QSet>
@@ -124,6 +125,8 @@ QComboBox QAbstractItemView { background: #11162a; color: white; border: 1px sol
 QPushButton { background: #724cff; color: white; border: 1px solid #8e72ff; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
 QPushButton:hover { background: #825eff; }
 QPushButton:pressed { background: #5e3bd8; }
+QPushButton:focus { border: 2px solid #b8f6ff; padding: 10px 16px; }
+QPushButton[nav="true"]:focus { border: 1px solid #65e6ff; padding: 12px 13px; }
 QPushButton:disabled { background: #252a41; color: #68718f; border-color: #30364e; }
 QPushButton[quiet="true"] { background: rgba(255,255,255,.04); color: #b9c2df; border-color: #343d61; }
 QPushButton[quiet="true"]:checked { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
@@ -135,6 +138,7 @@ QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #586488; bor
 QCheckBox::indicator:checked { background: #65e6ff; border-color: #65e6ff; }
 QScrollBar:vertical { background: transparent; width: 9px; }
 QScrollBar::handle:vertical { background: #465174; border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: #63719c; }
 QStatusBar { background: #080b17; color: #8f9aba; border-top: 1px solid rgba(255,255,255,.08); }
 QToolTip { background: #65e6ff; color: #07101d; border: 0; padding: 6px; }
 )CSS";
@@ -211,6 +215,8 @@ QComboBox QAbstractItemView { background: white; color: #171d31; border: 1px sol
 QPushButton { background: #6842e8; color: white; border: 1px solid #7b5aeb; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
 QPushButton:hover { background: #7653e9; }
 QPushButton:pressed { background: #5433c5; }
+QPushButton:focus { border: 2px solid #087e96; padding: 10px 16px; }
+QPushButton[nav="true"]:focus { border: 1px solid #087e96; padding: 12px 13px; }
 QPushButton:disabled { background: #e2e6ef; color: #8a93a8; border-color: #d3d9e5; }
 QPushButton[quiet="true"] { background: #ffffff; color: #4c5875; border-color: #cbd3e5; }
 QPushButton[quiet="true"]:checked { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
@@ -222,6 +228,7 @@ QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #8792ae; bor
 QCheckBox::indicator:checked { background: #0f8fa8; border-color: #0f8fa8; }
 QScrollBar:vertical { background: transparent; width: 9px; }
 QScrollBar::handle:vertical { background: #aab3c8; border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: #818ca7; }
 QStatusBar { background: #f8f9fd; color: #606b88; border-top: 1px solid #dfe4f1; }
 QToolTip { background: #172033; color: white; border: 0; padding: 6px; }
 )CSS";
@@ -605,7 +612,26 @@ protected:
         const QString path=event->mimeData()->urls().constFirst().toLocalFile();
         if (loadConfig(path)) { configPath_->setText(path); log("Configuration selected · "+QDir::toNativeSeparators(path)); event->acceptProposedAction(); }
     }
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QMainWindow::resizeEvent(event);
+        updateResponsiveChrome();
+    }
 private:
+    void applySidebarWidth(bool compact) {
+        if(!sidebar_||!brandWords_)return;
+        const int target=compact?82:238;
+        if(sidebar_->width()==target&&sidebar_->minimumWidth()==target)return;
+        brandWords_->setVisible(!compact);
+        for(int i=0;i<navButtons_.size();++i)
+            navButtons_[i]->setText(compact?QString("%1").arg(i+1,2,10,QChar('0')):navButtons_[i]->property("fullText").toString());
+        sidebar_->setFixedWidth(target);
+    }
+    void updateResponsiveChrome() {
+        const bool narrow=width()<1080;
+        applySidebarWidth(narrow||(compactSidebar_&&compactSidebar_->isChecked()));
+        if(geekReadout_)geekReadout_->setVisible(!narrow&&geekTelemetry_&&geekTelemetry_->isChecked());
+    }
     QProcess process_;
     pqvpn::console::EngineManager* engines_=nullptr;
     pqvpn::console::ReleaseUpdater* updater_=nullptr;
@@ -644,6 +670,7 @@ private:
         if(geekToggle_&&geekToggle_->isChecked()!=enabled){QSignalBlocker guard(geekToggle_);geekToggle_->setChecked(enabled);}
         for(auto* widget:geekWidgets_)if(widget)widget->setVisible(enabled);
         if(pageScroll_)pageScroll_->widget()->updateGeometry();
+        updateResponsiveChrome();
     }
 
     void refreshConnectionPresentation() {
@@ -936,7 +963,8 @@ private:
         const auto root=doc.object(),network=root.value("network").toObject(),security=root.value("security").toObject(),shaping=root.value("traffic_shaping").toObject(),external=root.value("external_transport").toObject(),adaptive=root.value("adaptive_transport").toObject(),tunnel=root.value("tunnel").toObject(),innerTunnel=root.value("inner_tunnel").toObject(),egress=root.value("egress").toObject();
         const auto bootstrap=root.value("bootstrap").toArray();
         mainnetMetric_->setText(bootstrap.isEmpty()?"Listener only":QString("%1 bootstrap route(s)").arg(bootstrap.size()));
-        endpointMetric_->setText(QString("UDP port %1").arg(network.value("port").toInt(9090)));
+        const QString exposure=network.value("exposure").toString("legacy");
+        endpointMetric_->setText(QString("%1:%2 · %3").arg(network.value("bind_address").toString("0.0.0.0")).arg(network.value("port").toInt(9090)).arg(exposure.toUpper()));
         verificationMetric_->setText(QString("%1 · %2").arg(security.value("strict_sig_verify").toBool(true)?"Hybrid strict":"Relaxed",security.value("tofu").toBool(true)?"TOFU":"Pinned"));
         shapingMetric_->setText(shaping.value("enabled").toBool(false)?"Enabled":"Off");egressMetric_->setText(egress.value("enabled").toBool(false)?"Enabled":"Relay only");
 #ifdef _WIN32
@@ -1128,7 +1156,7 @@ private:
     void fadeWidget(QWidget* widget,int duration=240){if(!widget||!reduceMotion_||reduceMotion_->isChecked())return;if(widget->graphicsEffect())widget->setGraphicsEffect(nullptr);auto* effect=new QGraphicsOpacityEffect(widget);widget->setGraphicsEffect(effect);auto* animation=new QPropertyAnimation(effect,"opacity",effect);animation->setDuration(duration);animation->setStartValue(0.18);animation->setEndValue(1.0);animation->setEasingCurve(QEasingCurve::OutCubic);connect(animation,&QPropertyAnimation::finished,widget,[widget,effect]{if(widget->graphicsEffect()!=effect)return;effect->setEnabled(false);QTimer::singleShot(0,widget,[widget,effect]{if(widget->graphicsEffect()==effect)widget->setGraphicsEffect(nullptr);});});animation->start(QAbstractAnimation::DeleteWhenStopped);}
     void switchPage(int index){if(!pages_||index<0||index>=pages_->count())return;pageButtons_.value(index)->setChecked(true);if(index==StrangeNet&&unreadStrange_){unreadStrange_=0;const QString label="04   StrangeNet";pageButtons_[StrangeNet]->setProperty("fullText",label);if(sidebar_->width()>100)pageButtons_[StrangeNet]->setText(label);}const bool changed=pages_->currentIndex()!=index;if(changed)pages_->setCurrentIndex(index);if(pageScroll_)pageScroll_->verticalScrollBar()->setValue(0);if(changed)fadeWidget(pages_->currentWidget(),260);}
     void setMotion(bool enabled){if(!auroraAnimation_){auroraAnimation_=new QPropertyAnimation(aurora_,"phase",this);auroraAnimation_->setStartValue(0.0);auroraAnimation_->setEndValue(6.283185307);auroraAnimation_->setDuration(15000);auroraAnimation_->setLoopCount(-1);pulseAnimation_=new QPropertyAnimation(orb_,"pulse",this);pulseAnimation_->setStartValue(0.0);pulseAnimation_->setEndValue(1.0);pulseAnimation_->setDuration(1700);pulseAnimation_->setEasingCurve(QEasingCurve::InOutSine);pulseAnimation_->setLoopCount(-1);}if(enabled){auroraAnimation_->start();pulseAnimation_->start();}else{auroraAnimation_->stop();pulseAnimation_->stop();aurora_->setPhase(0);orb_->setPulse(0);}}
-    void setSidebarCompact(bool compact){QSettings("PQVPN","Privacy Console").setValue("compactSidebar",compact);const int width=compact?82:238;brandWords_->setVisible(!compact);for(int i=0;i<navButtons_.size();++i)navButtons_[i]->setText(compact?QString("%1").arg(i+1,2,10,QChar('0')):navButtons_[i]->property("fullText").toString());sidebar_->setFixedWidth(width);}
+    void setSidebarCompact(bool compact){QSettings("PQVPN","Privacy Console").setValue("compactSidebar",compact);applySidebarWidth(compact||width()<1080);}
     void applyTheme(QString mode){
         if(applyingTheme_)return;
         applyingTheme_=true;

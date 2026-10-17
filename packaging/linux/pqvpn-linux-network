@@ -47,8 +47,16 @@ route="$(ip -4 route get "$exit_ip" | head -n1)"
 physical_dev="$(awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' <<<"$route")"
 physical_via="$(awk '{for(i=1;i<=NF;i++) if($i=="via") print $(i+1)}' <<<"$route")"
 [[ -n "$physical_dev" && "$physical_dev" != "$tun" ]] || { echo "cannot determine physical exit route" >&2; exit 4; }
+[[ "$physical_dev" =~ ^[a-zA-Z0-9_.:-]{1,15}$ ]] || { echo "invalid physical interface" >&2; exit 4; }
+lan_cidr="$(ip -4 route show dev "$physical_dev" proto kernel scope link |
+  awk '$1 ~ /^[0-9.]+\/[0-9]+$/ {print $1; exit}')"
+[[ "$lan_cidr" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/([0-9]|[12][0-9]|3[0-2])$ ]] || {
+  echo "cannot determine directly connected LAN" >&2
+  exit 4
+}
 install -d -m 0700 /run/pqvpn
-printf 'physical_dev=%q\nphysical_via=%q\n' "$physical_dev" "$physical_via" >"$state"
+printf 'physical_dev=%q\nphysical_via=%q\nlan_cidr=%q\n' \
+  "$physical_dev" "$physical_via" "$lan_cidr" >"$state"
 chmod 0600 "$state"
 
 # Start from a known owned state. A crash intentionally leaves the firewall
@@ -68,6 +76,7 @@ table inet pqvpn {
     type filter hook output priority -200; policy drop;
     oifname "lo" accept
     oifname "$tun" accept
+    oifname "$physical_dev" ip daddr $lan_cidr accept
     oifname "$physical_dev" ip daddr $exit_ip udp dport $exit_port accept
     oifname "$physical_dev" udp sport 68 udp dport 67 accept
   }

@@ -200,8 +200,11 @@ are serious.
 
 ### 1. Build
 
-Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config and the upstream
-dependency versions pinned in [`.github/dependencies.env`](.github/dependencies.env).
+Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config, OpenSSL 3.0+,
+Argon2 and a compatible liboqs. Official CI and release artifacts use and
+attest the exact upstream versions pinned in
+[`.github/dependencies.env`](.github/dependencies.env); those moving release
+pins are deliberately not treated as the minimum supported local ABI.
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git
@@ -302,6 +305,16 @@ Reduced-motion support disables ambient and transition animation.
 
 ## Evidence, not promises
 
+### Mobile preview builds
+
+PQVPN also builds a responsive Qt Quick preview for Android and iOS. CI emits
+an Android arm64 APK and an unsigned iOS application bundle. These artifacts
+exercise the mobile information architecture, cipher choice and StrangeNet /
+Shield surfaces; they deliberately keep **Connect** disabled. A mobile build
+must not claim VPN protection until Android `VPNService` and iOS Network
+Extension backends have passed the same fail-closed, route, DNS and rollback
+qualification required by the desktop client. See [`mobile/`](mobile/).
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 
@@ -361,7 +374,7 @@ ignore it.
 
 | Section | Important fields | Purpose |
 |---|---|---|
-| `network` | `port`, `bind_address` | UDP listener. |
+| `network` | `port`, `bind_address`, `exposure` | UDP listener. Use `loopback`, `lan`, or `public`; `lan` requires an explicit private/link-local address and rejects wildcard/public binds. |
 | `bootstrap` | `host:port` entries | Peers contacted until a session exists. |
 | `security` | TOFU, allowlist, known peers, KDF policy | Admission and local key policy. |
 | `tunnel` | enabled state, interface and exit policy | Selects relay-only or full-tunnel behavior explicitly. |
