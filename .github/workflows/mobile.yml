@@ -77,7 +77,8 @@ jobs:
           # the API 36 resource table. Force the matching SDK build-tool while
           # retaining Qt's otherwise working Android packaging template.
           gradle_properties="build-mobile-android/android-build/gradle.properties"
-          test -f "$gradle_properties"
+          mkdir -p "$(dirname "$gradle_properties")"
+          touch "$gradle_properties"
           printf '\nandroid.aapt2FromMavenOverride=%s/build-tools/36.0.0/aapt2\n' "$sdk_root" \
             >> "$gradle_properties"
           grep -F 'android.aapt2FromMavenOverride=' "$gradle_properties"
