@@ -505,7 +505,8 @@ TEST_CASE("TCP connect failure resets the client flow", "[egress][tcp-refused]")
     REQUIRE(got_rst);
 }
 
-TEST_CASE("TCP egress paces large downloads until the client ACKs", "[egress][tcp][backpressure]") {
+TEST_CASE("TCP egress sustains multi-megabyte downloads with adaptive backpressure",
+          "[egress][tcp][backpressure]") {
     Harness h;
 
     asio::ip::tcp::acceptor acc(h.io);
@@ -516,7 +517,8 @@ TEST_CASE("TCP egress paces large downloads until the client ACKs", "[egress][tc
     const auto port = acc.local_endpoint().port();
 
     auto server = std::make_shared<asio::ip::tcp::socket>(h.io);
-    auto body = std::make_shared<std::vector<std::uint8_t>>(256 * 1024, 0x5a);
+    constexpr std::size_t body_size = 2u * 1024u * 1024u;
+    auto body = std::make_shared<std::vector<std::uint8_t>>(body_size, 0x5a);
     acc.async_accept(*server, [server, body](const asio::error_code& ec) {
         if (ec) return;
         asio::async_write(*server, asio::buffer(*body),
@@ -529,7 +531,9 @@ TEST_CASE("TCP egress paces large downloads until the client ACKs", "[egress][tc
     const Mac client{kClientMac};
     const Mac egress{kEgressMacExpected};
 
-    const std::vector<std::uint8_t> mss = {2, 4, 0x05, 0xB4};
+    // MSS 1460 + window scale 7 gives the bridge enough client receive window
+    // to grow beyond one 64 KiB WAN flight.
+    const std::vector<std::uint8_t> mss = {2, 4, 0x05, 0xB4, 1, 3, 3, 7};
     REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
         egress, client, client_addr, server_addr, 54321, port, 0x02,
         client_isn, 0, 65535, mss)));
@@ -570,6 +574,43 @@ TEST_CASE("TCP egress paces large downloads until the client ACKs", "[egress][tc
         client_isn + 1, syn_ack.seq + 1 + static_cast<std::uint32_t>(first_flight),
         65535, {})));
     REQUIRE(wait_until(h.io, 3000, [&] { return captured_payload() > first_flight; }));
+
+    // One successful ACK doubles the initial congestion window, so the next
+    // flight can exceed the old permanent 32 KiB ceiling without bursting the
+    // complete response.
+    REQUIRE(wait_until(h.io, 3000,
+                       [&] { return captured_payload() >= first_flight + 60 * 1024; }));
+
+    auto highest_payload_end = [&] {
+        std::uint32_t highest = syn_ack.seq + 1;
+        for (const auto& frame : h.sent) {
+            TcpSegment segment;
+            if (!parse_tcp_segment(frame, segment) || segment.payload.empty()) continue;
+            highest = std::max(
+                highest, segment.seq + static_cast<std::uint32_t>(segment.payload.size()));
+        }
+        return highest;
+    };
+
+    std::uint32_t acknowledged = syn_ack.seq + 1 + static_cast<std::uint32_t>(first_flight);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (static_cast<std::size_t>(acknowledged - (syn_ack.seq + 1)) < body_size &&
+           std::chrono::steady_clock::now() < deadline) {
+        h.io.run_for(std::chrono::milliseconds(10));
+        const auto available = highest_payload_end();
+        if (available == acknowledged) continue;
+        REQUIRE(pqvpn::egress::seq_lt(acknowledged, available));
+        acknowledged = available;
+        REQUIRE(h.feed(pqvpn::egress::build_tcp_frame(
+            egress, client, client_addr, server_addr, 54321, port, 0x10,
+            client_isn + 1, acknowledged, 65535, {})));
+    }
+
+    REQUIRE(static_cast<std::size_t>(acknowledged - (syn_ack.seq + 1)) == body_size);
+    for (const auto& frame : h.sent) {
+        TcpSegment segment;
+        if (parse_tcp_segment(frame, segment)) REQUIRE((segment.flags & 0x04) == 0);
+    }
 }
 
 TEST_CASE("ARP requests are answered with a synthesized reply", "[egress][arp]") {

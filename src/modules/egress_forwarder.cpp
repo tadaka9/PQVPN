@@ -21,7 +21,10 @@ constexpr std::size_t kMaxOooEntries = 64;            // out-of-order segment ca
 // window.  Keep one conservative flight on the wire and retain enough server
 // data to absorb the upstream socket while ACKs cross the tunnel.
 constexpr std::size_t kMaxServerBuffer = 1u << 20;     // un-delivered server bytes cap (1 MiB)
-constexpr int32_t kMaxInFlightBytes = 32 * 1024;       // paced S->C tunnel flight
+constexpr std::size_t kServerReadSize = 64u * 1024u;
+constexpr std::size_t kInitialInFlightBytes = 32u * 1024u;
+constexpr std::size_t kMaxInFlightBytes = 512u * 1024u;
+constexpr std::uint8_t kServerWindowScale = 4; // advertise a bounded ~1 MiB upload window
 constexpr double kTcpIdleTimeoutSeconds = 300.0;
 constexpr double kUdpIdleTimeoutSeconds = 60.0;
 constexpr std::size_t kMaxFlows = 512;
@@ -587,6 +590,7 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
                                  const std::vector<uint8_t>& owner_peer) {
     const auto seq = ntohl_u(l4 + 4); // sport(2)+dport(2) precede il sequence number
     const auto ack = ntohl_u(l4 + 8);
+    const auto advertised_window = ntohs_u(l4 + 14);
     const auto dataoff = static_cast<std::size_t>(l4[12] >> 4) * 4u;
     const auto flags = l4[13] & 0xFF; // single flag byte (window follows)
     if (dataoff < 20 || l4_len < dataoff) {
@@ -623,13 +627,19 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
         f->recv_next = seq + 1;
         f->isn_s = random_isn();
         f->send_next = f->isn_s + 1;
-        // Parse the client's MSS option (kind 2); default to a safe 1460.
-        for (std::size_t i = 20; i + 3 < dataoff;) {
+        f->client_window_bytes = advertised_window;
+        // Parse MSS (kind 2) and window scale (kind 3). The SYN window itself
+        // is never scaled; scaling applies to subsequent segments only.
+        for (std::size_t i = 20; i < dataoff;) {
             const auto kind = l4[i];
+            if (kind == 0) break; // end of options
+            if (kind == 1) { ++i; continue; } // NOP
+            if (i + 1 >= dataoff) break;
             const auto olen = l4[i + 1];
-            if (olen < 2) break;
-            if (kind == 1) { i += 1; continue; } // NOP
+            if (olen < 2 || i + olen > dataoff) break;
             if (kind == 2 && olen == 4) f->mss_c = ntohs_u(l4 + i + 2);
+            if (kind == 3 && olen == 3)
+                f->client_window_scale = std::min<std::uint8_t>(l4[i + 2], 14);
             i += olen;
         }
         f->mss_c = std::max<std::uint16_t>(f->mss_c, 536);
@@ -656,6 +666,8 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
     auto f = it->second;
     if (f->closed) return;
     f->last_activity = now_seconds();
+    f->client_window_bytes = static_cast<std::size_t>(advertised_window)
+                             << f->client_window_scale;
 
     if (flags & kFlagAck) {
         f->c_ack = ack;
@@ -720,10 +732,11 @@ void EgressForwarder::on_connect_done(std::weak_ptr<TcpFlow> w, const asio::erro
         f->client_addr.to_string(), f->client_port, f->server_addr.to_string(), f->server_port,
         f->isn_c, f->isn_s);
     // Synthesized SYN-ACK: our own ISN for the S->C direction, acknowledging
-    // the client's SYN. No window-scale option is advertised, so the client
-    // reads our windows unscaled.
+    // the client's SYN. Advertise a bounded window scale so uploads can fill
+    // a WAN bandwidth-delay product without permitting an unbounded queue.
     std::vector<uint8_t> options = {2, 4}; // MSS option
     put_nbo16(options, f->mss_c);
+    options.insert(options.end(), {1, 3, 3, kServerWindowScale}); // NOP + window scale
     emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
                          f->server_port, f->client_port, kFlagSyn | kFlagAck, f->isn_s,
                          f->isn_c + 1, 65535, options),
@@ -804,28 +817,31 @@ void EgressForwarder::try_flush(std::weak_ptr<TcpFlow> w) {
 
 void EgressForwarder::start_server_read(std::weak_ptr<TcpFlow> w) {
     auto f = w.lock();
-    if (!f || f->closed || !f->sock) return;
+    if (!f || f->closed || !f->sock || f->s_eof || f->server_read_pending) return;
+    // Backpressure reaches the real upstream socket: once one bounded buffer
+    // is retained, stop posting reads. The kernel then advertises a smaller
+    // receive window to the origin instead of us resetting a healthy flow.
+    if (f->sbuf_off != 0) {
+        f->sbuf.erase(f->sbuf.begin(),
+                      f->sbuf.begin() + static_cast<std::ptrdiff_t>(f->sbuf_off));
+        f->sbuf_off = 0;
+    }
+    if (f->sbuf.size() > kMaxServerBuffer - kServerReadSize) return;
     // Same buffer-lifetime rule as start_udp_recv: the handler must own the
     // storage (shared_ptr), not a moved-from local.
-    auto buf = std::make_shared<std::vector<uint8_t>>(65536);
+    auto buf = std::make_shared<std::vector<uint8_t>>(kServerReadSize);
+    f->server_read_pending = true;
     f->sock->async_read_some(
         asio::buffer(*buf), [this, w, buf](const asio::error_code& ec,
                                            std::size_t n) {
             auto ff = w.lock();
             if (!ff || ff->closed) return;
+            ff->server_read_pending = false;
             if (ec == asio::error::eof) {
                 ff->s_eof = true;
-                // Server closed: send FIN to the client and keep the flow for
-                // any remaining upload until it finishes or times out.
-                if (!ff->fin_sent_c) {
-                    emit(build_tcp_frame(ff->client_mac, kEgressMac, ff->server_addr,
-                                         ff->client_addr, ff->server_port, ff->client_port,
-                                         kFlagFin | kFlagAck, ff->send_next, ff->recv_next, 0, {}),
-                         ff->owner_peer);
-                    ff->fin_sent_c = true;
-                    ff->send_next += 1; // FIN consumes one sequence number
-                }
-                if (ff->c_fin_seen) abort_flow(ff, false); // both directions done
+                // FIN is emitted by deliver_server_bytes only after every
+                // buffered byte has been placed on the tunnel.
+                deliver_server_bytes(ff);
                 return;
             }
             if (ec) {
@@ -841,7 +857,7 @@ void EgressForwarder::start_server_read(std::weak_ptr<TcpFlow> w) {
             }
             ff->sbuf.insert(ff->sbuf.end(), buf->begin(), buf->begin() + static_cast<long>(n));
             deliver_server_bytes(ff);
-            start_server_read(w); // keep reading
+            start_server_read(w); // continues only below the high-water mark
         });
 }
 
@@ -849,11 +865,16 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
     if (!f || f->closed) return;
     const auto max_seg = std::min<std::size_t>(f->mss_c, 1460);
     while (f->sbuf_off < f->sbuf.size() && !f->closed) {
-        // Backpressure: do not run further than the client's acknowledged window.
-        if (f->unacked_bytes >= static_cast<std::size_t>(kMaxInFlightBytes)) {
+        const auto flight_limit = std::min({f->congestion_window, f->client_window_bytes,
+                                            kMaxInFlightBytes});
+        // Backpressure: respect both the client's advertised receive window
+        // and our adaptive tunnel congestion window.
+        if (f->unacked_bytes >= flight_limit) {
             break; // resume on the next ACK from the client
         }
-        const auto chunk = std::min(max_seg, f->sbuf.size() - f->sbuf_off);
+        const auto chunk = std::min({max_seg, f->sbuf.size() - f->sbuf_off,
+                                     flight_limit - f->unacked_bytes});
+        if (chunk == 0) break;
         const auto segment_seq = f->send_next;
         std::vector<std::uint8_t> segment(
             f->sbuf.begin() + static_cast<std::ptrdiff_t>(f->sbuf_off),
@@ -877,6 +898,19 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
         f->sbuf.clear();
         f->sbuf_off = 0;
     }
+    if (f->s_eof && f->sbuf.empty() && !f->fin_sent_c) {
+        emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
+                             f->server_port, f->client_port, kFlagFin | kFlagAck,
+                             f->send_next, f->recv_next, 0, {}),
+             f->owner_peer);
+        f->fin_sent_c = true;
+        f->send_next += 1;
+        if (f->c_fin_seen) {
+            abort_flow(f, false);
+            return;
+        }
+    }
+    start_server_read(std::weak_ptr<TcpFlow>(f));
     arm_retransmit(f);
 }
 
@@ -884,10 +918,12 @@ void EgressForwarder::process_client_ack(const std::shared_ptr<TcpFlow>& f,
                                          const std::uint32_t ack) {
     if (!f || f->closed) return;
     bool advanced = false;
+    std::size_t acknowledged_bytes = 0;
     for (auto it = f->unacked.begin(); it != f->unacked.end();) {
         const auto end = it->first + static_cast<std::uint32_t>(it->second.size());
         if (!seq_lt(ack, end)) {
             f->unacked_bytes -= it->second.size();
+            acknowledged_bytes += it->second.size();
             it = f->unacked.erase(it);
             advanced = true;
         } else {
@@ -898,6 +934,18 @@ void EgressForwarder::process_client_ack(const std::shared_ptr<TcpFlow>& f,
         f->last_ack = ack;
         f->duplicate_acks = 0;
         f->retransmit_attempts = 0;
+        // Slow-start quickly fills fast links; after 256 KiB switch to
+        // additive growth to avoid large UDP bursts. Loss halves this value.
+        if (acknowledged_bytes != 0) {
+            const auto growth = f->congestion_window < 256u * 1024u
+                                    ? acknowledged_bytes
+                                    : std::max<std::size_t>(
+                                          f->mss_c,
+                                          f->mss_c * acknowledged_bytes /
+                                              std::max<std::size_t>(f->congestion_window, 1));
+            f->congestion_window =
+                std::min(kMaxInFlightBytes, f->congestion_window + growth);
+        }
     } else if (!f->unacked.empty() && ++f->duplicate_acks >= 3) {
         f->duplicate_acks = 0;
         retransmit_oldest(f);
@@ -931,6 +979,8 @@ void EgressForwarder::retransmit_oldest(const std::shared_ptr<TcpFlow>& f) {
         abort_flow(f, true);
         return;
     }
+    f->congestion_window =
+        std::max(kInitialInFlightBytes, f->congestion_window / 2);
     const auto& [sequence, payload] = *f->unacked.begin();
     if (!emit(build_tcp_frame(f->client_mac, kEgressMac, f->server_addr, f->client_addr,
                               f->server_port, f->client_port, kFlagAck, sequence, f->recv_next,

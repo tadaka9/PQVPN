@@ -39,6 +39,24 @@ verification on an elevated host with a connected adapter is still pending.
 - [ ] Validate shutdown, recovery, and adapter cleanup across supported Windows
   and Linux environments.
 
+## High-throughput data plane
+
+- [x] Make Linux user-space TCP egress apply upstream backpressure instead of
+  resetting long downloads when its bounded server buffer fills.
+- [x] Negotiate TCP window scaling and use an adaptive tunnel congestion window:
+  fast growth for short interactive bursts and available high-bandwidth paths,
+  bounded additive growth at larger windows, and multiplicative reduction on
+  retransmission.
+- [x] Preserve a strict per-flow memory ceiling while pausing and resuming
+  upstream reads, so sustained download and upload performance does not trade
+  away exit-node stability.
+- [ ] Publish reproducible throughput, latency and loss benchmarks across the
+  Helsinki–Stockholm mainnet path; report medians and percentiles rather than
+  marketing maxima.
+- [ ] Add paced packet batching and multi-queue processing only after profiling
+  demonstrates a bottleneck, with fairness tests preventing one bulk transfer
+  from starving interactive traffic.
+
 ## Security assurance
 
 - [ ] Publish a protocol-level threat model covering trust boundaries, traffic
