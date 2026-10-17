@@ -14,15 +14,18 @@
 
 namespace pqvpn::traffic {
 
-enum class ShapingMode { LocalAI, BlockchainPolicy };
+enum class ShapingMode { LocalAI, BlockchainPolicy, ConsensusGuidedAI };
 
 inline const char* to_string(ShapingMode mode) {
-    return mode == ShapingMode::BlockchainPolicy ? "blockchain" : "ai";
+    if (mode == ShapingMode::BlockchainPolicy) return "blockchain";
+    if (mode == ShapingMode::ConsensusGuidedAI) return "ai_blockchain";
+    return "ai";
 }
 
 inline std::optional<ShapingMode> shaping_mode_from_string(std::string_view value) {
     if (value == "ai") return ShapingMode::LocalAI;
     if (value == "blockchain") return ShapingMode::BlockchainPolicy;
+    if (value == "ai_blockchain") return ShapingMode::ConsensusGuidedAI;
     return std::nullopt;
 }
 
@@ -33,6 +36,15 @@ struct ShapingConfig {
     int max_delay_ms = 20;
     std::size_t max_queue_packets = 256;
     std::size_t max_queue_bytes = 512 * 1024;
+};
+
+// A quorum-finalized control-plane profile. Callers must verify the ledger
+// certificate before setting verified=true; raw peer suggestions are rejected.
+struct ConsensusWeights {
+    std::uint64_t epoch = 0;
+    double padding_weight = 1.0;
+    double delay_weight = 1.0;
+    bool verified = false;
 };
 
 // Online linear predictors trained by bounded SGD on local packet sizes and
@@ -63,6 +75,7 @@ public:
     // Returns acceptance into a bounded FIFO. A failed network send is
     // counted and dropped; it never triggers an unshaped retry.
     bool enqueue(std::vector<uint8_t> frame, std::size_t original_size, Sender sender);
+    bool apply_consensus_weights(const ConsensusWeights& weights);
     void stop();
     std::size_t queued_packets() const { return queue_.size(); }
     std::size_t queued_bytes() const { return queued_bytes_; }
@@ -70,11 +83,13 @@ public:
     std::size_t dropped_packets() const { return dropped_; }
     const TrafficModel& model() const { return model_; }
     ShapingMode mode() const { return config_.mode; }
+    std::uint64_t consensus_epoch() const { return consensus_weights_.epoch; }
 private:
     struct Pending { std::vector<uint8_t> frame; Sender sender; Clock::time_point due; };
     void arm();
     ShapingConfig config_;
     TrafficModel model_;
+    ConsensusWeights consensus_weights_;
     asio::steady_timer timer_;
     std::deque<Pending> queue_;
     std::size_t queued_bytes_ = 0, sent_ = 0, dropped_ = 0;

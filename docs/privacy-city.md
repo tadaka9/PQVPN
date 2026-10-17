@@ -35,6 +35,11 @@ Privacy City is now an active session world rather than a decorative preview:
   delivery order, reach, moderation, encryption or network priority;
 - emotes and positions use the existing bounded StrangeNet world envelope and
   disappear when the room or process ends.
+- every movement enters the visible CRF loop: **Compose** previews and queues
+  it, **React** displays validated remote state, and **Feedback** appears only
+  after the node reports authenticated delivery;
+- each avatar has a small pixel Pet representing that self-owned PQVPN
+  instance. It is cosmetic and carries no inventory, authority or telemetry.
 
 The scene deliberately has no inventory, trade, purchases, persistent movement
 history, location inference or invisible engagement scoring. Commons credits
@@ -45,6 +50,11 @@ PQVPN cannot create an avatar or a speech bubble.
 The avatar is a local pseudonymous representation. Other people are rendered
 only from authenticated Peer IDs. Participant addresses, movement analytics,
 room history and behavioral profiles are not collected or published.
+
+People are never spare compute. A PQVPN instance may become a bounded
+scientific cell only after the operator explicitly enables Research Commons;
+that permission is local, revocable, GPU-disabled and capped at 1% CPU time.
+Conversation, presence and exploration never activate it.
 
 ## SEELE and M1M boundary
 

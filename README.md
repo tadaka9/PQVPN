@@ -54,6 +54,11 @@ Start one node. Connect a second. Add a relay. Observe what succeeds, what
 fails closed and what still needs engineering. If something breaks, the result
 belongs in a test—not behind marketing language.
 
+The maintainer, Davide Di Pino, personally believes in God. PQVPN itself has no
+faith, disbelief or ideology: software cannot hold a belief. The project
+welcomes believers, non-believers and every conscience under the same public,
+testable rules. Personal conviction grants no protocol authority.
+
 ## Why this experiment matters
 
 Traffic captured today may outlive the cryptography protecting it. Meanwhile,
@@ -116,6 +121,18 @@ and optional [WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md) as
 the CLI and TUI. An installed helper or open socket is never presented as proof
 that the protected route is connected.
 
+The recommended `ai_blockchain` shaping mode integrates both control systems
+without confusing their roles: private on-device learning proposes timing and
+padding choices while quorum-verified, versioned distributed weights cap every
+decision. Raw packet data, payloads, destinations and browsing history are
+neither shared with peers nor written to the chain, and forwarding never waits
+for consensus.
+
+Think of the network as a score: **AI conducts the local rhythm, blockchain
+keeps shared time, and cryptography authenticates every note.** The audible
+wallet fingerprint makes that identity memorable, but never replaces signature
+or certificate verification.
+
 There is no hosted account database or mandatory coordination service. There
 is still trust: in the code you run, the peers you admit, the machines you
 operate and the evidence you have verified.
@@ -130,7 +147,7 @@ operate and the evidence you have verified.
 | **Dual-stack policy** | IPv4/IPv6 transport, tunnel and egress paths with per-peer registry state; unavailable IPv6 is blocked rather than leaked or advertised. |
 | **Native clients** | One configuration model exposed through the node CLI, terminal console and Qt Privacy Console. |
 | **Adaptive transport policy** | UDP-preferred policy with bounded measurements, hysteresis and explicit fallback state. |
-| **StrangeNet** | Encrypted, authenticated peer rooms with bounded messages, replay checks and rate limits. |
+| **StrangeNet** | Encrypted peer rooms plus a memory-only 2D world with bounded state and acknowledgement-backed Compose–React–Feedback cues. |
 | **Release integrity** | Versioned packages, checksums, deterministic update containers and CI evidence gates. |
 
 ### DNS Shield: choose once, see the trade-off
@@ -175,6 +192,18 @@ central secret: every member receives different ciphertext under the hybrid
 session that member helped establish. A group send fails closed unless the
 entire pinned membership is authenticated and ready.
 
+The native **Restore '90** world applies a visible Compose–React–Feedback
+(CRF) loop: a local action is previewed, authenticated peer state is rendered,
+and success appears only after a real delivery acknowledgement. Every avatar
+has a small pixel Pet representing its self-owned PQVPN instance—never the
+person as computational inventory. An instance becomes a scientific compute
+cell only through a separate, explicit and revocable Research Commons opt-in.
+
+The wallet can turn its public address into a short deterministic audible
+fingerprint with the same notes shown as text. This is a local comparison and
+accessibility cue, not a signature verifier. Ed25519 + ML-DSA-87 validation
+remains authoritative; audio and wallet identifiers are not transmitted.
+
 ```bash
 ./build/pqvpn_node --config config.json \
   --strangenet-room riemann-lab
@@ -190,8 +219,8 @@ StrangeNet can select a scientific field and resume a matching project already
 attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
 disables GPU use, never handles BOINC credentials and never accepts arbitrary
 peer-supplied code. Completed, reported tasks create privacy-minimized pending
-PQC claims. Useful StrangeNet contributions additionally require two independent
-confirmations; messages, likes and time online never earn rewards. Minting is
+PQC claims. Messages, likes, exploration, time online and other social activity
+never earn rewards. Minting is
 deliberately disabled until project-validator attestations and an audited mesh
 consensus layer exist. See
 [`docs/research-commons.md`](docs/research-commons.md). The implemented
@@ -384,6 +413,10 @@ IP addresses, inventories and movement histories are neither emitted nor
 persisted. Browser play is an original single-player story; authenticated E2E
 multiplayer requires the native client. See
 [`docs/strangenet.md`](docs/strangenet.md).
+
+**Self → Echo → Peer. Peer respected. Peer verified.** Respect comes
+first: consent, autonomy and no participant-IP exposure. Verification follows
+through authenticated identity, bounded envelopes and delivery evidence.
 
 The [conversation coverage audit](docs/conversation-coverage-audit.md) maps the
 broader product requests to implemented evidence and explicit release gates.

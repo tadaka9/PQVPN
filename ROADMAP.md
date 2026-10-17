@@ -79,6 +79,14 @@ verification on an elevated host with a connected adapter is still pending.
 
 ## Security assurance
 
+- [x] Expose a deterministic local audible wallet fingerprint with matching
+  visual notation while keeping hybrid signature verification authoritative.
+- [x] Add Compose–React–Feedback presentation to the native 2D world: local
+  preview, authenticated peer reaction and acknowledgement-backed feedback.
+- [x] Represent self-owned instances as pixel companions without turning users
+  or social activity into compute inventory; Research Commons remains explicit,
+  revocable and capped at 1% CPU.
+
 - [x] Keep current StrangeNet groups decentralized without a group-key holder:
   require the complete pinned membership, encrypt independently through every
   member-contributed hybrid session, and test that ciphertext for one member
@@ -98,6 +106,11 @@ verification on an elevated host with a connected adapter is still pending.
   protocol behavior where applicable.
 
 ## Research Commons and PQ mesh ledger
+
+- [x] Integrate privacy-local traffic learning with deterministic consensus
+  bounds through `ai_blockchain`; accept only verified, bounded, newer
+  distributed weight epochs while keeping packet forwarding independent from
+  control-plane availability.
 
 - [x] Add an opt-in StrangeNet topic selector backed by real, already-attached
   BOINC projects; enforce at most 1% local CPU time, GPU off, no credential

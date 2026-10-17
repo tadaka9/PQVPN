@@ -75,6 +75,13 @@ wave, bow, cheer and sit are explicit emotes. Each bounded world-state update
 is encrypted independently to authenticated room peers and is subject to the
 same replay and antiflood boundary as chat.
 
+Its Restore '90 presentation uses a Compose–React–Feedback loop rather than a
+decorative success animation. A local action is composed and previewed, a
+validated peer update is shown as a reaction, and feedback appears only after
+the existing authenticated delivery acknowledgement. Pixel Pets are cosmetic
+symbols of self-owned instances; they do not identify a person, activate
+computation or carry network authority.
+
 World state uses normalized coordinates, one of four declared zones
 (`commons`, `forge`, `garden`, `gate`), a facing direction and a fixed emote
 vocabulary. The node rejects malformed JSON, unknown zones, out-of-range

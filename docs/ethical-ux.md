@@ -31,3 +31,9 @@ Pixel Commons follows the same rule: PQ communicate local progress, never
 financial value or status pressure. Character bubbles disappear and are not
 persisted. A satisfying animation may celebrate an evidenced outcome; it may
 not substitute for one.
+
+The project shorthand is **Self → Echo → Peer**: preserve the person's
+identity and agency, make the system's interpretation visible, then interact
+with another authenticated peer. **Peer respected. Peer verified.** Respect
+precedes verification; cryptography must not justify coercion, hidden compute,
+identity ranking or ideological conformity.

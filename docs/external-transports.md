@@ -40,6 +40,11 @@ the UDP configuration is rejected instead of silently sending raw UDP.
 trained with bounded SGD on packet sizes and arrival intervals. The model
 chooses bounded delay and encrypted padding buckets; it does not inspect
 payloads, download a model, send telemetry or train against an ISP classifier.
+Mode `ai_blockchain` constrains those local predictions with bounded,
+quorum-verified distributed weight epochs. Unverified, stale, non-finite or
+out-of-range weights are rejected; consensus is never queried in the packet
+path. Modes `ai` and `blockchain` remain available for local-only adaptation
+or deterministic public policy respectively.
 The FIFO preserves nonce ordering, limits memory and drops overflow without
 an unshaped fallback. Padding is inside the existing authenticated encrypted
 data frame (new frame type 9); malformed padding, tampering and replay are

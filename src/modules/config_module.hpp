@@ -317,7 +317,7 @@ namespace pqvpn::config {
                 const auto& shape = j.at("traffic_shaping");
                 value.traffic_shaping.enabled = shape.value("enabled", false);
                 const auto shaping_mode = traffic::shaping_mode_from_string(shape.value("mode", std::string{"ai"}));
-                if (!shaping_mode) throw std::runtime_error("traffic_shaping.mode must be ai or blockchain");
+                if (!shaping_mode) throw std::runtime_error("traffic_shaping.mode must be ai, blockchain or ai_blockchain");
                 value.traffic_shaping.mode = *shaping_mode;
                 value.traffic_shaping.max_padding_bytes = shape.value("max_padding_bytes", std::size_t{1024});
                 value.traffic_shaping.max_delay_ms = shape.value("max_delay_ms", 20);

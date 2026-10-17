@@ -70,6 +70,26 @@ TEST_CASE("Blockchain shaping is deterministic and does not train on private tra
     CHECK(shaper->mode() == ShapingMode::BlockchainPolicy);
 }
 
+TEST_CASE("Consensus-guided AI accepts only verified bounded newer distributed weights") {
+    using namespace pqvpn::traffic;
+    asio::io_context io;
+    ShapingConfig config;
+    config.mode = ShapingMode::ConsensusGuidedAI;
+    config.max_padding_bytes = 1024;
+    config.max_delay_ms = 20;
+    auto shaper = std::make_shared<MLTrafficShaper>(io, config);
+    CHECK_FALSE(shaper->apply_consensus_weights({1, 0.5, 0.5, false}));
+    CHECK_FALSE(shaper->apply_consensus_weights({1, 1.1, 0.5, true}));
+    REQUIRE(shaper->apply_consensus_weights({7, 0.5, 0.25, true}));
+    CHECK(shaper->consensus_epoch() == 7);
+    CHECK_FALSE(shaper->apply_consensus_weights({7, 0.2, 0.2, true}));
+    REQUIRE(shaper->enqueue({1}, 1200, [](const auto&) { return true; }));
+    io.run();
+    CHECK(shaper->model().samples() == 1);
+    CHECK(shaping_mode_from_string("ai_blockchain") == ShapingMode::ConsensusGuidedAI);
+    CHECK(std::string(to_string(ShapingMode::ConsensusGuidedAI)) == "ai_blockchain");
+}
+
 TEST_CASE("External UDP transport rejects nonlocal endpoints and TCP engines") {
     pqvpn::ExternalTransport external{"udp2raw", "127.0.0.1", 9091};
     REQUIRE(external.endpoint().port() == 9091);
