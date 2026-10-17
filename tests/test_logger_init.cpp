@@ -2,7 +2,7 @@
 #include "logging_module.hpp"
 #include <filesystem>
 
-TEST_CASE("setup_logger replaces handlers and creates a default file", "[logging][parity]") {
+TEST_CASE("setup_logger replaces handlers when file logging is explicit", "[logging][parity]") {
     using namespace pqvpn::logging;
     const auto path = std::filesystem::temp_directory_path() / "pqvpn_setup_logger_test.log";
     std::filesystem::remove(path);
@@ -26,6 +26,15 @@ TEST_CASE("setup_logger replaces handlers and creates a default file", "[logging
     first.reset();
     second.reset();
     std::filesystem::remove(path);
+}
+
+TEST_CASE("setup_logger is console-only by default", "[logging][privacy]") {
+    using namespace pqvpn::logging;
+    auto logger = Logger::setup_logger("setup_logger_ephemeral", LogLevel::info);
+    REQUIRE(logger->sinks().size() == 1);
+    REQUIRE(logger->level() == spdlog::level::info);
+    REQUIRE_NOTHROW(logger->info("ephemeral diagnostic"));
+    spdlog::drop("setup_logger_ephemeral");
 }
 
 TEST_CASE("setup_logger survives file sink failure", "[logging][parity]") {

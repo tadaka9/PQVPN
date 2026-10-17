@@ -144,6 +144,13 @@ There is no hosted account database or mandatory coordination service. There
 is still trust: in the code you run, the peers you admit, the machines you
 operate and the evidence you have verified.
 
+PQVPN's default logger is console-only. The native GUI and TUI keep bounded
+session diagnostics in memory and do not persist activity. File logging exists
+only as an explicit developer/operator API with a supplied path; traffic
+payloads, destinations, DNS queries, StrangeNet messages and peer IP histories
+must never be written there. “Zero log” means no persistent user-activity log,
+not pretending that an application can operate without ephemeral error state.
+
 ## What exists today
 
 | Capability | Current behavior |
