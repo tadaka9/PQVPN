@@ -14,6 +14,34 @@ core.
 | Commons | StrangeNet | Selects an authenticated, per-recipient E2E room |
 | Shield | Pi-hole profiles | Opens local filtering and aggregate counters |
 
+## Interaction model
+
+Privacy City is now an active session world rather than a decorative preview:
+
+- WASD and the arrow keys move the local avatar; clicks move it to a valid
+  walkable point;
+- furniture and the Zero-Trust Fountain have collision boundaries, so movement
+  cannot pass through scene objects;
+- `E`, `Enter` or `Space` activates the current district, while the four large
+  district tiles remain directly clickable;
+- authenticated peers ease between received positions instead of teleporting;
+- accepted StrangeNet text appears temporarily as a bounded speech bubble above
+  its authenticated avatar, and sent text appears above the local avatar;
+- district discovery is local, session-only visual progress. It is not a token,
+  score, reputation signal or behavioral record;
+- each session starts with three non-transferable Commons credits and can earn
+  at most one more for each newly discovered district. A credit may apply a
+  visual highlight to the sender's own delivered message; it never changes
+  delivery order, reach, moderation, encryption or network priority;
+- emotes and positions use the existing bounded StrangeNet world envelope and
+  disappear when the room or process ends.
+
+The scene deliberately has no inventory, trade, purchases, persistent movement
+history, location inference or invisible engagement scoring. Commons credits
+are not PQ, cryptocurrency, money, reputation or a ledger balance, and reset
+with the application session. A peer that is not already authenticated by
+PQVPN cannot create an avatar or a speech bubble.
+
 The avatar is a local pseudonymous representation. Other people are rendered
 only from authenticated Peer IDs. Participant addresses, movement analytics,
 room history and behavioral profiles are not collected or published.
