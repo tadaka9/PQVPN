@@ -222,5 +222,143 @@ strangeForm.addEventListener('submit',async event=>{
   }
 });
 
+function startPixelCommons(){
+  const shell=document.querySelector('#pixel-world-game');
+  const canvas=document.querySelector('#pixel-game-canvas');
+  const status=document.querySelector('#pixel-game-status');
+  const zoneLabel=document.querySelector('#pixel-game-zone');
+  const hud=document.querySelector('#pixel-game-hud');
+  const action=document.querySelector('#pixel-game-action');
+  const reset=document.querySelector('#pixel-game-reset');
+  if(!shell||!canvas||!status||!zoneLabel||!hud||!action||!reset)return;
+  const context=canvas.getContext('2d');
+  const storageKey='pqvpn.pixelCommons.v1';
+  const start={x:118,y:245,pq:0,signals:[],quest:false,complete:false};
+  let state={...start,signals:[]};
+  try{
+    const saved=JSON.parse(localStorage.getItem(storageKey)||'null');
+    if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)&&Number.isInteger(saved.pq)&&Array.isArray(saved.signals)){
+      const restoredSignals=[...new Set(saved.signals.filter(value=>['forge','garden','commons'].includes(value)))];
+      state={x:Math.max(24,Math.min(936,saved.x)),y:Math.max(84,Math.min(456,saved.y)),pq:Math.max(0,Math.min(10000,saved.pq)),signals:restoredSignals,quest:Boolean(saved.quest),complete:Boolean(saved.complete&&restoredSignals.length===3)};
+    }
+  }catch{}
+  const keeper={x:72,y:242,name:'SIGNAL KEEPER'};
+  const signals=[
+    {id:'forge',x:805,y:220,color:'#ff7c66',label:'FORGE SIGNAL'},
+    {id:'garden',x:177,y:302,color:'#61d6c7',label:'GARDEN SIGNAL'},
+    {id:'commons',x:778,y:297,color:'#ffd166',label:'COMMONS SIGNAL'}
+  ];
+  const solids=[
+    {x:18,y:80,w:178,h:108},{x:755,y:80,w:186,h:108},
+    {x:18,y:335,w:205,h:118},{x:735,y:330,w:206,h:123},
+    {x:372,y:205,w:216,h:98}
+  ];
+  const keys=new Set();
+  let target=null;
+  let last=performance.now();
+  let messageTimer=0;
+  function save(){
+    try{localStorage.setItem(storageKey,JSON.stringify({x:Math.round(state.x),y:Math.round(state.y),pq:state.pq,signals:state.signals,quest:state.quest,complete:state.complete}))}catch{}
+  }
+  function say(message){status.textContent=message;messageTimer=performance.now()+8500}
+  function zoneAt(x,y){
+    if(x<260&&y<260)return'GATE';
+    if(x>700&&y<260)return'FORGE';
+    if(x<270&&y>300)return'GARDEN';
+    if(x>690&&y>295)return'COMMONS';
+    return'PATHS';
+  }
+  function collides(x,y){
+    const radius=12;
+    if(x<radius||x>canvas.width-radius||y<66+radius||y>canvas.height-radius)return true;
+    return solids.some(rect=>x+radius>rect.x&&x-radius<rect.x+rect.w&&y+radius>rect.y&&y-radius<rect.y+rect.h);
+  }
+  function move(dx,dy){
+    const nextX=state.x+dx;
+    const nextY=state.y+dy;
+    if(!collides(nextX,state.y))state.x=nextX;
+    if(!collides(state.x,nextY))state.y=nextY;
+    const zone=zoneAt(state.x,state.y);
+    zoneLabel.textContent=zone;
+    target=null;
+  }
+  function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+  function interact(){
+    if(distance(state,keeper)<58){
+      if(!state.quest){state.quest=true;say('Signal Keeper: recover the three lost signals. Each restored signal grants 25 PQ. Return here when all three answer.');save()}
+      else if(state.signals.length===3&&!state.complete){state.complete=true;state.pq+=100;say('The Commons can hear itself again. +100 PQ. These PQ are local progress credits, not money or cryptocurrency.');save()}
+      else if(state.complete)say('Signal Keeper: the path is stable. Your PQ stay on this device; the native client is required for real E2E peers.');
+      else say(`Signal Keeper: ${3-state.signals.length} signal${state.signals.length===2?'':'s'} still silent.`);
+      updateHud();return;
+    }
+    const nearby=signals.find(signal=>!state.signals.includes(signal.id)&&distance(state,signal)<54);
+    if(nearby){
+      if(!state.quest){say('The signal is dormant. Speak with the Signal Keeper at the Gate first.');return}
+      state.signals.push(nearby.id);state.pq+=25;
+      say(`${nearby.label} restored. +25 PQ. ${3-state.signals.length} signals remain.`);save();updateHud();return;
+    }
+    say('Nothing answers here. Look for a pulsing signal or return to the Keeper.');
+  }
+  function updateHud(){hud.textContent=`${state.pq} PQ · ${state.signals.length}/3 SIGNALS${state.complete?' · PATH RESTORED':''}`}
+  function tileRect(rect,color,label){
+    context.fillStyle='#090d1a';context.fillRect(rect.x+7,rect.y+7,rect.w,rect.h);
+    context.fillStyle=color;context.fillRect(rect.x,rect.y,rect.w,rect.h);
+    context.strokeStyle='#a8b5df';context.lineWidth=3;context.strokeRect(rect.x+.5,rect.y+.5,rect.w-1,rect.h-1);
+    context.fillStyle='#fff8e7';context.font='bold 16px monospace';context.textAlign='center';context.fillText(label,rect.x+rect.w/2,rect.y+32);
+  }
+  function avatar(x,y,color,label){
+    context.fillStyle='#080b18';context.fillRect(x-9,y-22,18,15);context.fillRect(x-12,y-8,24,26);
+    context.fillStyle=color;context.fillRect(x-6,y-19,12,10);context.fillRect(x-9,y-5,18,20);
+    context.fillStyle='#fff8e7';context.font='bold 11px monospace';context.textAlign='center';context.fillText(label,x,y+35);
+  }
+  function render(time){
+    context.fillStyle='#202b4b';context.fillRect(0,0,canvas.width,canvas.height);
+    const tile=24;
+    for(let y=66;y<canvas.height;y+=tile)for(let x=0;x<canvas.width;x+=tile){context.fillStyle=((x/tile+y/tile)%2)?'#263456':'#2c3a60';context.fillRect(x,y,tile,tile/2);context.fillStyle=((x/tile+y/tile)%2)?'#233052':'#29375d';context.fillRect(x,y+tile/2,tile,tile/2)}
+    context.fillStyle='#10172d';context.fillRect(0,0,canvas.width,66);
+    context.fillStyle='#b7f34a';context.font='bold 14px monospace';context.textAlign='left';context.fillText('STRANGENET // LOCAL STORY INSTANCE',20,28);
+    context.fillStyle='#aeb8d5';context.font='12px monospace';context.fillText('No telemetry · no simulated peers · native client = E2E multiplayer',20,49);
+    tileRect(solids[0],'#493b70','GATE');tileRect(solids[1],'#6a3939','FORGE');tileRect(solids[2],'#2d5b50','GARDEN');tileRect(solids[3],'#315078','COMMONS');tileRect(solids[4],'#344163','ARCHIVE');
+    context.strokeStyle='rgba(183,243,74,.32)';context.lineWidth=4;context.setLineDash([8,8]);context.strokeRect(270,112,420,310);context.setLineDash([]);
+    avatar(keeper.x,keeper.y,'#b7f34a','KEEPER');
+    for(const signal of signals){
+      if(state.signals.includes(signal.id))continue;
+      const pulse=3+Math.sin(time/240+signal.x)*2;
+      context.fillStyle=signal.color;context.fillRect(signal.x-8-pulse,signal.y-8-pulse,16+pulse*2,16+pulse*2);
+      context.strokeStyle='#fff8e7';context.strokeRect(signal.x-13-pulse,signal.y-13-pulse,26+pulse*2,26+pulse*2);
+    }
+    avatar(state.x,state.y,'#71e9ff','YOU');
+    if(target){context.strokeStyle='#71e9ff';context.lineWidth=2;context.strokeRect(target.x-8,target.y-8,16,16)}
+  }
+  function tick(time){
+    const dt=Math.min(36,time-last);last=time;
+    let dx=0,dy=0;
+    if(keys.has('arrowleft')||keys.has('a'))dx--;
+    if(keys.has('arrowright')||keys.has('d'))dx++;
+    if(keys.has('arrowup')||keys.has('w'))dy--;
+    if(keys.has('arrowdown')||keys.has('s'))dy++;
+    if(dx||dy){const length=Math.hypot(dx,dy);move(dx/length*dt*.16,dy/length*dt*.16)}
+    else if(target){const dxTarget=target.x-state.x,dyTarget=target.y-state.y;const length=Math.hypot(dxTarget,dyTarget);if(length>5)move(dxTarget/length*dt*.16,dyTarget/length*dt*.16);else target=null}
+    if(messageTimer&&time>messageTimer){messageTimer=0;status.textContent=state.complete?'Path restored. Explore freely or reset the local story.':'Find the signals, then return to the Keeper.'}
+    render(time);requestAnimationFrame(tick);
+  }
+  const acceptedKeys=new Set(['arrowleft','arrowright','arrowup','arrowdown','w','a','s','d']);
+  shell.addEventListener('keydown',event=>{const key=event.key.toLowerCase();if(acceptedKeys.has(key)){event.preventDefault();keys.add(key);target=null}else if(key==='e'||key===' '||key==='enter'){event.preventDefault();interact()}});
+  shell.addEventListener('keyup',event=>keys.delete(event.key.toLowerCase()));
+  shell.addEventListener('blur',()=>keys.clear());
+  canvas.addEventListener('pointerdown',event=>{const box=canvas.getBoundingClientRect();target={x:(event.clientX-box.left)/box.width*canvas.width,y:(event.clientY-box.top)/box.height*canvas.height};shell.focus()});
+  document.querySelectorAll('[data-pixel-move]').forEach(button=>{
+    const vectors={up:[0,-18],down:[0,18],left:[-18,0],right:[18,0]};
+    button.addEventListener('pointerdown',event=>{event.preventDefault();const[dx,dy]=vectors[button.dataset.pixelMove];move(dx,dy);shell.focus()});
+  });
+  action.addEventListener('click',()=>{interact();shell.focus()});
+  reset.addEventListener('click',()=>{try{localStorage.removeItem(storageKey)}catch{}state={...start,signals:[]};target=null;updateHud();zoneLabel.textContent='GATE';say('Local progress reset. Speak with the Signal Keeper to begin.');shell.focus()});
+  window.addEventListener('pagehide',save);
+  updateHud();zoneLabel.textContent=zoneAt(state.x,state.y);
+  say(state.quest?'Local journey restored. Continue collecting signals.':'Speak with the Signal Keeper. Move with WASD or arrows; interact with E.');
+  requestAnimationFrame(tick);
+}
+startPixelCommons();
+
 async function startQuantumField(){const canvas=document.querySelector('#quantum-field');if(!canvas||!('WebAssembly'in window))return;const context=canvas.getContext('2d',{alpha:true});const image=context.createImageData(canvas.width,canvas.height);let pointerX=0,pointerY=0;canvas.closest('.hero-art')?.addEventListener('pointermove',event=>{const box=event.currentTarget.getBoundingClientRect();pointerX=(event.clientX-box.left)/box.width-.5;pointerY=(event.clientY-box.top)/box.height-.5},{passive:true});try{const response=await fetch('wasm/quantum_field.wasm');if(!response.ok)throw new Error(`WASM ${response.status}`);const bytes=await response.arrayBuffer();const {instance}=await WebAssembly.instantiate(bytes);const field=instance.exports.field;const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let last=0;const paint=time=>{if(!reduced&&time-last<55){requestAnimationFrame(paint);return}last=time;const phase=reduced?0:time*.00018;for(let py=0;py<canvas.height;py+=2){for(let px=0;px<canvas.width;px+=2){const x=(px/canvas.width*2-1)*1.75+pointerX*.28;const y=(py/canvas.height*2-1)*1.75+pointerY*.28;const value=field(x,y,phase);const band=Math.abs(value-Math.floor(value)-.5)*2;const glow=Math.max(0,1-band*1.7);const coral=Math.max(0,1-Math.abs(value*.35-Math.round(value*.35))*3);const r=Math.round(53+202*coral),g=Math.round(70+173*glow),b=Math.round(160+64*(1-glow)),a=Math.round(18+105*glow);for(let oy=0;oy<2;oy++)for(let ox=0;ox<2;ox++){const index=((py+oy)*canvas.width+px+ox)*4;image.data[index]=r;image.data[index+1]=g;image.data[index+2]=b;image.data[index+3]=a}}}context.putImageData(image,0,0);if(!reduced)requestAnimationFrame(paint)};requestAnimationFrame(paint)}catch(error){canvas.hidden=true;console.warn('PQVPN quantum field fallback:',error.message)}}
 startQuantumField();

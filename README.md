@@ -335,6 +335,12 @@ currently accepts money or represents that split as settled on-chain.
 
 ### StrangeNet Pixel Commons
 
+The project website includes a complete local-first Pixel Commons quest. It is
+playable with keyboard, pointer or touch, saves only to browser local storage,
+and makes no gameplay network request. Restoring the three signals awards
+**PQ**, bounded local ecosystem progress credits. In this release PQ are not
+money, cryptocurrency, transferable assets or purchasable tokens.
+
 The native desktop client now carries bounded `World` presence events through
 the same authenticated, pairwise-encrypted StrangeNet sessions as chat. Users
 can move an original pixel avatar with WASD, arrow keys or a click across Gate,
@@ -342,7 +348,9 @@ Forge, Garden and Commons, and send a fixed set of emotes. Remote avatars show
 only shortened authenticated Peer IDs. Coordinates, emotes and local path
 progress are memory-only and are cleared on leave or disconnect; participant
 IP addresses, inventories and movement histories are neither emitted nor
-persisted. See [`docs/strangenet.md`](docs/strangenet.md).
+persisted. Browser play is an original single-player story; authenticated E2E
+multiplayer requires the native client. See
+[`docs/strangenet.md`](docs/strangenet.md).
 
 The [conversation coverage audit](docs/conversation-coverage-audit.md) maps the
 broader product requests to implemented evidence and explicit release gates.

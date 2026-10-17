@@ -85,6 +85,16 @@ emotes and local path progress exist only in process memory and disappear on
 leave or disconnect. This is a social presence layer, not an authoritative MMO
 server, inventory, economy or anti-cheat system.
 
+The project website also ships a self-contained Pixel Commons story. The
+player can explore all four zones, collide with buildings, speak to the Signal
+Keeper and restore three signals using keyboard, pointer or touch controls.
+Progress is stored only in `localStorage` under `pqvpn.pixelCommons.v1`; it is
+never sent to PQVPN, GitHub or an analytics service. Each restored signal
+awards 25 PQ and completing the path awards 100 PQ. These **PQ are local
+progress credits only**: they are not cryptocurrency, money, purchasable or
+transferable. The web story never creates simulated network peers. Real
+authenticated E2E presence remains a native-client capability.
+
 The GUI also provides visible-session search, content-free notification levels
 and a session-only peer block list. Blocking is enforced in the node before an
 incoming message reaches the GUI handler and excludes that Peer ID from direct,

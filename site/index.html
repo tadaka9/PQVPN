@@ -135,13 +135,19 @@
       <div class="strange-mark reveal" aria-hidden="true">Σ<sub>peer</sub></div>
       <div class="section-head reveal"><p class="eyebrow">A room between authenticated peers</p><h2>Enter StrangeNet.</h2><p>Established PQVPN peers can share a bounded conversation room without a central chat service. Text, emoji, stickers, reactions and delivery receipts use a session-separated E2E key and authenticated sender identity. Per-peer and room-wide antiflood limits protect large rooms; one direct send reaches up to 512 authenticated sessions.</p></div>
       <div class="strange-grid reveal"><article><strong>Local-first</strong><p>No public history, account database or analytics endpoint.</p></article><article><strong>Bounded frames</strong><p>2 KiB messages, strict UTF-8 parsing and bounded replay state keep conversation traffic predictable.</p></article><article><strong>Reactions and stickers</strong><p>The native console includes emoji reactions and locally created encrypted stickers.</p></article></div>
-      <div class="pixel-world reveal" role="img" aria-label="Map of the native StrangeNet Pixel Commons with Gate, Forge, Garden and Commons zones">
-        <div class="pixel-world-bar"><strong>PIXEL COMMONS / LIVE IN THE NATIVE CLIENT</strong><span>WASD · E2E PRESENCE · PEER IDS ONLY</span></div>
-        <div class="pixel-zone gate">GATE<small>entry & trust</small></div><div class="pixel-zone forge">FORGE<small>build & learn</small></div>
-        <div class="pixel-avatar local"><i></i><b>YOU</b></div><div class="pixel-avatar peer-one"><i></i><b>7ad9…</b></div><div class="pixel-avatar peer-two"><i></i><b>2fc1…</b></div>
-        <div class="pixel-zone garden">GARDEN<small>quiet talk</small></div><div class="pixel-zone commons">COMMONS<small>social room</small></div>
+      <div class="pixel-world reveal" id="pixel-world-game" tabindex="0" role="application" aria-label="Playable Pixel Commons game. Move with WASD or arrow keys and interact with E or Space.">
+        <div class="pixel-world-bar"><strong>PIXEL COMMONS / PLAYABLE HERE</strong><span id="pixel-game-hud">0 PQ · 0/3 SIGNALS</span></div>
+        <canvas id="pixel-game-canvas" width="960" height="480" aria-label="Pixel Commons game world"></canvas>
+        <div class="pixel-game-panel">
+          <div><strong id="pixel-game-zone">GATE</strong><span id="pixel-game-status" aria-live="polite">Speak with the Signal Keeper. Move with WASD or arrows; interact with E.</span></div>
+          <div class="pixel-game-controls" aria-label="Game controls">
+            <span class="pixel-dpad"><button type="button" data-pixel-move="up" aria-label="Move up">▲</button><button type="button" data-pixel-move="left" aria-label="Move left">◀</button><button type="button" data-pixel-move="down" aria-label="Move down">▼</button><button type="button" data-pixel-move="right" aria-label="Move right">▶</button></span>
+            <button class="pixel-action" id="pixel-game-action" type="button">INTERACT · E</button>
+            <button class="pixel-reset" id="pixel-game-reset" type="button">RESET LOCAL SAVE</button>
+          </div>
+        </div>
       </div>
-      <div class="strange-grid reveal"><article><strong>Spatial, not surveilled</strong><p>Movement and fixed emotes are encrypted to authenticated room peers and discarded when the session ends.</p></article><article><strong>Original world</strong><p>Inspired by classic social rooms and exploration loops, built with original visuals and no borrowed game assets.</p></article><article><strong>No fake economy</strong><p>Local path progress is feedback, not money. Asgard credits remain disabled until a real audited ledger and 90/10 accounting exist.</p></article></div>
+      <div class="strange-grid reveal"><article><strong>Playable, not surveilled</strong><p>The browser quest runs entirely on your device. No game position, progress or PQ balance leaves this page.</p></article><article><strong>Original world</strong><p>Inspired by classic social rooms and exploration loops, built with original visuals and no borrowed game assets.</p></article><article><strong>PQ, not speculation</strong><p>PQ are local ecosystem progress credits in this build: not money, not purchasable and not transferable. Economic credits remain disabled until an audited ledger and 90/10 accounting exist.</p></article></div>
       <form class="strange-connect reveal" id="strangenet-connect" novalidate>
           <div class="strange-connect-copy"><span class="connection-index">LOCAL CLIENT BRIDGE / 01</span><h3>Open an authenticated room</h3><p>The page prepares the native PQVPN command locally. Copy it into a terminal where PQVPN is installed; neither the room name nor peer identity is sent to this website.</p></div>
         <label>Room name<input id="strangenet-room" name="room" autocomplete="off" maxlength="64" placeholder="riemann-lab" required></label>
