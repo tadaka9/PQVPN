@@ -5,7 +5,7 @@
 TEST_CASE("ML-DSA-87 signature round trip", "[crypto][signature][verify]") {
     const auto keys = pqvpn::pq_sig_keygen();
     const std::vector<uint8_t> message{'P', 'Q', 'V', 'P', 'N'};
-    const auto signature = pqvpn::pq_sig_sign(keys.secret_key, message);
+    const auto signature = pqvpn::pq_sig_sign(keys.secret_key, message, "ML-DSA-87");
 
     REQUIRE(pqvpn::pq_sig_verify(keys.public_key, message, signature));
 

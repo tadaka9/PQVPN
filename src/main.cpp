@@ -39,6 +39,7 @@
 #include "console/inner_tunnel_policy.hpp"
 #include "wallet_identity.hpp"
 #include "social_ledger.hpp"
+#include "dns_shield_policy.hpp"
 
 namespace {
 
@@ -66,7 +67,9 @@ bool valid_strangenet_world_event(const std::string& payload) {
 
 #ifdef __linux__
 bool run_linux_network_manager(const char* action, const std::string& interface_name,
-                               const std::string& exit_host, int exit_port) {
+                               const std::string& exit_host, int exit_port,
+                               const std::string& internal_ip = {},
+                               const std::string& shield_profile = "off") {
     if (interface_name.empty() || exit_host.empty() || exit_port <= 0) return false;
     const auto port = std::to_string(exit_port);
     const pid_t child = ::fork();
@@ -74,11 +77,25 @@ bool run_linux_network_manager(const char* action, const std::string& interface_
         constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-linux-network";
         if (::geteuid() == 0) {
             ::execl(helper, "pqvpn-linux-network", action, interface_name.c_str(),
-                    exit_host.c_str(), port.c_str(), nullptr);
+                    exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
         } else {
             ::execlp("pkexec", "pkexec", helper, action, interface_name.c_str(),
-                     exit_host.c_str(), port.c_str(), nullptr);
+                     exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
         }
+        _exit(127);
+    }
+    if (child < 0) return false;
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {}
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+bool apply_exit_shield(const std::string& internal_ip, const std::string& profile) {
+    if (!pqvpn::shield::valid_profile(profile)) return false;
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::execl("/usr/lib/pqvpn/pqvpn-exit-shield", "pqvpn-exit-shield", "assign",
+                internal_ip.c_str(), profile.c_str(), nullptr);
         _exit(127);
     }
     if (child < 0) return false;
@@ -97,6 +114,7 @@ struct CliArgs {
     bool platform_info = false;
     bool version = false;
     bool wallet_info = false;
+    std::optional<std::string> shield_profile;
     std::string strangenet_room;
     std::string strangenet_peer;
     bool control_stdin = false;
@@ -120,6 +138,7 @@ void print_usage(const char* program) {
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
         << "      --wallet-info       Create/load the local self-custody wallet and print public JSON\n"
+        << "      --shield-profile NAME  DNS policy: off, dnscrypt, privacy, security, family or maximum\n"
         << "      --strangenet-room NAME  Join a bounded room; broadcasts to authenticated peers\n"
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
@@ -151,6 +170,12 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.version = true;
         } else if (value == "--wallet-info") {
             args.wallet_info = true;
+        } else if (value == "--shield-profile") {
+            if (++index >= argc || !pqvpn::shield::valid_profile(argv[index])) {
+                std::cerr << "--shield-profile requires off, dnscrypt, privacy, security, family or maximum\n";
+                return std::nullopt;
+            }
+            args.shield_profile = argv[index];
         } else if (value == "--control-stdin") {
             args.control_stdin = true;
         } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
@@ -400,6 +425,7 @@ int main(int argc, char** argv) {
                   << " (" << config_error << ")\n";
         return 1;
     }
+    if (args.shield_profile) config->dns_shield.profile = *args.shield_profile;
     pqvpn::wallet::SelfCustodyIdentity wallet;
     try {
         wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(args.config_path));
@@ -443,6 +469,19 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to load or create node identity\n";
         return 1;
     }
+    node->set_dns_shield_profile(config->dns_shield.profile);
+    const auto internal_ip = node->local_peer_id()
+        ? pqvpn::shield::internal_ipv4(*node->local_peer_id()).value_or(std::string{})
+        : std::string{};
+#ifdef __linux__
+    if (config->egress.enabled) {
+        node->set_dns_shield_handler([](const std::vector<uint8_t>&, const std::string& ip,
+                                        const std::string& profile) {
+            if (!apply_exit_shield(ip, profile))
+                throw std::runtime_error("exit Pi-hole policy helper failed closed");
+        });
+    }
+#endif
 
     // Apply the operator's security policy: TOFU admission and the known-peers
     // store location. (The allowlist is intentionally not wired into peer-id
@@ -535,7 +574,8 @@ int main(int argc, char** argv) {
     if (!no_tunnel) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
-                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+                                       config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
+                                       config->dns_shield.profile)) {
             std::cerr << "Cannot create the protected Linux TUN device\n";
             listener.stop();
             return 1;
@@ -585,7 +625,8 @@ int main(int argc, char** argv) {
             std::cout << "tunnel adapter active: " << adapter->describe() << "\n";
 #ifdef __linux__
             if (!run_linux_network_manager("up", config->tunnel.interface_name,
-                                           config->tunnel.exit_host, config->tunnel.exit_port)) {
+                                           config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
+                                           config->dns_shield.profile)) {
                 std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
                 adapter->close();
                 listener.stop();

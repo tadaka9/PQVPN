@@ -21,6 +21,7 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 #include "crypto_utils.hpp"
+#include "crypto_agility.hpp"
 #include "hybrid_auth.hpp"
 #include "hybrid_kdf.hpp"
 #include "node_identity.hpp"
@@ -231,7 +232,8 @@ std::vector<uint8_t> random_bytes(std::size_t size) {
 // Fixed field orders for the signed handshake messages (signatures excluded).
 const std::vector<std::string> kHelloFields = {
     "peerid", "nickname", "ed25519_pk", "x25519_pk", "ml_kem_pk",
-    "mldsa_pk", "timestamp", "response", "sessionid"};
+    "mldsa_pk", "dns_shield", "crypto_suite", "crypto_epoch",
+    "timestamp", "response", "sessionid"};
 const std::vector<std::string> kS1Fields = {
     "peerid", "sessionid", "ct", "x25519_pk", "ed25519_pk", "mldsa_pk", "timestamp"};
 const std::vector<std::string> kS2Fields = {
@@ -274,6 +276,9 @@ nlohmann::json build_signed_hello(const PQVPNNode& node, const bool response) {
         {"x25519_pk", hex_id(node.x25519_public_key)},
         {"ml_kem_pk", hex_id(node.ml_kem_public_key)},
         {"mldsa_pk", hex_id(node.ml_dsa_public_key)},
+        {"dns_shield", node.dns_shield_profile()},
+        {"crypto_suite", crypto_agility::kHybridV1},
+        {"crypto_epoch", crypto_agility::kCompiledEpoch},
         {"timestamp", static_cast<long long>(now_seconds())},
         {"response", response},
         {"sessionid", std::string{}}
@@ -1819,6 +1824,16 @@ asio::awaitable<void> PQVPNNode::handle_hello_frame(
         co_return;
     }
 
+    const crypto_agility::Offer crypto_offer{
+        j.value("crypto_suite", std::string{}),
+        j.value("crypto_epoch", std::uint64_t{0})};
+    const crypto_agility::Policy crypto_policy{.experimental_network = true};
+    if (!crypto_agility::negotiate(crypto_policy, crypto_offer).accepted) {
+        std::cerr << "rejecting HELLO from " << endpoint
+                  << ": crypto suite or epoch rejected\n";
+        co_return;
+    }
+
     const auto peer_id = hex_field(j, "peerid");
     if (!peer_id || peer_id->empty()) co_return;
     if (my_id_.has_value() && *peer_id == *my_id_) co_return; // self-addressed
@@ -1833,6 +1848,17 @@ asio::awaitable<void> PQVPNNode::handle_hello_frame(
     }
     const auto pinfo = register_peer_from_hello(hello_map, endpoint);
     if (!pinfo) co_return; // route gate or malformed identity
+    const auto requested_shield = j.value("dns_shield", std::string{"off"});
+    if (!shield::valid_profile(requested_shield)) co_return;
+    if (dns_shield_handler_) {
+        const auto internal = shield::internal_ipv4(*peer_id);
+        if (!internal) co_return;
+        try { dns_shield_handler_(*peer_id, *internal, requested_shield); }
+        catch (const std::exception& error) {
+            std::cerr << "DNS Shield mapping rejected: " << error.what() << "\n";
+            co_return;
+        }
+    }
     try { save_known_peers(); } catch (const std::exception&) {}
 
     const bool response_flag = j.value("response", false);

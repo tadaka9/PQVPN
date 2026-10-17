@@ -83,7 +83,8 @@ inline HybridSignature sign_hybrid_transcript(
     const std::vector<uint8_t>& ml_dsa_private_key) {
     if (transcript.empty()) throw std::invalid_argument("handshake transcript cannot be empty");
     const auto digest = sha3_512(transcript);
-    return {ed25519_sign(ed25519_private_key, digest), pq_sig_sign(ml_dsa_private_key, digest)};
+    return {ed25519_sign(ed25519_private_key, digest),
+            pq_sig_sign(ml_dsa_private_key, digest, "ML-DSA-87")};
 }
 
 inline bool verify_hybrid_transcript(

@@ -221,7 +221,8 @@ inline Bytes transfer_payload(const Transfer& transfer) {
 
 inline HybridProof sign(const Bytes& payload, const Bytes& ed_private, const Bytes& pq_private) {
     const auto hashed = crypto::sha3_512(payload);
-    return {crypto::ed25519_sign(ed_private, hashed), pq_sig_sign(pq_private, hashed)};
+    return {crypto::ed25519_sign(ed_private, hashed),
+            pq_sig_sign(pq_private, hashed, "ML-DSA-87")};
 }
 
 inline bool verify(const Bytes& payload, const PublicIdentity& identity, const HybridProof& proof) {

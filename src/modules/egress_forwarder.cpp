@@ -1,4 +1,5 @@
 #include "egress_forwarder.hpp"
+#include "dns_shield_policy.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -658,7 +659,10 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
             pqvpn::logging::Logger::warn("egress: cannot open TCP socket: {}", open_ec.message());
             return;
         }
-        f->target = asio::ip::tcp::endpoint(srv_addr, sp);
+        const bool local_dns = sp == 53 && srv_addr.is_v4() &&
+            srv_addr.to_string() == shield::dns_service_ipv4;
+        f->target = asio::ip::tcp::endpoint(
+            local_dns ? asio::ip::make_address("127.0.0.1") : srv_addr, sp);
         f->last_activity = now_seconds();
         tcp_flows_.emplace(key, f);
         pqvpn::logging::Logger::info(
@@ -1101,7 +1105,10 @@ void EgressForwarder::handle_udp(const Mac& client_mac, const asio::ip::address&
         } else {
             f->sock->bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), 0), open_ec);
         }
-        f->target = asio::ip::udp::endpoint(srv_addr, sp);
+        const bool local_dns = sp == 53 && srv_addr.is_v4() &&
+            srv_addr.to_string() == shield::dns_service_ipv4;
+        f->target = asio::ip::udp::endpoint(
+            local_dns ? asio::ip::make_address("127.0.0.1") : srv_addr, sp);
         f->last_activity = now_seconds();
         udp_flows_.emplace(key, f);
         pqvpn::logging::Logger::info("egress: new UDP flow {}:{} -> {}:{} ({} bytes)",

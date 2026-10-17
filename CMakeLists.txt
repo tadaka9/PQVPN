@@ -321,8 +321,19 @@ if(UNIX AND NOT APPLE)
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-shield-helper
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(PROGRAMS packaging/linux/pqvpn-exit-shield
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-research-compute
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(PROGRAMS packaging/transports/pqvpn-tcp-relay.py
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn
+    RENAME pqvpn-tcp-relay)
+  install(PROGRAMS packaging/linux/pqvpn-seed-health
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(FILES packaging/linux/pqvpn-seed-tcp.service
+                packaging/linux/pqvpn-seed-health.service
+                packaging/linux/pqvpn-seed-health.timer
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system)
   install(FILES packaging/linux/49-pqvpn-network.rules
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/rules.d)
 endif()
@@ -368,7 +379,18 @@ endif()
 if(UNIX AND NOT APPLE)
   add_test(NAME pqvpn_linux_network_helper_syntax
     COMMAND bash -n ${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/pqvpn-linux-network)
+  add_test(NAME pqvpn_exit_shield_helper_syntax
+    COMMAND bash -n ${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/pqvpn-exit-shield)
+  add_test(NAME pqvpn_seed_health_syntax
+    COMMAND bash -n ${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/pqvpn-seed-health)
+  add_test(NAME pqvpn_tcp_relay_syntax
+    COMMAND ${CMAKE_COMMAND} -E env PYTHONDONTWRITEBYTECODE=1
+            python3 -m py_compile ${CMAKE_CURRENT_SOURCE_DIR}/packaging/transports/pqvpn-tcp-relay.py)
   set_tests_properties(pqvpn_linux_network_helper_syntax PROPERTIES
+    TIMEOUT 30 LABELS "baseline;packaging;security")
+  set_tests_properties(pqvpn_exit_shield_helper_syntax PROPERTIES
+    TIMEOUT 30 LABELS "baseline;packaging;security")
+  set_tests_properties(pqvpn_seed_health_syntax pqvpn_tcp_relay_syntax PROPERTIES
     TIMEOUT 30 LABELS "baseline;packaging;security")
   find_program(PQVPN_PYTHON3 python3)
   if(PQVPN_PYTHON3)
@@ -429,6 +451,8 @@ set(CATCH_TESTS
   test_traffic_obfuscation
   test_wallet_identity
   test_wallet_dashboard
+  test_dns_shield_policy
+  test_crypto_agility
   test_resource_market
   adhoc_verify_send_onion
   test_crypto_kem_keygen

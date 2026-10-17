@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Availability probe for a dedicated PQVPN bootstrap seed. It observes only
+# local process/listener state and deliberately collects no peer or traffic data.
+readonly service="pqvpn-mainnet.service"
+readonly udp_port="${1:-9090}"
+readonly tcp_port="${2:-9090}"
+
+valid_port() { [[ "$1" =~ ^[0-9]+$ ]] && (( 1 <= $1 && $1 <= 65535 )); }
+if ! valid_port "$udp_port" || ! valid_port "$tcp_port"; then
+    echo "invalid PQVPN seed port" >&2
+    exit 64
+fi
+
+udp_healthy() {
+    ss -H -lun "sport = :${udp_port}" | grep -q .
+}
+
+tcp_healthy() {
+    ss -H -ltn "sport = :${tcp_port}" | grep -q .
+}
+
+if ! systemctl is-active --quiet "$service" || ! udp_healthy; then
+    systemctl restart "$service"
+fi
+if ! systemctl is-active --quiet pqvpn-seed-tcp.service || ! tcp_healthy; then
+    systemctl restart pqvpn-seed-tcp.service
+fi
+
+sleep 2
+systemctl is-active --quiet "$service"
+systemctl is-active --quiet pqvpn-seed-tcp.service
+udp_healthy
+tcp_healthy

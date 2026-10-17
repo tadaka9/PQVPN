@@ -111,7 +111,9 @@ install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.exa
 install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
 install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
 install -m 0755 packaging/linux/pqvpn-shield-helper "$PKG_ROOT/usr/lib/pqvpn/pqvpn-shield-helper"
+install -m 0755 packaging/linux/pqvpn-exit-shield "$PKG_ROOT/usr/lib/pqvpn/pqvpn-exit-shield"
 install -m 0755 packaging/linux/pqvpn-research-compute "$PKG_ROOT/usr/lib/pqvpn/pqvpn-research-compute"
+install -m 0755 packaging/transports/pqvpn-tcp-relay.py "$PKG_ROOT/usr/lib/pqvpn/pqvpn-tcp-relay"
 install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
 install -m 0644 packaging/linux/60-pqvpn-network-performance.conf \
     "$PKG_ROOT/usr/lib/sysctl.d/60-pqvpn-network-performance.conf"
@@ -136,6 +138,9 @@ LimitNOFILE=65536
 WantedBy=multi-user.target
 EOF
 fi
+install -m 0644 packaging/linux/pqvpn-seed-tcp.service \
+    packaging/linux/pqvpn-seed-health.service \
+    packaging/linux/pqvpn-seed-health.timer "$PKG_ROOT/usr/lib/systemd/system/"
 
 if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desktop" ]; then
     install -m 0644 packaging/linux/pqvpn-monitor.desktop "$PKG_ROOT/usr/share/applications/"
