@@ -674,12 +674,35 @@ int main(int argc, char** argv) {
         strange->room = args.strangenet_room;
         strange->peer = initial_peer;
 
-        node->set_peer_session_handler([node_view = node.get()](const std::vector<std::uint8_t>& peer,
+        struct PrivacySessionCounters {
+            std::set<std::string> active;
+            std::size_t process_peak = 0;
+            std::uint64_t established_total = 0;
+        };
+        auto privacy_sessions = std::make_shared<PrivacySessionCounters>();
+
+        node->set_peer_session_handler([node_view = node.get(), privacy_sessions](const std::vector<std::uint8_t>& peer,
                                                                const asio::ip::udp::endpoint&,
                                                                const bool connected) {
+            const auto identity = encode_peer_id(peer);
+            if (connected) {
+                if (privacy_sessions->active.insert(identity).second)
+                    ++privacy_sessions->established_total;
+            } else {
+                privacy_sessions->active.erase(identity);
+            }
+            privacy_sessions->process_peak = std::max(
+                privacy_sessions->process_peak, privacy_sessions->active.size());
             emit_console_event({{"event", connected ? "peer.connected" : "peer.disconnected"},
-                                {"peer", encode_peer_id(peer)},
+                                {"peer", identity},
                                 {"ready", connected || node_view->select_tunnel_peer().has_value()}});
+            // Aggregate only: no endpoint, room, traffic volume, duration or
+            // history capable of reconstructing a participant's activity.
+            emit_console_event({{"event", "privacy.sessions"},
+                                {"active_now", privacy_sessions->active.size()},
+                                {"process_peak", privacy_sessions->process_peak},
+                                {"established_total", privacy_sessions->established_total},
+                                {"scope", "process-lifetime"}});
         });
 
         node->set_strangenet_handler([strange, node_view = node.get()](const pqvpn::strangenet::Message& message,

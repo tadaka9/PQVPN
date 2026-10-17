@@ -53,6 +53,13 @@ entry in this directory and never grants chat access.
 
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
 
+The node also emits privacy-preserving process-lifetime session counters:
+active sessions now, peak concurrent sessions since startup, and accepted
+session establishments during that process. These aggregates contain no
+endpoint, room, destination, duration, payload or traffic-volume field and
+reset on restart. They answer capacity questions without creating a durable
+participant history; they are not a daily unique-user metric.
+
 ## Writing experience
 
 The Privacy Console presents StrangeNet as a conversation rather than a raw

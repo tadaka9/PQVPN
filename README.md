@@ -344,6 +344,11 @@ progress are memory-only and are cleared on leave or disconnect; participant
 IP addresses, inventories and movement histories are neither emitted nor
 persisted. See [`docs/strangenet.md`](docs/strangenet.md).
 
+The [conversation coverage audit](docs/conversation-coverage-audit.md) maps the
+broader product requests to implemented evidence and explicit release gates.
+It prevents a mock UI, roadmap sentence or optimistic claim from being counted
+as a finished security feature.
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 
