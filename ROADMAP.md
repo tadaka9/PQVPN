@@ -116,6 +116,11 @@ verification on an elevated host with a connected adapter is still pending.
 
 ## Release engineering
 
+- [x] Define an ethical interaction-psychology standard for GUI, TUI, CLI,
+  website and Pixel Commons; prohibit deceptive state and dark patterns.
+- [ ] Add accessibility and state-feedback checks to each new interactive
+  surface before release qualification.
+
 - [ ] Define supported operating systems, compilers, and dependency versions.
 - [ ] Implement the ten `packaging/gates/<target>` native gate drivers required
   by `functional-release-gates.yml` (currently only `packaging/README.md`

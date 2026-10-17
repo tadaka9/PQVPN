@@ -359,6 +359,10 @@ broader product requests to implemented evidence and explicit release gates.
 It prevents a mock UI, roadmap sentence or optimistic claim from being counted
 as a finished security feature.
 
+All interfaces follow the [ethical interaction psychology](docs/ethical-ux.md)
+standard: clear orientation, honest feedback, reversible actions and privacy
+boundaries, without dark patterns or compulsive reward mechanics.
+
 ### Woockie addresses
 
 A Woockie combines a canonical authenticated Peer ID with a URL-shaped,
