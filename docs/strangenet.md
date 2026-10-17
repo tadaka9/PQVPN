@@ -124,6 +124,11 @@ anchors it; by itself it is a local commitment, not decentralized consensus.
 Starting another node session resets an enabled chain, and closing the console
 discards it.
 
+The wider [Privacy City](privacy-city.md) pixel navigation maps Gateway,
+Transit Lab, Commons and Shield to real PQVPN subsystems. The scene remains
+outside the cryptographic trust boundary and cannot invent peer trust or mark
+a tunnel protected.
+
 ## Wire behavior
 
 Version 2 frames support:
