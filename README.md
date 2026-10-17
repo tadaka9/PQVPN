@@ -248,6 +248,13 @@ StrangeNet audience. Full papers belong in the separate public Asgard Commons
 only after explicit publication consent, licence and content-hash review;
 StrangeNet itself remains session-only and does not silently archive chat.
 
+The experimental [Path Quilt Distributed Scientific Method](docs/distributed-scientific-method.md)
+turns a falsifiable proposal into deterministic, independently replicated work
+units. Matching result hashes are labelled `reproduced`; completed disagreement
+is preserved as `conflict`, never erased or voted away. The prototype is local
+and deliberately cannot execute peer code, publish data, mint PQC or declare a
+scientific claim true.
+
 The ledger now supports a policy-committed, one-time genesis allocation. The
 proposed PQ testnet parameters are a 21,000,000 PQ cap and a transparent
 100,000 PQ premine (0.476190%): the recipient address must be supplied before

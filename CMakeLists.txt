@@ -398,7 +398,9 @@ if(UNIX AND NOT APPLE)
   if(PQVPN_PYTHON3)
     add_test(NAME pqvpn_research_compute
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_compute.py)
-    set_tests_properties(pqvpn_research_compute PROPERTIES
+    add_test(NAME pqvpn_distributed_scientific_method
+      COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_method.py)
+    set_tests_properties(pqvpn_research_compute pqvpn_distributed_scientific_method PROPERTIES
       TIMEOUT 30 LABELS "baseline;research;security")
   endif()
 endif()
