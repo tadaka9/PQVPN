@@ -2,14 +2,24 @@
 
 StrangeNet is a bounded, session-only social chat carried by authenticated PQVPN mainnet sessions. It is designed for borderless friendship, conversation and consensual romantic connection without turning location or network metadata into a profile. Rooms use hierarchical paths such as `mainnet/friends/poetry`, with at most eight levels. Each outbound item is encrypted separately for as many as 512 established authenticated peers; there is no shared plaintext broadcast packet.
 
-The GUI is room-first and does not expose one-to-one DMs. A participant is shown only by a self-certifying 32-byte Peer ID after hybrid authentication and admission-policy checks. Participant, bootstrap and local-listener IP addresses are not shown in chat UI or peer lifecycle events. An exit address may be shown separately as a connection fact because it is the public address websites observe; it is never presented as a participant identity.
+The GUI is room-first and also supports direct text to one authenticated Peer
+ID. A participant is shown only by a self-certifying 32-byte Peer ID after
+hybrid authentication and admission-policy checks. Participant, bootstrap and
+local-listener IP addresses are not shown in chat UI or peer lifecycle events.
+An exit address may be shown separately as a connection fact because it is the
+public address websites observe; it is never presented as a participant
+identity.
 
 Version 0.0.15 adds explicit groups. Selecting at least two authenticated
 remote identities creates a group of at least three participants including the
 local user. Membership is canonical, bounded to 64 participants and pinned for
 the joined room. Every send targets exactly that set and fails closed for an
 offline member; it never substitutes another peer or falls back to universal
-fan-out. This beta remains live-session P2P: it does not yet claim asynchronous
+fan-out. There is no common group secret to escrow or split. Instead, each
+member contributes to an independent X25519 + ML-KEM hybrid session, and the
+sender produces a different authenticated ciphertext for every recipient. A
+member's session key cannot decrypt another member's copy. This beta remains
+live-session P2P: it does not yet claim asynchronous
 store-and-forward delivery or unbounded global reach.
 
 Public-identity verification is implemented as an optional hybrid-signed claim
@@ -24,6 +34,15 @@ never grants access to encrypted messages.
 StrangeNet derives a dedicated 256-bit application key from each directional PQVPN session key with HKDF-SHA3-512 and the session identifier as salt. The fixed context `PQVPN StrangeNet E2E v2` separates chat encryption from tunnel-packet encryption. The outer frame header is AEAD associated data, the nonce counter is shared with the session's authenticated data domain, and the decoded sender must match the identity bound to the receiving session.
 
 This provides end-to-end protection between directly authenticated session peers. The implementation does not let a hub decrypt and re-publish a message while still calling that path E2E. Universal reach therefore depends on the mainnet discovery layer establishing authenticated mesh sessions to the participants. A future store-and-forward relay must carry an origin-signed envelope before it can be enabled.
+
+This per-recipient construction is intentionally different from secret sharing:
+splitting one group key into N-of-N fragments would make every send depend on
+every member being online and would not by itself provide authenticated
+membership, forward secrecy or post-compromise recovery. Future scalable group
+epochs will use a reviewed contributory group-key protocol, rotate on every
+membership change and remain disabled until the post-quantum construction has
+interoperability vectors and independent review. Standard MLS/TreeKEM must not
+be advertised as post-quantum without such an extension.
 
 The Privacy Console maintains a live directory from `peer.connected` and
 `peer.disconnected` events emitted by the node after hybrid authentication and
