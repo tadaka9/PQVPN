@@ -363,6 +363,10 @@ cmake --build build --target pqvpn_node pqvpn_monitor
 
 It does not auto-connect, simulate success or silently install an update.
 Reduced-motion support disables ambient and transition animation.
+The native update experience presents only real states—discovered, verified and
+ready—then gives installation back to the user. Its optional visual reveal
+celebrates a verified release without countdowns, manufactured urgency,
+streaks or silent installation; **Reduce motion** removes the animation.
 
 <div align="center">
 
