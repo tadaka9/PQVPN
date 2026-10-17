@@ -15,8 +15,13 @@ namespace {
 
 constexpr std::size_t kMaxPendingBytes = 1u << 20;    // client->server queue cap (1 MiB)
 constexpr std::size_t kMaxOooEntries = 64;            // out-of-order segment cap
-constexpr std::size_t kMaxServerBuffer = 1u << 17;    // un-delivered server bytes cap (128 KiB)
-constexpr int32_t kMaxInFlightBytes = 256 * 1024;     // S->C backpressure window
+// The tunnel is a lossy datagram transport, not a kernel TCP socket.  Bursting
+// hundreds of encrypted frames before the client can ACK them overruns normal
+// UDP receive buffers and used to stall large downloads after roughly one TCP
+// window.  Keep one conservative flight on the wire and retain enough server
+// data to absorb the upstream socket while ACKs cross the tunnel.
+constexpr std::size_t kMaxServerBuffer = 1u << 20;     // un-delivered server bytes cap (1 MiB)
+constexpr int32_t kMaxInFlightBytes = 32 * 1024;       // paced S->C tunnel flight
 constexpr double kTcpIdleTimeoutSeconds = 300.0;
 constexpr double kUdpIdleTimeoutSeconds = 60.0;
 constexpr std::size_t kMaxFlows = 512;
@@ -846,7 +851,7 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
     while (f->sbuf_off < f->sbuf.size() && !f->closed) {
         // Backpressure: do not run further than the client's acknowledged window.
         if (f->have_c_ack && seq_lt(f->c_ack, f->send_next) &&
-            static_cast<std::int32_t>(f->send_next - f->c_ack) > kMaxInFlightBytes) {
+            static_cast<std::int32_t>(f->send_next - f->c_ack) >= kMaxInFlightBytes) {
             break; // resume on the next ACK from the client
         }
         const auto chunk = std::min(max_seg, f->sbuf.size() - f->sbuf_off);
