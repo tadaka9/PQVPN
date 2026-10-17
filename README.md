@@ -373,6 +373,19 @@ PQVPN/
 The most valuable contribution is evidence: a test result, a careful review,
 a reproducible bug or a focused patch.
 
+![PQVPN monthly support target: $100 for server uptime and maintainer time](assets/brand/monthly-support-goal.svg)
+
+### $100 each month: infrastructure and time
+
+The monthly target is **$100 USD**. Contributions first help keep the public
+bootstrap and exit infrastructure available; the remainder supports focused
+maintenance, testing, documentation and incident response time. This is a
+target—not a claim that the amount has already been collected.
+
+PQVPN does not display a fabricated live progress percentage. Progress should
+be updated only from records the maintainer can verify, and server costs remain
+subject to provider invoices and exchange rates.
+
 If you want to help discovery, **[star PQVPN](https://github.com/tadaka9/PQVPN)**.
 If you want to help engineering, **[choose an issue](https://github.com/tadaka9/PQVPN/issues)**.
 If you want to fund CI and continued development, read
