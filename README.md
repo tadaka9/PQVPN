@@ -4,12 +4,14 @@
 
 # PQVPN
 
+### PATH QUILT VPN
+
 ### WHAT IF THE NETWORK BELONGED TO THE PEOPLE RUNNING IT?
 
 **Build a private path between machines you control. No account. No telemetry.
 No central control plane.**
 
-PQVPN is an open-source C++23 experiment in peer-to-peer networking, hybrid
+PQVPN (Path Quilt VPN) is an open-source C++23 experiment in peer-to-peer networking, hybrid
 post-quantum handshakes, user-operated relays, egress and encrypted peer chat.
 It is ambitious, inspectable—and not yet independently audited.
 

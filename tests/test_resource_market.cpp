@@ -13,3 +13,6 @@ TEST_CASE("node accepts only a verified relay acceleration offer","[resource][da
  pqvpn::resource::Offer offer{pqvpn::resource::Kind::RelayAcceleration,pqvpn::research::wallet_address(id),std::string(64,'c'),25,500'000'000,980'000,2000,{}};offer.proof=pqvpn::research::sign(pqvpn::resource::payload(offer),ed.private_key,pq.secret_key);
  CHECK(node.accept_acceleration_offer(offer,id,1000));offer.kind=pqvpn::resource::Kind::StorageRetrieval;CHECK_FALSE(node.accept_acceleration_offer(offer,id,1000));
 }
+TEST_CASE("service receipt proves bounded work without navigation metadata","[resource][receipt]"){
+ auto ed=pqvpn::crypto::ed25519_keygen();auto pq=pqvpn::pq_sig_keygen();pqvpn::research::PublicIdentity id{ed.public_key,pq.public_key};pqvpn::resource::ServiceReceipt receipt{std::string(64,'d'),pqvpn::research::wallet_address(id),1<<20,1000,1700000000000ULL,1,{}};receipt.proof=pqvpn::research::sign(pqvpn::resource::receipt_payload(receipt),ed.private_key,pq.secret_key);CHECK(pqvpn::resource::valid_receipt(receipt,id));const auto payload=pqvpn::resource::receipt_payload(receipt);CHECK(std::string(payload.begin(),payload.end()).find("url")==std::string::npos);
+}
