@@ -229,7 +229,8 @@ than an experimental communication layer.
 
 ### Path Quilt Research Commons: useful work, not wasted energy
 
-StrangeNet can select a scientific field and resume a matching project already
+StrangeNet can select a scientific field—including experimental decentralized
+modular AI/AGI—and resume a matching project already
 attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
 disables GPU use, never handles BOINC credentials and never accepts arbitrary
 peer-supplied code. Completed, reported tasks create privacy-minimized pending
@@ -241,6 +242,11 @@ consensus layer exist. See
 permissioned-subnet consensus core, wallet and supply rules are specified in
 [`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
 are not yet a deployed public chain.
+
+Paper titles and DOI/HTTPS references can be shared E2E with the current
+StrangeNet audience. Full papers belong in the separate public Asgard Commons
+only after explicit publication consent, licence and content-hash review;
+StrangeNet itself remains session-only and does not silently archive chat.
 
 The ledger now supports a policy-committed, one-time genesis allocation. The
 proposed PQ testnet parameters are a 21,000,000 PQ cap and a transparent
