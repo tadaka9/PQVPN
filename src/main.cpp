@@ -98,7 +98,7 @@ void print_usage(const char* program) {
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
         << "      --no-tunnel          Run as a UDP relay/exit without a local tunnel\n"
-        << "      --inner-tunnel-backend NAME  Layer wireguard or openvpn inside PQVPN\n"
+        << "      --inner-tunnel-backend NAME  Layer wireguard or openvpn3 inside PQVPN\n"
         << "      --inner-tunnel-config PATH   Absolute client configuration path\n"
         << "      --no-inner-tunnel            Disable a configured inner VPN for this run\n"
 #ifdef _WIN32
@@ -259,7 +259,7 @@ void print_platform_info() {
     std::cout << "os=unknown\ntunnel=unsupported\ndriver=not-applicable\n";
 #endif
     std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n"
-                 "inner-tunnel=wireguard,openvpn\n";
+                 "inner-tunnel=wireguard,openvpn3\n";
 }
 
 int run_smoke_test(const CliArgs& args) {
