@@ -46,9 +46,9 @@ jobs:
           # package from this ephemeral job and keep the supported API 35.
           while IFS= read -r preview; do
             test -z "$preview" || "$sdkmanager" --uninstall "$preview"
-          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-36/ {print $1}')
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[6-9]|[4-9][0-9])/ {print $1}')
           test -f "$sdk_root/platforms/android-35/android.jar"
-          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d -name 'android-36*' -print -quit)"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[6-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
