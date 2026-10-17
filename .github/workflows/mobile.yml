@@ -79,7 +79,7 @@ jobs:
           gradle_properties="build-mobile-android/android-build/gradle.properties"
           mkdir -p "$(dirname "$gradle_properties")"
           touch "$gradle_properties"
-          printf '\nandroid.aapt2FromMavenOverride=%s/build-tools/36.0.0/aapt2\n' "$sdk_root" \
+          printf '\nandroid.aapt2FromMavenOverride=%s/build-tools/36.0.0/aapt2\nandroid.useAndroidX=true\nandroid.suppressUnsupportedCompileSdk=36\n' "$sdk_root" \
             >> "$gradle_properties"
           grep -F 'android.aapt2FromMavenOverride=' "$gradle_properties"
       - name: Build APK
