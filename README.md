@@ -367,6 +367,10 @@ The native update experience presents only real states—discovered, verified an
 ready—then gives installation back to the user. Its optional visual reveal
 celebrates a verified release without countdowns, manufactured urgency,
 streaks or silent installation; **Reduce motion** removes the animation.
+Users may opt into automatic release checks and preparation. PQVPN downloads
+only the matching platform asset, requires its unique `SHA256SUMS` entry and
+discards failed verification. Installation still requires an explicit operating
+system confirmation; the application never bypasses privilege boundaries.
 
 <div align="center">
 
