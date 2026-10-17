@@ -29,8 +29,8 @@
       <a class="brand" href="#top" aria-label="PQVPN home"><img src="assets/brand/logo.svg" alt=""><span>PQVPN</span></a>
       <button class="menu" type="button" aria-expanded="false" aria-controls="nav-links">Menu</button>
       <div class="nav-links" id="nav-links">
-        <a href="#features">Features</a><a href="#start">Start</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#support">Support</a>
-        <a class="nav-cta" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/tag/v0.0.9-10152026-David0-beta-OTA">Download</a>
+        <a href="#features">Features</a><a href="#field-manual">Field manual</a><a href="#start">Start</a><a href="#mainnet">Mainnet</a><a href="#strangenet">StrangeNet</a><a href="#console">Apps</a><a href="#support">Support</a>
+        <a class="nav-cta" data-platform-download href="https://github.com/tadaka9/PQVPN/releases">Download</a>
       </div>
     </nav>
   </header>
@@ -38,10 +38,10 @@
   <main id="content">
     <section class="hero" id="top">
       <div class="hero-copy reveal">
-        <p class="eyebrow"><span class="pulse"></span> Experimental 0.0.9 beta · C++23</p>
+        <p class="eyebrow"><span class="pulse"></span> Experimental <span id="project-version">beta</span> · C++23</p>
         <h1>Paths change.<br><span>Trust stays yours.</span></h1>
         <p class="lead">Build a private network between machines you control, with hybrid post-quantum identity, auditable peer discovery and native tools for desktop, terminal and automation.</p>
-        <div class="actions"><a class="button primary" id="platform-download" data-platform-download href="https://github.com/tadaka9/PQVPN/releases/tag/v0.0.9-10152026-David0-beta-OTA">Find the latest beta</a><a class="button ghost" href="#mainnet">Explore Mainnet</a></div>
+        <div class="actions"><a class="button primary" id="platform-download" data-platform-download href="https://github.com/tadaka9/PQVPN/releases">Find the latest beta</a><a class="button ghost" href="#mainnet">Explore Mainnet</a></div>
         <p class="detected" id="platform-detected" aria-live="polite">Detecting your platform · all downloads remain selectable</p>
         <details class="download-panel" id="download-panel">
           <summary>Choose another system or package format</summary>
@@ -73,7 +73,7 @@
       </div>
     </section>
 
-    <section class="ticker" aria-label="Protocol highlights"><div>ML-DSA-87 · ED25519 · HKDF-SHA3-512 · ONION RELAYS · PQTP ADAPTIVE POLICY · NATIVE NDIS · UDP2RAW ADAPTER ·</div></section>
+    <section class="ticker" aria-label="Protocol highlights"><div>ML-DSA-87 · ED25519 · HKDF-SHA3-512 · WEIGHTED EXITS · STRANGENET · ASGARD LAB · FLUX · DNS SHIELD · UDP2RAW · V2RAY · SHADOWSOCKS · DNSCRYPT · OBFS4 ·</div></section>
 
     <section class="section" id="features">
       <div class="section-head reveal"><p class="eyebrow">Built as a system</p><h2>One engine. Every surface.</h2><p>The GUI, CLI and TUI operate the same configuration and canonical node. No second crypto stack, no simulated status.</p></div>
@@ -85,6 +85,21 @@
         <article class="feature reveal accent-blue"><b>05</b><h3>Native operating-system boundary</h3><p>Linux TUN, a macOS Network Extension boundary and the PQVPN Windows NDIS tunnel use target-specific code.</p></article>
         <article class="feature reveal accent-gold"><b>06</b><h3>Verified release grid</h3><p>Linux x86_64/ARM64, macOS Intel/Apple Silicon and Windows x86_64 must configure, compile and start before release.</p></article>
       </div>
+    </section>
+
+    <section class="section field-manual" id="field-manual">
+      <div class="section-head reveal"><p class="eyebrow">New machinery · honest labels</p><h2>More capability.<br>Fewer elegant ways to die.</h2><p>PQVPN now covers routing, private fleet observation, transport sidecars, encrypted storage experiments and mobile previews. Every card says what exists today, because “coming soon” is not a cryptographic primitive.</p></div>
+      <div class="capability-grid">
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>01 / ROUTING</b></div><h3>Weighted exit allocation</h3><p>New sessions are assigned only to healthy, explicitly authorized exits according to capacity weight. Existing flows keep affinity, because shuffling TCP packets between countries is a creative way to reinvent packet loss.</p><ul><li>Fail-closed without a healthy exit</li><li>Latency-aware deterministic tie-break</li><li>No per-packet striping or central telemetry</li></ul></article>
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>02 / OBSERVABILITY</b></div><h3>Flux fleet console</h3><p>A local x86-64 terminal watches aggregate health over hardened SSH aliases. It sees load, memory and listeners—not peers, payloads or your browser history. The server may be suffering; it need not gossip.</p><ul><li>Standalone Ubuntu/Debian package</li><li>No agent, account or analytics endpoint</li><li>Forwarding disabled; strict metric allowlist</li></ul></article>
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>03 / SIDECARS</b></div><h3>One-click transport engines</h3><p>Install and manage udp2raw, V2Ray, Shadowsocks, DNSCrypt and obfs4 from a checksum-pinned catalog. A running helper proves only that a process is alive; unlike marketing, the UI does not confuse breathing with security.</p><ul><li>Exact architecture matching</li><li>Isolated lifecycle and configuration</li><li>Explicit compatibility boundaries</li></ul></article>
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>04 / INNER TUNNELS</b></div><h3>WireGuard and OpenVPN</h3><p>User-supplied WireGuard or OpenVPN configurations can run inside the managed path with the same model across GUI, CLI and TUI. Layers are visible, teardown is deliberate, and “double VPN” is not sold as double immortality.</p><ul><li>Config-driven launch</li><li>Shared state across control surfaces</li><li>No silent route claims</li></ul></article>
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>05 / DNS SHIELD</b></div><h3>Privacy and threat presets</h3><p>Reviewed Pi-hole profiles combine OISD and HaGeZi sources for balanced privacy, threat defence, family boundaries or an expert maximum. Aggregate blocked counts are useful; a dossier of everyone’s mistakes is not.</p><ul><li>Named one-click profiles</li><li>Optional validated regex</li><li>No imported client or query history</li></ul></article>
+        <article class="capability reveal"><div><span class="state lab">Lab</span><b>06 / ASGARD</b></div><h3>Encrypted distributed storage</h3><p>Asgard splits files into encrypted, content-addressed chunks and places replicas across user-selected roots. It has quorum and hostile-manifest tests; it does not yet have permission to call itself a cloud and buy a yacht.</p><ul><li>4 MiB chunks and per-chunk keys</li><li>Rendezvous placement and atomic writes</li><li>Local core only; network transport pending</li></ul></article>
+        <article class="capability reveal"><div><span class="state preview">Preview</span><b>07 / MOBILE</b></div><h3>Android and iOS shells</h3><p>CI now produces an Android ARM64 preview and an unsigned iOS artifact for interface evaluation. The connect action remains disabled until Android VPNService and Apple Network Extension paths are implemented and verified.</p><ul><li>Android ARM64 artifact</li><li>Unsigned iOS preview</li><li>No counterfeit “protected” indicator</li></ul></article>
+        <article class="capability reveal"><div><span class="state ready">Ready</span><b>08 / STRANGENET</b></div><h3>Rooms between real peers</h3><p>Bounded text rooms, reactions, stickers and direct authenticated delivery live on established PQVPN sessions. No central account database, no public history, and no infinite message buffer waiting to become tomorrow’s incident report.</p><ul><li>Pairwise encrypted fanout</li><li>Replay and antiflood limits</li><li>Up to 512 authenticated sessions per send</li></ul></article>
+      </div>
+      <aside class="mortality-note reveal"><span>☠ OPERATOR’S NOTE</span><p>PQVPN is experimental and has not completed an independent audit. Test it, inspect it and keep a recovery path. If a security product claims it cannot fail, the failure has merely moved into the legal department.</p><a href="https://github.com/tadaka9/PQVPN/blob/future/ROADMAP.md">Read the living roadmap →</a></aside>
     </section>
 
     <section class="section architecture" id="architecture">

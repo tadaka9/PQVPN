@@ -56,6 +56,7 @@ const downloadButtons=[...document.querySelectorAll('[data-platform-download]')]
 const downloadButton=document.querySelector('#platform-download');
 const detectedLabel=document.querySelector('#platform-detected');
 const releaseLabel=document.querySelector('#download-release');
+const projectVersion=document.querySelector('#project-version');
 const downloadLinks=new Map([...document.querySelectorAll('[data-download-key]')].map(link=>[link.dataset.downloadKey,link]));
 const assetMatchers={
   'windows-x64':name=>/windows-x64\.msi$/i.test(name),
@@ -140,6 +141,7 @@ async function configurePlatformDownload(){
       else{link.href=releasePage;link.removeAttribute('title');link.setAttribute('aria-disabled','true');link.removeAttribute('download')}
     }
     const newestRelease=releases[0];
+    if(projectVersion)projectVersion.textContent=newestRelease.tag_name;
     releaseLabel.textContent=`${newestRelease.tag_name} · each selected package has a same-release SHA256SUMS manifest`;
     const recommendedLink=recommendation?downloadLinks.get(recommendation):null;
     if(recommendedLink&&recommendedLink.getAttribute('aria-disabled')!=='true'){
@@ -160,6 +162,7 @@ async function configurePlatformDownload(){
     downloadButton.textContent='Open published releases';
     detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;
     releaseLabel.textContent=error.message;
+    if(projectVersion)projectVersion.textContent='beta · release feed unavailable';
   }
 }
 configurePlatformDownload();setInterval(()=>{if(!document.hidden)configurePlatformDownload()},900000);

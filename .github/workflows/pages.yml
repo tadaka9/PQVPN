@@ -31,6 +31,9 @@ jobs:
           grep -F 'id="mainnet"' site/index.html >/dev/null
           grep -F 'id="support"' site/index.html >/dev/null
           grep -F 'id="strangenet-peer"' site/index.html >/dev/null
+          grep -F 'id="field-manual"' site/index.html >/dev/null
+          grep -F 'id="project-version"' site/index.html >/dev/null
+          grep -F "projectVersion.textContent=newestRelease.tag_name" site/app.js >/dev/null
           grep -F -- '--strangenet-peer ${values.peer.toLowerCase()}' site/app.js >/dev/null
           grep -F 'api.github.com/repos/tadaka9/PQVPN' site/app.js >/dev/null
           grep -F 'bc1qt6lrt8ces62pvp6ws9audr5mdhu0ht9qkga2ll' site/index.html >/dev/null
