@@ -163,19 +163,50 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          ## Experimental cross-platform beta
+          # PQVPN ${TAG#v}
 
-          This prerelease provides Windows x86-64, Linux x86-64/ARM64, and macOS Intel/Apple Silicon builds from commit \`$PQVPN_RELEASE_SHA\`.
+          > **THE PATH OPENS. THE KEYS REMAIN YOURS.**
 
-          Each download is a separate release asset: Windows MSI, Windows portable ZIP, Debian packages, manual Linux archives, macOS archives, desktop updater packages, SHA-256 manifest, and build information. The portable ZIP does not bundle the MSI or OTA package.
+          An experimental cross-platform PQVPN beta, built from immutable commit \`$PQVPN_RELEASE_SHA\` and admitted only after the same source passed every native build gate.
 
-          The [main CI run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID) passed native builds and package smoke tests on all five published targets. Windows also passed clean MSI install, upgrade from the previous release, old ProductCode removal, uninstall, and update-container verification.
+          ## Five native gates. One admitted build.
 
-          This is an **unqualified test prerelease**. Production signing and the full native functional release gates are incomplete. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix so the public mainnet updater will not install this prerelease automatically.
+          | Target | Evidence |
+          |---|---|
+          | Windows x86-64 | Native build, CLI/GUI smoke tests, clean MSI install, upgrade, removal and update-container verification |
+          | Linux x86-64 | Native build, GUI render, Debian lifecycle and update-container verification |
+          | Linux ARM64 | Native build, GUI render, Debian lifecycle and update-container verification |
+          | macOS Intel | Native build, GUI render and update-container verification |
+          | macOS Apple Silicon | Native build, GUI render and update-container verification |
+
+          Inspect the exact [admission run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID).
+
+          ## Choose the artifact deliberately
+
+          - **Windows:** MSI for installation or portable ZIP for evaluation.
+          - **Debian / Ubuntu:** architecture-matched \`.deb\` package.
+          - **Linux and macOS:** target-specific test archive.
+          - **Desktop updater:** \`.pqvpnpkg\`, bound to its target and embedded payload digest.
+          - **Verification:** \`SHA256SUMS\` and \`BUILD-INFO.txt\` describe the exact published bytes.
+
+          Every asset is separate. The portable ZIP does not conceal an installer or OTA payload.
+
+          ## Verify before trust
+
+          1. Download the artifact and \`SHA256SUMS\` from this release.
+          2. Verify the checksum locally.
+          3. Confirm the target and version before installation.
+          4. Review configuration, peer policy and tunnel mode before connecting.
+
+          ## The honest boundary
+
+          This is an **unqualified experimental prerelease**, not an anonymity guarantee or an independently audited security product. Production signing and the full native functional release gates remain incomplete. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix, so the public mainnet updater will not install this prerelease automatically.
+
+          **Own the nodes. Own the keys. Verify the path.**
           EOF
           gh release create "$TAG" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --prerelease \
-            --title "PQVPN ${TAG#v} (cross-platform test prerelease)" \
+            --title "PQVPN ${TAG#v} — The Path Opens" \
             --notes-file release-notes.md

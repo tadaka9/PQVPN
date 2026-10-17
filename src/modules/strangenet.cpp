@@ -52,17 +52,20 @@ bool valid_text(const std::string& value) {
 std::optional<std::vector<std::uint8_t>> encode(const Message& message) {
     const bool ack = message.kind == Kind::Acknowledgement;
     const bool reaction = message.kind == Kind::Reaction;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction) ||
+    const bool voice = message.kind == Kind::Voice;
+    const bool direct = message.kind == Kind::DirectText;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct) ||
         message.room.empty() || message.room.size() > kMaxRoomBytes || message.sender.empty() ||
         message.sender.size() > kMaxSenderBytes || (!ack && message.text.empty()) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
-        (reaction && message.reply_to == 0) || (!ack && !reaction && message.reply_to != 0) ||
+        (reaction && message.reply_to == 0) ||
+        (message.kind != Kind::Text && !ack && !reaction && message.reply_to != 0) ||
         message.text.size() > kMaxMessageBytes || message.sequence == 0 ||
         !valid_text(message.room) || !valid_text(message.sender) || !valid_text(message.text)) return std::nullopt;
     std::vector<std::uint8_t> out;
     out.reserve(36 + message.room.size() + message.sender.size() + message.text.size());
     out.insert(out.end(), kMagic.begin(), kMagic.end());
-    out.push_back(2);
+    out.push_back(voice ? 3 : 2);
     out.push_back(static_cast<std::uint8_t>(message.kind));
     put_u16(out, message.room.size());
     put_u16(out, message.sender.size());
@@ -78,7 +81,7 @@ std::optional<std::vector<std::uint8_t>> encode(const Message& message) {
 
 std::optional<Message> decode(const std::span<const std::uint8_t> frame) {
     if (frame.size() < 27 || !std::equal(kMagic.begin(), kMagic.end(), frame.begin()) ||
-        (frame[4] != 1 && frame[4] != 2)) return std::nullopt;
+        (frame[4] != 1 && frame[4] != 2 && frame[4] != 3)) return std::nullopt;
     const bool legacy = frame[4] == 1;
     const std::size_t header = legacy ? 27 : 36;
     if (frame.size() < header) return std::nullopt;
@@ -99,10 +102,13 @@ std::optional<Message> decode(const std::span<const std::uint8_t> frame) {
     message.text.assign(reinterpret_cast<const char*>(frame.data() + cursor), text_size);
     const bool ack = message.kind == Kind::Acknowledgement;
     const bool reaction = message.kind == Kind::Reaction;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction) ||
+    const bool voice = message.kind == Kind::Voice;
+    const bool direct = message.kind == Kind::DirectText;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct) ||
+        (voice && frame[4] != 3) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
         (!ack && message.text.empty()) || (reaction && message.reply_to == 0) ||
-        (!ack && !reaction && message.reply_to != 0) ||
+        (message.kind != Kind::Text && !ack && !reaction && message.reply_to != 0) ||
         !valid_text(message.room) || !valid_text(message.sender) || !valid_text(message.text)) return std::nullopt;
     return message;
 }
@@ -146,7 +152,8 @@ FloodDecision FloodGuard::accept(const Message& message, const std::uint64_t now
     const double payload_cost = 1.0 +
         static_cast<double>(message.text.empty() ? 0 : message.text.size() - 1) / 512.0;
     const double cost = message.kind == Kind::Acknowledgement ? 0.25
-        : (message.kind == Kind::Reaction ? 0.5 : payload_cost);
+        : (message.kind == Kind::Reaction ? 0.5
+        : (message.kind == Kind::Voice ? 0.02 : payload_cost));
     const auto& sender_key = message.sender;
 
     auto expire_idle = [now_ms](auto& buckets, const std::uint64_t expiry) {

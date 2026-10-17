@@ -39,8 +39,46 @@ verification on an elevated host with a connected adapter is still pending.
 - [ ] Validate shutdown, recovery, and adapter cleanup across supported Windows
   and Linux environments.
 
+## High-throughput data plane
+
+- [x] Make Linux user-space TCP egress apply upstream backpressure instead of
+  resetting long downloads when its bounded server buffer fills.
+- [x] Negotiate TCP window scaling and use an adaptive tunnel congestion window:
+  fast growth for short interactive bursts and available high-bandwidth paths,
+  bounded additive growth at larger windows, and multiplicative reduction on
+  retransmission.
+- [x] Preserve a strict per-flow memory ceiling while pausing and resuming
+  upstream reads, so sustained download and upload performance does not trade
+  away exit-node stability.
+- [x] Replace the allocation-heavy nonce set with a bounded O(1) sliding
+  replay bitmap: authenticate first, accept legitimate UDP reordering, reject
+  duplicates and stale counters, and cap operator-configured replay memory.
+- [x] Request larger bounded UDP socket buffers so short encrypted bursts are
+  absorbed instead of discarded while user-space AEAD work is scheduled.
+- [ ] Publish reproducible throughput, latency and loss benchmarks across the
+  Helsinki–Stockholm mainnet path; report medians and percentiles rather than
+  marketing maxima.
+- [ ] Add paced packet batching and multi-queue processing only after profiling
+  demonstrates a bottleneck, with fairness tests preventing one bulk transfer
+  from starving interactive traffic.
+- [ ] Replace per-packet linear session-hint lookup with a collision-aware,
+  endpoint-bound index; benchmark lookup-flood resistance at the 4096-session
+  limit.
+- [ ] Evaluate Linux UDP GSO/GRO and reusable AEAD contexts behind capability
+  checks; retain the portable path and prove identical wire output with
+  known-answer and loss/reordering tests.
+
 ## Security assurance
 
+- [x] Keep current StrangeNet groups decentralized without a group-key holder:
+  require the complete pinned membership, encrypt independently through every
+  member-contributed hybrid session, and test that ciphertext for one member
+  cannot be used by another.
+- [ ] Add scalable contributory group epochs only through a reviewed
+  MLS/TreeKEM-compatible design with authenticated add/remove commits, epoch
+  rotation, forward secrecy, post-compromise recovery, post-quantum combiner
+  analysis, interoperability vectors and fail-closed downgrade handling. Do not
+  replace the current hybrid pairwise fan-out with classical-only MLS.
 - [ ] Publish a protocol-level threat model covering trust boundaries, traffic
   analysis, endpoint compromise, relay behavior, and denial-of-service limits.
 - [ ] Commission an independent security review of the protocol and C++

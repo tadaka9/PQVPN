@@ -1,13 +1,25 @@
 # StrangeNet universal encrypted chat
 
-StrangeNet v2 is a bounded, session-only chat carried by authenticated PQVPN mainnet sessions. The desktop console joins `mainnet` as a universal room and fans each outbound item out to as many as 512 established authenticated peers. Each recipient gets a separately encrypted frame; there is no shared plaintext broadcast packet.
+StrangeNet is a bounded, session-only social chat carried by authenticated PQVPN mainnet sessions. It is designed for borderless friendship, conversation and consensual romantic connection without turning location or network metadata into a profile. Rooms use hierarchical paths such as `mainnet/friends/poetry`, with at most eight levels. Each outbound item is encrypted separately for as many as 512 established authenticated peers; there is no shared plaintext broadcast packet.
+
+The GUI is room-first and also supports direct text to one authenticated Peer
+ID. A participant is shown only by a self-certifying 32-byte Peer ID after
+hybrid authentication and admission-policy checks. Participant, bootstrap and
+local-listener IP addresses are not shown in chat UI or peer lifecycle events.
+An exit address may be shown separately as a connection fact because it is the
+public address websites observe; it is never presented as a participant
+identity.
 
 Version 0.0.15 adds explicit groups. Selecting at least two authenticated
 remote identities creates a group of at least three participants including the
 local user. Membership is canonical, bounded to 64 participants and pinned for
 the joined room. Every send targets exactly that set and fails closed for an
 offline member; it never substitutes another peer or falls back to universal
-fan-out. This beta remains live-session P2P: it does not yet claim asynchronous
+fan-out. There is no common group secret to escrow or split. Instead, each
+member contributes to an independent X25519 + ML-KEM hybrid session, and the
+sender produces a different authenticated ciphertext for every recipient. A
+member's session key cannot decrypt another member's copy. This beta remains
+live-session P2P: it does not yet claim asynchronous
 store-and-forward delivery or unbounded global reach.
 
 Public-identity verification is implemented as an optional hybrid-signed claim
@@ -23,6 +35,15 @@ StrangeNet derives a dedicated 256-bit application key from each directional PQV
 
 This provides end-to-end protection between directly authenticated session peers. The implementation does not let a hub decrypt and re-publish a message while still calling that path E2E. Universal reach therefore depends on the mainnet discovery layer establishing authenticated mesh sessions to the participants. A future store-and-forward relay must carry an origin-signed envelope before it can be enabled.
 
+This per-recipient construction is intentionally different from secret sharing:
+splitting one group key into N-of-N fragments would make every send depend on
+every member being online and would not by itself provide authenticated
+membership, forward secrecy or post-compromise recovery. Future scalable group
+epochs will use a reviewed contributory group-key protocol, rotate on every
+membership change and remain disabled until the post-quantum construction has
+interoperability vectors and independent review. Standard MLS/TreeKEM must not
+be advertised as post-quantum without such an extension.
+
 The Privacy Console maintains a live directory from `peer.connected` and
 `peer.disconnected` events emitted by the node after hybrid authentication and
 configured admission policy succeed. A room can target all such sessions or
@@ -31,6 +52,26 @@ different peer if that identity disconnects. Discovery alone never places an
 entry in this directory and never grants chat access.
 
 Messages are never persisted by the node or GUI. The GUI retains at most 1,000 rendered blocks in memory. Notifications are local, optional and content-free.
+
+## Writing experience
+
+The Privacy Console presents StrangeNet as a conversation rather than a raw
+event log. Authenticated messages and local messages use distinct bubbles;
+receipts, rate limits and room changes remain visually separate so operational
+status cannot be mistaken for something another person wrote.
+
+The composer has two explicit keyboard modes:
+
+- **Conversation** sends with Enter and inserts a line break with Shift+Enter.
+- **Poem** preserves Enter for line breaks and sends with Ctrl+Enter (or
+  Command+Enter on macOS).
+
+Both modes transmit the same bounded UTF-8 plaintext inside StrangeNet's
+authenticated encryption. The mode is local presentation state, adds no wire
+metadata and makes no inference about the writer. Pasting text beyond the
+2,048-byte protocol limit is truncated at the composer boundary; blank or
+whitespace-only messages are not sent. **Clear view** removes rendered content
+from this process without changing the room or claiming remote deletion.
 
 ## Antiflood behavior
 
@@ -50,7 +91,7 @@ authenticated sessions, bounding encryption and UDP work per click. Larger
 communities require an authenticated room distribution layer; the current
 direct-session protocol does not claim unbounded global fanout.
 
-## Optional blockchain anchor
+## Decentralized identity, Web3 and optional blockchain anchor
 
 The Privacy Console can build a private StrangeNet proof chain when the user
 explicitly enables **Build a private session proof chain**. Each accepted,
@@ -80,7 +121,7 @@ Version 2 frames support:
 - bounded per-sender and aggregate room token buckets;
 - a maximum of 512 direct recipients per broadcast operation.
 
-Version 1 text frames remain decodable. New senders emit version 2.
+Version 1 text frames remain decodable. Text, replies and reactions use version 2. Version 3 extends the same bounded envelope with live 16 kHz mono voice chunks. The GUI provides hold-to-talk audio only: chunks are played from memory and are not saved as files. There is no image, video, HTML, arbitrary attachment or remote-media wire kind.
 
 Sticker payloads contain only an emoji, a caption of at most 48 characters and one color from the built-in palette. The GUI escapes all text before rendering and rejects arbitrary colors or malformed JSON. No HTML, script, URL, remote image or executable attachment crosses the chat protocol.
 

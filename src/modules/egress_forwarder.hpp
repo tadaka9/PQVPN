@@ -43,6 +43,8 @@ struct TcpFlow {
     std::uint32_t isn_c = 0; // client ISN (host order)
     std::uint32_t isn_s = 0; // chosen ISN for the S->C direction
     std::uint16_t mss_c = 1460;
+    std::uint8_t client_window_scale = 0;
+    std::size_t client_window_bytes = 65535;
 
     // Client -> server byte extraction (client sequence space).
     std::uint32_t recv_next = 0; // next expected seq from the client
@@ -56,14 +58,17 @@ struct TcpFlow {
     std::uint32_t send_next = 0;
     std::vector<uint8_t> sbuf;
     std::size_t sbuf_off = 0;
+    bool server_read_pending = false;
     // Bytes already emitted into the lossy tunnel but not cumulatively ACKed
     // by the client.  The egress bridge terminates TCP, so it must retain and
     // retransmit these bytes itself; the upstream kernel socket cannot do it.
     std::map<std::uint32_t, std::vector<uint8_t>> unacked;
+    std::size_t unacked_bytes = 0;
     std::shared_ptr<asio::steady_timer> retransmit_timer;
     std::uint32_t last_ack = 0;
     unsigned duplicate_acks = 0;
     unsigned retransmit_attempts = 0;
+    std::size_t congestion_window = 32u * 1024u;
     bool s_eof = false;
     bool fin_sent_c = false;
 

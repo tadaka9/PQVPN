@@ -40,6 +40,7 @@ mkdir -p \
     "$PKG_ROOT/etc/pqvpn" \
     "$PKG_ROOT/usr/share/pqvpn" \
     "$PKG_ROOT/usr/lib/systemd/system" \
+    "$PKG_ROOT/usr/lib/sysctl.d" \
     "$PKG_ROOT/usr/share/polkit-1/rules.d" \
     "$PKG_ROOT/usr/share/applications" \
     "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps"
@@ -109,7 +110,10 @@ install -m 0644 config.json "$PKG_ROOT/etc/pqvpn/config.json.example"
 install -m 0644 config.udp2raw.json "$PKG_ROOT/etc/pqvpn/config.udp2raw.json.example"
 install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
 install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
+install -m 0755 packaging/linux/pqvpn-shield-helper "$PKG_ROOT/usr/lib/pqvpn/pqvpn-shield-helper"
 install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
+install -m 0644 packaging/linux/60-pqvpn-network-performance.conf \
+    "$PKG_ROOT/usr/lib/sysctl.d/60-pqvpn-network-performance.conf"
 
 if [ -f "packaging/linux/pqvpn.service" ]; then
     install -m 0644 packaging/linux/pqvpn.service "$PKG_ROOT/usr/lib/systemd/system/"
@@ -137,6 +141,32 @@ if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desk
     install -m 0644 assets/brand/logo.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
     test -s "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
 fi
+
+# Some desktop environments (including COSMIC) do not refresh their icon and
+# application caches merely because dpkg unpacked a new SVG.  Refresh the
+# standard caches after install while keeping the package usable on minimal
+# servers where the cache helpers are intentionally absent.
+cat > "$PKG_ROOT/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache --quiet --force /usr/share/icons/hicolor || true
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database --quiet /usr/share/applications || true
+fi
+# Apply PQVPN's socket-buffer ceilings immediately. systemd-sysctl commonly
+# lives outside PATH on Debian-family hosts; sysctl is a narrow fallback that
+# reads only PQVPN's file rather than reloading unrelated administrator policy.
+if [ -x /usr/lib/systemd/systemd-sysctl ]; then
+    /usr/lib/systemd/systemd-sysctl \
+        --prefix=/net/core/rmem_max --prefix=/net/core/wmem_max || true
+elif command -v sysctl >/dev/null 2>&1; then
+    sysctl -p /usr/lib/sysctl.d/60-pqvpn-network-performance.conf || true
+fi
+exit 0
+EOF
+chmod 0755 "$PKG_ROOT/DEBIAN/postinst"
 
 cat > "$PKG_ROOT/DEBIAN/control" << EOF
 Package: pqvpn

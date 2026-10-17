@@ -175,4 +175,4 @@ jobs:
             --verify-tag \
             --prerelease \
             --generate-notes \
-            --title "PQVPN $TAG (experimental prerelease)"
+            --title "PQVPN ${TAG#v} — Verified Paths, User-Owned Keys"

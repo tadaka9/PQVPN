@@ -36,6 +36,7 @@
 #include "group_chat.hpp"
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
+#include "console/inner_tunnel_policy.hpp"
 
 namespace {
 
@@ -75,6 +76,7 @@ struct CliArgs {
     std::string strangenet_peer;
     bool control_stdin = false;
     bool no_tunnel = false;
+    pqvpn::console::InnerTunnelOverride inner_tunnel;
     bool help = false;
 #ifdef _WIN32
     std::string tunnel_device;
@@ -96,6 +98,9 @@ void print_usage(const char* program) {
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
         << "      --no-tunnel          Run as a UDP relay/exit without a local tunnel\n"
+        << "      --inner-tunnel-backend NAME  Layer wireguard or openvpn3 inside PQVPN\n"
+        << "      --inner-tunnel-config PATH   Absolute client configuration path\n"
+        << "      --no-inner-tunnel            Disable a configured inner VPN for this run\n"
 #ifdef _WIN32
         << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
 #endif
@@ -126,6 +131,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             else args.strangenet_peer = argv[index];
         } else if (value == "--no-tunnel") {
             args.no_tunnel = true;
+        } else if (value == "--no-inner-tunnel") {
+            args.inner_tunnel.disable = true;
+        } else if (value == "--inner-tunnel-backend" || value == "--inner-tunnel-config") {
+            if (++index >= argc || !pqvpn::console::parse_inner_tunnel_argument(
+                    value, argv[index], args.inner_tunnel)) {
+                std::cerr << value << " requires a valid value\n";
+                return std::nullopt;
+            }
 #ifdef _WIN32
         } else if (value == "--tunnel-device") {
             if (++index >= argc) {
@@ -155,7 +168,28 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
         std::cerr << "--strangenet-peer requires --strangenet-room\n";
         return std::nullopt;
     }
+    if (args.inner_tunnel.disable &&
+        (args.inner_tunnel.backend || args.inner_tunnel.config_path)) {
+        std::cerr << "--no-inner-tunnel cannot be combined with inner tunnel overrides\n";
+        return std::nullopt;
+    }
     return args;
+}
+
+std::optional<pqvpn::config::Config> load_runtime_config(const CliArgs& args,
+                                                         std::string& error) {
+    auto loaded = pqvpn::config::load_config(args.config_path);
+    if (!loaded) { error = "configuration is invalid"; return std::nullopt; }
+    if (const auto override_error =
+            pqvpn::console::apply_inner_tunnel_override(*loaded, args.inner_tunnel)) {
+        error = *override_error;
+        return std::nullopt;
+    }
+    if (args.no_tunnel && loaded->inner_tunnel.enabled) {
+        error = "an inner tunnel cannot run with --no-tunnel";
+        return std::nullopt;
+    }
+    return loaded;
 }
 
 std::optional<std::vector<std::uint8_t>> decode_peer_id(const std::string& value) {
@@ -189,7 +223,10 @@ std::string encode_peer_id(const std::vector<std::uint8_t>& value) {
 
 bool valid_strangenet_room(const std::string& room) {
     if (room.empty() || room.size() > pqvpn::strangenet::kMaxRoomBytes) return false;
-    return std::all_of(room.begin(), room.end(), [](const unsigned char character) {
+    if (room.front() == '/' || room.back() == '/' || room.find("//") != std::string::npos) return false;
+    std::size_t levels = 1;
+    return std::all_of(room.begin(), room.end(), [&levels](const unsigned char character) {
+        if (character == '/') return ++levels <= 8;
         return std::isalnum(character) || character == '.' || character == '_' || character == '-';
     });
 }
@@ -221,7 +258,8 @@ void print_platform_info() {
 #else
     std::cout << "os=unknown\ntunnel=unsupported\ndriver=not-applicable\n";
 #endif
-    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n";
+    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n"
+                 "inner-tunnel=wireguard,openvpn3\n";
 }
 
 int run_smoke_test(const CliArgs& args) {
@@ -231,9 +269,10 @@ int run_smoke_test(const CliArgs& args) {
     Logger::info("PQVPN Node Smoke Test Starting...");
     MetricsRegistry::instance().increment_counter("node_smoke_test_total");
 
-    auto config_result = pqvpn::config::load_config(args.config_path);
+    std::string config_error;
+    auto config_result = load_runtime_config(args, config_error);
     if (!config_result) {
-        Logger::error("Error loading configuration: {}", args.config_path);
+        Logger::error("Error loading configuration {}: {}", args.config_path, config_error);
         MetricsRegistry::instance().increment_counter("config_load_failure_total");
         return 1;
     }
@@ -294,9 +333,11 @@ int main(int argc, char** argv) {
     }
 
     if (args.validate_config || args.print_config) {
-        auto checked = pqvpn::config::load_config(args.config_path);
+        std::string config_error;
+        auto checked = load_runtime_config(args, config_error);
         if (!checked) {
-            std::cerr << "Invalid PQVPN configuration: " << args.config_path << "\n";
+            std::cerr << "Invalid PQVPN configuration: " << args.config_path
+                      << " (" << config_error << ")\n";
             return 1;
         }
         if (args.print_config) {
@@ -313,9 +354,11 @@ int main(int argc, char** argv) {
     }
 
     // Start the PQVPN node runtime with the provided configuration
-    auto config = pqvpn::config::load_config(args.config_path);
+    std::string config_error;
+    auto config = load_runtime_config(args, config_error);
     if (!config) {
-        std::cerr << "Failed to load config: " << args.config_path << "\n";
+        std::cerr << "Failed to load config: " << args.config_path
+                  << " (" << config_error << ")\n";
         return 1;
     }
 
@@ -373,18 +416,6 @@ int main(int argc, char** argv) {
         std::cerr << "warning: no node identity established (no ed25519 key); "
                   << "onion relay and local delivery will be rejected\n";
     }
-    std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> external_tunnel;
-    if (config->tunnel.plugin != "pqvpn") {
-        try {
-            const auto backend = pqvpn::tunnel::backend_from_string(config->tunnel.plugin);
-            auto spec = pqvpn::tunnel::make_external_process_spec(backend, config->tunnel.config_path);
-            external_tunnel = std::make_unique<pqvpn::tunnel::ExternalTunnelProcess>(std::move(spec));
-            external_tunnel->start();
-        } catch (const std::exception& error) {
-            std::cerr << "Failed to start tunnel plugin: " << error.what() << "\n";
-            return 1;
-        }
-    }
     pqvpn::network::UdpListener listener(io, config->network);
     listener.set_receive_handler([&io, node](std::vector<uint8_t> packet, const asio::ip::udp::endpoint& sender) {
         asio::co_spawn(io, node->datagram_received(std::move(packet), sender), asio::detached);
@@ -432,6 +463,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Profiles without a tunnel section are relay-only. --no-tunnel remains
+    // an explicit runtime override for a fully configured client profile.
+    const bool no_tunnel = args.no_tunnel || !config->tunnel.enabled;
+    if (!config->tunnel.enabled && !args.no_tunnel)
+        std::cout << "relay-only profile: local tunnel is disabled by configuration\n";
+
     // Per-OS tunnel adapter: PQVPN's driver on Windows, /dev/net/tun on Linux, and the
     // Network Extension boundary on macOS (see src/platform/adapter.hpp).
     std::unique_ptr<pqvpn::platform::Adapter> adapter;
@@ -442,13 +479,13 @@ int main(int argc, char** argv) {
     // signal handler can roll back peer exclusions on shutdown. Safe to leave
     // unused when no_tunnel is set: remove_all() on an empty manager succeeds.
     pqvpn::routing::PeerRouteManager peer_routes(route_backend);
-    if (!args.no_tunnel) {
+    if (!no_tunnel) {
         adapter = pqvpn::platform::make_adapter(args.tunnel_device);
     }
 #else
     // Config "tunnel.interface_name" selects the TUN device name; empty keeps
     // the kernel-selected default.
-    if (!args.no_tunnel) {
+    if (!no_tunnel) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
                                        config->tunnel.exit_host, config->tunnel.exit_port)) {
@@ -485,6 +522,7 @@ int main(int argc, char** argv) {
 
     bool adapter_active = false;
     bool linux_network_active = false;
+    std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> inner_tunnel;
     if (adapter) {
         if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
                 // Adapter -> tunnel: forward to the selected established session.
@@ -555,6 +593,42 @@ int main(int argc, char** argv) {
     });
 
     auto shutdown = std::make_shared<std::function<void()>>();
+    // Install the shutdown callback before starting the stdin controller.
+    // A fast controller (notably Windows CI) can deliver node.shutdown as soon
+    // as the process starts; publishing the callback later loses that command
+    // and leaves the runtime alive indefinitely.
+    *shutdown = [&] {
+        if (inner_tunnel) inner_tunnel->stop();
+#ifdef _WIN32
+        if (adapter_active) {
+            // Remove the installed routes before taking the adapter down, in
+            // reverse build order: peer exclusions first, then the default.
+            // Removal is idempotent, so this is safe even on partial installs.
+            const auto peer_cleanup = peer_routes.remove_all();
+            if (!peer_cleanup.complete) {
+                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
+            }
+            const auto removal = route_plan.remove_all(route_backend);
+            if (!removal.complete) {
+                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
+            }
+        }
+#endif
+#ifdef __linux__
+        if (adapter) adapter->close();
+        if (linux_network_active &&
+            !run_linux_network_manager("down", config->tunnel.interface_name,
+                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
+            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
+        }
+        linux_network_active = false;
+#endif
+        node->stop_traffic_shaping();
+        node->transport = nullptr;
+        listener.stop();
+        if (adapter) adapter->close(); // idempotent per OS
+        io.stop();
+    };
     if (!args.strangenet_room.empty() || args.control_stdin) {
         const auto initial_peer = args.strangenet_peer.empty() || args.strangenet_peer == "auto"
             ? std::optional<std::vector<std::uint8_t>>{}
@@ -579,18 +653,19 @@ int main(int argc, char** argv) {
         strange->peer = initial_peer;
 
         node->set_peer_session_handler([node_view = node.get()](const std::vector<std::uint8_t>& peer,
-                                                               const asio::ip::udp::endpoint& endpoint,
+                                                               const asio::ip::udp::endpoint&,
                                                                const bool connected) {
             emit_console_event({{"event", connected ? "peer.connected" : "peer.disconnected"},
                                 {"peer", encode_peer_id(peer)},
-                                {"ready", connected || node_view->select_tunnel_peer().has_value()},
-                                {"endpoint", endpoint.address().to_string() + ":" +
-                                             std::to_string(endpoint.port())}});
+                                {"ready", connected || node_view->select_tunnel_peer().has_value()}});
         });
 
         node->set_strangenet_handler([strange, node_view = node.get()](const pqvpn::strangenet::Message& message,
                                                                       const std::vector<std::uint8_t>& peer) {
-            if (strange->room.empty() || message.room != strange->room ||
+            const bool direct = message.kind == pqvpn::strangenet::Kind::DirectText;
+            const bool direct_ack = message.kind == pqvpn::strangenet::Kind::Acknowledgement &&
+                                    message.room == "@direct";
+            if ((!direct && !direct_ack && (strange->room.empty() || message.room != strange->room)) ||
                 (strange->peer && peer != *strange->peer)) return;
             if (message.kind == pqvpn::strangenet::Kind::Acknowledgement) {
                 emit_console_event({{"event", "strangenet.delivered"},
@@ -598,11 +673,13 @@ int main(int argc, char** argv) {
                                     {"peer", encode_peer_id(peer)}});
                 return;
             }
-            const char* event_name = message.kind == pqvpn::strangenet::Kind::Sticker
+            const char* event_name = direct ? "strangenet.direct" : (message.kind == pqvpn::strangenet::Kind::Sticker
                 ? "strangenet.sticker" : (message.kind == pqvpn::strangenet::Kind::Reaction
-                    ? "strangenet.reaction" : "strangenet.message");
+                    ? "strangenet.reaction" : (message.kind == pqvpn::strangenet::Kind::Voice
+                        ? "strangenet.voice" : "strangenet.message")));
             emit_console_event({{"event", event_name},
                                 {"room", message.room},
+                                {"peer", encode_peer_id(peer)},
                                 {"sender", message.sender},
                                 {"timestamp_ms", message.timestamp_ms},
                                 {"sequence", message.sequence},
@@ -673,7 +750,9 @@ int main(int argc, char** argv) {
                                 strange->group_peers = std::move(group_peers);
                                 emit_console_event({{"event", "strangenet.joined"},
                                                     {"room", room}, {"peer", peer_text},
-                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1}});
+                                                    {"group_size", strange->group_peers.empty() ? 0 : strange->group_peers.size() + 1},
+                                                    {"group_security", strange->group_peers.empty() ? "pairwise-hybrid" : "all-members-pairwise-hybrid"},
+                                                    {"central_group_secret", false}});
                             } else if (name == "strangenet.leave") {
                                 const auto room = strange->room;
                                 if (!room.empty()) node->leave_strangenet_room(room);
@@ -681,38 +760,48 @@ int main(int argc, char** argv) {
                                 strange->peer.reset();
                                 strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
-                            } else if (name == "strangenet.send" || name == "strangenet.sticker" ||
-                                       name == "strangenet.react") {
+                            } else if (name == "strangenet.send" || name == "strangenet.dm" || name == "strangenet.sticker" ||
+                                       name == "strangenet.react" || name == "strangenet.voice") {
                                 const auto text = command.value("text", std::string{});
                                 const auto reply_to = command.value("reply_to", std::uint64_t{0});
-                                if (strange->room.empty() || text.empty() ||
+                                const bool direct = name == "strangenet.dm";
+                                const auto direct_peer_text = direct ? command.value("peer", std::string{}) : std::string{};
+                                const auto direct_peer = direct ? decode_peer_id(direct_peer_text)
+                                                                : std::optional<std::vector<std::uint8_t>>{};
+                                if ((!direct && strange->room.empty()) || (direct && !direct_peer) || text.empty() ||
                                     text.size() > pqvpn::strangenet::kMaxMessageBytes ||
                                     (name == "strangenet.react" && reply_to == 0)) {
                                     emit_console_event({{"event", "control.error"},
-                                                        {"message", "join a room and send 1..2048 bytes"}});
+                                                        {"message", "choose an authenticated recipient and send 1..2048 bytes"}});
                                     return;
                                 }
                                 const auto timestamp = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::system_clock::now().time_since_epoch()).count());
-                                const auto kind = name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
+                                const auto kind = direct ? pqvpn::strangenet::Kind::DirectText
+                                    : (name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
                                     : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
-                                                                   : pqvpn::strangenet::Kind::Text);
+                                    : (name == "strangenet.voice" ? pqvpn::strangenet::Kind::Voice
+                                                                   : pqvpn::strangenet::Kind::Text)));
+                                const std::string delivery_room = direct ? "@direct" : strange->room;
                                 const auto monotonic_ms = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::steady_clock::now().time_since_epoch()).count());
                                 const auto flood = strange->outbound_flood.accept(
-                                    {strange->room, "local", 1, timestamp, text, kind, reply_to}, monotonic_ms);
+                                    {delivery_room, "local", 1, timestamp, text, kind, reply_to}, monotonic_ms);
                                 if (!flood.allowed) {
                                     emit_console_event({{"event", "strangenet.rate_limited"},
                                                         {"message", "StrangeNet antiflood limit reached"},
                                                         {"retry_after_ms", flood.retry_after_ms}});
                                     return;
                                 }
-                                auto& sequence = strange->sequences[strange->room];
+                                auto& sequence = strange->sequences[delivery_room];
                                 const auto current = ++sequence;
                                 std::size_t recipients = 0;
-                                if (!strange->group_peers.empty()) {
+                                if (direct) {
+                                    recipients = node->send_strangenet_message(*direct_peer, delivery_room,
+                                        current, timestamp, text, kind, 0) ? 1u : 0u;
+                                } else if (!strange->group_peers.empty()) {
                                     recipients = node->send_strangenet_group(strange->group_peers,
                                         strange->room, current, timestamp, text, kind, reply_to);
                                 } else if (strange->peer) {
@@ -727,10 +816,13 @@ int main(int argc, char** argv) {
                                                         {"message", "authenticated peer session is unavailable"}});
                                 } else {
                                     emit_console_event({{"event", "strangenet.sent"},
-                                                        {"room", strange->room}, {"text", text},
-                                                        {"sequence", current}, {"recipients", recipients},
-                                                        {"kind", name == "strangenet.sticker" ? "sticker"
-                                                                  : (name == "strangenet.react" ? "reaction" : "text")}});
+                                                        {"room", delivery_room}, {"text", text},
+                                                        {"peer", direct_peer_text},
+                                                        {"sequence", current}, {"reply_to", reply_to},
+                                                        {"recipients", recipients},
+                                                        {"kind", direct ? "direct" : (name == "strangenet.sticker" ? "sticker"
+                                                                  : (name == "strangenet.react" ? "reaction"
+                                                                  : (name == "strangenet.voice" ? "voice" : "text")))}});
                                 }
                             } else {
                                 emit_console_event({{"event", "control.error"},
@@ -942,38 +1034,25 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    // Every platform has now committed the native PQVPN adapter and its
+    // fail-closed route plan.  Only at this point may a provider VPN install
+    // its own routes, otherwise it could capture PQVPN's control plane.
+    if (adapter_active && config->inner_tunnel.enabled) {
+        try {
+            const auto backend = pqvpn::tunnel::backend_from_string(config->inner_tunnel.backend);
+            auto spec = pqvpn::tunnel::make_external_process_spec(
+                backend, config->inner_tunnel.config_path);
+            inner_tunnel = std::make_unique<pqvpn::tunnel::ExternalTunnelProcess>(std::move(spec));
+            inner_tunnel->start();
+            std::cout << pqvpn::console::inner_tunnel_label(config->inner_tunnel) << " active\n";
+        } catch (const std::exception& error) {
+            std::cerr << "Failed to start inner tunnel: " << error.what() << "\n";
+            if (*shutdown) (*shutdown)();
+            return 1;
+        }
+    }
+
     asio::signal_set signals(io, SIGINT, SIGTERM);
-    *shutdown = [&] {
-#ifdef _WIN32
-        if (adapter_active) {
-            // Remove the installed routes before taking the adapter down, in
-            // reverse build order: peer exclusions first, then the default.
-            // Removal is idempotent, so this is safe even on partial installs.
-            const auto peer_cleanup = peer_routes.remove_all();
-            if (!peer_cleanup.complete) {
-                std::cerr << "peer route cleanup incomplete: " << peer_cleanup.error << "\n";
-            }
-            const auto removal = route_plan.remove_all(route_backend);
-            if (!removal.complete) {
-                std::cerr << "route cleanup incomplete: " << removal.error << "\n";
-            }
-        }
-#endif
-#ifdef __linux__
-        if (adapter) adapter->close();
-        if (linux_network_active &&
-            !run_linux_network_manager("down", config->tunnel.interface_name,
-                                       config->tunnel.exit_host, config->tunnel.exit_port)) {
-            std::cerr << "warning: killswitch cleanup incomplete; traffic remains blocked\n";
-        }
-        linux_network_active = false;
-#endif
-        node->stop_traffic_shaping();
-        node->transport = nullptr;
-        listener.stop();
-        if (adapter) adapter->close(); // idempotent per OS
-        io.stop();
-    };
     signals.async_wait([shutdown](const asio::error_code& error, int) {
         if (!error) (*shutdown)();
     });

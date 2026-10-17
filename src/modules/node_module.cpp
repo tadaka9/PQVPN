@@ -922,8 +922,12 @@ std::size_t PQVPNNode::send_strangenet_group(
     const std::vector<std::vector<uint8_t>>& peer_ids, const std::string& room,
     const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
     const strangenet::Kind kind, const std::uint64_t reply_to) {
-    // Fail closed before sending the first datagram. A temporarily offline
-    // member must not turn a private group send into a smaller conversation.
+    // There is deliberately no shared group key or server-held recovery key.
+    // Every recipient gets an independently encrypted datagram under the
+    // directional hybrid session that recipient helped establish. Compromise
+    // of one member therefore does not disclose the other members' session
+    // keys. Fail closed before sending the first datagram: a temporarily
+    // offline member must not turn a private group send into a smaller group.
     if (peer_ids.size() < 2 || peer_ids.size() + 1 > 64 || !transport) return 0;
     for (const auto& peer_id : peer_ids) {
         const auto found = sessions_by_peer_id.find(peer_id);
@@ -1132,11 +1136,12 @@ bool PQVPNNode::is_peer_allowed(const std::vector<uint8_t>& peer_id) const {
     return previously_known || tofu_enabled_;
 }
 
-// Strictly monotonic within the given domain: a counter at or below the
-// domain's high-water mark is a replay, and a counter already seen in the
-// bounded window is rejected. Domains are independent (see Session::NonceDomain),
-// so an onion layer accepted into relay_domain never evicts a lower fresh
-// tunnel-data counter from data_domain — or vice versa.
+// Sliding anti-replay window within one nonce domain. The bitmap accepts fresh
+// out-of-order UDP packets inside the configured window, rejects duplicates
+// and stale counters, and performs no allocation on the steady-state hot path.
+// Domains are independent (see Session::NonceDomain), so an onion layer
+// accepted into relay_domain never evicts a lower fresh tunnel-data counter
+// from data_domain — or vice versa.
 bool PQVPNNode::check_and_record_nonce(Session& session, Session::NonceDomain& domain,
                                        const std::vector<uint8_t>& nonce) const {
     if (nonce.size() != 12) return false;
@@ -1148,13 +1153,41 @@ bool PQVPNNode::check_and_record_nonce(Session& session, Session::NonceDomain& d
     for (std::size_t index = 4; index < nonce.size(); ++index) {
         counter = (counter << 8) | nonce[index];
     }
-    if (counter <= domain.high_water || domain.window.contains(counter)) return false;
-    domain.high_water = counter;
-    domain.window.insert(counter);
-    while (domain.window.size() > session.replay_window_size) {
-        domain.window.erase(domain.window.begin());
+    if (counter == 0 || session.replay_window_size < 2 ||
+        session.replay_window_size > 65536) return false;
+
+    const auto window_size = static_cast<uint64_t>(session.replay_window_size);
+    const auto words = (session.replay_window_size + 63u) / 64u;
+    if (domain.window.size() != words) domain.window.assign(words, 0);
+    const auto clear_counter = [&domain, window_size](const uint64_t value) {
+        const auto slot = value % window_size;
+        domain.window[slot / 64u] &= ~(uint64_t{1} << (slot % 64u));
+    };
+    const auto test_counter = [&domain, window_size](const uint64_t value) {
+        const auto slot = value % window_size;
+        return (domain.window[slot / 64u] & (uint64_t{1} << (slot % 64u))) != 0;
+    };
+    const auto set_counter = [&domain, window_size](const uint64_t value) {
+        const auto slot = value % window_size;
+        domain.window[slot / 64u] |= uint64_t{1} << (slot % 64u);
+    };
+
+    if (counter > domain.high_water) {
+        const auto advance = counter - domain.high_water;
+        if (advance >= window_size) {
+            std::fill(domain.window.begin(), domain.window.end(), 0);
+        } else {
+            for (uint64_t offset = 1; offset <= advance; ++offset) {
+                clear_counter(domain.high_water + offset);
+            }
+        }
+        domain.high_water = counter;
+    } else {
+        const auto age = domain.high_water - counter;
+        if (age >= window_size || test_counter(counter)) return false;
     }
-    return domain.window.contains(counter);
+    set_counter(counter);
+    return true;
 }
 
 std::vector<uint8_t> PQVPNNode::make_outer_frame(

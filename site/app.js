@@ -19,6 +19,7 @@ document.querySelector('#share-project')?.addEventListener('click',async event=>
   try{if(navigator.share){await navigator.share(data);event.currentTarget.textContent='Shared'}else{await navigator.clipboard.writeText(data.url);event.currentTarget.textContent='Link copied'}}catch(error){if(error.name!=='AbortError')event.currentTarget.textContent='Share unavailable'}
 });
 document.querySelector('#copy-bitcoin')?.addEventListener('click',async event=>{const address=document.querySelector('#bitcoin-address')?.textContent.trim();try{await navigator.clipboard.writeText(address);event.currentTarget.textContent='BTC address copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
+document.querySelector('#copy-iban')?.addEventListener('click',async event=>{const iban=document.querySelector('#iban-address')?.textContent.trim();try{await navigator.clipboard.writeText(iban);event.currentTarget.textContent='IBAN copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
 loadRepositorySignal();
 const registryUrl=new URL('mainnet/peers.json',location.href).href;document.querySelector('#copy-registry')?.addEventListener('click',async event=>{try{await navigator.clipboard.writeText(registryUrl);event.currentTarget.textContent='Copied'}catch{event.currentTarget.textContent='Copy unavailable'}});
 let registryLoading=false;
@@ -34,7 +35,8 @@ async function loadRegistry(){
     const registry=await response.json();
     const peers=Array.isArray(registry.peers)?registry.peers:[];
     document.querySelector('#registry-status').textContent=peers.length?`${peers.length} declared peer${peers.length===1?'':'s'} · live`:'Registry online · no public peers yet';
-    document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · source ${registry.updated_at} · synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+    const releaseBasis=registry.release_basis?` · ${registry.release_basis}`:'';
+    document.querySelector('#registry-meta').textContent=`Schema ${registry.schema_version} · source ${registry.updated_at}${releaseBasis} · synced ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
     document.querySelector('#registry-network').textContent=registry.network||'pqvpn-mainnet-alpha';
     document.querySelector('#registry-notice').textContent=registry.notice||'Opt-in discovery only.';
     const list=document.querySelector('#peer-list');

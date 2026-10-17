@@ -23,6 +23,20 @@ Verify the address in the repository history and on the project website before
 sending. Send Bitcoin only. Donations do not purchase support, guarantees,
 influence, priority, or security assurances.
 
+## Bank transfer (SEPA)
+
+Optional SEPA support can be sent to:
+
+- **Beneficiary:** Davide Di Pino
+- **IBAN:** `DE29100110012626679655`
+
+Verify the IBAN in the repository history and on the project website before
+sending. Confirm any currency-conversion or transfer fees with your bank.
+Do not include secrets, vulnerability details, passwords, recovery phrases or
+other sensitive information in the payment reference. Bank transfers disclose
+the sender information required by the banking system to the recipient and
+financial institutions; they are not anonymous.
+
 ## Security reports
 
 Never attach a vulnerability report to a donation or public issue. Follow the

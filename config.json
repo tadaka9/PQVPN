@@ -25,6 +25,7 @@
     }
   ],
   "tunnel": {
+    "enabled": true,
     "interface_name": "pqvpn0",
     "exit_host": "45.248.37.87",
     "exit_port": 9090

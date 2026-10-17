@@ -28,6 +28,24 @@ The host should expose only SSH and the configured UDP listener. Use key-only SS
 
 The node also limits unauthenticated hybrid-handshake payload size, work per source address, pending handshakes, and total sessions. Signed handshake timestamps must be within five minutes. These bounds are especially relevant to post-quantum deployments because signature and KEM operations make unauthenticated handshake exhaustion more expensive than ordinary packet rejection.
 
+## Bounded data-plane tuning
+
+The Linux package installs `60-pqvpn-network-performance.conf`, raising only
+the maximum UDP send and receive socket buffers to 4 MiB. PQVPN explicitly
+opts its listener into those buffers; unrelated sockets retain their operating
+system defaults. This absorbs short authenticated bursts without granting the
+daemon unbounded memory. Confirm the effective listener values with
+`ss -u -m -p` after a restart and watch the socket's `d` drop counter under a
+controlled load test. A growing counter means the host is still discarding
+datagrams before PQVPN can authenticate them.
+
+Do not claim WireGuard parity from buffer sizes alone. WireGuard benefits from
+an in-kernel data path; PQVPN remains a portable user-space implementation.
+Comparable claims require the same hosts, MTU, cipher workload, direction,
+concurrency and loss conditions. Linux UDP GSO/GRO can reduce per-packet cost,
+but must remain capability-gated and verified against the existing wire-format
+tests before deployment.
+
 An exit node should set `egress.enabled` to `true`. The default `egress.allow_private_destinations: false` rejects loopback, private, link-local, carrier-grade NAT, benchmark, multicast and reserved destinations before an outbound socket is opened. Keep the same restrictions at the host firewall for defense in depth, and reject outbound SMTP ports from the `pqvpn` service account. A dedicated bootstrap node should leave egress disabled and publish only its discovery role.
 
 The threat model follows deterministic controls rather than an unaudited ML classifier. Relevant research includes [PQC handshake exhaustion and IDS degradation](https://arxiv.org/abs/2607.12504), the [A2PM adversarial NIDS evaluation framework](https://arxiv.org/abs/2502.15561), and the [systematic review of adversarial attacks against intrusion detection](https://arxiv.org/abs/2112.03315). The practical controls here are bounded pre-authentication work, strict parsing, resource limits, least privilege, egress filtering, audit trails and reproducible updates.

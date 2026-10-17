@@ -1,0 +1,17 @@
+changelog:
+  exclude:
+    labels: [skip-changelog]
+    authors: ["dependabot[bot]"]
+  categories:
+    - title: "🛡️ Security and fail-closed behavior"
+      labels: [security, hardening]
+    - title: "🔥 Native console and experience"
+      labels: [gui, ux]
+    - title: "🌐 Network, transport and StrangeNet"
+      labels: [networking, strangenet, transport]
+    - title: "📦 Packaging and release engineering"
+      labels: [packaging, ci]
+    - title: "🧭 Documentation and operations"
+      labels: [documentation]
+    - title: "⚙️ Everything else"
+      labels: ["*"]
