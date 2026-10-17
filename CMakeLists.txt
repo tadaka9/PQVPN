@@ -203,6 +203,7 @@ if(PQVPN_BUILD_MONITOR)
       qt_generate_deploy_app_script(
         TARGET pqvpn_monitor
         OUTPUT_SCRIPT pqvpn_monitor_deploy_script
+        EXCLUDE_PLUGIN_TYPES multimedia
         NO_UNSUPPORTED_PLATFORM_ERROR ${PQVPN_QT_DEPLOY_OPTIONS})
       # The default Linux deployment selects xcb only. Preserve the headless
       # platform plugin so installed bundles can run the same smoke test as CI.
