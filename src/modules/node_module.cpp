@@ -922,8 +922,12 @@ std::size_t PQVPNNode::send_strangenet_group(
     const std::vector<std::vector<uint8_t>>& peer_ids, const std::string& room,
     const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
     const strangenet::Kind kind, const std::uint64_t reply_to) {
-    // Fail closed before sending the first datagram. A temporarily offline
-    // member must not turn a private group send into a smaller conversation.
+    // There is deliberately no shared group key or server-held recovery key.
+    // Every recipient gets an independently encrypted datagram under the
+    // directional hybrid session that recipient helped establish. Compromise
+    // of one member therefore does not disclose the other members' session
+    // keys. Fail closed before sending the first datagram: a temporarily
+    // offline member must not turn a private group send into a smaller group.
     if (peer_ids.size() < 2 || peer_ids.size() + 1 > 64 || !transport) return 0;
     for (const auto& peer_id : peer_ids) {
         const auto found = sessions_by_peer_id.find(peer_id);
