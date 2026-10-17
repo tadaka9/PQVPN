@@ -18,6 +18,15 @@ It is ambitious, inspectable—and not yet independently audited.
 [![Platforms](https://img.shields.io/badge/CI-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge)](#evidence-not-promises)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#the-honest-status)
 
+![PQVPN monthly support target: $100 for server uptime and maintainer time](assets/brand/monthly-support-goal.svg)
+
+| Maintainer contribution | Verified spend this month | Expected monthly budget |
+|---|---:|---:|
+| **Davide Di Pino / [tadaka9](https://github.com/tadaka9)** · project creation, engineering, public bootstrap and exit-node operations | **Not published yet** · provider billing is not connected to this repository | **$100 USD** · servers, maintenance and response time |
+
+<sub>The target is public; spending is reported only when supported by provider
+records. “Not published yet” means unknown here—not zero.</sub>
+
 [Try the experiment](#choose-your-first-move) ·
 [See how it works](#the-60-second-model) ·
 [Inspect the evidence](#evidence-not-promises) ·
@@ -404,8 +413,6 @@ PQVPN/
 
 The most valuable contribution is evidence: a test result, a careful review,
 a reproducible bug or a focused patch.
-
-![PQVPN monthly support target: $100 for server uptime and maintainer time](assets/brand/monthly-support-goal.svg)
 
 ### $100 each month: infrastructure and time
 
