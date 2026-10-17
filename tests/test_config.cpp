@@ -164,6 +164,20 @@ TEST_CASE("Config rejects invalid adaptive policy", "[config][transport]") {
     std::remove(config_path.c_str());
 }
 
+TEST_CASE("Config bounds replay memory per session", "[config][security]") {
+    const std::string config_path = temp_config_path("pqvpn_test_config_replay_limit.json");
+    {
+        std::ofstream ofs(config_path);
+        ofs << R"({
+            "network": {"port": 9090},
+            "tuning": {"replay_window_size": 65537}
+        })";
+    }
+
+    CHECK_FALSE(pqvpn::config::load_config(config_path).has_value());
+    std::remove(config_path.c_str());
+}
+
 TEST_CASE("Normalized configuration preserves an external backend without interface name", "[config][transport]") {
     for(const std::string backend:{"wireguard","openvpn"}) {
         pqvpn::config::Config original;

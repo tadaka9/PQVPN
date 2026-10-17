@@ -58,7 +58,24 @@ public:
             if (address_error) return std::unexpected(NetworkError::AddressInvalid);
             asio::ip::udp::endpoint endpoint(address, port_);
             socket_.open(endpoint.protocol());
+            socket_.set_option(asio::socket_base::reuse_address(true));
             socket_.bind(endpoint);
+
+            // Absorb short high-throughput bursts instead of dropping frames
+            // while the event loop performs AEAD work. Kernels may clamp these
+            // requests to their sysctl limits; failure is non-fatal because the
+            // default buffers remain valid and the negotiated tunnel still
+            // provides authentication/replay protection.
+            asio::error_code buffer_error;
+            socket_.set_option(asio::socket_base::receive_buffer_size(kSocketBufferBytes),
+                               buffer_error);
+            if (buffer_error)
+                spdlog::warn("Could not enlarge UDP receive buffer: {}", buffer_error.message());
+            buffer_error.clear();
+            socket_.set_option(asio::socket_base::send_buffer_size(kSocketBufferBytes),
+                               buffer_error);
+            if (buffer_error)
+                spdlog::warn("Could not enlarge UDP send buffer: {}", buffer_error.message());
             receive_next();
             spdlog::info("UDP Listener started on port {}", port_);
             return {};
@@ -105,6 +122,7 @@ private:
     // smaller buffer would silently truncate valid frames, and larger is
     // impossible for IPv4 UDP.
     static constexpr std::size_t kMaxUdpDatagramBytes = 65536;
+    static constexpr int kSocketBufferBytes = 4 * 1024 * 1024;
 
     std::shared_ptr<asio::io_context> owned_io_;
     asio::io_context& io_context_;

@@ -142,12 +142,33 @@ int main() {
             }
         }
 
-        // Check that window size is maintained
-        assert(sess.data_domain.window.size() <= sess.replay_window_size);
+        // The bitmap is fixed-size in machine words rather than one heap node
+        // per packet counter.
+        assert(sess.data_domain.window.size() == (sess.replay_window_size + 63) / 64);
         std::cout << "✓ Test Case 9 passed: Window pruning works correctly" << std::endl;
     }
 
-    // Test Case 10: domains are independent. An onion layer accepted into
+    // Test Case 10: UDP reordering is accepted once inside the window, then
+    // rejected as a duplicate. A packet older than the window is stale.
+    {
+        sess.data_domain.window.clear();
+        sess.data_domain.high_water = 0;
+        sess.replay_window_size = 128;
+        auto make_nonce = [](uint64_t counter) {
+            std::vector<uint8_t> nonce(12, 0x00);
+            for (int shift = 56; shift >= 0; shift -= 8)
+                nonce[4 + (56 - shift) / 8] = static_cast<uint8_t>(counter >> shift);
+            return nonce;
+        };
+        assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(100)) == true);
+        assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(98)) == true);
+        assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(98)) == false);
+        assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(228)) == true);
+        assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(99)) == false);
+        std::cout << "✓ Test Case 10 passed: reordered UDP accepted; duplicate/stale rejected" << std::endl;
+    }
+
+    // Test Case 11: domains are independent. An onion layer accepted into
     // relay_domain (counter 5) must not evict a lower fresh tunnel-data counter
     // (4) from data_domain — the exact ordering an onion delivery produces when
     // both frames ride on one source-destination session.
@@ -175,17 +196,16 @@ int main() {
         // not block a lower relay-domain one...
         assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(9)) == true);
         assert(node.check_and_record_nonce(sess, sess.relay_domain, make_nonce(7)) == true);
-        // ...and strict monotonicity still holds WITHIN each domain.
+        // ...and already-seen counters remain rejected within each domain.
         assert(node.check_and_record_nonce(sess, sess.data_domain, make_nonce(4)) == false);
         assert(node.check_and_record_nonce(sess, sess.relay_domain, make_nonce(5)) == false);
-        std::cout << "✓ Test Case 10 passed: nonce domains are independent" << std::endl;
+        std::cout << "✓ Test Case 11 passed: nonce domains are independent" << std::endl;
     }
 
-    // Test Case 11: counter zero is rejected even on a fresh domain. The C++
+    // Test Case 12: counter zero is rejected even on a fresh domain. The C++
     // wire contract starts every session's send counter at 1 (pre-increment),
-    // and the peeler rejects any counter at or below the high-water mark,
-    // whose initial value is 0 — so there is no "first nonce" special case to
-    // tolerate. This deliberately diverges from the legacy Python prototype, where the builder
+    // and the peeler reserves zero as invalid, so there is no "first nonce"
+    // special case to tolerate. This deliberately diverges from the legacy Python prototype, where the builder
     // emits counter 0 first and the peeler accepts it through its out-of-order
     // tolerance branch (see historical migration notes, documented deviations).
     {
@@ -202,7 +222,20 @@ int main() {
         first_nonce[11] = 0x01;
         assert(node.check_and_record_nonce(sess, sess.data_domain, first_nonce) == true);
         assert(sess.data_domain.high_water == 1);
-        std::cout << "✓ Test Case 11 passed: counter zero rejected; fresh domains start at one" << std::endl;
+        std::cout << "✓ Test Case 12 passed: counter zero rejected; fresh domains start at one" << std::endl;
+    }
+
+    // Test Case 13: even a directly constructed session cannot request an
+    // attacker-amplifying bitmap beyond the configuration ceiling.
+    {
+        sess.data_domain.window.clear();
+        sess.data_domain.high_water = 0;
+        sess.replay_window_size = 65537;
+        std::vector<uint8_t> nonce(12, 0x00);
+        nonce[11] = 1;
+        assert(node.check_and_record_nonce(sess, sess.data_domain, nonce) == false);
+        assert(sess.data_domain.window.empty());
+        std::cout << "✓ Test Case 13 passed: replay memory ceiling enforced" << std::endl;
     }
 
     std::cout << "All check_and_record_nonce tests passed!" << std::endl;

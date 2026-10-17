@@ -140,7 +140,11 @@ public:
         // captured frame cannot be replayed across domains.
         struct NonceDomain {
             uint64_t high_water = 0;   // highest counter accepted in this domain
-            std::set<uint64_t> window; // bounded set of recently accepted counters
+            // Sliding replay bitmap indexed by counter modulo window size.
+            // The common in-order path touches one word and allocates nothing;
+            // unlike std::set it also accepts legitimate UDP reordering while
+            // rejecting duplicates and counters older than the window.
+            std::vector<uint64_t> window;
         };
         NonceDomain data_domain;  // direct tunnel frames: TUNNEL_DATA + PING/PONG
         NonceDomain relay_domain; // onion RELAY layers peeled by this node

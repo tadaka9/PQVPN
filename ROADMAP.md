@@ -50,12 +50,23 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Preserve a strict per-flow memory ceiling while pausing and resuming
   upstream reads, so sustained download and upload performance does not trade
   away exit-node stability.
+- [x] Replace the allocation-heavy nonce set with a bounded O(1) sliding
+  replay bitmap: authenticate first, accept legitimate UDP reordering, reject
+  duplicates and stale counters, and cap operator-configured replay memory.
+- [x] Request larger bounded UDP socket buffers so short encrypted bursts are
+  absorbed instead of discarded while user-space AEAD work is scheduled.
 - [ ] Publish reproducible throughput, latency and loss benchmarks across the
   Helsinki–Stockholm mainnet path; report medians and percentiles rather than
   marketing maxima.
 - [ ] Add paced packet batching and multi-queue processing only after profiling
   demonstrates a bottleneck, with fairness tests preventing one bulk transfer
   from starving interactive traffic.
+- [ ] Replace per-packet linear session-hint lookup with a collision-aware,
+  endpoint-bound index; benchmark lookup-flood resistance at the 4096-session
+  limit.
+- [ ] Evaluate Linux UDP GSO/GRO and reusable AEAD contexts behind capability
+  checks; retain the portable path and prove identical wire output with
+  known-answer and loss/reordering tests.
 
 ## Security assurance
 

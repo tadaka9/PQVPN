@@ -356,8 +356,9 @@ namespace pqvpn::config {
         if (!tuning_positive(cfg.tuning.bootstrap_retry_seconds, "bootstrap_retry_seconds")) {
             return ConfigError{"tuning.bootstrap_retry_seconds must be positive"};
         }
-        if (cfg.tuning.replay_window_size.has_value() && *cfg.tuning.replay_window_size < 2) {
-            return ConfigError{"tuning.replay_window_size must be at least 2"};
+        if (cfg.tuning.replay_window_size.has_value() &&
+            (*cfg.tuning.replay_window_size < 2 || *cfg.tuning.replay_window_size > 65536)) {
+            return ConfigError{"tuning.replay_window_size must be between 2 and 65536"};
         }
         // A liveness window that reaches the prune horizon would make every
         // session both "silent" and unprunable — reject the combination.
