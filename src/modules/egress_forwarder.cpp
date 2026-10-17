@@ -850,8 +850,7 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
     const auto max_seg = std::min<std::size_t>(f->mss_c, 1460);
     while (f->sbuf_off < f->sbuf.size() && !f->closed) {
         // Backpressure: do not run further than the client's acknowledged window.
-        if (f->have_c_ack && seq_lt(f->c_ack, f->send_next) &&
-            static_cast<std::int32_t>(f->send_next - f->c_ack) >= kMaxInFlightBytes) {
+        if (f->unacked_bytes >= static_cast<std::size_t>(kMaxInFlightBytes)) {
             break; // resume on the next ACK from the client
         }
         const auto chunk = std::min(max_seg, f->sbuf.size() - f->sbuf_off);
@@ -870,6 +869,7 @@ void EgressForwarder::deliver_server_bytes(std::shared_ptr<TcpFlow> f) {
             return;
         }
         f->unacked.emplace(segment_seq, std::move(segment));
+        f->unacked_bytes += chunk;
         f->send_next += static_cast<std::uint32_t>(chunk);
         f->sbuf_off += chunk;
     }
@@ -887,6 +887,7 @@ void EgressForwarder::process_client_ack(const std::shared_ptr<TcpFlow>& f,
     for (auto it = f->unacked.begin(); it != f->unacked.end();) {
         const auto end = it->first + static_cast<std::uint32_t>(it->second.size());
         if (!seq_lt(ack, end)) {
+            f->unacked_bytes -= it->second.size();
             it = f->unacked.erase(it);
             advanced = true;
         } else {
