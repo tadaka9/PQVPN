@@ -316,7 +316,7 @@ if(UNIX AND NOT APPLE)
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
   install(FILES assets/brand/logo.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
-    RENAME pqvpn.svg)
+    RENAME pqvpn-monitor.svg)
   install(PROGRAMS packaging/linux/pqvpn-linux-network
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-shield-helper

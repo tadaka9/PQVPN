@@ -37,6 +37,7 @@
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "console/traffic_shaping_policy.hpp"
 #include "wallet_identity.hpp"
 #include "social_ledger.hpp"
 #include "dns_shield_policy.hpp"
@@ -120,6 +121,7 @@ struct CliArgs {
     bool control_stdin = false;
     bool no_tunnel = false;
     pqvpn::console::InnerTunnelOverride inner_tunnel;
+    pqvpn::console::TrafficShapingOverride traffic_shaping;
     bool help = false;
 #ifdef _WIN32
     std::string tunnel_device;
@@ -146,6 +148,10 @@ void print_usage(const char* program) {
         << "      --inner-tunnel-backend NAME  Layer wireguard or openvpn3 inside PQVPN\n"
         << "      --inner-tunnel-config PATH   Absolute client configuration path\n"
         << "      --no-inner-tunnel            Disable a configured inner VPN for this run\n"
+        << "      --shaping on|off             Override traffic shaping for this run\n"
+        << "      --shaping-mode NAME          ai, blockchain or ai_blockchain\n"
+        << "      --shaping-padding BYTES      Maximum encrypted padding, 0..4096\n"
+        << "      --shaping-delay MS           Maximum shaping delay, 0..100\n"
 #ifdef _WIN32
         << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
 #endif
@@ -192,6 +198,13 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
                 std::cerr << value << " requires a valid value\n";
                 return std::nullopt;
             }
+        } else if (value == "--shaping" || value == "--shaping-mode" ||
+                   value == "--shaping-padding" || value == "--shaping-delay") {
+            if (++index >= argc || !pqvpn::console::parse_shaping_argument(
+                    value, argv[index], args.traffic_shaping)) {
+                std::cerr << value << " requires a valid bounded value\n";
+                return std::nullopt;
+            }
 #ifdef _WIN32
         } else if (value == "--tunnel-device") {
             if (++index >= argc) {
@@ -233,6 +246,7 @@ std::optional<pqvpn::config::Config> load_runtime_config(const CliArgs& args,
                                                          std::string& error) {
     auto loaded = pqvpn::config::load_config(args.config_path);
     if (!loaded) { error = "configuration is invalid"; return std::nullopt; }
+    pqvpn::console::apply_traffic_shaping_override(*loaded, args.traffic_shaping);
     if (const auto override_error =
             pqvpn::console::apply_inner_tunnel_override(*loaded, args.inner_tunnel)) {
         error = *override_error;

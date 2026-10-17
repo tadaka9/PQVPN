@@ -139,7 +139,7 @@ QPushButton[milestone="active"] { background: rgba(114,76,255,.28); color: white
 QPushButton[milestone="done"] { background: rgba(42,190,135,.16); color: #9ff3d0; border-color: rgba(77,224,166,.48); }
 QCheckBox { color: #ced5ea; spacing: 9px; }
 QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #586488; border-radius: 5px; background: #0b1022; }
-QCheckBox::indicator:checked { background: #65e6ff; border-color: #65e6ff; }
+QCheckBox::indicator:checked { background: #65e6ff; border-color: #65e6ff; image: url(:/brand/check.svg); }
 QScrollBar:vertical { background: transparent; width: 9px; }
 QScrollBar::handle:vertical { background: #465174; border-radius: 4px; min-height: 28px; }
 QScrollBar::handle:vertical:hover { background: #63719c; }
@@ -177,7 +177,7 @@ QPushButton[milestone="active"] { background: rgba(122,36,28,.45); color: #fff2d
 QPushButton[milestone="done"] { background: rgba(212,170,85,.14); color: #f0d48c; border-color: #9f7b38; }
 QCheckBox { color: #d8cdb6; }
 QCheckBox::indicator { background: #0e0c09; border-color: #6c5735; }
-QCheckBox::indicator:checked { background: #d4aa55; border-color: #f0ca75; }
+QCheckBox::indicator:checked { background: #d4aa55; border-color: #f0ca75; image: url(:/brand/check.svg); }
 QScrollBar::handle:vertical { background: #6c5735; }
 QToolTip { background: #d4aa55; color: #130f08; }
 )CSS";
@@ -229,7 +229,7 @@ QPushButton[milestone="active"] { background: rgba(104,66,232,.12); color: #4f2f
 QPushButton[milestone="done"] { background: rgba(25,145,102,.10); color: #146b50; border-color: rgba(25,145,102,.35); }
 QCheckBox { color: #35405c; spacing: 9px; }
 QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #8792ae; border-radius: 5px; background: white; }
-QCheckBox::indicator:checked { background: #0f8fa8; border-color: #0f8fa8; }
+QCheckBox::indicator:checked { background: #0f8fa8; border-color: #0f8fa8; image: url(:/brand/check.svg); }
 QScrollBar:vertical { background: transparent; width: 9px; }
 QScrollBar::handle:vertical { background: #aab3c8; border-radius: 4px; min-height: 28px; }
 QScrollBar::handle:vertical:hover { background: #818ca7; }
@@ -889,7 +889,7 @@ private:
     }
     QWidget* buildStrangeNet() {
         QVBoxLayout* body; auto* page=pageShell("StrangeNet","A living room for ordinary words and uncommon ones.",&body);
-        auto* intro=new QVBoxLayout; intro->setContentsMargins(24,21,24,21); intro->addWidget(text("STRANGENET · SESSION-ONLY P2P CHAT","eyebrow")); intro->addWidget(text("Speak plainly. Write beautifully. Keep the room yours.","heroTitle")); auto* note=text("Every group message is encrypted independently for every authenticated Peer ID. All members contribute through their hybrid sessions; no server or single participant owns a central group secret. No public history, no required account, no promise of perfect anonymity. PQVPN remains experimental and has not received an independent security audit."); note->setProperty("muted",true); intro->addWidget(note); body->addWidget(card(intro,true));
+        auto* intro=new QVBoxLayout; intro->setContentsMargins(24,21,24,21); intro->addWidget(text("STRANGENET · PRIVATE, SESSION-ONLY CHAT","eyebrow")); intro->addWidget(text("Talk freely. Leave no public history.","heroTitle")); auto* note=text("Messages go only to authenticated Peer IDs and disappear with the session. No account, no participant IP on screen, no central room owner. PQVPN is experimental and has not received an independent security audit."); note->setProperty("muted",true); intro->addWidget(note); body->addWidget(card(intro,true));
 
         auto* identity=new QVBoxLayout;identity->setContentsMargins(20,18,20,18);identity->addWidget(text("YOUR SESSION PROFILE · SHARED ONLY WHEN YOU PRESS SEND","eyebrow"));auto* identityFields=new QHBoxLayout;strangeNickname_=new QLineEdit;strangeNickname_->setMaxLength(32);strangeNickname_->setPlaceholderText("Display name or pseudonym");strangeNickname_->setAccessibleName("StrangeNet session display name");strangeIntent_=new QComboBox;strangeIntent_->addItem("Here for conversation","conversation");strangeIntent_->addItem("Here for friendship","friendship");strangeIntent_->addItem("Open to romance · consent first","romance");strangeIntent_->addItem("Poetry and ideas","poetry");strangeIntent_->setAccessibleName("StrangeNet social intent");identityFields->addWidget(strangeNickname_,1);identityFields->addWidget(strangeIntent_,1);identity->addLayout(identityFields);auto* bioRow=new QHBoxLayout;strangeBio_=new QLineEdit;strangeBio_->setMaxLength(160);strangeBio_->setPlaceholderText("A short session-only introduction · optional");strangeBio_->setAccessibleName("StrangeNet session introduction");strangeShareProfile_=new QPushButton("Share in this room");strangeShareProfile_->setEnabled(false);bioRow->addWidget(strangeBio_,1);bioRow->addWidget(strangeShareProfile_);identity->addLayout(bioRow);auto* identityNote=text("No account, photo, phone number, IP-derived location or public directory. Profiles live only in connected peers' memory for this session; identity remains the authenticated Peer ID.");identityNote->setProperty("muted",true);identity->addWidget(identityNote);body->addWidget(card(identity));
 
@@ -972,7 +972,7 @@ private:
         QVBoxLayout* body; auto* page=pageShell("Activity","This session only. Output comes from the actual node process.",&body); activity_=new QPlainTextEdit; activity_->setReadOnly(true); activity_->document()->setMaximumBlockCount(2000); activity_->setPlaceholderText("Validation, node output and process events will appear here."); body->addWidget(activity_,1); auto* row=new QHBoxLayout; auto* copy=new QPushButton("Copy activity"); copy->setProperty("quiet",true); auto* clear=new QPushButton("Clear"); clear->setProperty("quiet",true); row->addStretch(); row->addWidget(copy); row->addWidget(clear); body->addLayout(row); connect(copy,&QPushButton::clicked,this,[this]{QApplication::clipboard()->setText(activity_->toPlainText());}); connect(clear,&QPushButton::clicked,activity_,&QPlainTextEdit::clear); return page;
     }
     QWidget* buildPrivacy() {
-        QVBoxLayout* body; auto* page=pageShell("Privacy & control","Clear promises, observable limits and choices that stay yours.",&body); const QList<QPair<QString,QString>> principles={{"Local by default","No analytics or telemetry client."},{"Zero-trust peers","Discovery grants no access. A peer appears only after hybrid authentication and configured admission policy pass."},{"Honest status","Every status and event comes from the node process."},{"Reversible actions","You explicitly connect, disconnect, hide or exit."},{"Motion is optional","Reduce motion stops ambient, pulse and page animations."},{"No fear or urgency","No countdowns, streaks, scores or pressure tactics."},{"Accurate claims","Shaping and transports reduce patterns; the UI never promises invisibility."}};
+        QVBoxLayout* body; auto* page=pageShell("Privacy & control","Clear promises, observable limits and choices that stay yours.",&body); const QList<QPair<QString,QString>> principles={{"Local by default","No analytics, telemetry client or persistent activity log. Session events stay in memory and disappear when the app exits."},{"Zero-trust peers","Discovery grants no access. A peer appears only after hybrid authentication and configured admission policy pass."},{"Honest status","Every status and event comes from the node process."},{"Reversible actions","You explicitly connect, disconnect, hide or exit."},{"Motion is optional","Reduce motion stops ambient, pulse and page animations."},{"No fear or urgency","No countdowns, streaks, scores or pressure tactics."},{"Accurate claims","Shaping and transports reduce patterns; the UI never promises invisibility."}};
         for (const auto& [title,copy]:principles) { auto* row=new QHBoxLayout; row->setContentsMargins(20,17,20,17); auto* icon=text("✓","metric"); icon->setFixedWidth(34); auto* words=new QVBoxLayout; words->addWidget(text(title,"sectionTitle")); auto* detail=text(copy); detail->setProperty("muted",true); words->addWidget(detail); row->addWidget(icon); row->addLayout(words,1); body->addWidget(card(row)); } body->addStretch(); return page;
     }
     QWidget* buildAbout() {
@@ -1313,6 +1313,10 @@ int main(int argc,char** argv){bool softwareRendering=false;for(int index=1;inde
         if(QFontDatabase::families().contains(name,Qt::CaseInsensitive)&&QFontMetrics(candidate).inFont(QChar('A'))){uiFont=candidate;break;}
     }
 #endif
-    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!window.verifyClosePolicy()||!window.verifyPrimaryActions()||!window.verifyControlSurfaceSanity()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
+    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setApplicationDisplayName("PQVPN");app.setOrganizationName("PQVPN");
+#if defined(Q_OS_LINUX)
+    QGuiApplication::setDesktopFileName("pqvpn-monitor");
+#endif
+    app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!window.verifyClosePolicy()||!window.verifyPrimaryActions()||!window.verifyControlSurfaceSanity()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
 
 #include "pqvpn_monitor.moc"

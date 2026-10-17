@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../src/modules/config_module.hpp"
 #include "../src/console/inner_tunnel_policy.hpp"
+#include "../src/console/traffic_shaping_policy.hpp"
 #include "../src/modules/external_tunnel_process.hpp"
 #include <algorithm>
 #include <fstream>
@@ -212,6 +213,31 @@ TEST_CASE("Config rejects an unknown traffic shaping policy", "[config][traffic]
     }
     CHECK_FALSE(pqvpn::config::load_config(config_path).has_value());
     std::remove(config_path.c_str());
+}
+
+TEST_CASE("CLI TUI and GUI shaping values share one bounded override policy", "[config][traffic][ui]") {
+    pqvpn::console::TrafficShapingOverride override;
+    REQUIRE(pqvpn::console::parse_shaping_argument("--shaping", "on", override));
+    REQUIRE(pqvpn::console::parse_shaping_argument("--shaping-mode", "ai_blockchain", override));
+    REQUIRE(pqvpn::console::parse_shaping_argument("--shaping-padding", "768", override));
+    REQUIRE(pqvpn::console::parse_shaping_argument("--shaping-delay", "15", override));
+    CHECK_FALSE(pqvpn::console::parse_shaping_argument("--shaping-padding", "4097", override));
+    CHECK_FALSE(pqvpn::console::parse_shaping_argument("--shaping-delay", "-1", override));
+
+    pqvpn::config::Config config;
+    pqvpn::console::apply_traffic_shaping_override(config, override);
+    CHECK(config.traffic_shaping.enabled);
+    CHECK(config.traffic_shaping.mode == pqvpn::traffic::ShapingMode::ConsensusGuidedAI);
+    CHECK(config.traffic_shaping.max_padding_bytes == 768);
+    CHECK(config.traffic_shaping.max_delay_ms == 15);
+    const auto first = nlohmann::json(config);
+    pqvpn::console::apply_traffic_shaping_override(config, override);
+    CHECK(nlohmann::json(config) == first);
+
+    std::vector<std::string> arguments;
+    pqvpn::console::append_traffic_shaping_arguments(arguments, config.traffic_shaping);
+    CHECK(arguments == std::vector<std::string>{"--shaping", "on", "--shaping-mode",
+        "ai_blockchain", "--shaping-padding", "768", "--shaping-delay", "15"});
 }
 
 TEST_CASE("Config bounds replay memory per session", "[config][security]") {

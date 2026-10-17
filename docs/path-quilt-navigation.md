@@ -44,6 +44,11 @@ stale epochs and out-of-range weights fail closed. Consensus is never queried
 per packet: AI proposes, policy constrains, and the encrypted data plane keeps
 forwarding if the control plane is unavailable.
 
+The configuration is the canonical model for GUI, TUI and CLI. The GUI saves
+it atomically; CLI flags and TUI controls apply the same bounded runtime
+override without silently mutating the file. Identical overrides produce an
+identical normalized configuration.
+
 ## Privacy and abuse boundaries
 
 - capacity never buys validator voting power;

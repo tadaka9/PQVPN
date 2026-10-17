@@ -2,6 +2,7 @@
   <qresource prefix="/brand">
     <file alias="logo.svg">../../assets/brand/logo.svg</file>
     <file alias="tray.svg">../../assets/brand/tray.svg</file>
+    <file alias="check.svg">../../assets/brand/check.svg</file>
   </qresource>
   <qresource prefix="/transports">
     <file alias="engines.json">../../packaging/transports/engines.json</file>

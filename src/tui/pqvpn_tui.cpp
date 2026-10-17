@@ -24,6 +24,7 @@
 #include "console/default_profile.hpp"
 #include "console/terminal_text.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "console/traffic_shaping_policy.hpp"
 #include "wallet_identity.hpp"
 #include "dns_shield_policy.hpp"
 
@@ -52,6 +53,7 @@ struct Options {
     bool smoke_test = false;
     bool no_tunnel = false;
     pqvpn::console::InnerTunnelOverride inner_tunnel;
+    pqvpn::console::TrafficShapingOverride traffic_shaping;
     std::optional<std::string> shield_profile;
     bool help = false;
 };
@@ -412,14 +414,14 @@ void render(const ScreenSize& size, const pqvpn::config::Config& config,
     row("CONFIG  "+pqvpn::console::terminal_safe(path));
     row("MODE    "+std::string(relay_only?"Relay / exit only - local traffic unchanged":"Tunnel - readiness required before Protected"));
     row("LISTEN  "+config.network.bind_address+":"+std::to_string(config.network.port));
-    if(!compact){row("NODE    "+pqvpn::console::terminal_safe(executable));row("PLATFORM "+std::string(os_name())+" / "+tunnel_name());row("POLICY  "+std::string(config.security.strict_sig_verify?"Strict hybrid authentication":"Relaxed verification")+" / "+(config.security.tofu?"TOFU":"Pinned peers"));row("TRANSPORT "+std::string(config.external_transport?config.external_transport->engine:"Native UDP")+" / "+pqvpn::transport::to_string(config.adaptive_transport.mode));row("INNER   "+std::string(pqvpn::console::inner_tunnel_label(config.inner_tunnel)));}
+    if(!compact){row("NODE    "+pqvpn::console::terminal_safe(executable));row("PLATFORM "+std::string(os_name())+" / "+tunnel_name());row("POLICY  "+std::string(config.security.strict_sig_verify?"Strict hybrid authentication":"Relaxed verification")+" / "+(config.security.tofu?"TOFU":"Pinned peers"));row("TRANSPORT "+std::string(config.external_transport?config.external_transport->engine:"Native UDP")+" / "+pqvpn::transport::to_string(config.adaptive_transport.mode));row("SHAPING "+pqvpn::console::shaping_label(config.traffic_shaping));row("INNER   "+std::string(pqvpn::console::inner_tunnel_label(config.inner_tunnel)));}
     if(!notice.empty())row("\033[33m"+pqvpn::console::terminal_safe(notice)+"\033[0m");
     rule();
     const int available=std::max(0,size.rows-emitted-3);
     const auto lines=node.tail(static_cast<std::size_t>(available));
     for(const auto& line:lines)row(line);
     for(int i=static_cast<int>(lines.size());i<available;++i)row("");
-    rule();row("[v] verify  [d] connect  [x] disconnect  [m] mode  [c] clear  [q] quit");
+    rule();row("[v] verify  [d] connect  [x] disconnect  [m] tunnel  [s] shaping  [p] policy  [c] clear  [q] quit");
     std::cout<<"\033[J";
     std::cout << std::flush;
 }
@@ -432,11 +434,12 @@ bool parse(int argc, char** argv, Options& options) {
         else if(arg=="--no-inner-tunnel")options.inner_tunnel.disable=true;
         else if(arg=="--shield-profile"&&index+1<argc){const std::string value=argv[++index];if(!pqvpn::shield::valid_profile(value))return false;options.shield_profile=value;}
         else if((arg=="--inner-tunnel-backend"||arg=="--inner-tunnel-config")&&index+1<argc){if(!pqvpn::console::parse_inner_tunnel_argument(arg,argv[++index],options.inner_tunnel))return false;}
+        else if((arg=="--shaping"||arg=="--shaping-mode"||arg=="--shaping-padding"||arg=="--shaping-delay")&&index+1<argc){if(!pqvpn::console::parse_shaping_argument(arg,argv[++index],options.traffic_shaping))return false;}
         else if (arg == "--smoke-test") options.smoke_test = true;
         else if ((arg == "--config" || arg == "-c") && index + 1 < argc) options.config = argv[++index];
         else if (arg == "--node" && index + 1 < argc) options.node = argv[++index];
         else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--shield-profile off|dnscrypt|privacy|security|family|maximum] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--smoke-test]\n";
+            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--shield-profile off|dnscrypt|privacy|security|family|maximum] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--shaping on|off] [--shaping-mode ai|blockchain|ai_blockchain] [--shaping-padding 0..4096] [--shaping-delay 0..100] [--smoke-test]\n";
             options.help=true;return true;
         } else {
             std::cerr << "Unknown or incomplete argument: " << arg << '\n';
@@ -456,6 +459,7 @@ std::optional<pqvpn::config::Config> load_runtime_config(const Options& options,
         error=*override_error;return std::nullopt;
     }
     if(options.shield_profile)loaded->dns_shield.profile=*options.shield_profile;
+    pqvpn::console::apply_traffic_shaping_override(*loaded, options.traffic_shaping);
     if(options.no_tunnel&&loaded->inner_tunnel.enabled){error="inner tunnel requires PQVPN tunnel mode";return std::nullopt;}
     return loaded;
 }
@@ -525,6 +529,8 @@ int main(int argc, char** argv) {
                 if (c == 'q' || c == 'Q' || c == 3) { quit = true; break; }
                 else if (c == 'c' || c == 'C') { node.clear_log(); notice.clear(); }
                 else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else if(!options.no_tunnel&&loaded->inner_tunnel.enabled)notice="Inner VPN requires tunnel mode; restart with --no-inner-tunnel to use relay mode";else{options.no_tunnel=!options.no_tunnel;if(options.no_tunnel)notice="Relay mode selected";else{notice=tunnel_blocker();if(notice.empty())notice="Tunnel mode selected";}}}
+                else if(c=='s'||c=='S'){if(node.running())notice="Disconnect before changing shaping";else{loaded->traffic_shaping.enabled=!loaded->traffic_shaping.enabled;options.traffic_shaping.enabled=loaded->traffic_shaping.enabled;notice="Traffic shaping "+std::string(loaded->traffic_shaping.enabled?"enabled":"disabled");}}
+                else if(c=='p'||c=='P'){if(node.running())notice="Disconnect before changing shaping policy";else{auto& mode=loaded->traffic_shaping.mode;mode=mode==pqvpn::traffic::ShapingMode::LocalAI?pqvpn::traffic::ShapingMode::ConsensusGuidedAI:mode==pqvpn::traffic::ShapingMode::ConsensusGuidedAI?pqvpn::traffic::ShapingMode::BlockchainPolicy:pqvpn::traffic::ShapingMode::LocalAI;options.traffic_shaping.mode=mode;notice="Shaping policy "+std::string(pqvpn::traffic::to_string(mode));}}
                 else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{std::string error;auto checked=load_runtime_config(options,error);if(checked){loaded=std::move(checked);notice=options.no_tunnel?"Configuration verified; relay mode will not protect local traffic":tunnel_blocker();if(notice.empty())notice="Configuration and tunnel readiness verified; connect when ready";}else notice="Invalid configuration: "+error;}}
                 else if (c == 'd' || c == 'D') {
                     if (node.running() && !node.finished()) {
@@ -535,6 +541,7 @@ int main(int argc, char** argv) {
                         if(!checked){notice="Configuration changed or is invalid: "+error;continue;}
                         loaded=std::move(checked);
                         std::vector<std::string> arguments{"--config",options.config,"--shield-profile",loaded->dns_shield.profile};if(options.no_tunnel)arguments.push_back("--no-tunnel");if(options.inner_tunnel.disable)arguments.push_back("--no-inner-tunnel");if(options.inner_tunnel.backend){arguments.push_back("--inner-tunnel-backend");arguments.push_back(*options.inner_tunnel.backend);}if(options.inner_tunnel.config_path){arguments.push_back("--inner-tunnel-config");arguments.push_back(*options.inner_tunnel.config_path);}
+                        pqvpn::console::append_traffic_shaping_arguments(arguments, loaded->traffic_shaping);
                         if (node.start(options.node,arguments)) {
                             notice = "node starting...";
                         } else {

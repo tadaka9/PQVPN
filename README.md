@@ -121,6 +121,13 @@ and optional [WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md) as
 the CLI and TUI. An installed helper or open socket is never presented as proof
 that the protected route is connected.
 
+Traffic shaping has one policy across every native surface. GUI fields map to
+the same `--shaping`, `--shaping-mode`, `--shaping-padding` and
+`--shaping-delay` overrides accepted by the CLI and TUI. In the TUI, `s`
+toggles shaping and `p` cycles `ai → ai_blockchain → blockchain`; changes are
+allowed only while disconnected and are passed to the node without rewriting
+the source profile. Reapplying an identical policy is idempotent.
+
 The recommended `ai_blockchain` shaping mode integrates both control systems
 without confusing their roles: private on-device learning proposes timing and
 padding choices while quorum-verified, versioned distributed weights cap every
@@ -136,6 +143,13 @@ or certificate verification.
 There is no hosted account database or mandatory coordination service. There
 is still trust: in the code you run, the peers you admit, the machines you
 operate and the evidence you have verified.
+
+PQVPN's default logger is console-only. The native GUI and TUI keep bounded
+session diagnostics in memory and do not persist activity. File logging exists
+only as an explicit developer/operator API with a supplied path; traffic
+payloads, destinations, DNS queries, StrangeNet messages and peer IP histories
+must never be written there. “Zero log” means no persistent user-activity log,
+not pretending that an application can operate without ephemeral error state.
 
 ## What exists today
 
