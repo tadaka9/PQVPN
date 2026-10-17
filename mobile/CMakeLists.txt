@@ -33,6 +33,11 @@ set_target_properties(pqvpn_mobile PROPERTIES
   QT_ANDROID_TARGET_SDK_VERSION 36
   QT_ANDROID_MIN_SDK_VERSION 28)
 
+if(ANDROID)
+  set_property(TARGET pqvpn_mobile PROPERTY
+    QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+endif()
+
 install(TARGETS pqvpn_mobile
   BUNDLE DESTINATION .
   LIBRARY DESTINATION lib
