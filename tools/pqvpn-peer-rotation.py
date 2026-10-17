@@ -17,6 +17,7 @@ import os
 import shlex
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -28,19 +29,21 @@ def load_json(path: Path) -> dict:
     return value
 
 
-def healthy(node: dict, timeout: float) -> bool:
+def probe(node: dict, timeout: float) -> dict:
     command = node.get("health_command", [])
     if isinstance(command, str):
         command = shlex.split(command)
     if not command or not all(isinstance(part, str) and part for part in command):
-        return False
+        return {"healthy": False, "latency_ms": None}
+    started = time.monotonic()
     try:
         result = subprocess.run(command, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 timeout=timeout, check=False)
-        return result.returncode == 0
+        return {"healthy": result.returncode == 0,
+                "latency_ms": round((time.monotonic() - started) * 1000, 1)}
     except (OSError, subprocess.TimeoutExpired):
-        return False
+        return {"healthy": False, "latency_ms": None}
 
 
 def validate_node(node: dict) -> None:
@@ -52,6 +55,9 @@ def validate_node(node: dict) -> None:
         raise ValueError(f"{node['name']}: invalid port")
     if not isinstance(node["roles"], list):
         raise ValueError(f"{node['name']}: roles must be an array")
+    weight = node.get("capacity_weight", 1.0)
+    if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not 0.1 <= weight <= 100:
+        raise ValueError(f"{node['name']}: capacity_weight must be between 0.1 and 100")
 
 
 def rotate(items: list[dict], cursor: int) -> list[dict]:
@@ -59,6 +65,21 @@ def rotate(items: list[dict], cursor: int) -> list[dict]:
         return []
     offset = cursor % len(items)
     return items[offset:] + items[:offset]
+
+
+def select_weighted_exit(exits: list[dict], state: dict, probes: dict) -> tuple[dict, dict]:
+    """Allocate new sessions fairly; never stripe packets across exits."""
+    previous = state.get("selection_counts", {})
+    counts = {node["name"]: max(0, int(previous.get(node["name"], 0))) for node in exits}
+    selected = min(exits, key=lambda node: (
+        counts[node["name"]] / float(node.get("capacity_weight", 1.0)),
+        probes[node["name"]]["latency_ms"] if probes[node["name"]]["latency_ms"] is not None else float("inf"),
+        node["name"]))
+    counts[selected["name"]] += 1
+    if min(counts.values(), default=0) > 1_000_000:
+        floor = min(counts.values())
+        counts = {name: value - floor for name, value in counts.items()}
+    return selected, counts
 
 
 def write_atomic(path: Path, value: dict, mode: int) -> None:
@@ -84,14 +105,15 @@ def build_profile(topology: dict, base: dict, state: dict, timeout: float) -> tu
     for node in nodes:
         validate_node(node)
 
-    status = {node["name"]: healthy(node, timeout) for node in nodes}
+    probes = {node["name"]: probe(node, timeout) for node in nodes}
+    status = {name: result["healthy"] for name, result in probes.items()}
     usable = [node for node in nodes if status[node["name"]] and node.get("enabled", True)]
     exits = [node for node in usable if "exit" in node["roles"]]
     if not exits:
         raise RuntimeError("no healthy declared exit; refusing to generate an unprotected profile")
 
     cursor = int(state.get("cursor", -1)) + 1
-    selected = rotate(exits, cursor)[0]
+    selected, selection_counts = select_weighted_exit(exits, state, probes)
     discovery = [node for node in usable if {"bootstrap", "relay"} & set(node["roles"])]
     discovery = rotate(discovery, cursor)
     if not discovery:
@@ -103,7 +125,9 @@ def build_profile(topology: dict, base: dict, state: dict, timeout: float) -> tu
     tunnel = profile.setdefault("tunnel", {})
     tunnel.update({"enabled": True, "exit_host": selected["host"],
                    "exit_port": selected["port"]})
-    next_state = {"cursor": cursor, "selected_exit": selected["name"], "health": status}
+    next_state = {"cursor": cursor, "selected_exit": selected["name"],
+                  "health": status, "probes": probes,
+                  "selection_counts": selection_counts}
     return profile, next_state
 
 

@@ -27,3 +27,15 @@ Remove `--dry-run` to update `active-client.json`. The output and state are
 written with mode `0600`, under an exclusive lock, and replaced atomically.
 If no declared exit or discovery peer is healthy, generation fails closed and
 the previous active profile remains untouched.
+
+For multiple authorized exits, `capacity_weight` (0.1–100, default 1) controls
+how many **new sessions** each node receives. Allocation is weighted-fair,
+health-gated and uses probe latency only as a tie-breaker. The atomic state file
+keeps bounded assignment counters. Existing sessions retain flow affinity:
+PQVPN never stripes packets across exits, avoiding TCP reordering and identity
+changes mid-session. Probes run locally and persist only health and latency;
+there is no central telemetry collector.
+
+```json
+{"name":"exit-large","roles":["relay","exit"],"capacity_weight":2.0}
+```
