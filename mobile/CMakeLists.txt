@@ -27,4 +27,5 @@ set_target_properties(pqvpn_mobile PROPERTIES
 
 install(TARGETS pqvpn_mobile
   BUNDLE DESTINATION .
+  LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
