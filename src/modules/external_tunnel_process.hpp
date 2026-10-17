@@ -30,16 +30,18 @@ struct ExternalProcessSpec {
         if (backend == Backend::WireGuard) {
             return {"wg-quick", "up", config.string()};
         }
-        if (backend == Backend::OpenVPN) {
-            return {"openvpn", "--config", config.string()};
+        if (backend == Backend::OpenVPN3) {
+            return {"openvpn3", "session-start", "--config", config.string()};
         }
         throw std::invalid_argument("native backend has no external process");
     }
     std::vector<std::string> stop_argv() const {
         if (backend == Backend::WireGuard) return {"wg-quick", "down", config.string()};
+        if (backend == Backend::OpenVPN3)
+            return {"openvpn3", "session-manage", "--config", config.string(), "--disconnect"};
         return {};
     }
-    bool persistent() const { return backend == Backend::OpenVPN; }
+    bool persistent() const { return false; }
 };
 
 class ExternalTunnelProcess {
@@ -69,7 +71,7 @@ public:
         if (running()) return;
         const auto args = spec_.argv();
         if (!spec_.persistent()) {
-            if (run_one_shot(args) != 0) throw std::runtime_error("wireguard setup failed");
+            if (run_one_shot(args) != 0) throw std::runtime_error("inner tunnel setup failed");
             active_ = true;
             return;
         }
