@@ -172,3 +172,40 @@ TEST_CASE("StrangeNet group delivery fails closed unless every member is ready",
     CHECK(alice.send_strangenet_group(group, "three-person-room", 1, 42, "hello") == 0);
     CHECK(alice.send_strangenet_group({group.front()}, "too-small", 2, 43, "blocked") == 0);
 }
+
+TEST_CASE("StrangeNet groups have no central secret or reusable group ciphertext", "[strangenet][group][crypto]") {
+    asio::io_context io;
+    pqvpn::PQVPNNode alice{io}, bob{io};
+    const std::vector<std::uint8_t> alice_id(32, 0x41), bob_id(32, 0x42), carol_id(32, 0x43);
+    const asio::ip::udp::endpoint alice_endpoint{asio::ip::make_address("127.0.0.1"), 9301};
+    const asio::ip::udp::endpoint bob_endpoint{asio::ip::make_address("127.0.0.1"), 9302};
+    const asio::ip::udp::endpoint carol_endpoint{asio::ip::make_address("127.0.0.1"), 9303};
+    const std::vector<std::uint8_t> bob_x25519(32, 0x51), bob_ml_kem(32, 0x52);
+    const std::vector<std::uint8_t> carol_x25519(32, 0x61), carol_ml_kem(32, 0x62);
+    const std::vector<std::uint8_t> bob_transcript{'G','R','O','U','P','-','B'};
+    const std::vector<std::uint8_t> carol_transcript{'G','R','O','U','P','-','C'};
+    alice.set_my_id(alice_id);
+    bob.set_my_id(bob_id);
+    REQUIRE(alice.establish_hybrid_session(bob_id, bob_endpoint, bob_x25519, bob_ml_kem, bob_transcript, true));
+    REQUIRE(bob.establish_hybrid_session(alice_id, alice_endpoint, bob_x25519, bob_ml_kem, bob_transcript, false));
+    REQUIRE(alice.establish_hybrid_session(carol_id, carol_endpoint, carol_x25519, carol_ml_kem, carol_transcript, true));
+
+    const auto for_bob = alice.build_strangenet_datagram(bob_id, "three-person-room", 1, 42, "one plaintext");
+    const auto for_carol = alice.build_strangenet_datagram(carol_id, "three-person-room", 1, 42, "one plaintext");
+    REQUIRE(for_bob.has_value());
+    REQUIRE(for_carol.has_value());
+    CHECK(*for_bob != *for_carol);
+
+    std::vector<Message> received;
+    bob.set_strangenet_handler([&](const Message& message, const std::vector<std::uint8_t>&) {
+        received.push_back(message);
+    });
+    asio::co_spawn(io, bob.datagram_received(*for_carol, alice_endpoint), asio::detached);
+    io.run();
+    CHECK(received.empty());
+    io.restart();
+    asio::co_spawn(io, bob.datagram_received(*for_bob, alice_endpoint), asio::detached);
+    io.run();
+    REQUIRE(received.size() == 1);
+    CHECK(received.front().text == "one plaintext");
+}
