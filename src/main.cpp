@@ -189,7 +189,10 @@ std::string encode_peer_id(const std::vector<std::uint8_t>& value) {
 
 bool valid_strangenet_room(const std::string& room) {
     if (room.empty() || room.size() > pqvpn::strangenet::kMaxRoomBytes) return false;
-    return std::all_of(room.begin(), room.end(), [](const unsigned char character) {
+    if (room.front() == '/' || room.back() == '/' || room.find("//") != std::string::npos) return false;
+    std::size_t levels = 1;
+    return std::all_of(room.begin(), room.end(), [&levels](const unsigned char character) {
+        if (character == '/') return ++levels <= 8;
         return std::isalnum(character) || character == '.' || character == '_' || character == '-';
     });
 }
@@ -621,13 +624,11 @@ int main(int argc, char** argv) {
         strange->peer = initial_peer;
 
         node->set_peer_session_handler([node_view = node.get()](const std::vector<std::uint8_t>& peer,
-                                                               const asio::ip::udp::endpoint& endpoint,
+                                                               const asio::ip::udp::endpoint&,
                                                                const bool connected) {
             emit_console_event({{"event", connected ? "peer.connected" : "peer.disconnected"},
                                 {"peer", encode_peer_id(peer)},
-                                {"ready", connected || node_view->select_tunnel_peer().has_value()},
-                                {"endpoint", endpoint.address().to_string() + ":" +
-                                             std::to_string(endpoint.port())}});
+                                {"ready", connected || node_view->select_tunnel_peer().has_value()}});
         });
 
         node->set_strangenet_handler([strange, node_view = node.get()](const pqvpn::strangenet::Message& message,
@@ -642,7 +643,8 @@ int main(int argc, char** argv) {
             }
             const char* event_name = message.kind == pqvpn::strangenet::Kind::Sticker
                 ? "strangenet.sticker" : (message.kind == pqvpn::strangenet::Kind::Reaction
-                    ? "strangenet.reaction" : "strangenet.message");
+                    ? "strangenet.reaction" : (message.kind == pqvpn::strangenet::Kind::Voice
+                        ? "strangenet.voice" : "strangenet.message"));
             emit_console_event({{"event", event_name},
                                 {"room", message.room},
                                 {"sender", message.sender},
@@ -724,7 +726,7 @@ int main(int argc, char** argv) {
                                 strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
                             } else if (name == "strangenet.send" || name == "strangenet.sticker" ||
-                                       name == "strangenet.react") {
+                                       name == "strangenet.react" || name == "strangenet.voice") {
                                 const auto text = command.value("text", std::string{});
                                 const auto reply_to = command.value("reply_to", std::uint64_t{0});
                                 if (strange->room.empty() || text.empty() ||
@@ -739,7 +741,8 @@ int main(int argc, char** argv) {
                                         std::chrono::system_clock::now().time_since_epoch()).count());
                                 const auto kind = name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
                                     : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
-                                                                   : pqvpn::strangenet::Kind::Text);
+                                    : (name == "strangenet.voice" ? pqvpn::strangenet::Kind::Voice
+                                                                   : pqvpn::strangenet::Kind::Text));
                                 const auto monotonic_ms = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
                                         std::chrono::steady_clock::now().time_since_epoch()).count());
@@ -770,9 +773,11 @@ int main(int argc, char** argv) {
                                 } else {
                                     emit_console_event({{"event", "strangenet.sent"},
                                                         {"room", strange->room}, {"text", text},
-                                                        {"sequence", current}, {"recipients", recipients},
+                                                        {"sequence", current}, {"reply_to", reply_to},
+                                                        {"recipients", recipients},
                                                         {"kind", name == "strangenet.sticker" ? "sticker"
-                                                                  : (name == "strangenet.react" ? "reaction" : "text")}});
+                                                                  : (name == "strangenet.react" ? "reaction"
+                                                                  : (name == "strangenet.voice" ? "voice" : "text"))}});
                                 }
                             } else {
                                 emit_console_event({{"event", "control.error"},
