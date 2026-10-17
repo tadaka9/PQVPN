@@ -18,14 +18,15 @@ It is ambitious, inspectable—and not yet independently audited.
 [![Platforms](https://img.shields.io/badge/CI-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge)](#evidence-not-promises)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#the-honest-status)
 
-![PQVPN monthly support target: $100 for server uptime and maintainer time](assets/brand/monthly-support-goal.svg)
+![PQVPN monthly budget: €13 current infrastructure cost and $100 target](assets/brand/monthly-support-goal.svg)
 
 | Maintainer contribution | Verified spend this month | Expected monthly budget |
 |---|---:|---:|
-| **Davide Di Pino / [tadaka9](https://github.com/tadaka9)** · project creation, engineering, public bootstrap and exit-node operations | **Not published yet** · provider billing is not connected to this repository | **$100 USD** · servers, maintenance and response time |
+| **Davide Di Pino / [tadaka9](https://github.com/tadaka9)** · project creation, engineering, public bootstrap and exit-node operations | **€13 EUR** · current monthly infrastructure cost reported by the maintainer | **$100 USD** · servers, maintenance and response time |
 
-<sub>The target is public; spending is reported only when supported by provider
-records. “Not published yet” means unknown here—not zero.</sub>
+<sub>€13 sustains the current server baseline. Support above that threshold is
+the performance-boost zone: profiling, optimization, testing and maintainer
+time—not an automatic or undisclosed increase in hosting spend.</sub>
 
 [Try the experiment](#choose-your-first-move) ·
 [See how it works](#the-60-second-model) ·
@@ -420,6 +421,12 @@ The monthly target is **$100 USD**. Contributions first help keep the public
 bootstrap and exit infrastructure available; the remainder supports focused
 maintenance, testing, documentation and incident response time. This is a
 target—not a claim that the amount has already been collected.
+
+The maintainer currently reports **€13 EUR in monthly infrastructure spend**.
+Once that baseline is covered, additional support becomes a transparent
+**performance boost**: engineering time for profiling, throughput work,
+reliability tests and measured optimization. It does not trigger automatic
+server purchases or hidden recurring costs.
 
 PQVPN does not display a fabricated live progress percentage. Progress should
 be updated only from records the maintainer can verify, and server costs remain

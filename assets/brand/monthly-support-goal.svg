@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
-  <title id="title">PQVPN monthly support goal: 100 US dollars</title>
-  <desc id="desc">A dark network-themed card showing a monthly goal of 100 US dollars for server uptime and maintainer time. Progress is not tracked live.</desc>
+  <title id="title">PQVPN monthly budget: 13 euro current cost and 100 US dollar target</title>
+  <desc id="desc">A dark network-themed card showing 13 euro of current monthly infrastructure cost, a 100 US dollar support target, and an animated performance-boost zone beyond the infrastructure baseline.</desc>
   <defs>
     <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#071522"/>
@@ -34,14 +34,22 @@
     <circle cx="812" cy="246" r="4"/><circle cx="925" cy="192" r="4"/><circle cx="1065" cy="236" r="4"/><circle cx="1152" cy="190" r="4"/>
   </g>
 
-  <text x="58" y="60" fill="#00e5ff" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="18" font-weight="700" letter-spacing="3">MONTHLY SUPPORT TARGET</text>
-  <text x="54" y="151" fill="#f5f7ff" font-family="Inter, Segoe UI, sans-serif" font-size="82" font-weight="800">$100</text>
-  <text x="282" y="140" fill="#aeb8cc" font-family="Inter, Segoe UI, sans-serif" font-size="25">to keep the nodes online</text>
-  <text x="282" y="176" fill="#aeb8cc" font-family="Inter, Segoe UI, sans-serif" font-size="25">and protect maintainer time</text>
+  <text x="58" y="60" fill="#00e5ff" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="18" font-weight="700" letter-spacing="3">MONTHLY RUN RATE</text>
+  <text x="54" y="151" fill="#f5f7ff" font-family="Inter, Segoe UI, sans-serif" font-size="82" font-weight="800">€13</text>
+  <text x="248" y="137" fill="#aeb8cc" font-family="Inter, Segoe UI, sans-serif" font-size="24">current infrastructure</text>
+  <text x="248" y="173" fill="#aeb8cc" font-family="Inter, Segoe UI, sans-serif" font-size="24">$100 monthly support target</text>
 
   <rect x="58" y="214" width="636" height="18" rx="9" fill="#050a14" stroke="#33405c"/>
-  <path d="M67 223H685" stroke="url(#signal)" stroke-width="4" stroke-dasharray="4 14" stroke-linecap="round" opacity=".55"/>
-  <text x="58" y="270" fill="#77839a" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="16">SERVER UPTIME  +  MAINTENANCE</text>
-  <text x="694" y="228" fill="#77839a" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14">GOAL</text>
-  <text x="58" y="298" fill="#667188" font-family="Inter, Segoe UI, sans-serif" font-size="14">Progress is updated only from verified records; this graphic is not a live counter.</text>
+  <rect x="58" y="214" width="83" height="18" rx="9" fill="#00e5ff" opacity=".72"/>
+  <path d="M151 223H685" stroke="url(#signal)" stroke-width="5" stroke-dasharray="16 12" stroke-linecap="round" opacity=".35">
+    <animate attributeName="stroke-dashoffset" values="0;-56" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values=".28;.9;.28" dur="2.4s" repeatCount="indefinite"/>
+  </path>
+  <circle cx="141" cy="223" r="8" fill="#f5f7ff" filter="url(#glow)">
+    <animate attributeName="r" values="6;10;6" dur="1.6s" repeatCount="indefinite"/>
+  </circle>
+  <text x="58" y="270" fill="#77839a" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="16">€13 BASELINE</text>
+  <text x="214" y="270" fill="#9b5cff" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="16" font-weight="700">→ PERFORMANCE BOOST</text>
+  <text x="694" y="228" fill="#77839a" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14">$100 GOAL</text>
+  <text x="58" y="298" fill="#667188" font-family="Inter, Segoe UI, sans-serif" font-size="14">Beyond €13: measured optimization, testing and maintainer time — no automatic infrastructure spend.</text>
 </svg>
