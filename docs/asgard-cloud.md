@@ -37,3 +37,27 @@ exposes every object encrypted under it. Production must use an OS keystore or
 hardware-backed secret, not synchronization of the raw key to storage peers.
 The manifest reveals object size, chunk count and placement names; keep it
 private. It is validated as hostile input before any chunk path is accessed.
+
+## Gradual scaling policy
+
+Asgard capacity follows observed demand; it does not reserve a large fleet in
+advance and does not send usage telemetry to a central service. Each operator
+computes aggregate capacity and service health locally, without object names,
+peer identities or access history leaving the node.
+
+1. **0–60% sustained capacity:** keep the existing authorized peers and tune
+   bounded concurrency only when queue latency rises.
+2. **60–75% for seven daily samples:** plan capacity and validate another
+   independent failure domain; do not enroll it yet.
+3. **75–85% for three daily samples:** invite one explicitly consenting storage
+   peer, rebalance encrypted chunks gradually and verify replica health.
+4. **Above 85%, disk-full risk or quorum degradation:** stop accepting writes
+   before safety margins are consumed; reads and repair take priority.
+5. **Below 40% for 30 daily samples:** recommend consolidation only after every
+   object has the requested healthy replica count elsewhere.
+
+Scale decisions use hysteresis, rate limits, per-node quotas and the declared
+monthly infrastructure budget. They never purchase resources, change VPN node
+roles or copy the master key automatically. Replicas on the same filesystem,
+host or provider are useful for testing but do not count as independent
+failure domains in production.

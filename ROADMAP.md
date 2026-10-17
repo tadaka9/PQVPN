@@ -97,6 +97,9 @@ verification on an elevated host with a connected adapter is still pending.
   roles must never imply storage consent.
 - [ ] Move encrypted chunks over authenticated PQVPN sessions with explicit
   quotas, backpressure and per-peer resource isolation.
+- [ ] Implement local-only capacity samples and hysteresis-controlled scaling:
+  warn at 60%, prepare one independent failure domain at 75%, fail closed for
+  new writes above 85%, and never purchase or enroll capacity automatically.
 - [ ] Add repair, garbage collection, encrypted metadata, key rotation and a
   user-controlled keystore integration.
 - [ ] Evaluate erasure coding only after replication recovery is proven under
