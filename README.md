@@ -121,6 +121,13 @@ and optional [WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md) as
 the CLI and TUI. An installed helper or open socket is never presented as proof
 that the protected route is connected.
 
+Traffic shaping has one policy across every native surface. GUI fields map to
+the same `--shaping`, `--shaping-mode`, `--shaping-padding` and
+`--shaping-delay` overrides accepted by the CLI and TUI. In the TUI, `s`
+toggles shaping and `p` cycles `ai → ai_blockchain → blockchain`; changes are
+allowed only while disconnected and are passed to the node without rewriting
+the source profile. Reapplying an identical policy is idempotent.
+
 The recommended `ai_blockchain` shaping mode integrates both control systems
 without confusing their roles: private on-device learning proposes timing and
 padding choices while quorum-verified, versioned distributed weights cap every
@@ -136,6 +143,13 @@ or certificate verification.
 There is no hosted account database or mandatory coordination service. There
 is still trust: in the code you run, the peers you admit, the machines you
 operate and the evidence you have verified.
+
+PQVPN's default logger is console-only. The native GUI and TUI keep bounded
+session diagnostics in memory and do not persist activity. File logging exists
+only as an explicit developer/operator API with a supplied path; traffic
+payloads, destinations, DNS queries, StrangeNet messages and peer IP histories
+must never be written there. “Zero log” means no persistent user-activity log,
+not pretending that an application can operate without ephemeral error state.
 
 ## What exists today
 
@@ -215,7 +229,8 @@ than an experimental communication layer.
 
 ### Path Quilt Research Commons: useful work, not wasted energy
 
-StrangeNet can select a scientific field and resume a matching project already
+StrangeNet can select a scientific field—including experimental decentralized
+modular AI/AGI—and resume a matching project already
 attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
 disables GPU use, never handles BOINC credentials and never accepts arbitrary
 peer-supplied code. Completed, reported tasks create privacy-minimized pending
@@ -227,6 +242,18 @@ consensus layer exist. See
 permissioned-subnet consensus core, wallet and supply rules are specified in
 [`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
 are not yet a deployed public chain.
+
+Paper titles and DOI/HTTPS references can be shared E2E with the current
+StrangeNet audience. Full papers belong in the separate public Asgard Commons
+only after explicit publication consent, licence and content-hash review;
+StrangeNet itself remains session-only and does not silently archive chat.
+
+The experimental [Path Quilt Distributed Scientific Method](docs/distributed-scientific-method.md)
+turns a falsifiable proposal into deterministic, independently replicated work
+units. Matching result hashes are labelled `reproduced`; completed disagreement
+is preserved as `conflict`, never erased or voted away. The prototype is local
+and deliberately cannot execute peer code, publish data, mint PQC or declare a
+scientific claim true.
 
 The ledger now supports a policy-committed, one-time genesis allocation. The
 proposed PQ testnet parameters are a 21,000,000 PQ cap and a transparent
@@ -349,6 +376,14 @@ cmake --build build --target pqvpn_node pqvpn_monitor
 
 It does not auto-connect, simulate success or silently install an update.
 Reduced-motion support disables ambient and transition animation.
+The native update experience presents only real states—discovered, verified and
+ready—then gives installation back to the user. Its optional visual reveal
+celebrates a verified release without countdowns, manufactured urgency,
+streaks or silent installation; **Reduce motion** removes the animation.
+Users may opt into automatic release checks and preparation. PQVPN downloads
+only the matching platform asset, requires its unique `SHA256SUMS` entry and
+discards failed verification. Installation still requires an explicit operating
+system confirmation; the application never bypasses privilege boundaries.
 
 <div align="center">
 

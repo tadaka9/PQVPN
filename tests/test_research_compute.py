@@ -73,6 +73,17 @@ Network status
 """)
         self.assertEqual(modes, {"cpu": "always", "gpu": "never"})
 
+    def test_modular_agi_topic_remains_trusted_and_fail_closed(self):
+        projects = module.parse_projects("""1) -----------
+   master URL: https://mindmodeling.org/
+   project name: MindModeling@Home
+2) -----------
+   master URL: https://example.invalid/
+   project name: Newest AGI Ever
+""")
+        self.assertTrue(module.matches_topic(projects[0], "agi"))
+        self.assertFalse(module.matches_topic(projects[1], "agi"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,12 +6,23 @@ or reserve one percent of the global PQVPN network. That would require global
 telemetry, which PQVPN does not collect.
 
 The StrangeNet selector supports astronomy, climate and Earth, medicine and
-biology, physics, and mathematics. The controller only resumes a matching
+biology, physics, mathematics, and experimental decentralized modular AI/AGI.
+“Newest algorithm first” means the newest independently evidenced workload
+offered by an already trusted project; novelty is not treated as evidence, and
+the authoritative BOINC project scheduler still decides which work unit the
+client receives. The controller only resumes a matching
 project that the user already attached in BOINC and whose host is on the local
 allowlist. It never creates a BOINC account, receives an account key, attaches
 a project, enables a GPU, accepts an executable from a peer, or exposes an IP
 address. A non-PQVPN `global_prefs_override.xml` is a hard stop rather than a
 file to overwrite.
+
+Researchers can share a paper title and DOI or HTTPS reference with their
+current StrangeNet audience. That citation follows the same E2E, session-only
+delivery rules as chat and does not upload the PDF. Publishing a paper into the
+public Asgard Commons is deliberately a separate operation: it must show the
+content hash, size and licence, record affirmative author/uploader consent, and
+warn that replicated public data may not be practically retractable.
 
 This is real MIMD volunteer computation: independent BOINC work units run
 independent programs and data on consenting devices. BOINC remains responsible

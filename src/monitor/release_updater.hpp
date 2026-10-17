@@ -31,6 +31,7 @@ class ReleaseUpdater final : public QObject {
 public:
     std::function<void(const QString&)> report;
     std::function<void(bool)> downloadable;
+    std::function<void(const QString&, const QString&)> prepared;
 
     explicit ReleaseUpdater(QString currentVersion, QObject* parent)
         : QObject(parent), currentVersion_(std::move(currentVersion)), network_(this) {}
@@ -236,7 +237,9 @@ private:
                 QString error; installable = extractCustomPackage(destination, error);
                 if (installable.isEmpty()) { setDownloadable(true); message("Custom update package rejected: " + error); return; }
             }
-            message("Verified " + selectedTag_ + " downloaded to " + installable + ". Install it when ready."); QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
+            message("Verified " + selectedTag_ + " downloaded to " + installable + ". Install it when ready.");
+            if (prepared) prepared(installable, selectedTag_);
+            QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
         });
     }
     QString extractCustomPackage(const QString& package, QString& error) const {

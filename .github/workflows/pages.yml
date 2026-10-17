@@ -40,7 +40,7 @@ jobs:
           grep -F 'id="project-version"' site/index.html >/dev/null
           grep -F 'id="mobile-android-qr"' site/index.html >/dev/null
           grep -F 'id="mobile-ios-qr"' site/index.html >/dev/null
-          grep -F "'android-arm64':name=>name.endsWith('android-arm64-preview-unsigned.apk')" site/app.js >/dev/null
+          grep -F "'android-arm64':name=>name.endsWith('android-arm64-preview-test-signed.apk')" site/app.js >/dev/null
           grep -F "'ios-arm64':name=>name.endsWith('ios-arm64-preview-unsigned.zip')" site/app.js >/dev/null
           grep -F "projectVersion.textContent=newestRelease.tag_name" site/app.js >/dev/null
           grep -F -- '--strangenet-peer ${values.peer.toLowerCase()}' site/app.js >/dev/null
@@ -94,12 +94,12 @@ jobs:
           mobile="$(jq -c '[.[] | select(
             .draft == false
             and any(.assets[]?; .name == "SHA256SUMS")
-            and any(.assets[]?; (.name | endswith("android-arm64-preview-unsigned.apk")))
+            and any(.assets[]?; (.name | endswith("android-arm64-preview-test-signed.apk")))
             and any(.assets[]?; (.name | endswith("ios-arm64-preview-unsigned.zip")))
           )] | sort_by(.published_at) | last // empty' <<<"$releases")"
           if [[ -n "$mobile" ]]; then
             mobile_tag="$(jq -r '.tag_name' <<<"$mobile")"
-            android_url="$(jq -r '.assets[] | select(.name | endswith("android-arm64-preview-unsigned.apk")) | .browser_download_url' <<<"$mobile")"
+            android_url="$(jq -r '.assets[] | select(.name | endswith("android-arm64-preview-test-signed.apk")) | .browser_download_url' <<<"$mobile")"
             ios_url="$(jq -r '.assets[] | select(.name | endswith("ios-arm64-preview-unsigned.zip")) | .browser_download_url' <<<"$mobile")"
             qrencode --type=SVG --output=public/assets/mobile-android-qr.svg -- "$android_url"
             qrencode --type=SVG --output=public/assets/mobile-ios-qr.svg -- "$ios_url"

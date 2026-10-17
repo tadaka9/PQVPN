@@ -70,7 +70,7 @@ const assetMatchers={
   arch:name=>name==='PKGBUILD',
   'linux-x64':name=>name.endsWith('linux-x86_64-desktop-test.tar.gz'),
   'linux-arm64':name=>name.endsWith('linux-arm64-desktop-test.tar.gz'),
-  'android-arm64':name=>name.endsWith('android-arm64-preview-unsigned.apk'),
+  'android-arm64':name=>name.endsWith('android-arm64-preview-test-signed.apk'),
   'ios-arm64':name=>name.endsWith('ios-arm64-preview-unsigned.zip')
 };
 async function platformFacts(){

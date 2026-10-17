@@ -42,21 +42,20 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;25.1.8937393'
-          # Qt 6.7 androiddeployqt selects the highest installed platform and
-          # ignores its newer compile-SDK target property. Hosted runners ship
-          # a broken android-36-ext19 android.jar, so remove only that preview
-          # package from this ephemeral job and keep the supported API 35.
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.1.8937393'
+          # Extension preview platforms can supersede the stable API selected
+          # by androiddeployqt. Keep only the stable API 36 platform.
           while IFS= read -r preview; do
             test -z "$preview" || "$sdkmanager" --uninstall "$preview"
-          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[5-9]|[4-9][0-9])/ {print $1}')
-          test -f "$sdk_root/platforms/android-34/android.jar"
-          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[5-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[7-9]|[4-9][0-9])/ {print $1}')
+          test -f "$sdk_root/platforms/android-36/android.jar"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d -name '*-ext*' -print -quit)"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
-          # The aqt Linux/Android repository currently exposes 6.7.3 as
-          # its newest complete arm64 kit. Desktop/iOS remain on 6.12.
+          # 6.7.3 is the newest complete public arm64 kit in the aqt feed.
+          # Android 17 uses the explicit page-size compatibility manifest;
+          # the PQVPN-owned library itself is linked for 16 KiB pages.
           version: '6.7.3'
           host: linux
           target: android
@@ -72,21 +71,60 @@ jobs:
             -DANDROID_SDK_ROOT="$sdk_root" \
             -DANDROID_NDK="$ndk_root" \
             -DANDROID_NDK_ROOT="$ndk_root" \
-            -DQT_ANDROID_COMPILE_SDK_VERSION=34 \
-            -DQT_ANDROID_TARGET_SDK_VERSION=34
+            -DQT_ANDROID_COMPILE_SDK_VERSION=36 \
+            -DQT_ANDROID_TARGET_SDK_VERSION=36
+          # Qt 6.7 ships AGP 7.4.1 and an older Maven aapt2 which cannot read
+          # the API 36 resource table. Force the matching SDK build-tool while
+          # retaining Qt's otherwise working Android packaging template.
+          gradle_properties="build-mobile-android/android-build/gradle.properties"
+          mkdir -p "$(dirname "$gradle_properties")"
+          touch "$gradle_properties"
+          printf '\nandroid.aapt2FromMavenOverride=%s/build-tools/36.0.0/aapt2\nandroid.useAndroidX=true\nandroid.suppressUnsupportedCompileSdk=36\n' "$sdk_root" \
+            >> "$gradle_properties"
+          grep -F 'android.aapt2FromMavenOverride=' "$gradle_properties"
       - name: Build APK
         run: cmake --build build-mobile-android --target apk --parallel 2
-      - name: Verify APK
+      - name: Sign and verify installable preview APK
         run: |
           set -euo pipefail
           mapfile -t apks < <(find build-mobile-android -type f -name '*release-unsigned.apk' -print)
           test "${#apks[@]}" = 1
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          build_tools="$sdk_root/build-tools/36.0.0"
+          ndk_root="$sdk_root/ndk/25.1.8937393"
+          test -x "$build_tools/zipalign"
+          test -x "$build_tools/apksigner"
           mkdir mobile-artifacts
-          cp "${apks[0]}" "mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-unsigned.apk"
+          aligned="mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-aligned.apk"
+          signed="mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-test-signed.apk"
+          "$build_tools/zipalign" -f -P 16 4 "${apks[0]}" "$aligned"
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/pqvpn-preview.jks" \
+            -storepass pqvpn-preview -keypass pqvpn-preview -alias pqvpn-preview \
+            -keyalg RSA -keysize 3072 -validity 30 \
+            -dname 'CN=PQVPN Ephemeral Preview,OU=Testing,O=PQVPN,C=IT'
+          "$build_tools/apksigner" sign --ks "$RUNNER_TEMP/pqvpn-preview.jks" \
+            --ks-pass pass:pqvpn-preview --key-pass pass:pqvpn-preview \
+            --out "$signed" "$aligned"
+          rm -f "$aligned" "$RUNNER_TEMP/pqvpn-preview.jks"
+          "$build_tools/apksigner" verify --verbose --print-certs "$signed"
+          "$build_tools/zipalign" -c -P 16 -v 4 "$signed"
+          inspect="$RUNNER_TEMP/pqvpn-elf"
+          mkdir -p "$inspect"
+          unzip -q "$signed" 'lib/arm64-v8a/libpqvpn_mobile*.so' AndroidManifest.xml -d "$inspect"
+          library="$(find "$inspect/lib/arm64-v8a" -type f -name 'libpqvpn_mobile*.so' -print -quit)"
+          test -s "$library"
+          "$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -lW "$library" \
+            | awk '$1 == "LOAD" && ($NF == "0x1000" || $NF == "0x2000") { bad=1 } END { exit bad }'
+          "$build_tools/aapt2" dump xmltree "$signed" --file AndroidManifest.xml \
+            | grep -F 'pageSizeCompat' >/dev/null
+          echo 'PQVPN ELF is 16 KiB aligned; Qt runtime uses the declared Android compatibility mode.'
+          sha256sum "$signed" > "$signed.sha256"
       - uses: actions/upload-artifact@v6
         with:
           name: release-candidate-android-arm64
-          path: mobile-artifacts/PQVPN-*-android-arm64-preview-unsigned.apk
+          path: |
+            mobile-artifacts/PQVPN-*-android-arm64-preview-test-signed.apk
+            mobile-artifacts/PQVPN-*-android-arm64-preview-test-signed.apk.sha256
           if-no-files-found: error
           retention-days: 14
 

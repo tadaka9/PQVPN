@@ -144,8 +144,8 @@ install -m 0644 packaging/linux/pqvpn-seed-tcp.service \
 
 if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desktop" ]; then
     install -m 0644 packaging/linux/pqvpn-monitor.desktop "$PKG_ROOT/usr/share/applications/"
-    install -m 0644 assets/brand/logo.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
-    test -s "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
+    install -m 0644 assets/brand/logo.svg "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn-monitor.svg"
+    test -s "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn-monitor.svg"
 fi
 
 # Some desktop environments (including COSMIC) do not refresh their icon and

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt")
 string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
 # Public labels are preserved in CLI output and artifact names. Package managers
 # and project() additionally require numeric version components.
@@ -316,7 +318,7 @@ if(UNIX AND NOT APPLE)
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
   install(FILES assets/brand/logo.svg
     DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
-    RENAME pqvpn.svg)
+    RENAME pqvpn-monitor.svg)
   install(PROGRAMS packaging/linux/pqvpn-linux-network
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-shield-helper
@@ -396,7 +398,9 @@ if(UNIX AND NOT APPLE)
   if(PQVPN_PYTHON3)
     add_test(NAME pqvpn_research_compute
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_compute.py)
-    set_tests_properties(pqvpn_research_compute PROPERTIES
+    add_test(NAME pqvpn_distributed_scientific_method
+      COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_method.py)
+    set_tests_properties(pqvpn_research_compute pqvpn_distributed_scientific_method PROPERTIES
       TIMEOUT 30 LABELS "baseline;research;security")
   endif()
 endif()

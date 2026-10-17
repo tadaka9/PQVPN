@@ -16,6 +16,14 @@ integrity. Manifests still place full independent replicas; live peer shard
 placement is not advertised until repair and audit are wired end to end.
 Bootstrap and exit roles never imply storage consent.
 
+The intended Commons namespace is **public archival storage**, not private
+backup. Published objects are meant to be readable, content-addressed and
+replicated by consenting storage peers. Publication must therefore be explicit
+and disclose the hash, byte size, licence and persistence consequences before
+any upload. Private keys, private chat, unpublished research data and personal
+records are excluded. This policy does not make the current local-volume core
+a live public cloud; network publication remains gated as described above.
+
 Retrieval may use optional integer `latency_ms`, `capacity_bps` and
 `availability_ppm` fields on each configured node. Values are strictly bounded;
 replicas are tried in deterministic utility order and every ciphertext hash is

@@ -107,6 +107,13 @@ verification on an elevated host with a connected adapter is still pending.
 
 ## Research Commons and PQ mesh ledger
 
+- [x] Add a fail-closed local prototype of the Path Quilt Distributed
+  Scientific Method: canonical falsifiable manifests, deterministic replicated
+  units, distinct-peer evidence and explicit pending/reproduced/conflict states.
+- [ ] Carry those method envelopes over authenticated PQVPN sessions and publish
+  consented evidence to public Asgard only after hybrid signatures, blinded
+  assignment, dataset authorisation, anti-collusion tests and abuse review.
+
 - [x] Integrate privacy-local traffic learning with deterministic consensus
   bounds through `ai_blockchain`; accept only verified, bounded, newer
   distributed weight epochs while keeping packet forwarding independent from

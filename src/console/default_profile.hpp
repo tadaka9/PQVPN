@@ -34,7 +34,8 @@ inline std::filesystem::path materialize_profile(const std::filesystem::path& ex
     std::filesystem::permissions(temporary,std::filesystem::perms::owner_read|std::filesystem::perms::owner_write);
     if(std::filesystem::exists(destination)){std::filesystem::remove(temporary);return destination;}
     std::error_code error;std::filesystem::create_hard_link(temporary,destination,error);std::filesystem::remove(temporary);
-    if(error&&!std::filesystem::exists(destination))return example;return destination;
+    if(error&&!std::filesystem::exists(destination))return example;
+    return destination;
 }
 inline std::filesystem::path default_profile(const std::filesystem::path& binary_directory) {
     if(std::filesystem::is_regular_file("config.json"))return std::filesystem::absolute("config.json");

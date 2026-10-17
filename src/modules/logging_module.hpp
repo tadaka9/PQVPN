@@ -82,13 +82,15 @@ class Logger {
 public:
     static std::shared_ptr<spdlog::logger> setup_logger(
         const std::string& name, LogLevel level = LogLevel::info,
-        const std::string& file = "pqvpn.log") {
+        const std::string& file = {}) {
         spdlog::drop(name);
         std::vector<spdlog::sink_ptr> sinks;
         sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-        try {
-            sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(file, true));
-        } catch (const spdlog::spdlog_ex&) {}
+        if (!file.empty()) {
+            try {
+                sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(file, true));
+            } catch (const spdlog::spdlog_ex&) {}
+        }
         auto logger = std::make_shared<spdlog::logger>(name, sinks.begin(), sinks.end());
         logger->set_level(to_spdlog(level));
         spdlog::register_logger(logger);
