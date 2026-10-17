@@ -49,11 +49,20 @@ TEST_CASE("StrangeNet carries bounded voice chunks but no arbitrary media kind",
     const auto decoded = decode(*wire);
     REQUIRE(decoded.has_value());
     CHECK(decoded->kind == Kind::Voice);
+
+    const Message direct{"@direct", "peer-alice", 12, 1700000000128ULL, "private hello", Kind::DirectText};
+    const auto direct_wire = encode(direct);
+    REQUIRE(direct_wire.has_value());
+    const auto direct_decoded = decode(*direct_wire);
+    REQUIRE(direct_decoded.has_value());
+    CHECK(direct_decoded->kind == Kind::DirectText);
+    CHECK(direct_decoded->room == "@direct");
+    CHECK(direct_decoded->text == "private hello");
     CHECK(decoded->room == "mainnet/lounge");
     CHECK(decoded->text == voice.text);
 
     Message forbidden = voice;
-    forbidden.kind = static_cast<Kind>(6); // images/video/unknown attachments are not wire kinds
+    forbidden.kind = static_cast<Kind>(7); // images/video/unknown attachments are not wire kinds
     CHECK_FALSE(encode(forbidden).has_value());
 }
 
