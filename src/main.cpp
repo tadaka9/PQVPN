@@ -676,7 +676,8 @@ int main(int argc, char** argv) {
             const char* event_name = direct ? "strangenet.direct" : (message.kind == pqvpn::strangenet::Kind::Sticker
                 ? "strangenet.sticker" : (message.kind == pqvpn::strangenet::Kind::Reaction
                     ? "strangenet.reaction" : (message.kind == pqvpn::strangenet::Kind::Voice
-                        ? "strangenet.voice" : "strangenet.message")));
+                        ? "strangenet.voice" : (message.kind == pqvpn::strangenet::Kind::Profile
+                            ? "strangenet.profile" : "strangenet.message"))));
             emit_console_event({{"event", event_name},
                                 {"room", message.room},
                                 {"peer", encode_peer_id(peer)},
@@ -778,7 +779,7 @@ int main(int argc, char** argv) {
                                 emit_console_event({{"event", blocked ? "strangenet.blocked" : "strangenet.unblocked"},
                                                     {"peer", peer_text}});
                             } else if (name == "strangenet.send" || name == "strangenet.dm" || name == "strangenet.sticker" ||
-                                       name == "strangenet.react" || name == "strangenet.voice") {
+                                       name == "strangenet.react" || name == "strangenet.voice" || name == "strangenet.profile") {
                                 const auto text = command.value("text", std::string{});
                                 const auto reply_to = command.value("reply_to", std::uint64_t{0});
                                 const bool direct = name == "strangenet.dm";
@@ -799,7 +800,8 @@ int main(int argc, char** argv) {
                                     : (name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
                                     : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
                                     : (name == "strangenet.voice" ? pqvpn::strangenet::Kind::Voice
-                                                                   : pqvpn::strangenet::Kind::Text)));
+                                    : (name == "strangenet.profile" ? pqvpn::strangenet::Kind::Profile
+                                                                     : pqvpn::strangenet::Kind::Text))));
                                 const std::string delivery_room = direct ? "@direct" : strange->room;
                                 const auto monotonic_ms = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -839,7 +841,8 @@ int main(int argc, char** argv) {
                                                         {"recipients", recipients},
                                                         {"kind", direct ? "direct" : (name == "strangenet.sticker" ? "sticker"
                                                                   : (name == "strangenet.react" ? "reaction"
-                                                                  : (name == "strangenet.voice" ? "voice" : "text")))}});
+                                                                  : (name == "strangenet.voice" ? "voice"
+                                                                  : (name == "strangenet.profile" ? "profile" : "text"))))}});
                                 }
                             } else {
                                 emit_console_event({{"event", "control.error"},

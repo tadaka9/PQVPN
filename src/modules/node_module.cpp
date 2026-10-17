@@ -12,6 +12,7 @@
 #include <limits>
 #include <optional>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -19,7 +20,6 @@
 #include <thread>
 #include <vector>
 #include <nlohmann/json.hpp>
-#include <random>
 #include "crypto_utils.hpp"
 #include "hybrid_auth.hpp"
 #include "hybrid_kdf.hpp"
@@ -205,11 +205,10 @@ std::optional<std::vector<uint8_t>> hex_field(const nlohmann::json& j, const cha
 }
 
 std::vector<uint8_t> random_bytes(std::size_t size) {
-    static thread_local std::mt19937_64 engine{std::random_device{}()};
-    std::uniform_int_distribution<unsigned> dist(0, 255);
-    std::vector<uint8_t> out;
-    out.reserve(size);
-    for (std::size_t i = 0; i < size; ++i) out.push_back(static_cast<uint8_t>(dist(engine)));
+    std::vector<uint8_t> out(size);
+    if (size != 0 && RAND_priv_bytes(out.data(), static_cast<int>(size)) != 1) {
+        throw std::runtime_error("OpenSSL CSPRNG failed");
+    }
     return out;
 }
 
@@ -1908,14 +1907,16 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
         }
     }
 
-    // Decapsulate the ML-KEM ciphertext and derive the classical half against
-    // our long-term X25519 key. The transcript is the raw S1 payload exactly as
-    // received, so both sides bind identical bytes.
+    // Decapsulate ML-KEM and create a fresh responder-side X25519 key. Using
+    // ephemeral keys on BOTH sides gives the classical component forward
+    // secrecy; the responder public key is authenticated by the signed S2.
     std::vector<uint8_t> x25519_secret;
     std::vector<uint8_t> ml_kem_secret;
+    crypto::X25519KeyPair responder_ephemeral;
     try {
         ml_kem_secret = crypto::KEM::decaps(*ciphertext, ml_kem_secret_key);
-        x25519_secret = crypto::X25519::derive(x25519_private_key, *eph_pk);
+        responder_ephemeral = crypto::X25519::keygen();
+        x25519_secret = crypto::X25519::derive(responder_ephemeral.private_key, *eph_pk);
     } catch (const std::exception& error) {
         std::cerr << "S1 key derivation failed from " << endpoint << ": " << error.what() << "\n";
         co_return;
@@ -1939,16 +1940,14 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
     std::cout << "Session established (responder) with " << endpoint
               << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
 
-    // Confirm to the initiator: signed S2 carrying our long-term X25519 key so
-    // it can derive the classical half and cross-check it against what its
-    // HELLO exchange registered for us.
+    // Confirm to the initiator with the signed responder ephemeral X25519 key.
     try {
         nlohmann::json s2 = {
             {"peerid", my_id_.has_value() ? hex_id(*my_id_) : std::string{}},
             {"sessionid", j.value("sessionid", std::string{})},
             {"ed25519_pk", hex_id(ed25519_public_key)},
             {"mldsa_pk", hex_id(ml_dsa_public_key)},
-            {"x25519_pk", hex_id(x25519_public_key)},
+            {"x25519_pk", hex_id(responder_ephemeral.public_key)},
             {"timestamp", static_cast<long long>(now_seconds())}
         };
         const auto [ed_sig, mld_sig] = sign_hybrid_message(
@@ -1977,7 +1976,10 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
     const auto session_id_hex = j.value("sessionid", std::string{});
     const auto pending_it = pending_handshakes_.find(session_id_hex);
     if (pending_it == pending_handshakes_.end()) co_return; // unknown/expired
-    const auto& pending = pending_it->second;
+    // Copy the bounded pending state: successful establishment erases its map
+    // entry before observers run, so retaining a reference would be a
+    // use-after-free in the success path.
+    const auto pending = pending_it->second;
 
     // Bind the confirmation to the peer and address we initiated toward.
     const auto peer_id = hex_field(j, "peerid");
@@ -1990,17 +1992,25 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
         co_return;
     }
 
-    // Cross-check the responder's long-term X25519 key against what its signed
-    // HELLO registered (TOFU): a mismatch means the confirmation does not come
-    // from the identity we contacted.
+    // The signature verifier uses the keys carried in S2, so pin those keys to
+    // the identity learned in HELLO before trusting the responder's ephemeral
+    // X25519 value. Otherwise a self-signed attacker could claim the pending
+    // peer id and choose a replacement ephemeral key.
+    const auto known = known_peers_.find(hex_id(pending.peer_id));
+    if (known == known_peers_.end()) co_return;
+    for (const char* name : {"ed25519_pk", "mldsa_pk"}) {
+        const auto stored = known->second.find(name);
+        if (stored == known->second.end() || stored->second.empty() ||
+            stored->second != j.value(name, std::string{})) {
+            std::cerr << "rejecting S2 from " << endpoint
+                      << ": identity key mismatch for " << name << "\n";
+            co_return;
+        }
+    }
+
+    // This is an authenticated ephemeral key, not the long-term HELLO key.
     const auto s2_x25519_pk = hex_field(j, "x25519_pk");
     if (!s2_x25519_pk || s2_x25519_pk->size() != 32) co_return;
-    const auto registered = peer_hybrid_keys(pending.peer_id);
-    if (!registered || registered->first != *s2_x25519_pk) {
-        std::cerr << "rejecting S2 from " << endpoint
-                  << ": x25519 key does not match HELLO registration\n";
-        co_return;
-    }
 
     std::vector<uint8_t> x25519_secret;
     try {

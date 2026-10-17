@@ -54,7 +54,8 @@ std::optional<std::vector<std::uint8_t>> encode(const Message& message) {
     const bool reaction = message.kind == Kind::Reaction;
     const bool voice = message.kind == Kind::Voice;
     const bool direct = message.kind == Kind::DirectText;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct) ||
+    const bool profile = message.kind == Kind::Profile;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile) ||
         message.room.empty() || message.room.size() > kMaxRoomBytes || message.sender.empty() ||
         message.sender.size() > kMaxSenderBytes || (!ack && message.text.empty()) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
@@ -104,7 +105,8 @@ std::optional<Message> decode(const std::span<const std::uint8_t> frame) {
     const bool reaction = message.kind == Kind::Reaction;
     const bool voice = message.kind == Kind::Voice;
     const bool direct = message.kind == Kind::DirectText;
-    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct) ||
+    const bool profile = message.kind == Kind::Profile;
+    if ((message.kind != Kind::Text && !ack && message.kind != Kind::Sticker && !reaction && !voice && !direct && !profile) ||
         (voice && frame[4] != 3) ||
         (ack && (!message.text.empty() || message.reply_to == 0)) ||
         (!ack && message.text.empty()) || (reaction && message.reply_to == 0) ||
