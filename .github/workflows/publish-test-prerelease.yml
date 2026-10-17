@@ -76,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir candidate release
-          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64; do
+          for target in windows-x86_64 linux-x86_64 linux-arm64 macos-x86_64 macos-arm64 android-arm64 ios-arm64; do
             mkdir "candidate/$target"
             gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
               --name "release-candidate-$target" --dir "candidate/$target"
@@ -126,6 +126,11 @@ jobs:
           test -s "candidate/linux-arm64/pqvpn_${version}_arm64.deb"
           cp "candidate/linux-x86_64/pqvpn_${version}_amd64.deb" release/
           cp "candidate/linux-arm64/pqvpn_${version}_arm64.deb" release/
+          android="candidate/android-arm64/PQVPN-$version-android-arm64-preview-unsigned.apk"
+          ios="candidate/ios-arm64/PQVPN-$version-ios-arm64-preview-unsigned.zip"
+          test -s "$android"
+          test -s "$ios"
+          cp "$android" "$ios" release/
           cat > release/BUILD-INFO.txt <<EOF
           PQVPN $version
           Commit: $PQVPN_RELEASE_SHA
@@ -136,7 +141,7 @@ jobs:
           EOF
           (cd release && sha256sum -- * | sort -k2 > SHA256SUMS)
           (cd release && sha256sum -c SHA256SUMS)
-          test "$(find release -maxdepth 1 -type f | wc -l)" = 15
+          test "$(find release -maxdepth 1 -type f | wc -l)" = 17
           test -z "$(find release -maxdepth 1 -type f \( -name 'PQVPN-*-linux-x86_64.tar.gz' -o -name 'PQVPN-*-linux-arm64.tar.gz' \))"
 
       - name: Attest staged release bytes
@@ -169,7 +174,7 @@ jobs:
 
           An experimental cross-platform PQVPN beta, built from immutable commit \`$PQVPN_RELEASE_SHA\` and admitted only after the same source passed every native build gate.
 
-          ## Five native gates. One admitted build.
+          ## Five desktop gates plus two mobile preview builds
 
           | Target | Evidence |
           |---|---|
@@ -178,6 +183,8 @@ jobs:
           | Linux ARM64 | Native build, GUI render, Debian lifecycle and update-container verification |
           | macOS Intel | Native build, GUI render and update-container verification |
           | macOS Apple Silicon | Native build, GUI render and update-container verification |
+          | Android ARM64 | Qt mobile preview APK build; unsigned and not yet a system VPN |
+          | iOS ARM64 | Qt mobile preview app bundle; unsigned and not App Store/install-ready |
 
           Inspect the exact [admission run](https://github.com/$GITHUB_REPOSITORY/actions/runs/$RUN_ID).
 
@@ -187,6 +194,8 @@ jobs:
           - **Debian / Ubuntu:** architecture-matched \`.deb\` package.
           - **Linux and macOS:** target-specific test archive.
           - **Desktop updater:** \`.pqvpnpkg\`, bound to its target and embedded payload digest.
+          - **Android:** unsigned ARM64 preview APK for developer evaluation.
+          - **iOS:** unsigned ARM64 \`.app\` bundle in ZIP form for developer evaluation; normal devices require signing and provisioning.
           - **Verification:** \`SHA256SUMS\` and \`BUILD-INFO.txt\` describe the exact published bytes.
 
           Every asset is separate. The portable ZIP does not conceal an installer or OTA payload.
@@ -200,7 +209,7 @@ jobs:
 
           ## The honest boundary
 
-          This is an **unqualified experimental prerelease**, not an anonymity guarantee or an independently audited security product. Production signing and the full native functional release gates remain incomplete. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix, so the public mainnet updater will not install this prerelease automatically.
+          This is an **unqualified experimental prerelease**, not an anonymity guarantee or an independently audited security product. Production signing and the full native functional release gates remain incomplete. The mobile artifacts are UI previews: Android VPNService and iOS Network Extension are not integrated, and iOS is unsigned. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix, so the public mainnet updater will not install this prerelease automatically.
 
           **Own the nodes. Own the keys. Verify the path.**
           EOF

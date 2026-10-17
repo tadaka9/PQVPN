@@ -69,7 +69,9 @@ const assetMatchers={
   'rpm-arm64':name=>name.endsWith('.aarch64.rpm'),
   arch:name=>name==='PKGBUILD',
   'linux-x64':name=>name.endsWith('linux-x86_64-desktop-test.tar.gz'),
-  'linux-arm64':name=>name.endsWith('linux-arm64-desktop-test.tar.gz')
+  'linux-arm64':name=>name.endsWith('linux-arm64-desktop-test.tar.gz'),
+  'android-arm64':name=>name.endsWith('android-arm64-preview-unsigned.apk'),
+  'ios-arm64':name=>name.endsWith('ios-arm64-preview-unsigned.zip')
 };
 async function platformFacts(){
   const ua=navigator.userAgent.toLowerCase();
@@ -102,6 +104,8 @@ async function platformFacts(){
 }
 function recommendationFor(facts){
   const arch=facts.arm64?'arm64':'x64';
+  if(facts.os==='android')return'android-arm64';
+  if(facts.os==='ios')return'ios-arm64';
   if(facts.os==='windows')return facts.x64?'windows-x64':null;
   if(facts.os==='macos')return facts.architectureKnown?`macos-${arch}`:null;
   if(facts.os==='linux'){
@@ -112,6 +116,21 @@ function recommendationFor(facts){
     return facts.architectureKnown?`linux-${arch}`:null;
   }
   return null;
+}
+function configureMobileCard(key,selection){
+  const platform=key==='android-arm64'?'android':'ios';
+  const link=document.querySelector(`#mobile-${platform}-link`);
+  const status=document.querySelector(`#mobile-${platform}-status`);
+  const qr=document.querySelector(`#mobile-${platform}-qr`);
+  if(!link||!status||!qr)return;
+  if(!selection){
+    link.href=releasePage;link.setAttribute('aria-disabled','true');link.removeAttribute('download');
+    status.textContent='No checksum-published preview is available yet.';qr.hidden=true;qr.removeAttribute('src');return;
+  }
+  link.href=selection.asset.browser_download_url;link.removeAttribute('aria-disabled');link.setAttribute('download','');
+  link.textContent=platform==='android'?'Download unsigned APK':'Download unsigned iOS ZIP';
+  status.textContent=`${selection.release.tag_name} · interface preview only · SHA256SUMS published`;
+  qr.src=`assets/mobile-${platform}-qr.svg?release=${encodeURIComponent(selection.release.tag_name)}`;qr.hidden=false;
 }
 function platformDescription(facts){
   const arch=facts.arm64?'ARM64':facts.x64?'x86-64':facts.unsupported32?'32-bit (unsupported)':'architecture needs confirmation';
@@ -140,6 +159,8 @@ async function configurePlatformDownload(){
       if(selection){link.href=selection.asset.browser_download_url;link.title=`${selection.release.tag_name} · checksum manifest available`;link.removeAttribute('aria-disabled');link.setAttribute('download','')}
       else{link.href=releasePage;link.removeAttribute('title');link.setAttribute('aria-disabled','true');link.removeAttribute('download')}
     }
+    configureMobileCard('android-arm64',selections.get('android-arm64'));
+    configureMobileCard('ios-arm64',selections.get('ios-arm64'));
     const newestRelease=releases[0];
     if(projectVersion)projectVersion.textContent=newestRelease.tag_name;
     releaseLabel.textContent=`${newestRelease.tag_name} · each selected package has a same-release SHA256SUMS manifest`;
@@ -154,10 +175,11 @@ async function configurePlatformDownload(){
       downloadButton.textContent='Choose an available beta package';
       document.querySelector('#download-panel').open=true;
       for(const button of downloadButtons)button.removeAttribute('download');
-      const reason=(facts.os==='android'||facts.os==='ios')?'Mobile platforms are not supported':facts.unsupported32?'32-bit builds are not published':'Confirm your architecture or package manager';
+      const reason=(facts.os==='android'||facts.os==='ios')?'No mobile preview has been published yet':facts.unsupported32?'32-bit builds are not published':'Confirm your architecture or package manager';
       detectedLabel.textContent=`${platformDescription(facts)} · ${reason}`;
     }
   }catch(error){
+    configureMobileCard('android-arm64',null);configureMobileCard('ios-arm64',null);
     for(const button of downloadButtons){button.href=releasePage;button.removeAttribute('download')}
     downloadButton.textContent='Open published releases';
     detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;

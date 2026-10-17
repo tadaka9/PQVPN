@@ -19,7 +19,7 @@
   <link rel="icon" href="assets/brand/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PQVPN","applicationCategory":"SecurityApplication","operatingSystem":"Windows, macOS, Linux","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/tadaka9/PQVPN","author":{"@type":"Person","name":"tadaka9","url":"https://github.com/tadaka9"},"description":"Experimental C++23 peer network with hybrid post-quantum identity and native clients."}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"PQVPN","applicationCategory":"SecurityApplication","operatingSystem":"Windows, macOS, Linux, Android, iOS","license":"https://opensource.org/license/mit","codeRepository":"https://github.com/tadaka9/PQVPN","author":{"@type":"Person","name":"tadaka9","url":"https://github.com/tadaka9"},"description":"Experimental C++23 peer network with hybrid post-quantum identity and native clients."}</script>
 </head>
 <body>
   <a class="skip" href="#content">Skip to content</a>
@@ -58,10 +58,24 @@
             <a data-download-key="arch" href="https://github.com/tadaka9/PQVPN/releases">Arch Linux <small>PKGBUILD</small></a>
             <a data-download-key="linux-x64" href="https://github.com/tadaka9/PQVPN/releases">Linux portable <small>x86-64 · TAR.GZ</small></a>
             <a data-download-key="linux-arm64" href="https://github.com/tadaka9/PQVPN/releases">Linux portable <small>ARM64 · TAR.GZ</small></a>
+            <a data-download-key="android-arm64" href="https://github.com/tadaka9/PQVPN/releases">Android preview <small>ARM64 · unsigned APK</small></a>
+            <a data-download-key="ios-arm64" href="https://github.com/tadaka9/PQVPN/releases">iOS preview <small>ARM64 · unsigned app ZIP</small></a>
           </div>
         </details>
-        <p class="detected">The current beta provides checksum-verified Windows, Linux and macOS test packages. Signing and full release qualification are still in progress.</p>
-        <div class="proof" aria-label="Project facts"><span>MIT licensed</span><span>No account</span><span>No telemetry</span><span>5 native targets</span></div>
+        <section class="mobile-downloads" aria-labelledby="mobile-downloads-title">
+          <div class="mobile-downloads-head"><p class="eyebrow">Scan on your device</p><h2 id="mobile-downloads-title">Mobile previews, one honest tap.</h2><p>These unsigned interface previews do not establish a VPN yet. Android VPNService and Apple Network Extension remain release gates.</p></div>
+          <article class="mobile-download-card" data-mobile-download="android-arm64">
+            <img id="mobile-android-qr" alt="QR code for the latest PQVPN Android ARM64 preview APK" hidden>
+            <div><span>ANDROID / ARM64</span><h3>APK preview</h3><p id="mobile-android-status">Looking for a checksum-published mobile release…</p><a id="mobile-android-link" class="button ghost" href="https://github.com/tadaka9/PQVPN/releases" aria-disabled="true">Open Android release</a></div>
+          </article>
+          <article class="mobile-download-card" data-mobile-download="ios-arm64">
+            <img id="mobile-ios-qr" alt="QR code for the latest PQVPN unsigned iOS ARM64 preview" hidden>
+            <div><span>iOS / ARM64</span><h3>Unsigned app preview</h3><p id="mobile-ios-status">Looking for a checksum-published mobile release…</p><a id="mobile-ios-link" class="button ghost" href="https://github.com/tadaka9/PQVPN/releases" aria-disabled="true">Open iOS release</a></div>
+          </article>
+          <p class="mobile-privacy-note">QR images are generated inside PQVPN's own Pages build. No QR tracking service is contacted.</p>
+        </section>
+        <p class="detected">The current beta provides checksum-verified desktop test packages and explicitly unsigned mobile interface previews. Signing and full mobile VPN qualification are still in progress.</p>
+        <div class="proof" aria-label="Project facts"><span>MIT licensed</span><span>No account</span><span>No telemetry</span><span>5 OS families</span></div>
       </div>
       <div class="hero-art reveal" aria-label="Animated PQVPN network visualization">
         <canvas id="quantum-field" width="180" height="180" aria-hidden="true"></canvas>

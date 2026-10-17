@@ -1,6 +1,7 @@
 name: Mobile preview builds
 
 on:
+  workflow_call:
   push:
     branches: [main, future]
     paths:
@@ -25,7 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Load Qt version
-        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+        run: |
+          cat .github/dependencies.env >> "$GITHUB_ENV"
+          echo "PQVPN_VERSION=$(tr -d '[:space:]' < PQVPN_VERSION.txt)" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -74,11 +77,16 @@ jobs:
       - name: Build APK
         run: cmake --build build-mobile-android --target apk --parallel 2
       - name: Verify APK
-        run: test "$(find build-mobile-android -type f -name '*.apk' | wc -l)" -ge 1
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find build-mobile-android -type f -name '*release-unsigned.apk' -print)
+          test "${#apks[@]}" = 1
+          mkdir mobile-artifacts
+          cp "${apks[0]}" "mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-unsigned.apk"
       - uses: actions/upload-artifact@v6
         with:
-          name: pqvpn-mobile-preview-android-arm64
-          path: build-mobile-android/**/*.apk
+          name: release-candidate-android-arm64
+          path: mobile-artifacts/PQVPN-*-android-arm64-preview-unsigned.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -88,7 +96,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Load Qt version
-        run: cat .github/dependencies.env >> "$GITHUB_ENV"
+        run: |
+          cat .github/dependencies.env >> "$GITHUB_ENV"
+          echo "PQVPN_VERSION=$(tr -d '[:space:]' < PQVPN_VERSION.txt)" >> "$GITHUB_ENV"
       - name: Install Qt for iOS
         uses: jurplel/install-qt-action@v4
         with:
@@ -109,10 +119,11 @@ jobs:
         run: |
           app="$(find build-mobile-ios -type d -name 'pqvpn_mobile.app' -print -quit)"
           test -n "$app"
-          ditto -c -k --sequesterRsrc --keepParent "$app" pqvpn-mobile-preview-ios-unsigned.zip
+          ditto -c -k --sequesterRsrc --keepParent "$app" \
+            "PQVPN-$PQVPN_VERSION-ios-arm64-preview-unsigned.zip"
       - uses: actions/upload-artifact@v6
         with:
-          name: pqvpn-mobile-preview-ios-unsigned
-          path: pqvpn-mobile-preview-ios-unsigned.zip
+          name: release-candidate-ios-arm64
+          path: PQVPN-*-ios-arm64-preview-unsigned.zip
           if-no-files-found: error
           retention-days: 14
