@@ -138,6 +138,23 @@ if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desk
     test -s "$PKG_ROOT/usr/share/icons/hicolor/scalable/apps/pqvpn.svg"
 fi
 
+# Some desktop environments (including COSMIC) do not refresh their icon and
+# application caches merely because dpkg unpacked a new SVG.  Refresh the
+# standard caches after install while keeping the package usable on minimal
+# servers where the cache helpers are intentionally absent.
+cat > "$PKG_ROOT/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache --quiet --force /usr/share/icons/hicolor || true
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database --quiet /usr/share/applications || true
+fi
+exit 0
+EOF
+chmod 0755 "$PKG_ROOT/DEBIAN/postinst"
+
 cat > "$PKG_ROOT/DEBIAN/control" << EOF
 Package: pqvpn
 Version: $PACKAGE_VERSION
