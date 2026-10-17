@@ -109,6 +109,11 @@ step and still leave the project better than you found it.
 5. **Reject** — malformed frames, stale nonces and partial authentication fail
    closed.
 
+The **Transports** page also exposes the same adaptive policy, traffic shaping
+and optional [WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md) as
+the CLI and TUI. An installed helper or open socket is never presented as proof
+that the protected route is connected.
+
 There is no hosted account database or mandatory coordination service. There
 is still trust: in the code you run, the peers you admit, the machines you
 operate and the evidence you have verified.
