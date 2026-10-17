@@ -55,6 +55,13 @@ class ResearchComputeTests(unittest.TestCase):
         self.assertTrue(module.successful_task(tasks[0], {"https://einsteinathome.org/"}))
         self.assertFalse(module.successful_task(tasks[1], {"https://einsteinathome.org/"}))
         self.assertEqual(module.reward_id(tasks[0]), module.reward_id(tasks[0]))
+        receipt = module.privacy_receipt(tasks[0], "0" * 64)
+        self.assertEqual(receipt["claim_pqc"], 1)
+        self.assertEqual(receipt["kind"], "research-receipt-v2")
+        self.assertNotIn("project_url", receipt)
+        self.assertNotIn("result_name", receipt)
+        self.assertNotIn("completed_time", receipt)
+        self.assertEqual(receipt["completed_hour"] % 3600, 0)
 
     def test_client_modes_can_be_restored(self):
         modes = module.parse_cc_modes("""CPU status

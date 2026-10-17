@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 LIMIT = 1.0
@@ -143,6 +144,22 @@ def reward_id(task: dict[str, str]) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
+def privacy_receipt(task: dict[str, str], previous: str) -> dict[str, object]:
+    """Create a local PQC claim without retaining a URL or result name."""
+    identifier = reward_id(task)
+    project = hashlib.sha256(task.get("url", "").encode("utf-8")).hexdigest()
+    result = hashlib.sha256(task.get("name", "").encode("utf-8")).hexdigest()
+    try:
+        completed = int(float(task.get("completed_time", "0")))
+    except ValueError as error:
+        raise ResearchError("BOINC completion time is invalid") from error
+    return {
+        "id": identifier, "claim_pqc": 1, "kind": "research-receipt-v2",
+        "project_digest": project, "result_digest": result,
+        "completed_hour": completed - completed % 3600, "previous": previous,
+    }
+
+
 def read_ledger() -> list[dict[str, object]]:
     ledger = runtime_root() / "rewards.jsonl"
     if not ledger.exists():
@@ -179,11 +196,7 @@ def reconcile_rewards(state: dict[str, object]) -> tuple[int, int]:
         identifier = reward_id(task)
         if identifier in known or not successful_task(task, selected):
             continue
-        entry: dict[str, object] = {
-            "id": identifier, "claim_pq": 1, "kind": "research-receipt-v1",
-            "project_url": task["url"], "result_name": task["name"],
-            "completed_time": task["completed_time"], "previous": previous,
-        }
+        entry = privacy_receipt(task, previous)
         canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
         previous = hashlib.sha256((previous + canonical).encode("utf-8")).hexdigest()
         entry["hash"] = previous
@@ -259,7 +272,8 @@ def enable(topic: str, data: str | None) -> dict[str, object]:
             run_boinc(["--project", str(project["url"]), "resume"])
         run_boinc(["--set_run_mode", "auto"])
         state = {
-            "version": 1, "topic": topic, "cpu_percent": LIMIT,
+            "version": 2, "topic": topic, "cpu_percent": LIMIT,
+            "consent": "explicit-local-opt-in", "enabled_at": int(time.time()),
             "data_dir": str(data_dir),
             "selected": [{"name": p.get("name", ""), "url": p["url"]} for p in selected],
             "previous_suspended": prior_state.get("previous_suspended") or {str(p["url"]): bool(p.get("suspended")) for p in projects},
@@ -303,21 +317,26 @@ def disable(data: str | None) -> dict[str, object]:
     run_boinc(["--set_gpu_mode", modes.get("gpu", "auto")])
     run_boinc(["--set_run_mode", modes.get("cpu", "auto")])
     state_path.unlink(missing_ok=True)
-    return {"active": False, "cpu_percent": LIMIT, "pq_balance": len(read_ledger()),
+    return {"active": False, "cpu_percent": LIMIT, "pqc_claims": len(read_ledger()),
+            "pq_balance": len(read_ledger()),
             "message": "research compute stopped; BOINC projects restored"}
 
 
 def status() -> dict[str, object]:
     state_path = runtime_root() / "state.json"
     if not state_path.exists():
-        return {"active": False, "cpu_percent": LIMIT, "pq_balance": len(read_ledger()), "message": "off"}
+        return {"active": False, "cpu_percent": LIMIT, "pqc_claims": len(read_ledger()),
+                "pq_balance": len(read_ledger()), "message": "off"}
     state = json.loads(state_path.read_text(encoding="utf-8"))
     override = managed_override(Path(state["data_dir"]))
     state["active"] = override.exists() and MARKER in override.read_text(encoding="utf-8", errors="replace")
     balance, awarded = reconcile_rewards(state) if state["active"] else (len(read_ledger()), 0)
     state["pq_balance"] = balance
     state["pq_awarded_now"] = awarded
-    state["pq_kind"] = "unminted research receipt"
+    state["pqc_claims"] = balance
+    state["pqc_claimed_now"] = awarded
+    state["pqc_kind"] = "unminted validator-pending research receipt"
+    state["pq_kind"] = state["pqc_kind"]  # compatibility with older GUIs
     state["message"] = "active" if state["active"] else "state exists but the 1% limit is not active"
     return state
 
