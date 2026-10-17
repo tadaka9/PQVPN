@@ -23,6 +23,7 @@
 #include "console/event_state.hpp"
 #include "console/default_profile.hpp"
 #include "console/terminal_text.hpp"
+#include "console/inner_tunnel_policy.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -48,6 +49,7 @@ struct Options {
     std::string node;
     bool smoke_test = false;
     bool no_tunnel = false;
+    pqvpn::console::InnerTunnelOverride inner_tunnel;
     bool help = false;
 };
 
@@ -407,7 +409,7 @@ void render(const ScreenSize& size, const pqvpn::config::Config& config,
     row("CONFIG  "+pqvpn::console::terminal_safe(path));
     row("MODE    "+std::string(relay_only?"Relay / exit only - local traffic unchanged":"Tunnel - readiness required before Protected"));
     row("LISTEN  "+config.network.bind_address+":"+std::to_string(config.network.port));
-    if(!compact){row("NODE    "+pqvpn::console::terminal_safe(executable));row("PLATFORM "+std::string(os_name())+" / "+tunnel_name());row("POLICY  "+std::string(config.security.strict_sig_verify?"Strict hybrid authentication":"Relaxed verification")+" / "+(config.security.tofu?"TOFU":"Pinned peers"));row("TRANSPORT "+std::string(config.external_transport?config.external_transport->engine:"Native UDP")+" / "+pqvpn::transport::to_string(config.adaptive_transport.mode));}
+    if(!compact){row("NODE    "+pqvpn::console::terminal_safe(executable));row("PLATFORM "+std::string(os_name())+" / "+tunnel_name());row("POLICY  "+std::string(config.security.strict_sig_verify?"Strict hybrid authentication":"Relaxed verification")+" / "+(config.security.tofu?"TOFU":"Pinned peers"));row("TRANSPORT "+std::string(config.external_transport?config.external_transport->engine:"Native UDP")+" / "+pqvpn::transport::to_string(config.adaptive_transport.mode));row("INNER   "+std::string(pqvpn::console::inner_tunnel_label(config.inner_tunnel)));}
     if(!notice.empty())row("\033[33m"+pqvpn::console::terminal_safe(notice)+"\033[0m");
     rule();
     const int available=std::max(0,size.rows-emitted-3);
@@ -424,11 +426,13 @@ bool parse(int argc, char** argv, Options& options) {
     for (int index = 1; index < argc; ++index) {
         const std::string arg = argv[index];
         if(arg=="--no-tunnel")options.no_tunnel=true;
+        else if(arg=="--no-inner-tunnel")options.inner_tunnel.disable=true;
+        else if((arg=="--inner-tunnel-backend"||arg=="--inner-tunnel-config")&&index+1<argc){if(!pqvpn::console::parse_inner_tunnel_argument(arg,argv[++index],options.inner_tunnel))return false;}
         else if (arg == "--smoke-test") options.smoke_test = true;
         else if ((arg == "--config" || arg == "-c") && index + 1 < argc) options.config = argv[++index];
         else if (arg == "--node" && index + 1 < argc) options.node = argv[++index];
         else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--smoke-test]\n";
+            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--inner-tunnel-backend wireguard|openvpn] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--smoke-test]\n";
             options.help=true;return true;
         } else {
             std::cerr << "Unknown or incomplete argument: " << arg << '\n';
@@ -436,7 +440,19 @@ bool parse(int argc, char** argv, Options& options) {
         }
     }
     if(options.config.empty())options.config=pqvpn::console::default_profile(std::filesystem::path(options.node).parent_path()).generic_string();
-    return !options.node.empty() && !options.config.empty();
+    return !options.node.empty() && !options.config.empty() &&
+           !(options.inner_tunnel.disable&&(options.inner_tunnel.backend||options.inner_tunnel.config_path));
+}
+
+std::optional<pqvpn::config::Config> load_runtime_config(const Options& options,
+                                                         std::string& error) {
+    auto loaded=pqvpn::config::load_config(options.config);
+    if(!loaded){error="configuration is invalid";return std::nullopt;}
+    if(const auto override_error=pqvpn::console::apply_inner_tunnel_override(*loaded,options.inner_tunnel)){
+        error=*override_error;return std::nullopt;
+    }
+    if(options.no_tunnel&&loaded->inner_tunnel.enabled){error="inner tunnel requires PQVPN tunnel mode";return std::nullopt;}
+    return loaded;
 }
 
 } // namespace
@@ -450,9 +466,10 @@ int main(int argc, char** argv) {
     Options options;
     if (!parse(argc, argv, options)) return argc > 1 ? 2 : 0;
     if(options.help)return 0;
-    auto loaded = pqvpn::config::load_config(options.config);
+    std::string config_error;
+    auto loaded = load_runtime_config(options,config_error);
     if (!loaded) {
-        std::cerr << "Cannot load a valid configuration: " << options.config << '\n';
+        std::cerr << "Cannot load a valid configuration: " << options.config << " (" << config_error << ")\n";
         return 1;
     }
     if (options.smoke_test) {
@@ -496,17 +513,17 @@ int main(int argc, char** argv) {
                 const char c = static_cast<char>(key);
                 if (c == 'q' || c == 'Q' || c == 3) { quit = true; break; }
                 else if (c == 'c' || c == 'C') { node.clear_log(); notice.clear(); }
-                else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else{options.no_tunnel=!options.no_tunnel;if(options.no_tunnel)notice="Relay mode selected";else{notice=tunnel_blocker();if(notice.empty())notice="Tunnel mode selected";}}}
-                else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{auto checked=pqvpn::config::load_config(options.config);if(checked){loaded=std::move(checked);notice=options.no_tunnel?"Configuration verified; relay mode will not protect local traffic":tunnel_blocker();if(notice.empty())notice="Configuration and tunnel readiness verified; connect when ready";}else notice="Invalid configuration; review the file before connecting";}}
+                else if(c=='m'||c=='M'){if(node.running())notice="Disconnect before changing mode";else if(!options.no_tunnel&&loaded->inner_tunnel.enabled)notice="Inner VPN requires tunnel mode; restart with --no-inner-tunnel to use relay mode";else{options.no_tunnel=!options.no_tunnel;if(options.no_tunnel)notice="Relay mode selected";else{notice=tunnel_blocker();if(notice.empty())notice="Tunnel mode selected";}}}
+                else if(c=='v'||c=='V'||c=='r'||c=='R'){if(node.running())notice="Disconnect before changing configuration";else{std::string error;auto checked=load_runtime_config(options,error);if(checked){loaded=std::move(checked);notice=options.no_tunnel?"Configuration verified; relay mode will not protect local traffic":tunnel_blocker();if(notice.empty())notice="Configuration and tunnel readiness verified; connect when ready";}else notice="Invalid configuration: "+error;}}
                 else if (c == 'd' || c == 'D') {
                     if (node.running() && !node.finished()) {
                         notice = "node already running";
                     } else {
                         if(!options.no_tunnel){notice=tunnel_blocker();if(!notice.empty())continue;}
-                        auto checked=pqvpn::config::load_config(options.config);
-                        if(!checked){notice="Configuration changed or is invalid; cannot connect";continue;}
+                        std::string error;auto checked=load_runtime_config(options,error);
+                        if(!checked){notice="Configuration changed or is invalid: "+error;continue;}
                         loaded=std::move(checked);
-                        std::vector<std::string> arguments{"--config",options.config};if(options.no_tunnel)arguments.push_back("--no-tunnel");
+                        std::vector<std::string> arguments{"--config",options.config};if(options.no_tunnel)arguments.push_back("--no-tunnel");if(options.inner_tunnel.disable)arguments.push_back("--no-inner-tunnel");if(options.inner_tunnel.backend){arguments.push_back("--inner-tunnel-backend");arguments.push_back(*options.inner_tunnel.backend);}if(options.inner_tunnel.config_path){arguments.push_back("--inner-tunnel-config");arguments.push_back(*options.inner_tunnel.config_path);}
                         if (node.start(options.node,arguments)) {
                             notice = "node starting...";
                         } else {
