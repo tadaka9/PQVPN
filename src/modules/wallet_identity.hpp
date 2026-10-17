@@ -10,6 +10,7 @@
 #include "node_identity.hpp"
 #include "private_file.hpp"
 #include "research_ledger.hpp"
+#include "creator_registry.hpp"
 
 namespace pqvpn::wallet {
 
@@ -73,9 +74,13 @@ inline std::filesystem::path path_for_config(const std::filesystem::path& config
 }
 
 inline nlohmann::ordered_json public_status(const SelfCustodyIdentity& identity) {
+    const bool creator=is_creator_wallet(identity.address());
     return {{"address", identity.address()}, {"custody", "local-self-custody"},
             {"key_domains", nlohmann::ordered_json::array({"Ed25519", "ML-DSA-87"})},
-            {"private_keys_exported", false}, {"version", 1}};
+            {"private_keys_exported", false}, {"creator_verified", creator},
+            {"creator_name", creator ? std::string(creator_name) : std::string{}},
+            {"economic_mainnet", "not-deployed"}, {"balance_finalized", false},
+            {"max_supply", 21'000'000}, {"version", 1}};
 }
 
 } // namespace pqvpn::wallet

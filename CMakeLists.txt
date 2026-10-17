@@ -428,6 +428,7 @@ set(CATCH_TESTS
   test_string_utils
   test_traffic_obfuscation
   test_wallet_identity
+  test_wallet_dashboard
   test_resource_market
   adhoc_verify_send_onion
   test_crypto_kem_keygen
