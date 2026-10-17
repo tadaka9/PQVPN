@@ -73,4 +73,9 @@ packet transport. Starting it does not alter system DNS or PQVPN routes; the
 selected fail-closed profile must explicitly use its listener, otherwise the
 button reports only that the sidecar is running.
 
+Architecture matching is exact: `aarch64`/`arm64` selects `arm64`, while
+`armv7l`/`armhf` selects `armhf`; ARMv6 is a separate unsupported target unless
+an explicit catalog entry exists. x86_64, 32-bit x86, RISC-V and LoongArch are
+also kept distinct. The installer never falls back from one ABI to another.
+
 Running multiple engines concurrently does not wire them into a valid transport chain. Their existing configurations must link compatible listeners and upstreams. PQVPN currently attaches to a local UDP forwarder; SOCKS and TCP require a separate UDP adapter/relay. Therefore the console distinguishes engine startup from authenticated PQVPN connection, and does not claim unsupported chains provide VPN protection.
