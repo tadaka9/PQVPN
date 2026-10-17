@@ -1,1111 +1,3299 @@
-#include "engine_manager.hpp"
-#include <QAbstractAnimation>
-#include <QAudioDevice>
-#include <QAudioFormat>
-#include <QAudioSink>
-#include <QAudioSource>
-#include <QActionGroup>
-#include <QApplication>
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QClipboard>
-#include <QCloseEvent>
-#include <QComboBox>
-#include <QCryptographicHash>
-#include <QDateTime>
-#include <QDebug>
-#include <QDialog>
-#include <QDir>
-#include <QDragEnterEvent>
-#include <QDropEvent>
-#include <QEasingCurve>
-#include <QFile>
-#include <QFileDialog>
-#include <QFileInfo>
-#include <QFontDatabase>
-#include <QFontMetrics>
-#include <QFrame>
-#include <QGraphicsOpacityEffect>
-#include <QGuiApplication>
-#include <QGridLayout>
-#include <QHBoxLayout>
-#include <QIcon>
-#include <QImage>
-#include <QIODevice>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QKeyEvent>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMainWindow>
-#include <QOpenGLWidget>
-#include <QMenu>
-#include <QMenuBar>
-#include <QMediaDevices>
-#include <QMessageBox>
-#include <QMimeData>
-#include <QPainter>
-#include <QPainterPath>
-#include <QPalette>
-#include <QPlainTextEdit>
-#include <QProcess>
-#include <QPropertyAnimation>
-#include <QPushButton>
-#include <QRegularExpression>
-#include <QSettings>
-#include <QSaveFile>
-#include <QSet>
-#include <QScrollArea>
-#include <QScrollBar>
-#include <QSignalBlocker>
-#include <QStackedLayout>
-#include <QStackedWidget>
-#include <QStatusBar>
-#include <QStandardPaths>
-#include <QSpinBox>
-#include <QStyle>
-#include <QStyleHints>
-#include <QSysInfo>
-#include <QSystemTrayIcon>
-#include <QTextBrowser>
-#include <QTextCursor>
-#include <QTextDocument>
-#include <QTextOption>
-#include <QTimer>
-#include <QVBoxLayout>
+Û}|×khµ©HÚ[˜ÛYH™[™Ú[™WÛX[˜YÙ\‹š‚ˆÚ[˜ÛYHPXœİ˜Xİ[š[X][Û‚ˆÚ[˜ÛYHP]Y[Ñ]šXÙO‚ˆÚ[˜ÛYHP]Y[Ñ›Ü›X]‚ˆÚ[˜ÛYHP]Y[ÔÚ[šÏ‚ˆÚ[˜ÛYHP]Y[ÔÛİ\˜ÙO‚ˆÚ[˜ÛYHPXİ[Û‘Ü›İ\‚ˆÚ[˜ÛYHP\XØ][Û‚ˆÚ[˜ÛYHP]Û‘Ü›İ\‚ˆÚ[˜ÛYHPÚXÚĞ›Ş‚ˆÚ[˜ÛYHPÛ\›Ø\™‚ˆÚ[˜ÛYHPÛÜÙQ]™[‚ˆÚ[˜ÛYHPÛÛX›Ğ›Ş‚ˆÚ[˜ÛYHPÜ\ÙÜ˜\XÒ\Ú‚ˆÚ[˜ÛYHQ]U[YO‚ˆÚ[˜ÛYHQXYÏ‚ˆÚ[˜ÛYHQX[ÙÏ‚ˆÚ[˜ÛYHQ\‚ˆÚ[˜ÛYHQ˜YÑ[\‘]™[‚ˆÚ[˜ÛYHQ›Ü]™[‚ˆÚ[˜ÛYHQX\Ú[™Ğİ\™O‚ˆÚ[˜ÛYHQš[O‚ˆÚ[˜ÛYHQš[QX[ÙÏ‚ˆÚ[˜ÛYHQš[R[™›Ï‚ˆÚ[˜ÛYHQ›Û]X˜\ÙO‚ˆÚ[˜ÛYHQ›ÛY]šXÜÏ‚ˆÚ[˜ÛYHQœ˜[YO‚ˆÚ[˜ÛYHQÜ˜\XÜÓÜXÚ]QY™™Xİ‚ˆÚ[˜ÛYHQİZP\XØ][Û‚ˆÚ[˜ÛYHQÜšY^[İ]‚ˆÚ[˜ÛYHR›Ş^[İ]‚ˆÚ[˜ÛYHRXÛÛ‚ˆÚ[˜ÛYHR[XYÙO‚ˆÚ[˜ÛYHRSÑ]šXÙO‚ˆÚ[˜ÛYHRœÛÛ‘Øİ[Y[‚ˆÚ[˜ÛYHRœÛÛ\œ˜^O‚ˆÚ[˜ÛYHRœÛÛ“Øš™Xİ‚ˆÚ[˜ÛYHRÙ^Q]™[‚ˆÚ[˜ÛYHSX™[‚ˆÚ[˜ÛYHS[™QY]‚ˆÚ[˜ÛYHS\İÚYÙ]‚ˆÚ[˜ÛYHSXZ[•Ú[™İÏ‚ˆÚ[˜ÛYHSÜ[‘ÓÚYÙ]‚ˆÚ[˜ÛYHSY[O‚ˆÚ[˜ÛYHSY[P˜\‚ˆÚ[˜ÛYHSYYXQ]šXÙ\Ï‚ˆÚ[˜ÛYHSY\ÜØYÙP›Ş‚ˆÚ[˜ÛYHSZ[YQ]O‚ˆÚ[˜ÛYHS[İ\ÙQ]™[‚ˆÚ[˜ÛYHTZ[\‚ˆÚ[˜ÛYHTZ[\”]‚ˆÚ[˜ÛYHT[]O‚ˆÚ[˜ÛYHTZ[•^Y]‚ˆÚ[˜ÛYHT›ØÙ\ÜÏ‚ˆÚ[˜ÛYHT›Ü\P[š[X][Û‚ˆÚ[˜ÛYHT\Ú]Û‚ˆÚ[˜ÛYHT™Yİ[\‘^™\ÜÚ[Û‚ˆÚ[˜ÛYHTÙ][™ÜÏ‚ˆÚ[˜ÛYHTØ]™Qš[O‚ˆÚ[˜ÛYHTÙ]‚ˆÚ[˜ÛYHTØÜ›Û\™XO‚ˆÚ[˜ÛYHTØÜ›Û˜\‚ˆÚ[˜ÛYHTÚYÛ˜[›ØÚÙ\‚ˆÚ[˜ÛYHTİXÚÙY^[İ]‚ˆÚ[˜ÛYHTİXÚÙYÚYÙ]‚ˆÚ[˜ÛYHTİ]\Ğ˜\‚ˆÚ[˜ÛYHTİ[™\™]Ï‚ˆÚ[˜ÛYHTÜ[›Ş‚ˆÚ[˜ÛYHTİ[O‚ˆÚ[˜ÛYHTİ[R[Ï‚ˆÚ[˜ÛYHTŞ\Ò[™›Ï‚ˆÚ[˜ÛYHTŞ\İ[U˜^RXÛÛ‚ˆÚ[˜ÛYHU^œ›İÜÙ\‚ˆÚ[˜ÛYHU^İ\œÛÜ‚ˆÚ[˜ÛYHU^Øİ[Y[‚ˆÚ[˜ÛYHU^Ü[Û‚ˆÚ[˜ÛYHU[Y\‚ˆÚ[˜ÛYHU›Ş^[İ]‚‚ˆÚ[˜ÛYHÛX]‚ˆÚ[˜ÛYH[˜İ[Û˜[‚ˆÚ[˜ÛYH˜ÛÛœÛÛKØÛÛ›™Xİ[Û—Üİ]Kš‚ˆÚ[˜ÛYH˜ÛÛœÛÛKÙY˜][Ü›Ùš[Kš‚ˆÚ[˜ÛYH›[Ûš]Ü‹Ü™[X\ÙWİ\]\‹š‚ˆÚ[˜ÛYH›[Ûš]Ü‹Üİ˜[™Ù[™]Ü›ÛÙ—ØÚZ[‹š‚‚›˜[Y\ÜXÙHÂ™[[HYÙHÈİ™\šY]ËÛÛ›™Xİ[Û‹˜[œÜÜËİ˜[™ÙS™]ÚY[Xİ]š]Kš]˜XŞKX›İ]NÂ‚˜ÛÛœİÚ\Šˆ\šÕ[YHHˆÔÔÊ”SXZ[•Ú[™İËQX[ÙÈÈ˜XÚÙÜ›İ[™ˆÌŒMÎÈÛÛÜˆÙY™ÈB”SX™[ÈÛÛÜˆÙ™LYŒÈB”SY[P˜\ˆÈ˜XÚÙÜ›İ[™ˆÌŒMÎÈÛÛÜˆØYXÙÈ›Ü™\‹X›İÛNˆ\ÛÛY™Ø˜JMKMKMKŒJNÈY[™ÎˆÈB”SY[P˜\š][HÈY[™ÎˆÜLœÈ›Ü™\‹\˜Y]\ÎˆÜÈB”SY[P˜\š][NœÙ[XİYÈ˜XÚÙÜ›İ[™ˆÍÌÙ™ÈÛÛÜˆÚ]NÈB”SY[HÈ˜XÚÙÜ›İ[™ˆÌLLMŒ˜NÈÛÛÜˆÚ]NÈ›Ü™\ˆ\ÛÛYÌLÌLÈY[™ÎˆÜÈB”SY[Nš][HÈY[™ÎˆLœÈ›Ü™\‹\˜Y]\ÎˆœÈB”SY[Nš][NœÙ[XİYÈ˜XÚÙÜ›İ[™ˆÍÌÙ™ÈBˆÜÚYX˜\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JËLMŠNÈ›Ü™\‹\šYÚˆ\ÛÛY™Ø˜JMKMKMKŒ
+NÈBˆİÛÜ™X\šÈÈ›Û\Ú^™NˆŒ\È›Û]ÙZYÚˆLÈ]\‹\ÜXÚ[™ÎˆÜÈÛÛÜˆÚ]NÈBˆØœ˜[™İXˆÈÛÛÜˆÍYM™™È›Û\Ú^™NˆLÈ›Û]ÙZYÚˆÍLÈ]\‹\ÜXÚ[™ÎˆœÈBˆÜYÙU]HÈ›Û\Ú^™NˆÌÈ›Û]ÙZYÚˆŒÈÛÛÜˆÚ]NÈBˆÜYÙTİX]HÈÛÛÜˆØMXYXÎÈ›Û\Ú^™NˆMÈBˆÚ\›Õ]HÈ›Û\Ú^™NˆÍÈ›Û]ÙZYÚˆLÈÛÛÜˆÚ]NÈBˆÜÙXİ[Û•]HÈ›Û\Ú^™NˆMÜÈ›Û]ÙZYÚˆÍŒÈÛÛÜˆÚ]NÈBˆÛY]šXÈÈ›Û\Ú^™NˆŒ\È›Û]ÙZYÚˆŒÈÛÛÜˆÚ]NÈBˆÙ^YXœ›İÈÈÛÛÜˆÍØÙXÙ™È›Û\Ú^™NˆLÈ›Û]ÙZYÚˆÈ]\‹\ÜXÚ[™ÎˆœÈB”T\Ú]Û–Û˜]HYH—HÈ˜XÚÙÜ›İ[™ˆ˜[œÜ\™[ÈÛÛÜˆÎNMÎÈ›Ü™\ˆÈ›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆLÜMÈ^X[YÛˆYÈ›Û]ÙZYÚˆÈB”T\Ú]Û–Û˜]HYH—Nšİ™\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLKŒÌMKŒL
+NÈÛÛÜˆÚ]NÈB”T\Ú]Û–Û˜]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLMÍ‹MKŒ
+NÈÛÛÜˆÚ]NÈ›Ü™\ˆ\ÛÛY™Ø˜JM‹LMËMKL
+NÈB”Qœ˜[YVØØ\™HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JMKŒKËLŠNÈ›Ü™\ˆ\ÛÛY™Ø˜JM‹MŒ‹ŒŒKŒN
+NÈ›Ü™\‹\˜Y]\ÎˆMœÈB”Qœ˜[YVØXØÙ[HYH—HÈ˜XÚÙÜ›İ[™ˆ[[™X\™Ü˜YY[
+NŒLNŒŒKLŒKİÜŒÍMÌ˜ÎKİÜ‹LˆÎÙ™‹İÜŒHÌ˜NXØŠNÈ›Ü™\ˆ\ÛÛY™Ø˜JMKMKMKŒŒŠNÈ›Ü™\‹\˜Y]\ÎˆŒÈB”SX™[Û]]YHYH—HÈÛÛÜˆÎX˜M˜ÍÎÈB”Qœ˜[YVØXØÙ[HYH—HSX™[ÈÛÛÜˆÚ]NÈB”Qœ˜[YVØXØÙ[HYH—HSX™[Û]]YHYH—HÈÛÛÜˆ™Ø˜JMKMKMKÎ
+NÈB”SX™[ØÚ\HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLKŒÌMKŒL
+NÈÛÛÜˆØMYŒÙ™È›Ü™\ˆ\ÛÛY™Ø˜JLKŒÌMKŒ
+NÈ›Ü™\‹\˜Y]\ÎˆL\ÈY[™ÎˆLÈ›Û\Ú^™NˆL\È›Û]ÙZYÚˆÌÈB”S[™QY]PÛÛX›Ğ›ŞTZ[•^Y]U^œ›İÜÙ\‹S\İÚYÙ]È˜XÚÙÜ›İ[™ˆ™Ø˜J‹LKŠNÈÛÛÜˆÙ™™È›Ü™\ˆ\ÛÛYÌÌØMŒÈ›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆLÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍÌÙ™ÈBˆÜİ˜[™ÙU˜[œØÜš\È˜XÚÙÜ›İ[™ˆ™Ø˜JËNM
+NÈ›Ü™\ˆ\ÛÛY™Ø˜JLKŒÌMKŒ
+NÈ›Ü™\‹\˜Y]\ÎˆMœÈY[™ÎˆMÈBˆÜİ˜[™ÙPÛÛ\ÜÙ\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLMKÍMŠNÈ›Ü™\ˆ\ÛÛYÍLÙÈ›Ü™\‹\˜Y]\ÎˆMÈY[™ÎˆLÜÈ›Û\Ú^™NˆMÈBˆÜİ˜[™ÙPÛÛ\ÜÙ\™›Øİ\ÈÈ›Ü™\‹XÛÛÜˆÍYM™™ÈB”S[™QY]™›Øİ\ËPÛÛX›Ğ›Ş™›Øİ\ËTZ[•^Y]™›Øİ\ËU^œ›İÜÙ\™›Øİ\ÈÈ›Ü™\‹XÛÛÜˆÍYM™™ÈB”PÛÛX›Ğ›Ş™›ÜYİÛˆÈ›Ü™\ˆÈÚYˆÈB”PÛÛX›Ğ›ŞPXœİ˜Xİ][UšY]ÈÈ˜XÚÙÜ›İ[™ˆÌLLMŒ˜NÈÛÛÜˆÚ]NÈ›Ü™\ˆ\ÛÛYÌÍMÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍÌÙ™ÈB”T\Ú]ÛˆÈ˜XÚÙÜ›İ[™ˆÍÌÙ™ÈÛÛÜˆÚ]NÈ›Ü™\ˆ\ÛÛYÎMÌ™™È›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆL\MÜÈ›Û]ÙZYÚˆÍŒÈB”T\Ú]Ûšİ™\ˆÈ˜XÚÙÜ›İ[™ˆÎYY™ÈB”T\Ú]Ûœ™\ÜÙYÈ˜XÚÙÜ›İ[™ˆÍYLØ™ÈB”T\Ú]Û™\ØX›YÈ˜XÚÙÜ›İ[™ˆÌL˜MNÈÛÛÜˆÍÌNÈ›Ü™\‹XÛÛÜˆÌÌÍNÈB”T\Ú]Û–Ü]ZY]HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JMKMKMKŒ
+NÈÛÛÜˆØXÌ™È›Ü™\‹XÛÛÜˆÌÍÙŒNÈB”T\Ú]Û–Ü]ZY]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLMÍ‹MKŒ
+NÈÛÛÜˆÚ]NÈ›Ü™\‹XÛÛÜˆÎMÌ™™ÈB”T\Ú]Û–Ù[™Ù\HYH—HÈ˜XÚÙÜ›İ[™ˆÙMMÌÈ›Ü™\‹XÛÛÜˆÙ™MÈB”T\Ú]Û–ÛZ[\İÛ™OH˜Xİ]™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLMÍ‹MKŒ
+NÈÛÛÜˆÚ]NÈ›Ü™\‹XÛÛÜˆÎMÌ™™ÈB”T\Ú]Û–ÛZ[\İÛ™OH™Û™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜J‹NLLÍKŒMŠNÈÛÛÜˆÎY™ŒÙÈ›Ü™\‹XÛÛÜˆ™Ø˜JÍËŒM‹
+NÈB”PÚXÚĞ›ŞÈÛÛÜˆØÙYYXNÈÜXÚ[™Îˆ\ÈB”PÚXÚĞ›Şš[™XØ]ÜˆÈÚYˆNÈZYÚˆNÈ›Ü™\ˆ\ÛÛYÍNÈ›Ü™\‹\˜Y]\Îˆ\È˜XÚÙÜ›İ[™ˆÌŒLŒÈB”PÚXÚĞ›Şš[™XØ]Ü˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆÍYM™™È›Ü™\‹XÛÛÜˆÍYM™™ÈB”TØÜ›Û˜\™\XØ[È˜XÚÙÜ›İ[™ˆ˜[œÜ\™[ÈÚYˆ\ÈB”TØÜ›Û˜\š[™N™\XØ[È˜XÚÙÜ›İ[™ˆÍLMÍÈ›Ü™\‹\˜Y]\ÎˆÈZ[‹ZZYÚˆÈB”Tİ]\Ğ˜\ˆÈ˜XÚÙÜ›İ[™ˆÌŒMÎÈÛÛÜˆÎXX˜NÈ›Ü™\‹]Üˆ\ÛÛY™Ø˜JMKMKMKŒ
+NÈB”UÛÛ\È˜XÚÙÜ›İ[™ˆÍYM™™ÈÛÛÜˆÌÌLYÈ›Ü™\ˆÈY[™ÎˆœÈBŠPÔÔÈÂ‚˜ÛÛœİÚ\ŠˆÛİ[Õ[YSİ™\œšY\ÈHˆÔÔÊ”SXZ[•Ú[™İËQX[ÙÈÈ˜XÚÙÜ›İ[™ˆÌLÈÛÛÜˆÙY™M˜ÙÈB”SX™[ÈÛÛÜˆÙÙÈB”SY[P˜\‹Tİ]\Ğ˜\ˆÈ˜XÚÙÜ›İ[™ˆÌLÈÛÛÜˆØØNNÎÈ›Ü™\‹XÛÛÜˆÌØÌÌLŒNÈB”SY[HÈ˜XÚÙÜ›İ[™ˆÌMLLÎÈÛÛÜˆÙY™M˜ÙÈ›Ü™\‹XÛÛÜˆÍNMŒÈB”SY[P˜\š][NœÙ[XİYSY[Nš][NœÙ[XİYÈ˜XÚÙÜ›İ[™ˆÍØLXÎÈÛÛÜˆÙ™™Œ™ÈBˆÜÚYX˜\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLKN
+NÈ›Ü™\‹\šYÚXÛÛÜˆÌØÌÌLŒNÈBˆİÛÜ™X\šËÜYÙU]KÚ\›Õ]KÜÙXİ[Û•]KÛY]šXÈÈÛÛÜˆÙŒÙMXÌNÈBˆØœ˜[™İX‹Ù^YXœ›İÈÈÛÛÜˆÙXMMNÈB”T\Ú]Û–Û˜]HYH—HÈÛÛÜˆØXNXÙNÈB”T\Ú]Û–Û˜]HYH—Nšİ™\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JŒL‹MÌKŒL
+NÈÛÛÜˆÙ™™Œ™ÈB”T\Ú]Û–Û˜]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLŒ‹Í‹ŒÍ
+NÈÛÛÜˆÙ™™Œ™È›Ü™\‹XÛÛÜˆÎY™ÌNÈB”Qœ˜[YVØØ\™HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JŒ‹NL‹MJNÈ›Ü™\‹XÛÛÜˆ™Ø˜JNLKMK‹ŒJNÈB”Qœ˜[YVØXØÙ[HYH—HÈ˜XÚÙÜ›İ[™ˆ[[™X\™Ü˜YY[
+NŒLNŒŒKLŒKİÜŒÌ˜LMŒ‹İÜ‹LˆÍØLXËİÜŒHÎY™ÌJNÈ›Ü™\‹XÛÛÜˆØÌMMÈB”SX™[Û]]YHYH—HÈÛÛÜˆØXNYÎÈB”SX™[ØÚ\HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JŒL‹MÌKŒL
+NÈÛÛÜˆÙNÎMÙÈ›Ü™\‹XÛÛÜˆ™Ø˜JŒL‹MÌKŒÍJNÈB”S[™QY]PÛÛX›Ğ›ŞTZ[•^Y]U^œ›İÜÙ\‹S\İÚYÙ]È˜XÚÙÜ›İ[™ˆÌLÌNÈÛÛÜˆÙYYLØØÈ›Ü™\‹XÛÛÜˆÍNMŒÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍØLXÎÈB”S[™QY]™›Øİ\ËPÛÛX›Ğ›Ş™›Øİ\ËTZ[•^Y]™›Øİ\ËU^œ›İÜÙ\™›Øİ\ÈÈ›Ü™\‹XÛÛÜˆÙXMMNÈB”PÛÛX›Ğ›ŞPXœİ˜Xİ][UšY]ÈÈ˜XÚÙÜ›İ[™ˆÌMLLÎÈÛÛÜˆÙY™M˜ÙÈ›Ü™\‹XÛÛÜˆÍNMŒÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍØLXÎÈB”T\Ú]ÛˆÈ˜XÚÙÜ›İ[™ˆÍØLXÎÈÛÛÜˆÙ™™Œ™È›Ü™\‹XÛÛÜˆØMŒÌÎNÈB”T\Ú]Ûšİ™\ˆÈ˜XÚÙÜ›İ[™ˆÎLLÌLÈB”T\Ú]Ûœ™\ÜÙYÈ˜XÚÙÜ›İ[™ˆÍMLMÌLNÈB”T\Ú]Û™\ØX›YÈ˜XÚÙÜ›İ[™ˆÌŒLYMÎÈÛÛÜˆÍ™MÎÈ›Ü™\‹XÛÛÜˆÌÎÌÎÈB”T\Ú]Û–Ü]ZY]HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JŒL‹MÌKŒJNÈÛÛÜˆØØ˜™YNÈ›Ü™\‹XÛÛÜˆÍNMŒÈB”T\Ú]Û–Ü]ZY]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLŒ‹Í‹JNÈÛÛÜˆÙ™™Œ™È›Ü™\‹XÛÛÜˆØÌMMÈB”T\Ú]Û–Ù[™Ù\HYH—HÈ˜XÚÙÜ›İ[™ˆÎXŒXÌMÈ›Ü™\‹XÛÛÜˆÙXŒÙÈB”T\Ú]Û–ÛZ[\İÛ™OH˜Xİ]™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JLŒ‹Í‹JNÈÛÛÜˆÙ™™Œ™È›Ü™\‹XÛÛÜˆØÌMMÈB”T\Ú]Û–ÛZ[\İÛ™OH™Û™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JŒL‹MÌKŒM
+NÈÛÛÜˆÙŒÎÈ›Ü™\‹XÛÛÜˆÎYØŒÎÈB”PÚXÚĞ›ŞÈÛÛÜˆÙÙÈB”PÚXÚĞ›Şš[™XØ]ÜˆÈ˜XÚÙÜ›İ[™ˆÌLÌNÈ›Ü™\‹XÛÛÜˆÍ˜ÍMÌÍNÈB”PÚXÚĞ›Şš[™XØ]Ü˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆÙXMMNÈ›Ü™\‹XÛÛÜˆÙŒØMÍNÈB”TØÜ›Û˜\š[™N™\XØ[È˜XÚÙÜ›İ[™ˆÍ˜ÍMÌÍNÈB”UÛÛ\È˜XÚÙÜ›İ[™ˆÙXMMNÈÛÛÜˆÌLÌŒÈBŠPÔÔÈÂ‚˜ÛÛœİÚ\ŠˆYÚ[YHHˆÔÔÊ”SXZ[•Ú[™İËQX[ÙÈÈ˜XÚÙÜ›İ[™ˆÙ™˜ÈÛÛÜˆÌMŒXŒ™ÈB”SX™[ÈÛÛÜˆÌŒÈB”SY[P˜\ˆÈ˜XÚÙÜ›İ[™ˆÙY™ÈÛÛÜˆÍMNÍNÈ›Ü™\‹X›İÛNˆ\ÛÛYÙ™MŒNÈY[™ÎˆÈB”SY[P˜\š][HÈY[™ÎˆÜLœÈ›Ü™\‹\˜Y]\ÎˆÜÈB”SY[P˜\š][NœÙ[XİYÈ˜XÚÙÜ›İ[™ˆÍ™NÈÛÛÜˆÚ]NÈB”SY[HÈ˜XÚÙÜ›İ[™ˆÙ™™™™™ÈÛÛÜˆÌMŒXŒ™È›Ü™\ˆ\ÛÛYÙÙXÎÈY[™ÎˆÜÈB”SY[Nš][HÈY[™ÎˆLœÈ›Ü™\‹\˜Y]\ÎˆœÈB”SY[Nš][NœÙ[XİYÈ˜XÚÙÜ›İ[™ˆÍ™NÈÛÛÜˆÚ]NÈBˆÜÚYX˜\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JKLËMÊNÈ›Ü™\‹\šYÚˆ\ÛÛYÙ™MŒNÈBˆİÛÜ™X\šÈÈ›Û\Ú^™NˆŒ\È›Û]ÙZYÚˆLÈ]\‹\ÜXÚ[™ÎˆÜÈÛÛÜˆÌMŒXŒ™ÈBˆØœ˜[™İXˆÈÛÛÜˆÌÙNMÈ›Û\Ú^™NˆLÈ›Û]ÙZYÚˆÍLÈ]\‹\ÜXÚ[™ÎˆœÈBˆÜYÙU]HÈ›Û\Ú^™NˆÌÈ›Û]ÙZYÚˆŒÈÛÛÜˆÌLŒMÌÈBˆÜYÙTİX]HÈÛÛÜˆÍŒ˜È›Û\Ú^™NˆMÈBˆÚ\›Õ]HÈ›Û\Ú^™NˆÍÈ›Û]ÙZYÚˆLÈÛÛÜˆÚ]NÈBˆÜÙXİ[Û•]HÈ›Û\Ú^™NˆMÜÈ›Û]ÙZYÚˆÍŒÈÛÛÜˆÌMÌYÌNÈBˆÛY]šXÈÈ›Û\Ú^™NˆŒ\È›Û]ÙZYÚˆŒÈÛÛÜˆÌMÌYÌNÈBˆÙ^YXœ›İÈÈÛÛÜˆÌÙNMÈ›Û\Ú^™NˆLÈ›Û]ÙZYÚˆÈ]\‹\ÜXÚ[™ÎˆœÈB”T\Ú]Û–Û˜]HYH—HÈ˜XÚÙÜ›İ[™ˆ˜[œÜ\™[ÈÛÛÜˆÍŒ™NÈ›Ü™\ˆÈ›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆLÜMÈ^X[YÛˆYÈ›Û]ÙZYÚˆÈB”T\Ú]Û–Û˜]HYH—Nšİ™\ˆÈ˜XÚÙÜ›İ[™ˆ™Ø˜JMKMËMŒL
+NÈÛÛÜˆÌMLXŒ™ÈB”T\Ú]Û–Û˜]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JL‹ŒÌ‹ŒLŠNÈÛÛÜˆÍŒ™˜ÍNÈ›Ü™\ˆ\ÛÛY™Ø˜JL‹ŒÌ‹Œ
+NÈB”Qœ˜[YVØØ\™HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JMKMKMKM
+NÈ›Ü™\ˆ\ÛÛYÙÙL™YÈ›Ü™\‹\˜Y]\ÎˆMœÈB”Qœ˜[YVØXØÙ[HYH—HÈ˜XÚÙÜ›İ[™ˆ[[™X\™Ü˜YY[
+NŒLNŒŒKLŒKİÜŒÍL™˜™KİÜ‹LˆÍÌ™NİÜŒHÌÙNMŠNÈ›Ü™\ˆ\ÛÛY™Ø˜JMKMKMKJNÈ›Ü™\‹\˜Y]\ÎˆŒÈB”SX™[Û]]YHYH—HÈÛÛÜˆÍÌÎNÈB”Qœ˜[YVØXØÙ[HYH—HSX™[ÈÛÛÜˆÚ]NÈB”Qœ˜[YVØXØÙ[HYH—HSX™[Û]]YHYH—HÈÛÛÜˆ™Ø˜JMKMKMKŠNÈB”SX™[ØÚ\HYH—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JMKMËMŒJNÈÛÛÜˆÌ™NÈ›Ü™\ˆ\ÛÛY™Ø˜JMKMËMŒJNÈ›Ü™\‹\˜Y]\ÎˆL\ÈY[™ÎˆLÈ›Û\Ú^™NˆL\È›Û]ÙZYÚˆÌÈB”S[™QY]PÛÛX›Ğ›ŞTZ[•^Y]U^œ›İÜÙ\‹S\İÚYÙ]È˜XÚÙÜ›İ[™ˆÙ™™™™™ÈÛÛÜˆÌMÌYÌNÈ›Ü™\ˆ\ÛÛYØØ™ÙMNÈ›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆLÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍ™NÈÙ[Xİ[Û‹XÛÛÜˆÚ]NÈBˆÜİ˜[™ÙU˜[œØÜš\È˜XÚÙÜ›İ[™ˆÙY™È›Ü™\ˆ\ÛÛYØÎYXNÈ›Ü™\‹\˜Y]\ÎˆMœÈY[™ÎˆMÈBˆÜİ˜[™ÙPÛÛ\ÜÙ\ˆÈ˜XÚÙÜ›İ[™ˆÙ™™™™™È›Ü™\ˆ\ÛÛYØXÍYÎÈ›Ü™\‹\˜Y]\ÎˆMÈY[™ÎˆLÜÈ›Û\Ú^™NˆMÈBˆÜİ˜[™ÙPÛÛ\ÜÙ\™›Øİ\ÈÈ›Ü™\‹XÛÛÜˆÌ˜NÈB”S[™QY]™›Øİ\ËPÛÛX›Ğ›Ş™›Øİ\ËTZ[•^Y]™›Øİ\ËU^œ›İÜÙ\™›Øİ\ÈÈ›Ü™\‹XÛÛÜˆÌ˜NÈB”PÛÛX›Ğ›Ş™›ÜYİÛˆÈ›Ü™\ˆÈÚYˆÈB”PÛÛX›Ğ›ŞPXœİ˜Xİ][UšY]ÈÈ˜XÚÙÜ›İ[™ˆÚ]NÈÛÛÜˆÌMÌYÌNÈ›Ü™\ˆ\ÛÛYØØ™ÙMNÈÙ[Xİ[Û‹X˜XÚÙÜ›İ[™XÛÛÜˆÍ™NÈÙ[Xİ[Û‹XÛÛÜˆÚ]NÈB”T\Ú]ÛˆÈ˜XÚÙÜ›İ[™ˆÍ™NÈÛÛÜˆÚ]NÈ›Ü™\ˆ\ÛÛYÍØXYXÈ›Ü™\‹\˜Y]\ÎˆLÈY[™ÎˆL\MÜÈ›Û]ÙZYÚˆÍŒÈB”T\Ú]Ûšİ™\ˆÈ˜XÚÙÜ›İ[™ˆÍÍLÙNNÈB”T\Ú]Ûœ™\ÜÙYÈ˜XÚÙÜ›İ[™ˆÍMÌØÍNÈB”T\Ú]Û™\ØX›YÈ˜XÚÙÜ›İ[™ˆÙL™M™YÈÛÛÜˆÎNLØNÈ›Ü™\‹XÛÛÜˆÙÙYMNÈB”T\Ú]Û–Ü]ZY]HYH—HÈ˜XÚÙÜ›İ[™ˆÙ™™™™™ÈÛÛÜˆÍÍNÍNÈ›Ü™\‹XÛÛÜˆØØ™ÙMNÈB”T\Ú]Û–Ü]ZY]HYH—N˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆ™Ø˜JL‹ŒÌ‹ŒLŠNÈÛÛÜˆÍŒ™˜ÍNÈ›Ü™\‹XÛÛÜˆ™Ø˜JL‹ŒÌ‹JNÈB”T\Ú]Û–Ù[™Ù\HYH—HÈ˜XÚÙÜ›İ[™ˆØÎÌÍŒÎÈ›Ü™\‹XÛÛÜˆÙMLÎNÈB”T\Ú]Û–ÛZ[\İÛ™OH˜Xİ]™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JL‹ŒÌ‹ŒLŠNÈÛÛÜˆÍŒ™˜ÍNÈ›Ü™\‹XÛÛÜˆ™Ø˜JL‹ŒÌ‹JNÈB”T\Ú]Û–ÛZ[\İÛ™OH™Û™H—HÈ˜XÚÙÜ›İ[™ˆ™Ø˜JKMKL‹ŒL
+NÈÛÛÜˆÌM˜LÈ›Ü™\‹XÛÛÜˆ™Ø˜JKMKL‹ŒÍJNÈB”PÚXÚĞ›ŞÈÛÛÜˆÌÍMXÎÈÜXÚ[™Îˆ\ÈB”PÚXÚĞ›Şš[™XØ]ÜˆÈÚYˆNÈZYÚˆNÈ›Ü™\ˆ\ÛÛYÎÎL˜YNÈ›Ü™\‹\˜Y]\Îˆ\È˜XÚÙÜ›İ[™ˆÚ]NÈB”PÚXÚĞ›Şš[™XØ]Ü˜ÚXÚÙYÈ˜XÚÙÜ›İ[™ˆÌ˜NÈ›Ü™\‹XÛÛÜˆÌ˜NÈB”TØÜ›Û˜\™\XØ[È˜XÚÙÜ›İ[™ˆ˜[œÜ\™[ÈÚYˆ\ÈB”TØÜ›Û˜\š[™N™\XØ[È˜XÚÙÜ›İ[™ˆØXXŒØÎÈ›Ü™\‹\˜Y]\ÎˆÈZ[‹ZZYÚˆÈB”Tİ]\Ğ˜\ˆÈ˜XÚÙÜ›İ[™ˆÙY™ÈÛÛÜˆÍŒ˜È›Ü™\‹]Üˆ\ÛÛYÙ™MŒNÈB”UÛÛ\È˜XÚÙÜ›İ[™ˆÌMÌŒÌÎÈÛÛÜˆÚ]NÈ›Ü™\ˆÈY[™ÎˆœÈBŠPÔÔÈÂ‚”SX™[
+ˆ^
+ÛÛœİTİš[™Éˆ˜[YKÛÛœİÚ\ŠˆYH[ŠHÂˆ]]Êˆ™\İ[H™]ÈSX™[
+˜[YJNÂˆYˆ
+Y
+H™\İ[OœÙ]Øš™Xİ˜[YJY
+NÂˆ™\İ[OœÙ]ÛÜ™Ü˜\
+YJNÂˆ™]\›ˆ™\İ[ÂŸB”Qœ˜[YJˆØ\™
+S^[İ]
+ˆ^[İ]›ÛÛXØÙ[H˜[ÙJHÂˆ]]Êˆ™\İ[H™]ÈQœ˜[YNÂˆ™\İ[OœÙ]›Ü\JXØÙ[È˜XØÙ[ˆˆ˜Ø\™‹YJNÂˆ™\İ[OœÙ]^[İ]
+^[İ]
+NÂˆ™]\›ˆ™\İ[ÂŸB”RXÛÛˆÛÛ›™Xİ[Û•˜^RXÛÛŠ]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙH\ÙJHÂˆÛÛœİPÛÛÜˆÛÛÜŠTİš[™Î™œ›ÛU]
+]œ˜ÛÛœÛÛNœ\ÙWØÛÛÜŠ\ÙJK™]J
+JJNÂˆRXÛÛˆXÛÛÂˆ›ÜŠ[Ú^™NÌM‹Ì‹LJ^ÂˆT^X\œ˜[YJÚ^™KÚ^™JNÙœ˜[YK™š[
+]˜[œÜ\™[
+NÔTZ[\ˆZ[\Š	™œ˜[YJNÜZ[\‹œÙ]™[™\’[
+TZ[\[X[X\Ú[™ÊNÜZ[\‹œØØ[JÚ^™KÍŒÚ^™KÍŒ
+NÂˆTZ[\”]ÚY[ÜÚY[›[İ™UÊÌ‹JNÜÚY[›[™UÊMKMŠNÜÚY[›[™UÊMKÌŠNÜÚY[˜İXšXÕÊMK‹‹MKÌ‹NJNÜÚY[˜İXšXÕÊNMKK‹KÌŠNÜÚY[›[™UÊKMŠNÜÚY[˜ÛÜÙTİXœ]
 
-#include <cmath>
-#include <functional>
-#include "console/connection_state.hpp"
-#include "console/default_profile.hpp"
-#include "monitor/release_updater.hpp"
-#include "monitor/strangenet_proof_chain.hpp"
+NÂˆZ[\‹œÙ][ŠT[ŠÛÛÜ‹
+JNÜZ[\‹œÙ]œ\Ú
+PÛÛÜŠˆÌLMŒ˜ÈŠJNÜZ[\‹™˜]Ô]
+ÚY[
+NÂˆTZ[\”]^YNÙ^YK›[İ™UÊNKÌÊNÙ^YK˜İXšXÕÊËŒ‹ÍËŒ‹KÌÊNÙ^YK˜İXšXÕÊÍËËNKÌÊNÂˆZ[\‹œÙ][ŠT[Š]Ú]K
+JNÜZ[\‹œÙ]œ\Ú
+]“›Ğœ\Ú
+NÜZ[\‹™˜]Ô]
+^YJNÜZ[\‹œÙ][Š]“›Ô[ŠNÜZ[\‹œÙ]œ\Ú
+ÛÛÜŠNÜZ[\‹™˜]Ñ[\ÙJTÚ[ŠÌ‹ÌÊKKJNÜZ[\‹™[™
 
-namespace {
-enum Page { Overview, Connection, Transports, StrangeNet, Shield, Activity, Privacy, About };
+NÚXÛÛ‹˜Y^X\
+œ˜[YJNÂˆBˆ™]\›ˆXÛÛÂŸB‚˜ÛÛœİ^ˆ›ÛÛÛÜÙRÙY\Ğ\XØ][Û”[›š[™Ê›ÛÛ]Z][™ÊHÂˆ™]\›ˆ\]Z][™ÎÂŸB‚ŸB‚˜Û\ÜÈ]\›Ü˜Hš[˜[ˆX›XÈUÚYÙ]ÂˆWÓĞ’‘PÕˆWÔ“ÔT•J\™X[\ÙH‘PQ\ÙHÔ’UHÙ]\ÙJBœX›XÎ‚ˆ^XÚ]]\›Ü˜JUÚYÙ]
+ˆ\™[H[ŠHˆUÚYÙ]
+\™[
+HÈÙ]]šX]J]•ĞWÕ˜[œÜ\™[›Ü“[İ\ÙQ]™[ÊNÈBˆ\™X[\ÙJ
+HÛÛœİÈ™]\›ˆ\ÙWÎÈBˆ›ÚYÙ]\ÙJ\™X[˜[YJHÈ\ÙWÈH˜[YNÈ\]J
+NÈBˆ›ÚYÙ]\šÊ›ÛÛ˜[YJHÈ\š×ÈH˜[YNÈ\]J
+NÈBˆ›ÚYÙ]Ûİ[Ê›ÛÛ˜[YJHÈÛİ[×ÈH˜[YNÈ\]J
+NÈBœ›İXİY‚ˆ›ÚYZ[]™[
+TZ[]™[
+ŠHİ™\œšYHÂˆTZ[\ˆZ[\Š\ÊNÂˆZ[\‹œÙ]™[™\’[
+TZ[\[X[X\Ú[™ÊNÂˆZ[\‹™š[™Xİ
+™Xİ
 
-const char* darkTheme = R"CSS(
-QMainWindow, QDialog { background: #080b17; color: #f8f9ff; }
-QLabel { color: #dbe1f2; }
-QMenuBar { background: #080b17; color: #aeb7d4; border-bottom: 1px solid rgba(255,255,255,.09); padding: 4px; }
-QMenuBar::item { padding: 7px 12px; border-radius: 7px; }
-QMenuBar::item:selected { background: #724cff; color: white; }
-QMenu { background: #11162a; color: white; border: 1px solid #293252; padding: 7px; }
-QMenu::item { padding: 8px 28px 8px 12px; border-radius: 6px; }
-QMenu::item:selected { background: #724cff; }
-#sidebar { background: rgba(7,10,24,.96); border-right: 1px solid rgba(255,255,255,.08); }
-#wordmark { font-size: 21px; font-weight: 850; letter-spacing: 3px; color: white; }
-#brandSub { color: #65e6ff; font-size: 10px; font-weight: 750; letter-spacing: 2px; }
-#pageTitle { font-size: 30px; font-weight: 820; color: white; }
-#pageSubtitle { color: #a5aec8; font-size: 14px; }
-#heroTitle { font-size: 34px; font-weight: 850; color: white; }
-#sectionTitle { font-size: 17px; font-weight: 760; color: white; }
-#metric { font-size: 21px; font-weight: 820; color: white; }
-#eyebrow { color: #7cecff; font-size: 10px; font-weight: 800; letter-spacing: 2px; }
-QPushButton[nav="true"] { background: transparent; color: #8994b7; border: 0; border-radius: 10px; padding: 13px 14px; text-align: left; font-weight: 680; }
-QPushButton[nav="true"]:hover { background: rgba(101,230,255,.10); color: white; }
-QPushButton[nav="true"]:checked { background: rgba(114,76,255,.28); color: white; border: 1px solid rgba(146,117,255,.50); }
-QFrame[card="true"] { background: rgba(15,21,43,.92); border: 1px solid rgba(142,162,221,.18); border-radius: 16px; }
-QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #5432c9,stop:.52 #824cff,stop:1 #0fa9cb); border: 1px solid rgba(255,255,255,.22); border-radius: 20px; }
-QLabel[muted="true"] { color: #9ba6c7; }
-QFrame[accent="true"] QLabel { color: white; }
-QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.78); }
-QLabel[chip="true"] { background: rgba(101,230,255,.10); color: #a5f3ff; border: 1px solid rgba(101,230,255,.28); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
-QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: rgba(6,10,25,.82); color: #f4f6ff; border: 1px solid #303a60; border-radius: 10px; padding: 10px; selection-background-color: #724cff; }
-#strangeTranscript { background: rgba(4,7,18,.94); border: 1px solid rgba(101,230,255,.24); border-radius: 16px; padding: 14px; }
-#strangeComposer { background: rgba(10,15,34,.96); border: 1px solid #46527d; border-radius: 14px; padding: 13px; font-size: 14px; }
-#strangeComposer:focus { border-color: #65e6ff; }
-QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #65e6ff; }
-QComboBox::drop-down { border: 0; width: 28px; }
-QComboBox QAbstractItemView { background: #11162a; color: white; border: 1px solid #354064; selection-background-color: #724cff; }
-QPushButton { background: #724cff; color: white; border: 1px solid #8e72ff; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
-QPushButton:hover { background: #825eff; }
-QPushButton:pressed { background: #5e3bd8; }
-QPushButton:disabled { background: #252a41; color: #68718f; border-color: #30364e; }
-QPushButton[quiet="true"] { background: rgba(255,255,255,.04); color: #b9c2df; border-color: #343d61; }
-QPushButton[quiet="true"]:checked { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
-QPushButton[danger="true"] { background: #d94172; border-color: #ff6494; }
-QPushButton[milestone="active"] { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
-QPushButton[milestone="done"] { background: rgba(42,190,135,.16); color: #9ff3d0; border-color: rgba(77,224,166,.48); }
-QCheckBox { color: #ced5ea; spacing: 9px; }
-QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #586488; border-radius: 5px; background: #0b1022; }
-QCheckBox::indicator:checked { background: #65e6ff; border-color: #65e6ff; }
-QScrollBar:vertical { background: transparent; width: 9px; }
-QScrollBar::handle:vertical { background: #465174; border-radius: 4px; min-height: 28px; }
-QStatusBar { background: #080b17; color: #8f9aba; border-top: 1px solid rgba(255,255,255,.08); }
-QToolTip { background: #65e6ff; color: #07101d; border: 0; padding: 6px; }
-)CSS";
+KPÛÛÜŠÛİ[×ÈÈˆÌLˆˆˆ\š×ÈÈˆÌŒMÈˆˆˆÙ™˜ˆŠJNÂˆÛÛœİ\™X[^[Hİ›X^
+ÚY
 
-const char* soulsThemeOverrides = R"CSS(
-QMainWindow, QDialog { background: #090806; color: #efe6cf; }
-QLabel { color: #d8cdb6; }
-QMenuBar, QStatusBar { background: #090806; color: #b7a98c; border-color: #3c3121; }
-QMenu { background: #14110c; color: #efe6cf; border-color: #594626; }
-QMenuBar::item:selected, QMenu::item:selected { background: #7a241c; color: #fff2d2; }
-#sidebar { background: rgba(10,8,5,.98); border-right-color: #3c3121; }
-#wordmark, #pageTitle, #heroTitle, #sectionTitle, #metric { color: #f3e5c1; }
-#brandSub, #eyebrow { color: #d4aa55; }
-QPushButton[nav="true"] { color: #aa9b7e; }
-QPushButton[nav="true"]:hover { background: rgba(212,170,85,.10); color: #fff2d2; }
-QPushButton[nav="true"]:checked { background: rgba(122,36,28,.34); color: #fff2d2; border-color: #9f6d31; }
-QFrame[card="true"] { background: rgba(22,18,12,.95); border-color: rgba(191,145,66,.25); }
-QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #2a160f,stop:.52 #7a241c,stop:1 #9f6d31); border-color: #c09548; }
-QLabel[muted="true"] { color: #aa9d83; }
-QLabel[chip="true"] { background: rgba(212,170,85,.10); color: #e8c97d; border-color: rgba(212,170,85,.35); }
-QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: #0e0c09; color: #eee3cb; border-color: #594626; selection-background-color: #7a241c; }
-QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #d4aa55; }
-QComboBox QAbstractItemView { background: #14110c; color: #efe6cf; border-color: #594626; selection-background-color: #7a241c; }
-QPushButton { background: #7a241c; color: #fff2d2; border-color: #b56339; }
-QPushButton:hover { background: #913126; }
-QPushButton:pressed { background: #551711; }
-QPushButton:disabled { background: #211d17; color: #6f6657; border-color: #383027; }
-QPushButton[quiet="true"] { background: rgba(212,170,85,.05); color: #cbbd9e; border-color: #594626; }
-QPushButton[quiet="true"]:checked { background: rgba(122,36,28,.45); color: #fff2d2; border-color: #c09548; }
-QPushButton[danger="true"] { background: #9b1c16; border-color: #df5b3f; }
-QPushButton[milestone="active"] { background: rgba(122,36,28,.45); color: #fff2d2; border-color: #c09548; }
-QPushButton[milestone="done"] { background: rgba(212,170,85,.14); color: #f0d48c; border-color: #9f7b38; }
-QCheckBox { color: #d8cdb6; }
-QCheckBox::indicator { background: #0e0c09; border-color: #6c5735; }
-QCheckBox::indicator:checked { background: #d4aa55; border-color: #f0ca75; }
-QScrollBar::handle:vertical { background: #6c5735; }
-QToolTip { background: #d4aa55; color: #130f08; }
-)CSS";
+KZYÚ
 
-const char* lightTheme = R"CSS(
-QMainWindow, QDialog { background: #f4f6fb; color: #161b2d; }
-QLabel { color: #202840; }
-QMenuBar { background: #f8f9fd; color: #4e5875; border-bottom: 1px solid #dfe4f1; padding: 4px; }
-QMenuBar::item { padding: 7px 12px; border-radius: 7px; }
-QMenuBar::item:selected { background: #6842e8; color: white; }
-QMenu { background: #ffffff; color: #161b2d; border: 1px solid #d7ddec; padding: 7px; }
-QMenu::item { padding: 8px 28px 8px 12px; border-radius: 6px; }
-QMenu::item:selected { background: #6842e8; color: white; }
-#sidebar { background: rgba(248,249,253,.97); border-right: 1px solid #dfe4f1; }
-#wordmark { font-size: 21px; font-weight: 850; letter-spacing: 3px; color: #161b2d; }
-#brandSub { color: #087e96; font-size: 10px; font-weight: 750; letter-spacing: 2px; }
-#pageTitle { font-size: 30px; font-weight: 820; color: #121728; }
-#pageSubtitle { color: #606b88; font-size: 14px; }
-#heroTitle { font-size: 34px; font-weight: 850; color: white; }
-#sectionTitle { font-size: 17px; font-weight: 760; color: #171d31; }
-#metric { font-size: 21px; font-weight: 820; color: #171d31; }
-#eyebrow { color: #087e96; font-size: 10px; font-weight: 800; letter-spacing: 2px; }
-QPushButton[nav="true"] { background: transparent; color: #626d8a; border: 0; border-radius: 10px; padding: 13px 14px; text-align: left; font-weight: 680; }
-QPushButton[nav="true"]:hover { background: rgba(15,143,168,.10); color: #151b2d; }
-QPushButton[nav="true"]:checked { background: rgba(104,66,232,.12); color: #4f2fc5; border: 1px solid rgba(104,66,232,.28); }
-QFrame[card="true"] { background: rgba(255,255,255,.94); border: 1px solid #dce2ef; border-radius: 16px; }
-QFrame[accent="true"] { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #4e2fbe,stop:.52 #7046e8,stop:1 #087e96); border: 1px solid rgba(255,255,255,.5); border-radius: 20px; }
-QLabel[muted="true"] { color: #68738e; }
-QFrame[accent="true"] QLabel { color: white; }
-QFrame[accent="true"] QLabel[muted="true"] { color: rgba(255,255,255,.82); }
-QLabel[chip="true"] { background: rgba(15,143,168,.09); color: #086d81; border: 1px solid rgba(15,143,168,.25); border-radius: 11px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
-QLineEdit, QComboBox, QPlainTextEdit, QTextBrowser, QListWidget { background: #ffffff; color: #171d31; border: 1px solid #cbd3e5; border-radius: 10px; padding: 10px; selection-background-color: #6842e8; selection-color: white; }
-#strangeTranscript { background: #f8f9fd; border: 1px solid #c9d4ea; border-radius: 16px; padding: 14px; }
-#strangeComposer { background: #ffffff; border: 1px solid #b9c5dc; border-radius: 14px; padding: 13px; font-size: 14px; }
-#strangeComposer:focus { border-color: #0f8fa8; }
-QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QTextBrowser:focus { border-color: #0f8fa8; }
-QComboBox::drop-down { border: 0; width: 28px; }
-QComboBox QAbstractItemView { background: white; color: #171d31; border: 1px solid #cbd3e5; selection-background-color: #6842e8; selection-color: white; }
-QPushButton { background: #6842e8; color: white; border: 1px solid #7b5aeb; border-radius: 10px; padding: 11px 17px; font-weight: 760; }
-QPushButton:hover { background: #7653e9; }
-QPushButton:pressed { background: #5433c5; }
-QPushButton:disabled { background: #e2e6ef; color: #8a93a8; border-color: #d3d9e5; }
-QPushButton[quiet="true"] { background: #ffffff; color: #4c5875; border-color: #cbd3e5; }
-QPushButton[quiet="true"]:checked { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
-QPushButton[danger="true"] { background: #c83363; border-color: #d95079; }
-QPushButton[milestone="active"] { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
-QPushButton[milestone="done"] { background: rgba(25,145,102,.10); color: #146b50; border-color: rgba(25,145,102,.35); }
-QCheckBox { color: #35405c; spacing: 9px; }
-QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #8792ae; border-radius: 5px; background: white; }
-QCheckBox::indicator:checked { background: #0f8fa8; border-color: #0f8fa8; }
-QScrollBar:vertical { background: transparent; width: 9px; }
-QScrollBar::handle:vertical { background: #aab3c8; border-radius: 4px; min-height: 28px; }
-QStatusBar { background: #f8f9fd; color: #606b88; border-top: 1px solid #dfe4f1; }
-QToolTip { background: #172033; color: white; border: 0; padding: 6px; }
-)CSS";
+JH
+ˆÂˆÛÛœİTÚ[ˆÚ[Ö×HHŞİÚY
 
-QLabel* text(const QString& value, const char* id = nullptr) {
-    auto* result = new QLabel(value);
-    if (id) result->setObjectName(id);
-    result->setWordWrap(true);
-    return result;
-}
-QFrame* card(QLayout* layout, bool accent = false) {
-    auto* result = new QFrame;
-    result->setProperty(accent ? "accent" : "card", true);
-    result->setLayout(layout);
-    return result;
-}
-QIcon connectionTrayIcon(pqvpn::console::ConnectionPhase phase) {
-    const QColor color(QString::fromUtf8(pqvpn::console::phase_color(phase).data()));
-    QIcon icon;
-    for(int size:{16,24,32,48,64,128}){
-        QPixmap frame(size,size);frame.fill(Qt::transparent);QPainter painter(&frame);painter.setRenderHint(QPainter::Antialiasing);painter.scale(size/64.0,size/64.0);
-        QPainterPath shield;shield.moveTo(32,5);shield.lineTo(55,16);shield.lineTo(55,32);shield.cubicTo(55,46,46,55,32,59);shield.cubicTo(18,55,9,46,9,32);shield.lineTo(9,16);shield.closeSubpath();
-        painter.setPen(QPen(color,4));painter.setBrush(QColor("#10162c"));painter.drawPath(shield);
-        QPainterPath eye;eye.moveTo(19,33);eye.cubicTo(27,22,37,22,45,33);eye.cubicTo(37,44,27,44,19,33);
-        painter.setPen(QPen(Qt::white,4));painter.setBrush(Qt::NoBrush);painter.drawPath(eye);painter.setPen(Qt::NoPen);painter.setBrush(color);painter.drawEllipse(QPointF(32,33),5,5);painter.end();icon.addPixmap(frame);
-    }
-    return icon;
-}
+H
+ˆ
+ŒLˆ
+ÈŒ
+ˆİœÚ[Š\ÙWÊJKZYÚ
 
-constexpr bool closeKeepsApplicationRunning(bool quitting) {
-    return !quitting;
-}
+H
+ˆŒMßKˆİÚY
 
-}
+H
+ˆ
+
+ÈŒH
+ˆİ˜ÛÜÊ\ÙWÈ
+ˆ
+JKZYÚ
 
-class Aurora final : public QWidget {
-    Q_OBJECT
-    Q_PROPERTY(qreal phase READ phase WRITE setPhase)
-public:
-    explicit Aurora(QWidget* parent = nullptr) : QWidget(parent) { setAttribute(Qt::WA_TransparentForMouseEvents); }
-    qreal phase() const { return phase_; }
-    void setPhase(qreal value) { phase_ = value; update(); }
-    void setDark(bool value) { dark_ = value; update(); }
-    void setSouls(bool value) { souls_ = value; update(); }
-protected:
-    void paintEvent(QPaintEvent*) override {
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.fillRect(rect(), QColor(souls_ ? "#090806" : dark_ ? "#080b17" : "#f4f6fb"));
-        const qreal extent = std::max(width(), height()) * .48;
-        const QPointF points[] = {{width() * (.12 + .04 * std::sin(phase_)), height() * .17},
-            {width() * (.80 + .05 * std::cos(phase_ * .8)), height() * .25},
-            {width() * (.55 + .05 * std::sin(phase_ * .6)), height() * .84}};
-        const QColor darkColors[] = {QColor(80,43,220,78), QColor(0,201,231,54), QColor(217,65,171,42)};
-        const QColor soulsColors[] = {QColor(122,36,28,82), QColor(212,170,85,58), QColor(99,48,20,48)};
-        const QColor lightColors[] = {QColor(104,66,232,32), QColor(15,143,168,27), QColor(217,65,171,20)};
-        const QColor* colors = souls_ ? soulsColors : dark_ ? darkColors : lightColors;
-        for (int i = 0; i < 3; ++i) {
-            QRadialGradient gradient(points[i], extent);
-            gradient.setColorAt(0, colors[i]); gradient.setColorAt(1, QColor(0,0,0,0));
-            painter.setPen(Qt::NoPen); painter.setBrush(gradient);
-            painter.drawEllipse(points[i], extent, extent);
-        }
-    }
-private:
-    qreal phase_ = 0;
-    bool dark_ = true;
-    bool souls_ = false;
-};
+H
+ˆŒ_KˆİÚY
 
-class StatusOrb final : public QWidget {
-    Q_OBJECT
-    Q_PROPERTY(qreal pulse READ pulse WRITE setPulse)
-public:
-    StatusOrb() { setFixedSize(112,112); }
-    qreal pulse() const { return pulse_; }
-    void setPulse(qreal value) { pulse_ = value; update(); }
-    void setConnected(bool value) { connected_ = value; update(); }
-    void setSouls(bool value) { souls_ = value; update(); }
-protected:
-    void paintEvent(QPaintEvent*) override {
-        QPainter painter(this); painter.setRenderHint(QPainter::Antialiasing);
-        const QPointF center(width()/2.0, height()/2.0);
-        const QColor color = souls_ ? (connected_ ? QColor("#d4aa55") : QColor("#9b1c16"))
-                                    : (connected_ ? QColor("#65e6ff") : QColor("#ff7aac"));
-        painter.setPen(QPen(QColor(color.red(),color.green(),color.blue(),int(80*(1-pulse_))),2));
-        painter.setBrush(Qt::NoBrush); painter.drawEllipse(center,34+pulse_*17,34+pulse_*17);
-        QRadialGradient glow(center,34); glow.setColorAt(0,color.lighter(140)); glow.setColorAt(.52,color); glow.setColorAt(1,QColor(color.red(),color.green(),color.blue(),12));
-        painter.setPen(Qt::NoPen); painter.setBrush(glow); painter.drawEllipse(center,29,29);
-        painter.setBrush(Qt::white); painter.drawEllipse(center,7,7);
-    }
-private:
-    qreal pulse_ = 0;
-    bool connected_ = false;
-    bool souls_ = false;
-};
+H
+ˆ
+MH
+ÈŒH
+ˆİœÚ[Š\ÙWÈ
+ˆŠJKZYÚ
 
-class ResponsiveStack final : public QStackedWidget {
-public:
-    ResponsiveStack() { connect(this,&QStackedWidget::currentChanged,this,[this]{updateGeometry();}); }
-    QSize sizeHint() const override { return currentWidget()?currentWidget()->sizeHint():QSize{}; }
-    QSize minimumSizeHint() const override {
-        const QSize hint=currentWidget()?currentWidget()->minimumSizeHint():QSize{};
-        return {0,hint.height()};
-    }
-};
+H
+ˆ_NÂˆÛÛœİPÛÛÜˆ\šĞÛÛÜœÖ×HHÔPÛÛÜŠËŒŒÎ
+KPÛÛÜŠŒKŒÌKM
+KPÛÛÜŠŒMËKMÌKŠ_NÂˆÛÛœİPÛÛÜˆÛİ[ĞÛÛÜœÖ×HHÔPÛÛÜŠLŒ‹Í‹ŠKPÛÛÜŠŒL‹MÌKN
+KPÛÛÜŠNKŒ
+_NÂˆÛÛœİPÛÛÜˆYÚÛÛÜœÖ×HHÔPÛÛÜŠL‹ŒÌ‹ÌŠKPÛÛÜŠMKMËMÊKPÛÛÜŠŒMËKMÌKŒ
+_NÂˆÛÛœİPÛÛÜŠˆÛÛÜœÈHÛİ[×ÈÈÛİ[ĞÛÛÜœÈˆ\š×ÈÈ\šĞÛÛÜœÈˆYÚÛÛÜœÎÂˆ›Üˆ
+[HHÈHÎÈ
+ÊÚJHÂˆT˜YX[Ü˜YY[Ü˜YY[
+Ú[ÖÚWK^[
+NÂˆÜ˜YY[œÙ]ÛÛÜ]
+ÛÛÜœÖÚWJNÈÜ˜YY[œÙ]ÛÛÜ]
+KPÛÛÜŠ
+JNÂˆZ[\‹œÙ][Š]“›Ô[ŠNÈZ[\‹œÙ]œ\Ú
+Ü˜YY[
+NÂˆZ[\‹™˜]Ñ[\ÙJÚ[ÖÚWK^[^[
+NÂˆBˆBœš]˜]N‚ˆ\™X[\ÙWÈHÂˆ›ÛÛ\š×ÈHYNÂˆ›ÛÛÛİ[×ÈH˜[ÙNÂŸNÂ‚˜Û\ÜÈİ]\ÓÜ˜ˆš[˜[ˆX›XÈUÚYÙ]ÂˆWÓĞ’‘PÕˆWÔ“ÔT•J\™X[[ÙH‘PQ[ÙHÔ’UHÙ][ÙJBœX›XÎ‚ˆİ]\ÓÜ˜Š
+HÈÙ]š^YÚ^™JLL‹LLŠNÈBˆ\™X[[ÙJ
+HÛÛœİÈ™]\›ˆ[ÙWÎÈBˆ›ÚYÙ][ÙJ\™X[˜[YJHÈ[ÙWÈH˜[YNÈ\]J
+NÈBˆ›ÚYÙ]ÛÛ›™XİY
+›ÛÛ˜[YJHÈÛÛ›™XİYÈH˜[YNÈ\]J
+NÈBˆ›ÚYÙ]Ûİ[Ê›ÛÛ˜[YJHÈÛİ[×ÈH˜[YNÈ\]J
+NÈBœ›İXİY‚ˆ›ÚYZ[]™[
+TZ[]™[
+ŠHİ™\œšYHÂˆTZ[\ˆZ[\Š\ÊNÈZ[\‹œÙ]™[™\’[
+TZ[\[X[X\Ú[™ÊNÂˆÛÛœİTÚ[ˆÙ[\ŠÚY
 
-class StableScrollArea final : public QScrollArea {
-public:
-    StableScrollArea() {
-        const QString platform=qEnvironmentVariable("QT_QPA_PLATFORM");
-        const bool headless=platform=="offscreen"||platform=="minimal";
-        const bool software=QApplication::arguments().contains("--software-rendering")||QApplication::arguments().contains("--smoke-test")||qEnvironmentVariableIsSet("PQVPN_DISABLE_OPENGL");
-        // QOpenGLWidget is opt-in for the scroll viewport. On Wayland/GNOME,
-        // embedding child controls in an OpenGL QAbstractScrollArea viewport
-        // can produce stale frames and incorrect mouse hit coordinates after
-        // scrolling. The native raster viewport is both faster for widgets and
-        // reliable for buttons; OpenGL remains available for diagnostics.
-        const bool openGlRequested=qEnvironmentVariableIntValue("PQVPN_ENABLE_OPENGL")>0;
-        if(openGlRequested&&!headless&&!software){
-            auto* glViewport=new QOpenGLWidget;
-            glViewport->setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
-            setViewport(glViewport);
-            openGlViewport_=true;
-        }
-    }
-    bool usesOpenGL() const { return openGlViewport_; }
-protected:
-    void scrollContentsBy(int dx,int dy) override {
-        QScrollArea::scrollContentsBy(dx,dy);
-        // Repaint the complete OpenGL surface after QScrollArea moves its child.
-        // This avoids stale pixel copies on Wayland compositors.
-        viewport()->update();
-    }
-private:
-    bool openGlViewport_=false;
-};
+KÌ‹ŒZYÚ
 
-class ChatComposer final : public QPlainTextEdit {
-public:
-    explicit ChatComposer(QWidget* parent=nullptr) : QPlainTextEdit(parent) {
-        setTabChangesFocus(true);
-        setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-    }
-    void setPoemMode(bool enabled) { poemMode_=enabled; }
-    std::function<void()> submit;
-protected:
-    void keyPressEvent(QKeyEvent* event) override {
-        const bool enter=event->key()==Qt::Key_Return||event->key()==Qt::Key_Enter;
-        if(!enter){QPlainTextEdit::keyPressEvent(event);return;}
-        const auto modifiers=event->modifiers();
-        const bool explicitSubmit=modifiers.testFlag(Qt::ControlModifier)||modifiers.testFlag(Qt::MetaModifier);
-        const bool newline=(poemMode_&&!explicitSubmit)||(!poemMode_&&modifiers.testFlag(Qt::ShiftModifier));
-        if(newline){QPlainTextEdit::keyPressEvent(event);return;}
-        if(submit)submit();
-        event->accept();
-    }
-private:
-    bool poemMode_=false;
-};
+KÌ‹Œ
+NÂˆÛÛœİPÛÛÜˆÛÛÜˆHÛİ[×ÈÈ
+ÛÛ›™XİYÈÈPÛÛÜŠˆÙXMMHŠHˆPÛÛÜŠˆÎXŒXÌMˆŠJBˆˆ
+ÛÛ›™XİYÈÈPÛÛÜŠˆÍYM™™ˆŠHˆPÛÛÜŠˆÙ™ØXXÈŠJNÂˆZ[\‹œÙ][ŠT[ŠPÛÛÜŠÛÛÜ‹œ™Y
 
-class Window final : public QMainWindow {
-    Q_OBJECT
-public:
-    Window() {
-        setWindowTitle("PQVPN");
-        setWindowIcon(QIcon(":/brand/logo.svg"));
-        setMinimumSize(940,650); resize(1240,800); setAcceptDrops(true);
-        process_.setProcessChannelMode(QProcess::MergedChannels);
-        buildMenus(); buildUi(); buildTray(); connectProcess(); applyPreferences(); applyStartupArguments(); loadConfig(configPath_->text());
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-        connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){if(themeMode_=="system")applyTheme("system");});
-#else
-        connect(qApp,&QGuiApplication::paletteChanged,this,[this](const QPalette& palette){systemDark_=palette.color(QPalette::Window).lightness()<128;if(themeMode_=="system")applyTheme("system");});
-#endif
-        statusBar()->showMessage("Ready â€” no connection starts without your action");
-        QTimer::singleShot(0,this,[this]{ if(!configValid_ && !QApplication::arguments().contains("--smoke-test")) validateConfig(false); });
-    }
-    void prepareSmokePage(const QString& request) {
-        QSignalBlocker guard(reduceMotion_); reduceMotion_->setChecked(true); setMotion(false);
-        const QHash<QString,int> pages{{"connection",Connection},{"transports",Transports},{"strangenet",StrangeNet},{"shield",Shield},{"activity",Activity},{"privacy",Privacy},{"about",About}};
-        switchPage(pages.value(request,Overview)); QApplication::processEvents();
-    }
-    bool verifyInstallation() const {
-        if(!QFileInfo(executablePath_->text()).isExecutable()){qCritical().noquote()<<"PQVPN installation check: node is not executable:"<<executablePath_->text();return false;}
-        if(!QFileInfo(configPath_->text()).isFile()){qCritical().noquote()<<"PQVPN installation check: configuration is not a file:"<<configPath_->text();return false;}
-        QProcess check;check.start(executablePath_->text(),{"--validate-config","--config",configPath_->text()});
-        if(!check.waitForStarted(5000)){qCritical().noquote()<<"PQVPN installation check: could not start node:"<<check.errorString();return false;}
-        if(!check.waitForFinished(10000)){check.kill();check.waitForFinished();qCritical()<<"PQVPN installation check: node validation timed out";return false;}
-        if(check.exitStatus()!=QProcess::NormalExit||check.exitCode()!=0){qCritical().noquote()<<"PQVPN installation check: node validation failed with exit code"<<check.exitCode()<<QString::fromUtf8(check.readAll()).trimmed();return false;}
-        return true;
-    }
-    bool verifyTrayIcons() const {
-        using pqvpn::console::ConnectionPhase;
-        for(auto phase:{ConnectionPhase::Disconnected,ConnectionPhase::Connecting,ConnectionPhase::Protected,ConnectionPhase::Failed}){
-            const auto image=connectionTrayIcon(phase).pixmap(64,64).toImage();
-            if(image.isNull()||image.pixelColor(32,33)!=QColor(QString::fromUtf8(pqvpn::console::phase_color(phase).data())))return false;
-        }
-        return true;
-    }
-    bool verifyVisualLayout() const {
-        const auto fail=[](const QString& message){qCritical().noquote()<<message;const QString image=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!image.isEmpty()){QFile diagnostic(image+".error.txt");if(diagnostic.open(QIODevice::WriteOnly|QIODevice::Truncate))diagnostic.write(message.toUtf8());}return false;};
-        // On Qt's offscreen Windows plugin, inFont('A') can return false for a
-        // generic font even when Qt actually rasterizes the Latin glyph. Keep
-        // the coverage check, but verify rendered glyph ink rather than trusting
-        // only the font-database metadata.
-        const auto rendersDistinctLatinGlyphs=[](const QFont& font){
-            const auto render=[&font](QChar glyph){
-                QImage ink(96,96,QImage::Format_ARGB32_Premultiplied);
-                ink.fill(Qt::transparent);
-                QPainter painter(&ink);
-                painter.setRenderHint(QPainter::TextAntialiasing,true);
-                painter.setPen(Qt::white);
-                painter.setFont(font);
-                painter.drawText(QPoint(8,64),QString(glyph));
-                painter.end();
-                return ink;
-            };
-            const QImage a=render(QChar('A'));
-            const QImage w=render(QChar('W'));
-            if(a==w) return false; // identical replacement glyphs or no ink
-            const auto hasInk=[](const QImage& image){
-                for(int y=0;y<image.height();++y)
-                    for(int x=0;x<image.width();++x)
-                        if(qAlpha(image.pixel(x,y))!=0) return true;
-                return false;
-            };
-            return hasInk(a)&&hasInk(w);
-        };
-        QSet<QString> checkedFonts;
-        const auto labels=findChildren<QLabel*>();
-        for(const auto* label:labels){
-            if(!label->isVisible()||!label->text().contains(QRegularExpression("[A-Za-z]"))) continue;
-            if(label->fontMetrics().inFont(QChar('A'))) continue;
-            const QFont font=label->font();
-            const QString key=font.toString();
-            if(checkedFonts.contains(key)) continue;
-            if(!rendersDistinctLatinGlyphs(font))
-                return fail("PQVPN visual check: UI font failed Latin glyph raster check: "+font.family());
-            checkedFonts.insert(key);
-        }
-        const auto* scroll=findChild<QScrollArea*>("pageScroll");
-        if(!scroll)return fail("PQVPN visual check: page scroll area is missing");
-        if(scroll->horizontalScrollBar()->maximum()>2)return fail(QString("PQVPN visual check: page has horizontal overflow: %1 px").arg(scroll->horizontalScrollBar()->maximum()));
-        return true;
-    }
-    bool verifyScrollNavigation() {
-        if(!pageScroll_)return false;
-        setMotion(false);
-        bool exercisedScrolling=false;
-        for(int index=0;index<pages_->count();++index){
-            pages_->setCurrentIndex(index);
-            pageScroll_->verticalScrollBar()->setValue(0);
-            QApplication::processEvents();
-            const int maximum=pageScroll_->verticalScrollBar()->maximum();
-            const QImage before=pageScroll_->viewport()->grab().toImage();
-            if(maximum>0){
-                exercisedScrolling=true;
-                for(int step=1;step<=6;++step){pageScroll_->verticalScrollBar()->setValue(maximum*step/6);QApplication::processEvents();}
-                pageScroll_->verticalScrollBar()->setValue(0);
-                QApplication::processEvents();
-                const QImage after=pageScroll_->viewport()->grab().toImage();
-                if(before.isNull()||after.isNull()||before.size()!=after.size()){
-                    qCritical()<<"PQVPN rendering check: viewport changed after a round-trip scroll on page"<<index;
-                    return false;
-                }
-                qint64 changedPixels=0;
-                const qint64 totalPixels=qint64(before.width())*before.height();
-                for(int y=0;y<before.height();++y)for(int x=0;x<before.width();++x){
-                    const QColor lhs=before.pixelColor(x,y),rhs=after.pixelColor(x,y);
-                    if(std::abs(lhs.red()-rhs.red())>16||std::abs(lhs.green()-rhs.green())>16||std::abs(lhs.blue()-rhs.blue())>16||std::abs(lhs.alpha()-rhs.alpha())>16)++changedPixels;
-                }
-                if(totalPixels>0&&changedPixels*100>totalPixels*2){
-                    qCritical()<<"PQVPN rendering check: excessive viewport residue after scrolling page"<<index<<changedPixels<<"of"<<totalPixels<<"pixels";
-                    return false;
-                }
-                pageScroll_->verticalScrollBar()->setValue(maximum);
-            }
-            QApplication::processEvents();
-            const int next=(index+1)%pages_->count();
-            pageButtons_.value(next)->click();
-            QApplication::processEvents();
-            if(pages_->currentIndex()!=next||pageScroll_->verticalScrollBar()->value()!=0){
-                qCritical()<<"PQVPN interaction check: navigation failed after scrolling"<<index<<next;
-                return false;
-            }
-            const QImage frame=pageScroll_->viewport()->grab().toImage();
-            if(frame.isNull()){
-                qCritical()<<"PQVPN interaction check: scroll viewport did not render";
-                return false;
-            }
-        }
-        if(!exercisedScrolling)qInfo()<<"PQVPN interaction check: all pages fit without scrolling at this platform's smoke-test size";
-        return true;
-    }
-    bool verifyPrimaryActions() {
-        if(!journeyConfigure_||!journeyAuthenticate_||!journeyProtect_)return false;
-        const bool restoreGeek=geekTelemetry_&&geekTelemetry_->isChecked();
-        setGeekMode(false);for(auto* widget:geekWidgets_)if(widget&&!widget->isHidden())return false;
-        setGeekMode(true);for(auto* widget:geekWidgets_)if(widget&&widget->isHidden())return false;
-        setGeekMode(restoreGeek);
-        journeyConfigure_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
-        journeyAuthenticate_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
-        journeyProtect_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
-        pageButtons_.value(Overview)->click();QApplication::processEvents();
-        return pages_->currentIndex()==Overview;
-    }
-    void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
-    bool verifyClosePolicy() const {
-        return closeKeepsApplicationRunning(false) && !closeKeepsApplicationRunning(true);
-    }
-protected:
-    void closeEvent(QCloseEvent* event) override {
-        if (closeKeepsApplicationRunning(quitting_)) {
-            savePreferences();
-            const bool trayReady=tray_&&tray_->isVisible()&&QSystemTrayIcon::isSystemTrayAvailable();
-            if(trayReady){
-                hide();
-                if(!trayNoticeShown_){tray_->showMessage("PQVPN is still running","The window was moved to the tray. Use Exit PQVPN to stop the application.",QSystemTrayIcon::Information,5000);trayNoticeShown_=true;}
-            }else{
-                // Never strand a running connection when the desktop has no
-                // StatusNotifier/AppIndicator host. Keep a recoverable taskbar
-                // window instead of interpreting the title-bar X as Exit.
-                showMinimized();
-                statusBar()->showMessage("PQVPN is still running Â· use File â†’ Exit PQVPN to quit",5000);
-            }
-            event->ignore();
-            return;
-        }
-        if (process_.state()!=QProcess::NotRunning) {
-            pendingQuit_=true; requestStop(); event->ignore(); return;
-        }
-        savePreferences(); event->accept(); QTimer::singleShot(0,qApp,&QCoreApplication::quit);
-    }
-    void dragEnterEvent(QDragEnterEvent* event) override {
-        if (event->mimeData()->hasUrls() && event->mimeData()->urls().size()==1 && event->mimeData()->urls().constFirst().toLocalFile().endsWith(".json",Qt::CaseInsensitive)) event->acceptProposedAction();
-    }
-    void dropEvent(QDropEvent* event) override {
-        if(process_.state()!=QProcess::NotRunning){event->ignore();log("Disconnect before changing configuration.");return;}
-        const QString path=event->mimeData()->urls().constFirst().toLocalFile();
-        if (loadConfig(path)) { configPath_->setText(path); log("Configuration selected Â· "+QDir::toNativeSeparators(path)); event->acceptProposedAction(); }
-    }
-private:
-    QProcess process_;
-    pqvpn::console::EngineManager* engines_=nullptr;
-    pqvpn::console::ReleaseUpdater* updater_=nullptr;
-    QStackedWidget* pages_=nullptr; QScrollArea* pageScroll_=nullptr; QWidget* sidebar_=nullptr; QWidget* brandWords_=nullptr;
-    Aurora* aurora_=nullptr; StatusOrb* orb_=nullptr; QPropertyAnimation *auroraAnimation_=nullptr,*pulseAnimation_=nullptr;
-    QHash<int,QPushButton*> pageButtons_; QList<QPushButton*> navButtons_;
-    QLineEdit *configPath_=nullptr,*executablePath_=nullptr; QComboBox *logLevel_=nullptr,*adaptiveMode_=nullptr; QCheckBox* noTunnel_=nullptr;
-    QPushButton* overviewAction_=nullptr;
-    QLabel *configurationStep_=nullptr,*peerStep_=nullptr,*protectionStep_=nullptr;
-    QPushButton *connectButton_=nullptr,*validateButton_=nullptr; QLabel *stateLabel_=nullptr,*statusText_=nullptr,*endpointMetric_=nullptr,*verificationMetric_=nullptr,*shapingMetric_=nullptr,*mainnetMetric_=nullptr,*tunnelMetric_=nullptr,*egressMetric_=nullptr,*transportMetric_=nullptr,*transportDetails_=nullptr,*configHealth_=nullptr;
-    QCheckBox *adaptiveEnabled_=nullptr,*shapingEnabled_=nullptr,*innerTunnelEnabled_=nullptr; QLabel *adaptiveMetric_=nullptr,*transportStatus_=nullptr; QPushButton *saveTransportButton_=nullptr,*innerTunnelBrowse_=nullptr;
-    QComboBox* innerTunnelBackend_=nullptr; QLineEdit* innerTunnelConfig_=nullptr;
-    QSpinBox *shapingPadding_=nullptr,*shapingDelay_=nullptr;
-    QHash<QString,QPushButton*> engineStartButtons_,engineStopButtons_,engineConfigButtons_;
-    QLineEdit* strangeRoom_=nullptr;
-    ChatComposer* strangeMessage_=nullptr;
-    QComboBox *strangeAudience_=nullptr,*strangeWritingMode_=nullptr; QListWidget* peerDirectory_=nullptr;
-    QTextBrowser* strangeTranscript_=nullptr; QPushButton *strangeJoin_=nullptr,*strangeSend_=nullptr,*strangeReply_=nullptr,*strangeVoice_=nullptr,*strangeReaction_=nullptr,*strangeProofCopy_=nullptr; QLabel *strangeBytes_=nullptr,*peerCount_=nullptr,*strangeProofStatus_=nullptr,*strangeFloodStatus_=nullptr,*strangePresence_=nullptr,*strangeComposerHint_=nullptr;QCheckBox* strangeProofEnabled_=nullptr;
-    QAudioSource* strangeAudioSource_=nullptr;QIODevice* strangeAudioInput_=nullptr;QAudioSink* strangeAudioSink_=nullptr;QIODevice* strangeAudioOutput_=nullptr;
-    QPlainTextEdit* activity_=nullptr; QAction *reduceMotion_=nullptr,*compactSidebar_=nullptr,*strangeNotifications_=nullptr,*geekTelemetry_=nullptr;
-    QComboBox* shieldProfile_=nullptr;QPlainTextEdit* shieldRegex_=nullptr;QLabel *shieldProfileDetail_=nullptr,*shieldStatus_=nullptr,*shieldSession_=nullptr,*shieldToday_=nullptr,*shieldTotal_=nullptr,*speedResult_=nullptr;QLineEdit* speedTarget_=nullptr;QSpinBox* speedPort_=nullptr;QPushButton *shieldApply_=nullptr,*shieldRefresh_=nullptr,*speedRun_=nullptr;QProcess shieldProcess_,speedProcess_;QList<QStringList> shieldQueue_;qulonglong shieldSessionCount_=0,shieldBaseline_=0;
-    QActionGroup* themeGroup_=nullptr; QAction *systemTheme_=nullptr,*darkThemeAction_=nullptr,*lightThemeAction_=nullptr,*soulsThemeAction_=nullptr;
-    QSystemTrayIcon* tray_=nullptr; QMenu* trayMenu_=nullptr; QAction *trayStatus_=nullptr,*trayToggle_=nullptr;
-    QPushButton *journeyConfigure_=nullptr,*journeyAuthenticate_=nullptr,*journeyProtect_=nullptr,*geekToggle_=nullptr; QLabel* geekReadout_=nullptr;QList<QWidget*> geekWidgets_;
-    QByteArray processBuffer_;
-    QByteArray validatedConfigHash_,validatedExecutableHash_;
-    pqvpn::console::StrangeNetProofChain strangeProofChain_;
-    QString themeMode_="system";
-    QString lastStrangeSender_,activeStrangePeer_="auto";QStringList activeStrangeGroup_;QHash<QString,QString> authenticatedPeers_;QSet<qulonglong> ownStrangeSequences_;qulonglong lastStrangeSequence_=0,pendingReplyTo_=0;int unreadStrange_=0;qint64 lastStrangeNotificationMs_=0,strangeSendBlockedUntilMs_=0;
-    bool processFailed_=false;
-    bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false,strangeActive_=false,mainnetReady_=false,tunnelReady_=false,pendingStrangeJoin_=false,systemDark_=false,activeDarkTheme_=true,applyingTheme_=false,protectedRewardShown_=false;
+KÛÛÜ‹™Ü™Y[Š
+KÛÛÜ‹˜›YJ
+K[
+
+ŠK\[ÙWÊJJKŠJNÂˆZ[\‹œÙ]œ\Ú
+]“›Ğœ\Ú
+NÈZ[\‹™˜]Ñ[\ÙJÙ[\‹Í
+Ü[ÙWÊŒMËÍ
+Ü[ÙWÊŒMÊNÂˆT˜YX[Ü˜YY[ÛİÊÙ[\‹Í
+NÈÛİËœÙ]ÛÛÜ]
+ÛÛÜ‹›YÚ\ŠM
+JNÈÛİËœÙ]ÛÛÜ]
+L‹ÛÛÜŠNÈÛİËœÙ]ÛÛÜ]
+KPÛÛÜŠÛÛÜ‹œ™Y
 
-    void setGeekMode(bool enabled){
-        if(geekReadout_)geekReadout_->setVisible(enabled);
-        if(geekToggle_&&geekToggle_->isChecked()!=enabled){QSignalBlocker guard(geekToggle_);geekToggle_->setChecked(enabled);}
-        for(auto* widget:geekWidgets_)if(widget)widget->setVisible(enabled);
-        if(pageScroll_)pageScroll_->widget()->updateGeometry();
-    }
+KÛÛÜ‹™Ü™Y[Š
+KÛÛÜ‹˜›YJ
+KLŠJNÂˆZ[\‹œÙ][Š]“›Ô[ŠNÈZ[\‹œÙ]œ\Ú
+ÛİÊNÈZ[\‹™˜]Ñ[\ÙJÙ[\‹KJNÂˆZ[\‹œÙ]œ\Ú
+]Ú]JNÈZ[\‹™˜]Ñ[\ÙJÙ[\‹ËÊNÂˆBœš]˜]N‚ˆ\™X[[ÙWÈHÂˆ›ÛÛÛÛ›™XİYÈH˜[ÙNÂˆ›ÛÛÛİ[×ÈH˜[ÙNÂŸNÂ‚˜Û\ÜÈ™]›ÓØ˜Hš[˜[ˆX›XÈUÚYÙ]ÂœX›XÎ‚ˆ^XÚ]™]›ÓØ˜JUÚYÙ]
+ˆ\™[[[ŠHˆUÚYÙ]
+\™[
+HÂˆÙ]Z[š[][RZYÚ
+L
+NÂˆÙ]›Øİ\ÔÛXŞJ]”İ›Û™Ñ›Øİ\ÊNÂˆÙ]İ\œÛÜŠ]”Ú[[™Ò[™İ\œÛÜŠNÂˆÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]™]›ÈÛØÚX[Ø˜HŠNÂˆÙ]ÛÛ\
+ÚÛÜÙHHİ˜[™ÙS™]›ÛÛKˆ™]ÛÜšÈY™\ÜÙ\È\™H™]™\ˆ\Ü^YYˆŠNÂˆBˆİ™[˜İ[Û›ÚY
+ÛÛœİTİš[™ÉŠOˆ›ÛÛTÙ[XİYÂˆ›ÚYÙ]Y\Ûİ[
+[Ûİ[
+^ÜY\Ûİ[Ï\SX^
+Ûİ[
+Nİ\]J
+NßBˆ›ÚYÙ]]™J›ÛÛ]™J^Û]™WÏ[]™Nİ\]J
+NßBˆ›ÚYÙ]›ÛÛJÛÛœİTİš[™Éˆ›ÛÛJ^Ü›ÛÛWÏ\›ÛÛNİ\]J
+NßBœ›İXİY‚ˆ›ÚYZ[]™[
+TZ[]™[
+ŠHİ™\œšYHÂˆTZ[\ˆ
+\ÊNÜœÙ]™[™\’[
+TZ[\[X[X\Ú[™Ë˜[ÙJNÂˆ™š[™Xİ
+™Xİ
 
-    void refreshConnectionPresentation() {
-        const QString previousTitle=stateLabel_->text();
-        const bool active=process_.state()!=QProcess::NotRunning;
-        const bool relay=noTunnel_&&noTunnel_->isChecked();
-        QString title="Disconnected", detail="Disconnected. No node process is running from this console.";
-        bool protectedPath=false;
-        if(active&&!mainnetReady_){title="Connecting";detail="Negotiating an authenticated mainnet sessionâ€¦";}
-        else if(active&&mainnetReady_&&relay){title="Mainnet connected Â· relay mode";detail="Authenticated peer ready. Local system traffic is not routed through PQVPN.";}
-        else if(active&&mainnetReady_&&!tunnelReady_){title="Peer ready Â· securing routes";detail="The peer is authenticated; waiting for the operating-system tunnel and fail-closed routes.";}
-        else if(active&&mainnetReady_&&tunnelReady_){title="Protected";detail="Authenticated peer, tunnel adapter and leak-safe routes are ready.";protectedPath=true;}
-        stateLabel_->setText(title);statusText_->setText(detail);orb_->setConnected(protectedPath&&!stopping_);
-        if(previousTitle!=title){fadeWidget(stateLabel_,220);fadeWidget(statusText_,280);}
-        const auto phase=pqvpn::console::connection_phase({active,mainnetReady_,tunnelReady_,relay,stopping_,processFailed_});
-        if(phase==pqvpn::console::ConnectionPhase::Stopping){title="Disconnecting";statusText_->setText("Stopping the node and restoring its owned network stateâ€¦");}
-        if(phase==pqvpn::console::ConnectionPhase::Failed){title="Connection failed";statusText_->setText("Open Activity for the node error, then review and validate the configuration.");}
-        if(themeMode_=="souls"){
-            using Phase=pqvpn::console::ConnectionPhase;
-            if(phase==Phase::Disconnected){title="UNLIT";statusText_->setText("No tunnel is active. Begin again when you are ready.");}
-            else if(phase==Phase::Connecting){title="ENTERING THE FOG";statusText_->setText("Seeking an authenticated path through the mainnetâ€¦");}
-            else if(phase==Phase::Securing){title="KINDLING THE ROUTE";statusText_->setText("The peer answered. Fail-closed routes are not yet ready.");}
-            else if(phase==Phase::Relay){title="WAY OF WHITE Â· RELAY";statusText_->setText("The peer is authenticated; this computer's traffic remains outside the tunnel.");}
-            else if(phase==Phase::Protected){title="EMBER RESTORED";statusText_->setText("Peer, tunnel and leak-safe routes stand together.");}
-            else if(phase==Phase::Stopping){title="RETURNING TO BONFIRE";statusText_->setText("Restoring the network state owned by PQVPNâ€¦");}
-            else if(phase==Phase::Failed){title="YOU DIED Â· FAIL CLOSED";statusText_->setText("The protected path fell. Traffic remains sealed; inspect Activity before trying again.");}
-        }
-        const auto setMilestone=[](QPushButton* button,const QString& value,const QString& label){
-            if(!button)return;
-            if(button->property("milestone").toString()!=value){button->setProperty("milestone",value);button->style()->unpolish(button);button->style()->polish(button);}
-            button->setText(label);
-        };
-        setMilestone(journeyConfigure_,configValid_?"done":"active",configValid_?"âœ“  Configured":"1  Configure");
-        setMilestone(journeyAuthenticate_,mainnetReady_&&active?"done":configValid_&&active?"active":"pending",mainnetReady_&&active?"âœ“  Authenticated":"2  Authenticate");
-        setMilestone(journeyProtect_,protectedPath?"done":mainnetReady_&&active?"active":"pending",protectedPath?"âœ“  Protected":"3  Protect");
-        if(geekReadout_){geekReadout_->setText(QString("%1 Â· %2 Â· %3").arg(endpointMetric_?endpointMetric_->text():"UDP",verificationMetric_?verificationMetric_->text():"hybrid auth",transportMetric_?transportMetric_->text():"direct path"));geekReadout_->setVisible(geekTelemetry_&&geekTelemetry_->isChecked());}
-        if(protectedPath&&!protectedRewardShown_){protectedRewardShown_=true;statusBar()->showMessage("Protected path complete Â· peer, tunnel and fail-closed routes verified",7000);fadeWidget(journeyProtect_,360);}
-        if(!active)protectedRewardShown_=false;
-        stateLabel_->setText(title);
-        tray_->setIcon(connectionTrayIcon(phase));
-        trayStatus_->setText(title);tray_->setToolTip("PQVPN Â· "+title);
-        if(overviewAction_){overviewAction_->setText(active?"Disconnect":configValid_?"Connect securely":"Configure connection");overviewAction_->setProperty("danger",active);overviewAction_->style()->unpolish(overviewAction_);overviewAction_->style()->polish(overviewAction_);}
-        if(configurationStep_)configurationStep_->setText(configValid_?"1  Configuration verified":"1  Choose and verify configuration");
-        if(peerStep_)peerStep_->setText(mainnetReady_&&active?"2  Peer authenticated":"2  Peer session pending");
-        if(protectionStep_)protectionStep_->setText(protectedPath?"3  System traffic protected":relay?"3  Relay mode Â· local traffic unchanged":"3  Tunnel and routes pending");
-    }
-    QByteArray fileFingerprint(const QString& path) const {
-        QFile file(path);if(!file.open(QIODevice::ReadOnly))return {};
-        QCryptographicHash hash(QCryptographicHash::Sha256);
-        while(!file.atEnd())hash.addData(file.read(1024*1024));
-        return hash.result();
-    }
-    void captureBoundedOutput(QProcess* child) {
-        child->setProperty("pqvpnOutput",QByteArray{});
-        connect(child,&QProcess::readyReadStandardOutput,child,[child]{
-            QByteArray output=child->property("pqvpnOutput").toByteArray();output.append(child->readAllStandardOutput());
-            if(output.size()>1024*1024)output=QByteArray("[earlier output discarded]\n")+output.right(1024*1024);
-            child->setProperty("pqvpnOutput",output);
-        });
-    }
+KPÛÛÜŠˆÌLLMŒ˜HŠJNÂˆÛÛœİT™XİØÙ[™O\™Xİ
 
-    void buildMenus() {
-        auto* file=menuBar()->addMenu("File"); file->addAction("Choose configurationâ€¦",QKeySequence::Open,this,&Window::chooseConfig); file->addAction("Validate configuration",QKeySequence("Ctrl+Shift+V"),this,&Window::validateConfig); file->addSeparator(); file->addAction("Exit PQVPN",QKeySequence::Quit,this,&Window::quitApplication);
-        auto* view=menuBar()->addMenu("View");auto* themeMenu=view->addMenu("Appearance");themeGroup_=new QActionGroup(this);themeGroup_->setExclusive(true);systemTheme_=themeMenu->addAction("Follow system");darkThemeAction_=themeMenu->addAction("Dark");lightThemeAction_=themeMenu->addAction("Light");soulsThemeAction_=themeMenu->addAction("Dark Souls mode Â· fail closed");for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_}){action->setCheckable(true);themeGroup_->addAction(action);}systemTheme_->setData("system");darkThemeAction_->setData("dark");lightThemeAction_->setData("light");soulsThemeAction_->setData("souls");systemTheme_->setChecked(true);view->addSeparator();reduceMotion_=view->addAction("Reduce motion"); reduceMotion_->setCheckable(true); compactSidebar_=view->addAction("Compact sidebar"); compactSidebar_->setCheckable(true);geekTelemetry_=view->addAction("Geek telemetry");geekTelemetry_->setCheckable(true);strangeNotifications_=view->addAction("Private StrangeNet notifications");strangeNotifications_->setCheckable(true);strangeNotifications_->setChecked(true);
-        connect(themeGroup_,&QActionGroup::triggered,this,[this](QAction* action){applyTheme(action->data().toString());});
-        connect(reduceMotion_,&QAction::toggled,this,[this](bool checked){QSettings("PQVPN","Privacy Console").setValue("reduceMotion",checked);setMotion(!checked);});
-        connect(compactSidebar_,&QAction::toggled,this,&Window::setSidebarCompact);
-        connect(geekTelemetry_,&QAction::toggled,this,[this](bool checked){QSettings("PQVPN","Privacy Console").setValue("geekTelemetry",checked);setGeekMode(checked);});
-        connect(strangeNotifications_,&QAction::toggled,this,[](bool checked){QSettings("PQVPN","Privacy Console").setValue("strangeNotifications",checked);});
-        auto* tools=menuBar()->addMenu("Tools"); tools->addAction("Command paletteâ€¦",QKeySequence("Ctrl+K"),this,&Window::showCommandPalette); tools->addAction("Copy diagnostics",QKeySequence("Ctrl+Shift+C"),this,&Window::copyDiagnostics);
-    }
-    void buildUi() {
-        auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
-        auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new ResponsiveStack;pages_->setAutoFillBackground(true);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->addWidget(buildOverview());pages_->addWidget(buildConnection());pages_->addWidget(buildTransports());pages_->addWidget(buildStrangeNet());pages_->addWidget(buildShield());pages_->addWidget(buildActivity());pages_->addWidget(buildPrivacy());pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->widget(index)->setAutoFillBackground(true);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAutoFillBackground(true);pageScroll_->viewport()->setAutoFillBackground(true);pageScroll_->setWidget(pages_);
-        auto* content=new QWidget;auto* contentLayout=new QVBoxLayout(content);contentLayout->setContentsMargins(16,12,16,0);contentLayout->setSpacing(10);auto* journey=new QFrame;journey->setProperty("card",true);auto* journeyLayout=new QHBoxLayout(journey);journeyLayout->setContentsMargins(14,10,14,10);journeyLayout->setSpacing(9);auto* route=text("YOUR ROUTE","eyebrow");journeyLayout->addWidget(route);journeyConfigure_=new QPushButton("1  Configure");journeyAuthenticate_=new QPushButton("2  Authenticate");journeyProtect_=new QPushButton("3  Protect");for(auto* step:{journeyConfigure_,journeyAuthenticate_,journeyProtect_}){step->setProperty("quiet",true);journeyLayout->addWidget(step);}geekReadout_=text("UDP Â· hybrid auth Â· fail-closed state","eyebrow");geekReadout_->setProperty("muted",true);journeyLayout->addStretch();journeyLayout->addWidget(geekReadout_);geekToggle_=new QPushButton("Geek");geekToggle_->setCheckable(true);geekToggle_->setProperty("quiet",true);geekToggle_->setToolTip("Reveal engine, benchmark and protocol controls without changing the active connection.");journeyLayout->addWidget(geekToggle_);connect(journeyConfigure_,&QPushButton::clicked,this,[this]{switchPage(Connection);});connect(journeyAuthenticate_,&QPushButton::clicked,this,[this]{switchPage(process_.state()==QProcess::NotRunning?Connection:Activity);});connect(journeyProtect_,&QPushButton::clicked,this,[this]{switchPage(process_.state()==QProcess::NotRunning?Connection:Overview);});connect(geekToggle_,&QPushButton::toggled,geekTelemetry_,&QAction::setChecked);contentLayout->addWidget(journey);contentLayout->addWidget(pageScroll_,1);row->addWidget(content,1);
-        stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
-    }
-    void buildSidebar(QHBoxLayout* shell) {
-        sidebar_=new QWidget; sidebar_->setObjectName("sidebar"); sidebar_->setMinimumWidth(238); sidebar_->setMaximumWidth(238);
-        auto* layout=new QVBoxLayout(sidebar_); layout->setContentsMargins(18,24,18,20); layout->setSpacing(8);
-        auto* brand=new QHBoxLayout; auto* icon=new QLabel; icon->setPixmap(QIcon(":/brand/logo.svg").pixmap(46,46)); brandWords_=new QWidget; auto* words=new QVBoxLayout(brandWords_); words->setContentsMargins(0,0,0,0); words->setSpacing(0); words->addWidget(text("PQVPN","wordmark")); words->addWidget(text("PRIVACY CONSOLE","brandSub")); brand->addWidget(icon); brand->addWidget(brandWords_,1); layout->addLayout(brand); layout->addSpacing(24);
-        auto* group=new QButtonGroup(this); group->setExclusive(true); const QList<QPair<QString,int>> items{{"Overview",Overview},{"Connect",Connection},{"Transports",Transports},{"StrangeNet",StrangeNet},{"Shield",Shield},{"Activity",Activity},{"Privacy",Privacy},{"About",About}};
-        for (const auto& [name,page]:items) { auto* button=new QPushButton(QString("%1   %2").arg(page+1,2,10,QChar('0')).arg(name)); button->setProperty("fullText",button->text()); button->setProperty("nav",true); button->setCheckable(true); group->addButton(button,page); pageButtons_[page]=button; navButtons_.append(button); layout->addWidget(button); connect(button,&QPushButton::clicked,this,[this,page]{switchPage(page);}); }
-        layout->addStretch(); auto* ethics=text("YOU CHOOSE WHEN TO CONNECT\nNO TRACKING Â· NO DARK PATTERNS"); ethics->setObjectName("eyebrow"); layout->addWidget(ethics); shell->addWidget(sidebar_);
-    }
-    QWidget* pageShell(const QString& title,const QString& subtitle,QVBoxLayout** body) { auto* page=new QWidget; auto* outer=new QVBoxLayout(page); outer->setContentsMargins(34,28,34,28); outer->setSpacing(18); outer->addWidget(text(title,"pageTitle")); outer->addWidget(text(subtitle,"pageSubtitle")); *body=outer; return page; }
-    QLabel* metric(const QString& title,const QString& value,QHBoxLayout* row) { auto* layout=new QVBoxLayout; layout->setContentsMargins(20,18,20,18); layout->addWidget(text(title,"eyebrow")); auto* result=text(value,"metric"); layout->addWidget(result); row->addWidget(card(layout),1); return result; }
-    QWidget* buildOverview() {
-        QVBoxLayout* body; auto* page=pageShell("Your private route, at a glance","Real state only. Nothing connects or changes routes until you ask.",&body);
-        auto* hero=new QHBoxLayout; hero->setContentsMargins(28,25,28,25); auto* copy=new QVBoxLayout; copy->addWidget(text("POST-QUANTUM PRIVACY","eyebrow")); stateLabel_=text("Disconnected","heroTitle"); copy->addWidget(stateLabel_); statusText_=text("Choose a configuration, validate it, then connect when you are ready."); statusText_->setProperty("muted",true); copy->addWidget(statusText_); overviewAction_=new QPushButton("Configure connection"); connect(overviewAction_,&QPushButton::clicked,this,[this]{if(process_.state()!=QProcess::NotRunning||configValid_)toggleConnection();else switchPage(Connection);}); copy->addWidget(overviewAction_,0,Qt::AlignLeft); hero->addLayout(copy,1); orb_=new StatusOrb; hero->addWidget(orb_,0,Qt::AlignCenter); body->addWidget(card(hero,true));
-        auto* metrics=new QHBoxLayout; mainnetMetric_=metric("MAINNET BOOTSTRAP","Not loaded",metrics); endpointMetric_=metric("LOCAL LISTENER","Not loaded",metrics); verificationMetric_=metric("PEER POLICY","Unknown",metrics); body->addLayout(metrics);
-        auto* capabilities=new QHBoxLayout; tunnelMetric_=metric("TUNNEL BOUNDARY","Unknown",capabilities); egressMetric_=metric("EXIT MODE","Off",capabilities); shapingMetric_=metric("TRAFFIC SHAPING","Off",capabilities); body->addLayout(capabilities);
-        auto* explain=new QVBoxLayout; explain->setContentsMargins(22,20,22,20); explain->setSpacing(10); explain->addWidget(text("Connection checklist","sectionTitle"));
-        configurationStep_=text("1  Choose and verify configuration");peerStep_=text("2  Peer session pending");protectionStep_=text("3  Tunnel and routes pending");
-        for(auto* step:{configurationStep_,peerStep_,protectionStep_})explain->addWidget(step);
-        auto* note=text("Green means an authenticated connection. Relay mode leaves this computer's traffic unchanged; Protected additionally requires a ready tunnel and fail-closed routes.");note->setProperty("muted",true);explain->addWidget(note);body->addWidget(card(explain));body->addStretch(); return page;
-    }
-    QWidget* buildConnection() {
-        QVBoxLayout* body; auto* page=pageShell("Connect","A short, reversible flow with validation before execution.",&body); auto* form=new QVBoxLayout; form->setContentsMargins(23,21,23,21); form->setSpacing(12);
-        auto* journey=new QGridLayout;journey->setSpacing(10);journey->addWidget(capability("01 Â· CONFIGURE","Choose node + policy","Local",true),0,0);journey->addWidget(capability("02 Â· VERIFY","Real node validation","Required",true),0,1);journey->addWidget(capability("03 Â· CONNECT","Hybrid mainnet session","Observed",true),1,0);journey->addWidget(capability("04 Â· USE","Tunnel + StrangeNet","One session",true),1,1);journey->setColumnStretch(0,1);journey->setColumnStretch(1,1);body->addLayout(journey);
-        form->addWidget(text("CONFIGURATION","eyebrow")); auto* cr=new QHBoxLayout; configPath_=new QLineEdit(QString::fromStdString(pqvpn::console::default_profile(QFileInfo(defaultExecutable()).absolutePath().toStdString()).generic_string())); auto* cb=new QPushButton("Chooseâ€¦"); cb->setProperty("quiet",true); cr->addWidget(configPath_,1); cr->addWidget(cb); form->addLayout(cr);
-        auto* nodeAdvanced=new QWidget;auto* nodeAdvancedLayout=new QVBoxLayout(nodeAdvanced);nodeAdvancedLayout->setContentsMargins(0,0,0,0);nodeAdvancedLayout->setSpacing(8);nodeAdvancedLayout->addWidget(text("NODE EXECUTABLE","eyebrow")); auto* er=new QHBoxLayout; executablePath_=new QLineEdit(defaultExecutable()); auto* eb=new QPushButton("Chooseâ€¦"); eb->setProperty("quiet",true); er->addWidget(executablePath_,1); er->addWidget(eb);nodeAdvancedLayout->addLayout(er);form->addWidget(nodeAdvanced);geekWidgets_.append(nodeAdvanced);
-        auto* options=new QHBoxLayout; options->addWidget(text("LOG DETAIL","eyebrow")); logLevel_=new QComboBox; logLevel_->addItems({"info","debug","warning","error"}); options->addWidget(logLevel_);
-        noTunnel_=new QCheckBox("Relay / exit only (no local tunnel)"); noTunnel_->setToolTip("Run the authenticated node without the operating-system tunnel boundary. Mainnet and StrangeNet still work, but local system traffic is not tunneled."); noTunnel_->setChecked(false); options->addWidget(noTunnel_);
-        options->addStretch();auto* connectionAdvanced=new QWidget;connectionAdvanced->setLayout(options);form->addWidget(connectionAdvanced);geekWidgets_.append(connectionAdvanced); configHealth_=text("Configuration has not been validated."); configHealth_->setProperty("muted",true); form->addWidget(configHealth_); body->addWidget(card(form));
-        auto* utilities=new QHBoxLayout;auto* inspect=new QPushButton("Inspect system");inspect->setProperty("quiet",true);auto* normalized=new QPushButton("Review normalized config");normalized->setProperty("quiet",true);auto* editNode=new QPushButton("Edit configuration");editNode->setProperty("quiet",true);utilities->addWidget(editNode);connect(editNode,&QPushButton::clicked,this,[this]{if(process_.state()==QProcess::NotRunning)editConfiguration(configPath_->text(),true);});utilities->addWidget(inspect);utilities->addWidget(normalized);utilities->addStretch();form->addLayout(utilities);
-        auto* actions=new QHBoxLayout; validateButton_=new QPushButton("Validate first"); validateButton_->setProperty("quiet",true); connectButton_=new QPushButton("Connect securely"); connectButton_->setEnabled(false); actions->addWidget(validateButton_); actions->addStretch(); actions->addWidget(connectButton_); body->addLayout(actions); auto* consent=text("Starting may create a tunnel adapter or change routes according to your configuration and OS permissions. Closing the window can keep PQVPN in the tray without changing the connection."); consent->setProperty("muted",true); body->addWidget(consent); body->addStretch();
-        connect(cb,&QPushButton::clicked,this,&Window::chooseConfig); connect(eb,&QPushButton::clicked,this,&Window::chooseExecutable); connect(validateButton_,&QPushButton::clicked,this,&Window::validateConfig); connect(connectButton_,&QPushButton::clicked,this,&Window::toggleConnection);connect(inspect,&QPushButton::clicked,this,[this]{runNodeTool({"--platform-info"},"System inspection");});connect(normalized,&QPushButton::clicked,this,[this]{runNodeTool({"--print-config","--config",configPath_->text()},"Normalized configuration");});
-        connect(configPath_,&QLineEdit::textChanged,this,[this](const QString& path){invalidate("Configuration changed. Validate before connecting.");loadConfig(path);}); connect(executablePath_,&QLineEdit::textChanged,this,[this]{invalidate("Executable changed. Validate before connecting.");}); connect(noTunnel_,&QCheckBox::toggled,this,[this]{invalidate("Connection mode changed. Validate before connecting.");loadConfig(configPath_->text());}); return page;
-    }
-    QFrame* capability(const QString& name,const QString& kind,const QString& status,bool available) { auto* layout=new QVBoxLayout; layout->setContentsMargins(17,14,17,14);layout->setSpacing(5);layout->addWidget(text(name,"sectionTitle")); auto* type=text(kind); type->setProperty("muted",true); layout->addWidget(type); auto* chip=text(available?status:"Not integrated Â· "+status); chip->setProperty("chip",true); layout->addWidget(chip,0,Qt::AlignLeft);auto* result=card(layout);result->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);return result; }
-    QWidget* buildTransports() {
-        QVBoxLayout* body; auto* page=pageShell("Transports","Capabilities read from configuration â€” no implied support.",&body); auto* current=new QVBoxLayout; current->setContentsMargins(23,21,23,21); current->addWidget(text("SELECTED OUTER PATH","eyebrow")); transportMetric_=text("Direct PQVPN UDP","heroTitle"); current->addWidget(transportMetric_); transportDetails_=text("Load a configuration to inspect its transport constraints."); transportDetails_->setProperty("muted",true); current->addWidget(transportDetails_); body->addWidget(card(current,true));
-        auto* adaptive=new QVBoxLayout; adaptive->setContentsMargins(20,18,20,18); adaptive->addWidget(text("PQTP ADAPTIVE PATH","eyebrow")); adaptiveMetric_=text("Disabled","sectionTitle"); adaptive->addWidget(adaptiveMetric_); adaptiveEnabled_=new QCheckBox("Enable automatic UDP/TCP failover");adaptive->addWidget(adaptiveEnabled_);auto* adaptiveRow=new QHBoxLayout; adaptiveMode_=new QComboBox; adaptiveMode_->addItem("Automatic Â· prefer UDP", "auto"); adaptiveMode_->addItem("UDP only", "udp"); adaptiveMode_->addItem("TCP only", "tcp"); saveTransportButton_=new QPushButton("Save transport policy"); saveTransportButton_->setProperty("quiet",true); adaptiveRow->addWidget(adaptiveMode_); adaptiveRow->addStretch(); adaptiveRow->addWidget(saveTransportButton_); adaptive->addLayout(adaptiveRow); auto* adaptiveCopy=text("Automatic mode preserves the authenticated PQVPN frame, uses UDP for low latency, falls back to TCP after measured loss, jitter or blocking, and probes UDP before returning."); adaptiveCopy->setProperty("muted",true); adaptive->addWidget(adaptiveCopy); body->addWidget(card(adaptive)); connect(saveTransportButton_,&QPushButton::clicked,this,&Window::saveTransportSettings);
-        auto* shaping=new QVBoxLayout;shaping->setContentsMargins(20,18,20,18);shaping->addWidget(text("PRIVACY TRAFFIC SHAPING","eyebrow"));shapingEnabled_=new QCheckBox("Enable bounded encrypted padding and timing shaping");shaping->addWidget(shapingEnabled_);auto* shapingRow=new QHBoxLayout;shapingRow->addWidget(text("Maximum padding (bytes)"));shapingPadding_=new QSpinBox;shapingPadding_->setRange(0,4096);shapingPadding_->setValue(1024);shapingRow->addWidget(shapingPadding_);shapingRow->addSpacing(18);shapingRow->addWidget(text("Maximum delay (ms)"));shapingDelay_=new QSpinBox;shapingDelay_->setRange(0,100);shapingDelay_->setValue(20);shapingRow->addWidget(shapingDelay_);shapingRow->addStretch();shaping->addLayout(shapingRow);auto* shapingCopy=text("Shaping stays inside authenticated encryption, uses bounded local predictors, and never downloads a model or sends telemetry. Both peers must support shaped frames.");shapingCopy->setProperty("muted",true);shaping->addWidget(shapingCopy);body->addWidget(card(shaping));
-        auto* inner=new QVBoxLayout;inner->setContentsMargins(20,18,20,18);inner->addWidget(text("INNER VPN Â· ONE POLICY FOR CLI, TUI & GUI","eyebrow"));innerTunnelEnabled_=new QCheckBox("Layer another VPN inside the protected PQVPN tunnel");inner->addWidget(innerTunnelEnabled_);auto* innerRow=new QHBoxLayout;innerTunnelBackend_=new QComboBox;innerTunnelBackend_->addItem("WireGuard Â· wg-quick","wireguard");innerTunnelBackend_->addItem("OpenVPN 3 Linux","openvpn3");innerTunnelConfig_=new QLineEdit;innerTunnelConfig_->setPlaceholderText("Absolute WireGuard or OpenVPN 3 client configuration");innerTunnelConfig_->setAccessibleName("Inner VPN configuration path");innerTunnelBrowse_=new QPushButton("Choose configâ€¦");innerTunnelBrowse_->setProperty("quiet",true);innerRow->addWidget(innerTunnelBackend_);innerRow->addWidget(innerTunnelConfig_,1);innerRow->addWidget(innerTunnelBrowse_);inner->addLayout(innerRow);auto* innerCopy=text("One click uses your supplied config with the installed wg-quick or openvpn3 client. PQVPN establishes its native fail-closed tunnel first, then starts the inner client; repeated apply and teardown are idempotent. No credential or provider software is downloaded.");innerCopy->setProperty("muted",true);inner->addWidget(innerCopy);body->addWidget(card(inner));connect(innerTunnelBrowse_,&QPushButton::clicked,this,[this]{const QString path=QFileDialog::getOpenFileName(this,"Choose inner VPN configuration",QDir::homePath(),"VPN configuration (*.conf *.ovpn);;All files (*)");if(!path.isEmpty())innerTunnelConfig_->setText(QFileInfo(path).absoluteFilePath());});connect(innerTunnelEnabled_,&QCheckBox::toggled,this,[this](bool enabled){innerTunnelBackend_->setEnabled(enabled&&process_.state()==QProcess::NotRunning);innerTunnelConfig_->setEnabled(enabled&&process_.state()==QProcess::NotRunning);innerTunnelBrowse_->setEnabled(enabled&&process_.state()==QProcess::NotRunning);});
-        engines_=new pqvpn::console::EngineManager(this);transportStatus_=text("Transport engines are idle. Choose a configuration before starting one.");transportStatus_->setProperty("muted",true);body->addWidget(transportStatus_);engines_->report=[this](const QString& message){transportStatus_->setText(message);statusBar()->showMessage(message,6000);log(message);};engines_->activityChanged=[this](const QString& id,bool active){if(engineStartButtons_.contains(id))engineStartButtons_[id]->setEnabled(!active);if(engineStopButtons_.contains(id))engineStopButtons_[id]->setEnabled(active);if(engineConfigButtons_.contains(id))engineConfigButtons_[id]->setEnabled(!active);};
-        auto* controls=new QVBoxLayout;controls->setContentsMargins(20,18,20,18);
-        controls->addWidget(text("ENGINES ON DEMAND","eyebrow"));
-        QList<QPair<QString,QCheckBox*>> selected;
-        for(const QString& id:QStringList{"udp2raw","shadowsocks","v2ray","obfs4"}){
-            auto* engineBlock=new QVBoxLayout;auto* row=new QHBoxLayout;auto* enabled=new QCheckBox(id);row->addWidget(enabled);selected.append({id,enabled});
-            auto* choose=new QPushButton("Choose configâ€¦");auto* edit=new QPushButton("Edit config");auto* start=new QPushButton("Install / start");auto* stop=new QPushButton("Stop");
-            engineStartButtons_[id]=start;engineStopButtons_[id]=stop;engineConfigButtons_[id]=choose;stop->setEnabled(false);
-            for(auto* button:{choose,edit,stop})button->setProperty("quiet",true);
-            row->addStretch();row->addWidget(start);row->addWidget(stop);engineBlock->addLayout(row);auto* configRow=new QHBoxLayout;configRow->addWidget(choose);configRow->addWidget(edit);configRow->addStretch();engineBlock->addLayout(configRow);controls->addLayout(engineBlock);
-            connect(choose,&QPushButton::clicked,this,[this,id]{if(engines_->active(id))return;const QString path=QFileDialog::getOpenFileName(this,"Choose "+id+" configuration",QDir::homePath());if(!path.isEmpty())QSettings("PQVPN","Privacy Console").setValue(id+"ConfigPath",QFileInfo(path).absoluteFilePath());});
-            connect(edit,&QPushButton::clicked,this,[this,id]{if(!engines_->active(id))editConfiguration(QSettings("PQVPN","Privacy Console").value(id+"ConfigPath").toString(),id!="udp2raw");});
-            connect(start,&QPushButton::clicked,this,[this,id]{engines_->start(id,engineConfiguration(id));});
-            connect(stop,&QPushButton::clicked,this,[this,id]{engines_->stop(id);});
-        }
-        auto* startSelected=new QPushButton("Start selected engines");controls->addWidget(startSelected,0,Qt::AlignRight);
-        connect(startSelected,&QPushButton::clicked,this,[this,selected]{for(const auto& item:selected)if(item.second->isChecked()&&!engines_->active(item.first))engines_->start(item.first,engineConfiguration(item.first));});
-        auto* note=text("Downloads are verified and stored separately from PQVPN. Multiple engines can run together using your matching configurations. PQVPN can attach directly to udp2raw; SOCKS and TCP engines require a configured UDP relay. Engine startup alone does not mean the VPN is connected.");note->setProperty("muted",true);controls->addWidget(note);auto* engineControls=card(controls);body->addWidget(engineControls);geekWidgets_.append(engineControls);
-        auto* presets=new QHBoxLayout;auto* udpPreset=new QPushButton("Auto-configure udp2raw");auto* engineInfo=text("Preserves your identity and installs / starts udp2raw from your existing server configuration.");engineInfo->setProperty("muted",true);presets->addWidget(udpPreset);auto* chooseEngine=new QPushButton("Choose engine configâ€¦");chooseEngine->setProperty("quiet",true);presets->addWidget(chooseEngine);presets->addWidget(engineInfo,1);
-        connect(chooseEngine,&QPushButton::clicked,this,[this]{if(process_.state()!=QProcess::NotRunning)return;const QString path=QFileDialog::getOpenFileName(this,"Choose existing udp2raw client configuration",QDir::homePath(),"Engine configuration (*.conf *.cfg);;All files (*)");if(!path.isEmpty()){QSettings("PQVPN","Privacy Console").setValue("udp2rawConfigPath",path);prepareUdp2rawProfile();}});auto* enginePresets=new QWidget;enginePresets->setLayout(presets);body->addWidget(enginePresets);geekWidgets_.append(enginePresets);
-        connect(udpPreset,&QPushButton::clicked,this,&Window::prepareUdp2rawProfile);
-        body->addStretch(); return page;
-    }
-    QWidget* buildStrangeNet() {
-        QVBoxLayout* body; auto* page=pageShell("StrangeNet","A living room for ordinary words and uncommon ones.",&body);
-        auto* intro=new QVBoxLayout; intro->setContentsMargins(24,21,24,21); intro->addWidget(text("STRANGENET Â· SESSION-ONLY P2P CHAT","eyebrow")); intro->addWidget(text("Speak plainly. Write beautifully. Keep the room yours.","heroTitle")); auto* note=text("Every group message is encrypted independently for every authenticated Peer ID. All members contribute through their hybrid sessions; no server or single participant owns a central group secret. No public history, no required account, no promise of perfect anonymity. PQVPN remains experimental and has not received an independent security audit."); note->setProperty("muted",true); intro->addWidget(note); body->addWidget(card(intro,true));
+K˜Y\İY
+L‹L‹LL‹LLŠNÂˆ™š[™Xİ
+ØÙ[™KPÛÛÜŠˆÌNŒØHŠJNÂˆ™š[™Xİ
+T™Xİ
+ØÙ[™K›Y
 
-        auto* session=new QVBoxLayout; session->setContentsMargins(20,18,20,18);auto* sessionHeader=new QHBoxLayout;sessionHeader->addWidget(text("ROOM PATH & AUDIENCE","eyebrow"));strangePresence_=text("OFFLINE");strangePresence_->setProperty("chip",true);sessionHeader->addStretch();sessionHeader->addWidget(strangePresence_);session->addLayout(sessionHeader);auto* fields=new QHBoxLayout; strangeRoom_=new QLineEdit("mainnet/friends"); strangeRoom_->setAccessibleName("StrangeNet room path");strangeRoom_->setPlaceholderText("Community/channel Â· mainnet/friends"); strangeRoom_->setMaxLength(64); strangeAudience_=new QComboBox;strangeAudience_->setAccessibleName("StrangeNet audience");strangeAudience_->addItem("Room Â· authenticated Peer IDs only","auto"); fields->addWidget(strangeRoom_,1);fields->addWidget(strangeAudience_,2); session->addLayout(fields); auto* actions=new QHBoxLayout; strangeJoin_=new QPushButton("Enter room");strangeJoin_->setAccessibleName("Enter or leave StrangeNet room"); actions->addWidget(strangeJoin_);actions->addStretch();auto* privacy=text("Peer IDs are visible. Participant IP addresses are never shown.");privacy->setProperty("muted",true);actions->addWidget(privacy);session->addLayout(actions); body->addWidget(card(session));
+KØÙ[™KÜ
 
-        auto* conversationHeader=new QHBoxLayout;conversationHeader->addWidget(text("THE CONVERSATION","eyebrow"));conversationHeader->addStretch();auto* copyChat=new QPushButton("Copy visible text");copyChat->setProperty("quiet",true);auto* clearChat=new QPushButton("Clear view");clearChat->setProperty("quiet",true);conversationHeader->addWidget(copyChat);conversationHeader->addWidget(clearChat);body->addLayout(conversationHeader);
-        strangeTranscript_=new QTextBrowser;strangeTranscript_->setObjectName("strangeTranscript");strangeTranscript_->setAccessibleName("StrangeNet conversation");strangeTranscript_->setOpenExternalLinks(false);strangeTranscript_->setOpenLinks(false);strangeTranscript_->document()->setMaximumBlockCount(1000);strangeTranscript_->setMinimumHeight(330);strangeTranscript_->setPlaceholderText("The room is quiet. Your words will appear here after you join.");body->addWidget(strangeTranscript_);
+KØÙ[™KÚY
 
-        auto* writingBar=new QHBoxLayout;writingBar->addWidget(text("WRITING MODE","eyebrow"));strangeWritingMode_=new QComboBox;strangeWritingMode_->addItem("Conversation Â· Enter sends",false);strangeWritingMode_->addItem("Poem Â· Enter makes a new line",true);strangeWritingMode_->setAccessibleName("StrangeNet writing mode");writingBar->addWidget(strangeWritingMode_);writingBar->addStretch();body->addLayout(writingBar);
-        strangeMessage_=new ChatComposer;strangeMessage_->setObjectName("strangeComposer");strangeMessage_->setAccessibleName("StrangeNet message composer");strangeMessage_->setPlaceholderText("Write a messageâ€¦  Enter to send Â· Shift+Enter for a new line");strangeMessage_->setFixedHeight(104);body->addWidget(strangeMessage_);
-        auto* composer=new QHBoxLayout;auto* emoji=new QPushButton("Emoji");emoji->setProperty("quiet",true);auto* emojiMenu=new QMenu(emoji);for(const QString& value:QStringList{"ğŸ˜€","ğŸ˜‚","ğŸ˜","ğŸ¤”","ğŸ˜®","ğŸ˜¢","ğŸ‘","ğŸ‘","ğŸ‰","ğŸ”¥","â¤ï¸","ğŸš€","ğŸ”","ğŸ›¡ï¸","ğŸŒ™","âœ¨"}){auto* action=emojiMenu->addAction(value);connect(action,&QAction::triggered,this,[this,value]{strangeMessage_->insertPlainText(value);strangeMessage_->setFocus();});}emoji->setMenu(emojiMenu);strangeReply_=new QPushButton("Reply to latest");strangeReply_->setProperty("quiet",true);strangeReply_->setEnabled(false);strangeVoice_=new QPushButton("Hold to talk");strangeVoice_->setProperty("quiet",true);strangeVoice_->setEnabled(false);strangeReaction_=new QPushButton("React to latest");strangeReaction_->setProperty("quiet",true);strangeReaction_->setEnabled(false);auto* reactionMenu=new QMenu(strangeReaction_);for(const QString& value:QStringList{"ğŸ‘","â¤ï¸","ğŸ˜‚","ğŸ˜®","ğŸ‰","ğŸ”¥"}){auto* action=reactionMenu->addAction(value);connect(action,&QAction::triggered,this,[this,value]{sendStrangeReaction(value);});}strangeReaction_->setMenu(reactionMenu);strangeSend_=new QPushButton("Send securely");strangeSend_->setEnabled(false);composer->addWidget(emoji);composer->addWidget(strangeReply_);composer->addWidget(strangeVoice_);composer->addWidget(strangeReaction_);composer->addStretch();composer->addWidget(strangeSend_);body->addLayout(composer);
-        auto* composerStatus=new QHBoxLayout;strangeComposerHint_=text("Enter sends Â· Shift+Enter writes a new line");strangeComposerHint_->setProperty("muted",true);composerStatus->addWidget(strangeComposerHint_,1);strangeFloodStatus_=text("Antiflood ready","eyebrow");strangeFloodStatus_->setProperty("muted",true);composerStatus->addWidget(strangeFloodStatus_);strangeBytes_=text("0 / 2048 bytes");strangeBytes_->setProperty("muted",true);composerStatus->addWidget(strangeBytes_,0,Qt::AlignRight);body->addLayout(composerStatus);
+KŠKPÛÛÜŠˆÌÌÍXHŠJNÂˆœÙ][ŠPÛÛÜŠˆÍØÙXÙ™ˆŠJNÔQ›Û]OY›Û
 
-        auto* peers=new QVBoxLayout;peers->setContentsMargins(20,18,20,18);auto* peerHeader=new QHBoxLayout;peerHeader->addWidget(text("AUTHENTICATED PEER IDS","eyebrow"));peerCount_=text("0 authenticated","sectionTitle");peerHeader->addStretch();peerHeader->addWidget(peerCount_);peers->addLayout(peerHeader);auto* peerNote=text("Choose a Direct E2E recipient from Audience for a one-to-one text conversation. Select at least two IDs below only to pin a group of three or more including you. Network addresses are never displayed; identity is the authenticated Peer ID.");peerNote->setProperty("muted",true);peers->addWidget(peerNote);peerDirectory_=new QListWidget;peerDirectory_->setAccessibleName("Authenticated StrangeNet peer IDs");peerDirectory_->setSelectionMode(QAbstractItemView::ExtendedSelection);peerDirectory_->setMaximumHeight(150);peers->addWidget(peerDirectory_);body->addWidget(card(peers));
+Nİ]KœÙ]›Û
+YJNİ]KœÙ]]\”ÜXÚ[™ÊQ›ÛXœÛÛ]TÜXÚ[™ËKJNÜœÙ]›Û
+]JNÂˆ™˜]Õ^
+ØÙ[™K˜Y\İY
+MLM
+K][YÛ•Ù[\Ÿ][YÛ“Y”ÕS‘ÑS‘UÓĞÒPSĞ–HŠNÂˆœÙ][ŠPÛÛÜŠ]™WÏÈˆÍÌY˜˜ÈˆˆØXXYˆŠJNÜ™˜]Õ^
+ØÙ[™K˜Y\İY
+MLM
+K][YÛ•Ù[\Ÿ][YÛ”šYÚ]™WÏÈ¸¥ãÈU‘HL‘Hˆ¸¥âÈ‘U’QUÈŠNÂˆÛÛœİ[›ÛÜ•Ü\ØÙ[™KÜ
 
-        auto* proof=new QVBoxLayout;proof->setContentsMargins(20,18,20,18);auto* proofHeader=new QHBoxLayout;proofHeader->addWidget(text("OPTIONAL SESSION ANCHOR","eyebrow"));strangeProofEnabled_=new QCheckBox("Build a private proof chain in memory");proofHeader->addStretch();proofHeader->addWidget(strangeProofEnabled_);proof->addLayout(proofHeader);strangeProofStatus_=text("Off Â· no StrangeNet content is recorded.");strangeProofStatus_->setProperty("muted",true);proof->addWidget(strangeProofStatus_);auto* proofActions=new QHBoxLayout;strangeProofCopy_=new QPushButton("Copy chain anchor");strangeProofCopy_->setProperty("quiet",true);strangeProofCopy_->setEnabled(false);proofActions->addStretch();proofActions->addWidget(strangeProofCopy_);proof->addLayout(proofActions);auto* proofNote=text("Opt in to build a salted SHA-256 continuity chain in memory. PQVPN does not publish a transaction or persist messages, identities, rooms, or the private salt.");proofNote->setProperty("muted",true);proof->addWidget(proofNote);body->addWidget(card(proof));
-        connect(strangeProofEnabled_,&QCheckBox::toggled,this,[this](bool enabled){strangeProofChain_.reset();strangeProofCopy_->setEnabled(false);strangeProofStatus_->setText(enabled?"Ready Â· the in-memory chain starts with the next StrangeNet event.":"Off Â· no StrangeNet content is recorded.");});connect(strangeProofCopy_,&QPushButton::clicked,this,[this]{const auto anchor=strangeProofChain_.anchor();if(anchor.isEmpty())return;QApplication::clipboard()->setText(QString::fromUtf8(QJsonDocument(anchor).toJson(QJsonDocument::Compact)));statusBar()->showMessage("StrangeNet chain anchor copied",3000);});
-        connect(copyChat,&QPushButton::clicked,this,[this]{QApplication::clipboard()->setText(strangeTranscript_->toPlainText());statusBar()->showMessage("Visible StrangeNet text copied",2500);});connect(clearChat,&QPushButton::clicked,this,[this]{strangeTranscript_->clear();appendStrangeSystem("View cleared locally Â· the room and network session were not changed.");});
-        connect(strangeWritingMode_,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int){const bool poem=strangeWritingMode_->currentData().toBool();strangeMessage_->setPoemMode(poem);strangeMessage_->setPlaceholderText(poem?"Write without flattening the linesâ€¦  Ctrl+Enter to send":"Write a messageâ€¦  Enter to send Â· Shift+Enter for a new line");strangeComposerHint_->setText(poem?"Poem mode Â· Enter writes a new line Â· Ctrl+Enter sends":"Enter sends Â· Shift+Enter writes a new line");strangeMessage_->setFocus();});
-        connect(strangeAudience_,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int){const QString peer=selectedDirectPeer();strangeSend_->setText(peer.isEmpty()?"Send securely":"Send direct E2E");if(!peer.isEmpty())strangeComposerHint_->setText(QString("Direct text to Peer %1â€¦ Â· no participant IP is exposed").arg(peer.left(12)));else if(!strangeWritingMode_->currentData().toBool())strangeComposerHint_->setText("Enter sends Â· Shift+Enter writes a new line");refreshStrangeSendEnabled();});
-        connect(strangeJoin_,&QPushButton::clicked,this,&Window::toggleStrangeNet);connect(strangeSend_,&QPushButton::clicked,this,&Window::sendStrangeMessage);connect(strangeVoice_,&QPushButton::pressed,this,&Window::startStrangeVoice);connect(strangeVoice_,&QPushButton::released,this,&Window::stopStrangeVoice);connect(strangeReply_,&QPushButton::clicked,this,[this]{if(pendingReplyTo_){pendingReplyTo_=0;strangeReply_->setText("Reply to latest");strangeComposerHint_->setText("Enter sends Â· Shift+Enter writes a new line");}else if(lastStrangeSequence_){pendingReplyTo_=lastStrangeSequence_;strangeComposerHint_->setText(QString("Replying to Peer %1â€¦ Â· message %2 Â· click again to cancel").arg(lastStrangeSender_.left(12)).arg(lastStrangeSequence_));strangeReply_->setText("Cancel reply");}strangeMessage_->setFocus();});strangeMessage_->submit=[this]{sendStrangeMessage();};connect(strangeMessage_,&QPlainTextEdit::textChanged,this,[this]{QString value=strangeMessage_->toPlainText();while(value.toUtf8().size()>2048){if(value.size()>=2&&value.back().isLowSurrogate()&&value.at(value.size()-2).isHighSurrogate())value.chop(2);else value.chop(1);}if(!value.isEmpty()&&value.back().isHighSurrogate())value.chop(1);if(value!=strangeMessage_->toPlainText()){QSignalBlocker guard(strangeMessage_);strangeMessage_->setPlainText(value);strangeMessage_->moveCursor(QTextCursor::End);}const auto bytes=value.toUtf8().size();strangeBytes_->setText(QString("%1 / 2048 bytes").arg(bytes));refreshStrangeSendEnabled();});
-        appendStrangeSystem("Welcome to StrangeNet Â· join a room when an authenticated peer is available. Nothing here is written to chat history on disk.");
-        return page;
-    }
-    QWidget* buildShield() {
-        QVBoxLayout* body;auto* page=pageShell("Shield","Pi-hole profiles, aggregate blocking evidence and bounded LAN speed tests.",&body);
-        auto* hero=new QVBoxLayout;hero->setContentsMargins(24,21,24,21);hero->addWidget(text("DNS SHIELD Â· PRIVACY-PRESERVING","eyebrow"));hero->addWidget(text("Block harm. Keep people out of the log.","heroTitle"));auto* disclosure=text("DNS filtering reduces exposure; it cannot inspect encrypted page content or guarantee child safety. PQVPN reads aggregate counters only and never imports Pi-hole query history or client IP addresses.");disclosure->setProperty("muted",true);hero->addWidget(disclosure);body->addWidget(card(hero,true));
-        auto* counters=new QHBoxLayout;shieldSession_=metric("ğŸ›¡ SESSION","0",counters);shieldToday_=metric("ğŸ›¡ BLOCKED TODAY","Unavailable",counters);shieldTotal_=metric("FILTERED DOMAINS","Unavailable",counters);body->addLayout(counters);
-        auto* profile=new QVBoxLayout;profile->setContentsMargins(20,18,20,18);profile->addWidget(text("ONE-CLICK PI-HOLE SHIELD","eyebrow"));shieldProfile_=new QComboBox;const auto addShield=[this](const QString& name,const QString& id,const QString& detail,const QStringList& sources){const int row=shieldProfile_->count();shieldProfile_->addItem(name,sources);shieldProfile_->setItemData(row,id,Qt::UserRole+1);shieldProfile_->setItemData(row,detail,Qt::UserRole+2);};addShield("Balanced privacy Â· recommended","privacy","OISD Big Â· broad privacy coverage Â· low-to-moderate site-breakage risk",QStringList{"https://big.oisd.nl/"});addShield("Threat defence","security","OISD Big + HaGeZi TIF Â· malware, phishing and command-and-control Â· low-to-moderate risk",QStringList{"https://big.oisd.nl/","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/tif.txt"});addShield("Family boundaries","family","Threat defence + adult and gambling categories Â· intentional content restrictions Â· review with household members",QStringList{"https://big.oisd.nl/","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/tif.txt","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/nsfw.txt","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/gambling.txt"});addShield("Maximum Â· expert","maximum","HaGeZi Pro + TIF + family categories Â· strongest preset Â· higher false-positive and breakage risk",QStringList{"https://big.oisd.nl/","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/pro.txt","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/tif.txt","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/nsfw.txt","https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/gambling.txt"});profile->addWidget(shieldProfile_);shieldProfileDetail_=text(shieldProfile_->itemData(0,Qt::UserRole+2).toString());shieldProfileDetail_->setProperty("muted",true);profile->addWidget(shieldProfileDetail_);profile->addWidget(text("CUSTOM DENY REGEX Â· optional Â· one Pi-hole ERE per line","eyebrow"));shieldRegex_=new QPlainTextEdit;shieldRegex_->setMaximumHeight(110);shieldRegex_->setPlaceholderText("(^|\\.)example\\.invalid$");profile->addWidget(shieldRegex_);auto* actions=new QHBoxLayout;shieldApply_=new QPushButton("Apply shield in one click");shieldRefresh_=new QPushButton("Refresh shield counters");shieldRefresh_->setProperty("quiet",true);actions->addWidget(shieldApply_);actions->addWidget(shieldRefresh_);actions->addStretch();profile->addLayout(actions);shieldStatus_=text("Ready. The Linux package uses one narrowly scoped administrator action; Pi-hole must already be installed.");shieldStatus_->setProperty("muted",true);profile->addWidget(shieldStatus_);body->addWidget(card(profile));
-        auto* speed=new QVBoxLayout;speed->setContentsMargins(20,18,20,18);speed->addWidget(text("BOUNDED LAN / VPN SPEED TEST","eyebrow"));auto* speedFields=new QHBoxLayout;speedTarget_=new QLineEdit;speedTarget_->setPlaceholderText("Explicit iperf3 server hostname or LAN address");speedPort_=new QSpinBox;speedPort_->setRange(1,65535);speedPort_->setValue(5201);speedRun_=new QPushButton("Run 5-second test");speedFields->addWidget(speedTarget_,1);speedFields->addWidget(speedPort_);speedFields->addWidget(speedRun_);speed->addLayout(speedFields);speedResult_=text("No test run. PQVPN never scans your subnet; it contacts only the target you enter.");speedResult_->setProperty("muted",true);speed->addWidget(speedResult_);auto* speedCard=card(speed);body->addWidget(speedCard);geekWidgets_.append(speedCard);body->addStretch();
-        connect(shieldProfile_,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int row){shieldProfileDetail_->setText(shieldProfile_->itemData(row,Qt::UserRole+2).toString());});connect(shieldApply_,&QPushButton::clicked,this,&Window::applyShieldProfile);connect(shieldRefresh_,&QPushButton::clicked,this,&Window::refreshShieldCounters);connect(speedRun_,&QPushButton::clicked,this,&Window::runShieldSpeedTest);
-        connect(&shieldProcess_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,&Window::shieldCommandFinished);connect(&speedProcess_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,&Window::speedTestFinished);
-        return page;
-    }
-    QWidget* buildActivity() {
-        QVBoxLayout* body; auto* page=pageShell("Activity","This session only. Output comes from the actual node process.",&body); activity_=new QPlainTextEdit; activity_->setReadOnly(true); activity_->document()->setMaximumBlockCount(2000); activity_->setPlaceholderText("Validation, node output and process events will appear here."); body->addWidget(activity_,1); auto* row=new QHBoxLayout; auto* copy=new QPushButton("Copy activity"); copy->setProperty("quiet",true); auto* clear=new QPushButton("Clear"); clear->setProperty("quiet",true); row->addStretch(); row->addWidget(copy); row->addWidget(clear); body->addLayout(row); connect(copy,&QPushButton::clicked,this,[this]{QApplication::clipboard()->setText(activity_->toPlainText());}); connect(clear,&QPushButton::clicked,activity_,&QPlainTextEdit::clear); return page;
-    }
-    QWidget* buildPrivacy() {
-        QVBoxLayout* body; auto* page=pageShell("Privacy & control","Clear promises, observable limits and choices that stay yours.",&body); const QList<QPair<QString,QString>> principles={{"Local by default","No analytics or telemetry client."},{"Zero-trust peers","Discovery grants no access. A peer appears only after hybrid authentication and configured admission policy pass."},{"Honest status","Every status and event comes from the node process."},{"Reversible actions","You explicitly connect, disconnect, hide or exit."},{"Motion is optional","Reduce motion stops ambient, pulse and page animations."},{"No fear or urgency","No countdowns, streaks, scores or pressure tactics."},{"Accurate claims","Shaping and transports reduce patterns; the UI never promises invisibility."}};
-        for (const auto& [title,copy]:principles) { auto* row=new QHBoxLayout; row->setContentsMargins(20,17,20,17); auto* icon=text("âœ“","metric"); icon->setFixedWidth(34); auto* words=new QVBoxLayout; words->addWidget(text(title,"sectionTitle")); auto* detail=text(copy); detail->setProperty("muted",true); words->addWidget(detail); row->addWidget(icon); row->addLayout(words,1); body->addWidget(card(row)); } body->addStretch(); return page;
-    }
-    QWidget* buildAbout() {
-        QVBoxLayout* body; auto* page=pageShell("About PQVPN","A native C++23 console for the post-quantum node.",&body); auto* info=new QVBoxLayout; info->setContentsMargins(27,25,27,25); auto* logo=new QLabel; logo->setPixmap(QIcon(":/brand/logo.svg").pixmap(96,96)); info->addWidget(logo,0,Qt::AlignLeft); info->addWidget(text("PQVPN","heroTitle")); info->addWidget(text("Privacy Console Â· Qt 6 Â· C++23 Â· " PQVPN_BUILD_VERSION,"sectionTitle")); auto* detail=text("The node owns cryptography, sessions, routing, shaping and transport policy. Qt owns presentation and launches the same pqvpn_node executable used by the CLI."); detail->setProperty("muted",true); info->addWidget(detail); auto* diagnostic=new QPushButton("Copy diagnostics"); diagnostic->setProperty("quiet",true); connect(diagnostic,&QPushButton::clicked,this,&Window::copyDiagnostics); info->addWidget(diagnostic,0,Qt::AlignLeft); body->addWidget(card(info,true));
-        auto* updates=new QVBoxLayout;updates->setContentsMargins(20,18,20,18);updates->addWidget(text("RELEASE UPDATES","eyebrow"));auto* updateStatus=text("Updates are checked only when you ask.");updateStatus->setProperty("muted",true);updates->addWidget(updateStatus);auto* updateActions=new QHBoxLayout;auto* checkUpdate=new QPushButton("Check releases");auto* downloadUpdate=new QPushButton("Download verified update");downloadUpdate->setEnabled(false);downloadUpdate->setProperty("quiet",true);updateActions->addWidget(checkUpdate);updateActions->addWidget(downloadUpdate);updateActions->addStretch();updates->addLayout(updateActions);auto* updateNote=text("PQVPN requires a platform package and SHA256SUMS from the same GitHub Release. The console verifies the download, opens its folder, and leaves installation under your control.");updateNote->setProperty("muted",true);updates->addWidget(updateNote);body->addWidget(card(updates));
-        updater_=new pqvpn::console::ReleaseUpdater(PQVPN_BUILD_VERSION,this);updater_->report=[this,updateStatus,checkUpdate](const QString& value){updateStatus->setText(value);log(value);checkUpdate->setEnabled(true);};updater_->downloadable=[downloadUpdate](bool enabled){downloadUpdate->setEnabled(enabled);};connect(checkUpdate,&QPushButton::clicked,this,[this,checkUpdate]{checkUpdate->setEnabled(false);updater_->check();});connect(downloadUpdate,&QPushButton::clicked,this,[this]{updater_->download();});body->addStretch(); return page;
-    }
-    void buildTray() {
-        tray_=new QSystemTrayIcon(connectionTrayIcon(pqvpn::console::ConnectionPhase::Disconnected),this); trayMenu_=new QMenu; trayStatus_=trayMenu_->addAction("Disconnected"); trayStatus_->setEnabled(false); trayMenu_->addSeparator(); auto* show=trayMenu_->addAction("Show Privacy Console"); connect(show,&QAction::triggered,this,&Window::restoreFromTray); trayToggle_=trayMenu_->addAction("Connect securely"); connect(trayToggle_,&QAction::triggered,this,[this]{restoreFromTray(); if(process_.state()==QProcess::NotRunning&&!configValid_)switchPage(Connection); else toggleConnection();}); trayMenu_->addSeparator(); auto* exit=trayMenu_->addAction("Exit PQVPN"); connect(exit,&QAction::triggered,this,&Window::quitApplication); tray_->setContextMenu(trayMenu_); connect(tray_,&QSystemTrayIcon::activated,this,[this](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger||reason==QSystemTrayIcon::DoubleClick)restoreFromTray();}); tray_->show();
-    }
-    QString defaultExecutable() const { const QString name=
-#ifdef _WIN32
-        "pqvpn_node.exe";
-#else
-        "pqvpn_node";
-#endif
-        const QDir directory(QCoreApplication::applicationDirPath());
-        for(const QString& candidate:{directory.absoluteFilePath(name),directory.absoluteFilePath("../../../bin/"+name),directory.absoluteFilePath("../../../"+name)})if(QFileInfo::exists(candidate))return QDir::cleanPath(candidate);
-        return QDir::current().absoluteFilePath("build/"+name); }
+JÍÜ™š[™Xİ
+T™Xİ
+ØÙ[™K›Y
 
-    void applyStartupArguments(){
-        const QStringList arguments=QApplication::arguments();
-        for(int index=1;index<arguments.size();++index){
-            if((arguments[index]=="--config"||arguments[index]=="--node")&&index+1<arguments.size()){
-                const QString value=QFileInfo(arguments[++index]).absoluteFilePath();
-                if(arguments[index-1]=="--config")configPath_->setText(value);else executablePath_->setText(value);
-            }
-        }
-    }
+K›ÛÜ•ÜØÙ[™KÚY
 
-    QString selectedDirectPeer() const {if(!strangeAudience_)return {};const QString value=strangeAudience_->currentData().toString();return value.startsWith("dm:")?value.mid(3):QString{};}
-    bool strangeRecipientReady() const {if(!mainnetReady_)return false;const QString direct=selectedDirectPeer();if(!direct.isEmpty())return authenticatedPeers_.contains(direct);if(!activeStrangeGroup_.isEmpty()){for(const auto& peer:activeStrangeGroup_)if(!authenticatedPeers_.contains(peer))return false;return true;}return activeStrangePeer_=="auto"||authenticatedPeers_.contains(activeStrangePeer_);}
-    void refreshStrangeSendEnabled(){if(!strangeSend_||!strangeMessage_)return;const auto bytes=strangeMessage_->toPlainText().trimmed().toUtf8().size();const bool outboundReady=strangeActive_&&strangeRecipientReady()&&process_.state()==QProcess::Running&&QDateTime::currentMSecsSinceEpoch()>=strangeSendBlockedUntilMs_;const bool direct=!selectedDirectPeer().isEmpty();strangeSend_->setEnabled(outboundReady&&bytes>0&&bytes<=2048);if(strangeReply_)strangeReply_->setEnabled(!direct&&outboundReady&&lastStrangeSequence_!=0);if(strangeVoice_)strangeVoice_->setEnabled(!direct&&outboundReady);if(strangeReaction_)strangeReaction_->setEnabled(!direct&&outboundReady&&lastStrangeSequence_!=0);}
-    void applyStrangeRateLimit(qint64 retryAfterMs){if(retryAfterMs<1)retryAfterMs=1;else if(retryAfterMs>60000)retryAfterMs=60000;const qint64 deadline=QDateTime::currentMSecsSinceEpoch()+retryAfterMs;strangeSendBlockedUntilMs_=qMax(strangeSendBlockedUntilMs_,deadline);strangeFloodStatus_->setText(QString("Antiflood engaged Â· retry available in %1 ms").arg(retryAfterMs));refreshStrangeSendEnabled();QTimer::singleShot(retryAfterMs,this,[this,deadline]{if(strangeSendBlockedUntilMs_!=deadline)return;strangeSendBlockedUntilMs_=0;strangeFloodStatus_->setText("Antiflood ready");refreshStrangeSendEnabled();});}
-    void resetStrangeRateLimit(){strangeSendBlockedUntilMs_=0;if(strangeFloodStatus_)strangeFloodStatus_->setText("Antiflood ready");refreshStrangeSendEnabled();}
-    void refreshPeerDirectory(){
-        if(!strangeAudience_||!peerDirectory_)return;const QString previous=strangeAudience_->currentData().toString();{QSignalBlocker guard(strangeAudience_);strangeAudience_->clear();strangeAudience_->addItem(QString("Room fanout Â· %1 authenticated Peer ID(s)").arg(authenticatedPeers_.size()),"auto");peerDirectory_->clear();QStringList identities=authenticatedPeers_.keys();identities.sort(Qt::CaseInsensitive);for(const QString& identity:identities){const QString shortId=identity.left(20);strangeAudience_->addItem(QString("Direct E2E Â· Peer %1â€¦").arg(shortId),"dm:"+identity);const QString label=QString("Peer %1â€¦ Â· authenticated + policy accepted").arg(shortId);auto* item=new QListWidgetItem(label,peerDirectory_);item->setData(Qt::UserRole,identity);item->setToolTip("Peer ID: "+identity);}const int restored=strangeAudience_->findData(previous);strangeAudience_->setCurrentIndex(restored>=0?restored:0);}const QString direct=selectedDirectPeer();if(strangeSend_)strangeSend_->setText(direct.isEmpty()?"Send securely":"Send direct E2E");peerCount_->setText(QString("%1 authenticated").arg(authenticatedPeers_.size()));fadeWidget(peerDirectory_,180);
-    }
-    void connectProcess() {
-        connect(&process_,&QProcess::readyReadStandardOutput,this,[this]{
-            processBuffer_.append(process_.readAllStandardOutput());
-            if(processBuffer_.size()>1024*1024){processBuffer_.clear();log("Node output discarded Â· unterminated record exceeded 1 MiB");return;}
-            qsizetype newline=0;
-            while((newline=processBuffer_.indexOf('\n'))>=0){
-                const QString clean=QString::fromUtf8(processBuffer_.left(newline)).trimmed().left(16384);
-                processBuffer_.remove(0,newline+1);
-                if(clean.isEmpty())continue;
-                log(clean);
-                if(!clean.startsWith("PQVPN_EVENT "))continue;
-                QJsonParseError error;const auto event=QJsonDocument::fromJson(clean.mid(12).toUtf8(),&error).object();
-                if(error.error!=QJsonParseError::NoError)continue;
-                const QString name=event.value("event").toString();
-                recordStrangeProof(name,event);
-                if(name=="peer.connected"){
-                    const QString peer=event.value("peer").toString().toLower();if(QRegularExpression("^[0-9a-f]{64}$").match(peer).hasMatch())authenticatedPeers_.insert(peer,"authenticated");refreshPeerDirectory();mainnetReady_=!authenticatedPeers_.isEmpty();refreshConnectionPresentation();refreshStrangeSendEnabled();
-                }else if(name=="peer.disconnected"){
-                    const QString peer=event.value("peer").toString().toLower();authenticatedPeers_.remove(peer);refreshPeerDirectory();mainnetReady_=!authenticatedPeers_.isEmpty();refreshConnectionPresentation();refreshStrangeSendEnabled();if(strangeActive_&&activeStrangePeer_==peer){strangeReaction_->setEnabled(false);appendStrangeText("Selected peer disconnected. Zero-trust targeting remains pinned; leave the room to choose another peer.");}
-                }else if(name=="tunnel.ready"){
-                    tunnelReady_=event.value("fail_closed").toBool(false)&&event.value("ipv4").toString()=="full";
-                    refreshConnectionPresentation();
-                }else if(name=="strangenet.joined"){
-                    strangeActive_=true;pendingStrangeJoin_=false;activeStrangePeer_=event.value("peer").toString("auto").toLower();strangeJoin_->setText("Leave room");
-                    strangeRoom_->setEnabled(false);strangeAudience_->setEnabled(true);peerDirectory_->setEnabled(false);resetStrangeRateLimit();
-                    strangePresence_->setText("LIVE Â· E2E");const int groupSize=event.value("group_size").toInt();appendStrangeSystem(groupSize>=3?QString("Entered %1 Â· %2-member pinned group Â· independent hybrid secret per recipient Â· no central group key").arg(event.value("room").toString()).arg(groupSize):(activeStrangePeer_=="auto"?QString("Entered %1 Â· authenticated audience").arg(event.value("room").toString()):QString("Entered %1 Â· pinned to %2â€¦").arg(event.value("room").toString(),activeStrangePeer_.left(16))));strangeMessage_->setFocus();
-                }else if(name=="strangenet.left"){
-                    strangeActive_=false;strangeJoin_->setText("Enter room");strangePresence_->setText("OFFLINE");resetStrangeRateLimit();strangeReaction_->setEnabled(false);
-                    strangeRoom_->setEnabled(true);strangeAudience_->setEnabled(true);peerDirectory_->setEnabled(true);activeStrangePeer_="auto";activeStrangeGroup_.clear();appendStrangeText("Left room.");
-                }else if(name=="strangenet.message"){
-                    lastStrangeSender_=event.value("sender").toString();lastStrangeSequence_=event.value("sequence").toVariant().toULongLong();refreshStrangeSendEnabled();appendStrangeMessageBubble(lastStrangeSender_,event.value("text").toString(),event.value("timestamp_ms").toVariant().toLongLong(),false);notifyStrangeActivity();
-                    const auto replyTo=event.value("reply_to").toVariant().toULongLong();if(replyTo&&ownStrangeSequences_.contains(replyTo)){tray_->showMessage("Someone replied to you",QString("Open %1 to read the reply.").arg(event.value("room").toString()),QSystemTrayIcon::Information,5000);}
-                }else if(name=="strangenet.direct"){
-                    const QString peer=event.value("peer").toString().toLower();lastStrangeSender_=peer;lastStrangeSequence_=event.value("sequence").toVariant().toULongLong();appendStrangeSystem(QString("Direct E2E from authenticated Peer %1â€¦ Â· select that Peer ID under Audience to reply privately.").arg(peer.left(12)));appendStrangeMessageBubble(peer,event.value("text").toString(),event.value("timestamp_ms").toVariant().toLongLong(),false);notifyStrangeActivity();refreshStrangeSendEnabled();
-                }else if(name=="strangenet.sticker"){
-                    lastStrangeSender_=event.value("sender").toString();lastStrangeSequence_=event.value("sequence").toVariant().toULongLong();refreshStrangeSendEnabled();appendStrangeSticker(event.value("text").toString(),lastStrangeSender_.left(12));notifyStrangeActivity();
-                }else if(name=="strangenet.reaction"){
-                    appendStrangeReaction(event.value("text").toString(),event.value("sender").toString().left(12),event.value("reply_to").toVariant().toULongLong());notifyStrangeActivity();
-                }else if(name=="strangenet.voice"){
-                    playStrangeVoice(event.value("text").toString());appendStrangeSystem(QString("Voice from Peer %1â€¦ Â· live, not stored").arg(event.value("sender").toString().left(12)));notifyStrangeActivity();
-                }else if(name=="strangenet.delivered"){
-                    appendStrangeSystem(QString("Delivered Â· message %1 Â· peer %2").arg(event.value("sequence").toVariant().toULongLong()).arg(event.value("peer").toString().left(12)));
-                }else if(name=="strangenet.sent"){
-                    const QString kind=event.value("kind").toString();if(kind=="voice")appendStrangeSystem("Voice sent live Â· not stored");else if(kind=="sticker")appendStrangeSticker(event.value("text").toString(),"You");else if(kind=="reaction")appendStrangeReaction(event.value("text").toString(),"You",0);else{appendStrangeMessageBubble("You",event.value("text").toString(),QDateTime::currentMSecsSinceEpoch(),true);strangeMessage_->clear();ownStrangeSequences_.insert(event.value("sequence").toVariant().toULongLong());while(ownStrangeSequences_.size()>256)ownStrangeSequences_.erase(ownStrangeSequences_.begin());pendingReplyTo_=0;strangeReply_->setText("Reply to latest");strangeComposerHint_->setText(kind=="direct"?QString("Direct text delivered to Peer %1â€¦ Â· no participant IP exposed").arg(event.value("peer").toString().left(12)):"Enter sends Â· Shift+Enter writes a new line");}appendStrangeSystem(kind=="direct"?"Direct E2E delivery used one authenticated peer session.":QString("Encrypted separately for %1 authenticated peer(s).").arg(event.value("recipients").toInt()));refreshStrangeSendEnabled();
-                }else if(name=="strangenet.rate_limited"){
-                    const qint64 retry=event.value("retry_after_ms").toVariant().toLongLong();appendStrangeText(QString("Antiflood Â· message paused; retry in %1 ms.").arg(retry));applyStrangeRateLimit(retry);strangeMessage_->setFocus();
-                }else if(name=="strangenet.deferred"||name=="control.error"){
-                    appendStrangeText("Notice Â· "+event.value("message").toString());refreshStrangeSendEnabled();strangeMessage_->setFocus();
-                }
-            }
-        });
-        connect(&process_,&QProcess::stateChanged,this,[this](QProcess::ProcessState state){const bool active=state!=QProcess::NotRunning,running=state==QProcess::Running;if(!active){stopStrangeVoice();mainnetReady_=false;tunnelReady_=false;authenticatedPeers_.clear();refreshPeerDirectory();}refreshConnectionPresentation();connectButton_->setText(active?"Disconnect":"Connect securely"); connectButton_->setProperty("danger",active); connectButton_->style()->unpolish(connectButton_);connectButton_->style()->polish(connectButton_); validateButton_->setEnabled(!active); configPath_->setEnabled(!active);executablePath_->setEnabled(!active);noTunnel_->setEnabled(!active);logLevel_->setEnabled(!active);adaptiveEnabled_->setEnabled(!active);adaptiveMode_->setEnabled(!active);shapingEnabled_->setEnabled(!active);shapingPadding_->setEnabled(!active);shapingDelay_->setEnabled(!active);innerTunnelEnabled_->setEnabled(!active);innerTunnelBackend_->setEnabled(!active&&innerTunnelEnabled_->isChecked());innerTunnelConfig_->setEnabled(!active&&innerTunnelEnabled_->isChecked());innerTunnelBrowse_->setEnabled(!active&&innerTunnelEnabled_->isChecked());saveTransportButton_->setEnabled(!active); trayToggle_->setText(active?"Disconnect":"Connect securely");if(strangeJoin_){strangeJoin_->setEnabled(running||(!active&&configValid_));refreshStrangeSendEnabled();strangeReaction_->setEnabled(strangeActive_&&strangeRecipientReady()&&lastStrangeSequence_!=0);strangeRoom_->setEnabled(!strangeActive_);strangeAudience_->setEnabled(!strangeActive_);peerDirectory_->setEnabled(!strangeActive_);}if(!active){strangeActive_=false;pendingStrangeJoin_=false;activeStrangePeer_="auto";activeStrangeGroup_.clear();resetStrangeRateLimit();strangeJoin_->setText("Enter room");if(strangePresence_)strangePresence_->setText("OFFLINE");}});
-        connect(&process_,&QProcess::started,this,[this]{log("Node process started");if(strangeProofEnabled_&&strangeProofEnabled_->isChecked()){strangeProofChain_.reset();strangeProofCopy_->setEnabled(false);strangeProofStatus_->setText("Ready Â· new node session, waiting for StrangeNet events.");}if(pendingStrangeJoin_)sendStrangeJoin();}); connect(&process_,&QProcess::errorOccurred,this,[this](QProcess::ProcessError){processFailed_=true;refreshConnectionPresentation();log("Process error Â· "+process_.errorString());statusText_->setText("The node could not continue: "+process_.errorString());});
-        connect(&process_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus status){if(!processBuffer_.isEmpty()){log(QString::fromUtf8(processBuffer_).trimmed());processBuffer_.clear();}log(QString("Node stopped Â· exit %1 Â· %2").arg(code).arg(status==QProcess::NormalExit?"normal":"crashed"));statusText_->setText(stopping_&&status==QProcess::NormalExit?"Disconnected cleanly.":QString("Node stopped with exit code %1. Review Activity.").arg(code));processFailed_=!stopping_&&(status!=QProcess::NormalExit||code!=0);stopping_=false;refreshConnectionPresentation();connectButton_->setEnabled(configValid_);if(pendingQuit_){pendingQuit_=false;quitting_=true;savePreferences();qApp->quit();}});
-    }
-    bool loadConfig(const QString& path) {
-        QFile file(path); if(!file.open(QIODevice::ReadOnly)){setUnknownConfig();return false;} QJsonParseError error; const auto doc=QJsonDocument::fromJson(file.readAll(),&error); if(error.error!=QJsonParseError::NoError||!doc.isObject()){configHealth_->setText("JSON could not be read: "+error.errorString());return false;}
-        const auto root=doc.object(),network=root.value("network").toObject(),security=root.value("security").toObject(),shaping=root.value("traffic_shaping").toObject(),external=root.value("external_transport").toObject(),adaptive=root.value("adaptive_transport").toObject(),tunnel=root.value("tunnel").toObject(),innerTunnel=root.value("inner_tunnel").toObject(),egress=root.value("egress").toObject();
-        const auto bootstrap=root.value("bootstrap").toArray();
-        mainnetMetric_->setText(bootstrap.isEmpty()?"Listener only":QString("%1 bootstrap route(s)").arg(bootstrap.size()));
-        endpointMetric_->setText(QString("UDP port %1").arg(network.value("port").toInt(9090)));
-        verificationMetric_->setText(QString("%1 Â· %2").arg(security.value("strict_sig_verify").toBool(true)?"Hybrid strict":"Relaxed",security.value("tofu").toBool(true)?"TOFU":"Pinned"));
-        shapingMetric_->setText(shaping.value("enabled").toBool(false)?"Enabled":"Off");egressMetric_->setText(egress.value("enabled").toBool(false)?"Enabled":"Relay only");
-#ifdef _WIN32
-        tunnelMetric_->setText(noTunnel_&&noTunnel_->isChecked()?"UDP-only":"PQVPN NDIS");
-#elif defined(__APPLE__)
-        tunnelMetric_->setText("Network Extension");
-#else
-        tunnelMetric_->setText("Linux TUN");
-#endif
-        if(!tunnel.isEmpty()&&tunnel.value("plugin").toString("pqvpn")!="pqvpn")tunnelMetric_->setText(tunnel.value("plugin").toString().toUpper());
-        const bool shapingOn=shaping.value("enabled").toBool(false);shapingEnabled_->setChecked(shapingOn);shapingPadding_->setValue(shaping.value("max_padding_bytes").toInt(1024));shapingDelay_->setValue(shaping.value("max_delay_ms").toInt(20));
-        const QString legacyBackend=tunnel.value("plugin").toString();const bool legacyInner=legacyBackend=="wireguard"||legacyBackend=="openvpn";const bool innerOn=innerTunnel.value("enabled").toBool(false)||legacyInner;QString innerBackend=legacyInner?legacyBackend:innerTunnel.value("backend").toString("wireguard");if(innerBackend=="openvpn")innerBackend="openvpn3";const QString innerPath=legacyInner?tunnel.value("config_path").toString():innerTunnel.value("config_path").toString();innerTunnelEnabled_->setChecked(innerOn);innerTunnelBackend_->setCurrentIndex(qMax(0,innerTunnelBackend_->findData(innerBackend)));innerTunnelConfig_->setText(innerPath);innerTunnelBackend_->setEnabled(innerOn&&process_.state()==QProcess::NotRunning);innerTunnelConfig_->setEnabled(innerOn&&process_.state()==QProcess::NotRunning);innerTunnelBrowse_->setEnabled(innerOn&&process_.state()==QProcess::NotRunning);const bool adaptiveOn=adaptive.value("enabled").toBool(false);const QString adaptiveMode=adaptive.value("mode").toString("auto");adaptiveEnabled_->setChecked(adaptiveOn);adaptiveMode_->setCurrentIndex(qMax(0,adaptiveMode_->findData(adaptiveMode)));adaptiveMetric_->setText(adaptiveOn?QString("Enabled Â· %1").arg(adaptiveMode.toUpper()):"Disabled Â· direct UDP");if(external.isEmpty()){transportMetric_->setText(adaptiveOn?"PQTP adaptive path":"Direct PQVPN UDP");transportDetails_->setText(QString("%1%2").arg(adaptiveOn?"Policy is configured; runtime events report every lane change.":"No external transport selected.",innerOn?QString(" Â· %1 inside PQVPN").arg(innerBackend.toUpper()):QString()));}else{transportMetric_->setText(external.value("engine").toString("Unknown"));transportDetails_->setText(QString("Attach mode Â· %1:%2 Â· external process required").arg(external.value("host").toString()).arg(external.value("port").toInt()));}return !root.isEmpty();
-    }
-    void setUnknownConfig(){mainnetMetric_->setText("Not loaded");endpointMetric_->setText("Not loaded");verificationMetric_->setText("Unknown");tunnelMetric_->setText("Unknown");egressMetric_->setText("Unknown");shapingMetric_->setText("Unknown");transportMetric_->setText("Configuration unavailable");transportDetails_->setText("Choose a readable JSON configuration.");if(adaptiveMetric_)adaptiveMetric_->setText("Configuration unavailable");}
-    QString engineConfiguration(const QString& id){
-        QSettings settings("PQVPN","Privacy Console");QString path=settings.value(id+"ConfigPath").toString();if(QFileInfo(path).isFile())return path;
-        const QString extension=id=="udp2raw"?".conf":".json";
-        for(const QString& candidate:QStringList{QString::fromStdString(pqvpn::console::user_profile_directory().generic_string())+"/"+id+extension,QDir::homePath()+"/.config/"+id+"/config"+extension,QDir::homePath()+"/.config/"+id+"/client"+extension})if(QFileInfo(candidate).isFile()){path=candidate;break;}
-        if(!QFileInfo(path).isFile())path=QFileDialog::getOpenFileName(this,"Choose existing "+id+" configuration",QDir::homePath());
-        if(!path.isEmpty())settings.setValue(id+"ConfigPath",QFileInfo(path).absoluteFilePath());return path;
-    }
-    void editConfiguration(const QString& path,bool json){
-        QFile source(path);if(!source.open(QIODevice::ReadOnly)||source.size()>1024*1024){QMessageBox::information(this,"Configuration unavailable","Choose an existing configuration file first.");return;}
-        QDialog dialog(this);dialog.setWindowTitle("Edit configuration");dialog.resize(760,560);auto* layout=new QVBoxLayout(&dialog);auto* editor=new QPlainTextEdit;editor->setPlainText(QString::fromUtf8(source.readAll()));source.close();layout->addWidget(editor);auto* row=new QHBoxLayout;auto* cancel=new QPushButton("Cancel");auto* save=new QPushButton("Save");row->addWidget(cancel);row->addStretch();row->addWidget(save);layout->addLayout(row);connect(cancel,&QPushButton::clicked,&dialog,&QDialog::reject);
-        connect(save,&QPushButton::clicked,&dialog,[&,this]{const QByteArray contents=editor->toPlainText().toUtf8();if(contents.size()>1024*1024)return;if(json){QJsonParseError error;const auto document=QJsonDocument::fromJson(contents,&error);if(error.error!=QJsonParseError::NoError||!document.isObject()){QMessageBox::information(&dialog,"Invalid configuration","Configuration must be a JSON object.");return;}}QSaveFile output(path);if(!output.open(QIODevice::WriteOnly)||!output.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner)||output.write(contents)!=contents.size()||!output.commit()){QMessageBox::information(&dialog,"Save failed","The configuration could not be saved.");return;}if(QFileInfo(path).absoluteFilePath()==QFileInfo(configPath_->text()).absoluteFilePath()){invalidate("Configuration edited. Validate before connecting.");loadConfig(path);}dialog.accept();});dialog.exec();
-    }
-    void prepareUdp2rawProfile(){
-        if(process_.state()!=QProcess::NotRunning){log("Disconnect before changing transport profiles.");return;}
-        QJsonObject root;QFile source(configPath_->text());
-        if(source.open(QIODevice::ReadOnly)){const auto document=QJsonDocument::fromJson(source.readAll());if(document.isObject())root=document.object();}
-        if(root.isEmpty()){QMessageBox::information(this,"Choose configuration","Choose your existing PQVPN server configuration first. Engine keys stay in the engine's own configuration.");switchPage(Connection);return;}
-        QSettings settings("PQVPN","Privacy Console");QString engineConfig=settings.value("udp2rawConfigPath").toString();
-        if(!QFileInfo(engineConfig).isFile()){
-            for(const QString& candidate:{QString::fromStdString((pqvpn::console::user_profile_directory()/"udp2raw.conf").generic_string()),QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)+"/udp2raw.conf",QDir::homePath()+"/.config/udp2raw/client.conf"})if(QFileInfo(candidate).isFile()){engineConfig=candidate;break;}
-        }
-        QString host="127.0.0.1";int port=9091;
-        const auto existing=root.value("external_transport").toObject();const QString existingHost=existing.value("host").toString();const int existingPort=existing.value("port").toInt();
-        if(existing.value("engine").toString()=="udp2raw"&&(existingHost=="127.0.0.1"||existingHost=="::1")&&existingPort>0&&existingPort<=65535){host=existingHost;port=existingPort;}
-        if(QFileInfo(engineConfig).isFile()){
-            QFile engine(engineConfig);if(!engine.open(QIODevice::ReadOnly))return;
-            // Read only the local listener directive for coordination; never
-            // copy or print engine credentials into the PQVPN profile/log.
-            const QString contents=QString::fromUtf8(engine.read(1024*1024));
-            const auto match=QRegularExpression("(?:^|\\n)\\s*-l\\s*(127\\.0\\.0\\.1|\\[::1\\]):([0-9]+)").match(contents);
-            if(!match.hasMatch()){QMessageBox::information(this,"Local listener required","The existing udp2raw configuration needs a loopback -l listener. Review that configuration before connecting.");return;}
-            host=match.captured(1)=="[::1]"?"::1":match.captured(1);port=match.captured(2).toInt();if(port<1||port>65535)return;
-        }
-        auto network=root.value("network").toObject();network["bind_address"]=host;if(network.value("port").toInt(9090)==port)network["port"]=port==9090?9092:9090;root["network"]=network;
-        root["bootstrap"]=QJsonArray{QJsonObject{{"host",host},{"port",port}}};
-        root["external_transport"]=QJsonObject{{"version",1},{"mode","attach"},{"engine","udp2raw"},{"host",host},{"port",port}};
-        auto security=root.value("security").toObject();security["strict_sig_verify"]=true;
-        const QString directory=QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)+"/profiles";if(!QDir().mkpath(directory))return;
-        const QString known=security.value("known_peers_file").toString("known_peers.json");const QString originalKnown=QFileInfo(known).isRelative()?QFileInfo(configPath_->text()).dir().absoluteFilePath(known):known;const QString profileKnown=directory+"/known_peers.json";
-        if(!QFileInfo(profileKnown).exists()&&QFileInfo(originalKnown).isFile()){if(!QFile::copy(originalKnown,profileKnown))return;QFile::setPermissions(profileKnown,QFileDevice::ReadOwner|QFileDevice::WriteOwner);}
-        QString identity=security.value("identity_file").toString("node_keys.json");if(identity.isEmpty())identity="node_keys.json";
-        const QString originalIdentity=QFileInfo(identity).isRelative()?QFileInfo(configPath_->text()).dir().absoluteFilePath(identity):identity;
-        security["identity_file"]=QDir::cleanPath(QFileInfo(originalIdentity).absoluteFilePath());
-        security["known_peers_file"]=profileKnown;root["security"]=security;
-        QString profile=directory+"/udp2raw.json";if(QFileInfo(profile).exists()&&QDir::cleanPath(QFileInfo(configPath_->text()).absoluteFilePath())!=QDir::cleanPath(profile))profile=directory+"/udp2raw-"+QString::number(QDateTime::currentMSecsSinceEpoch())+".json";QSaveFile output(profile);if(!output.open(QIODevice::WriteOnly))return;if(!output.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner))return;const auto profileBytes=QJsonDocument(root).toJson(QJsonDocument::Indented);if(output.write(profileBytes)!=profileBytes.size()||!output.commit())return;
-        configPath_->setText(profile);invalidate("Local udp2raw profile prepared. Verify the engine and server before connecting.");loadConfig(profile);switchPage(Connection);validateConfig();
-        if(QFileInfo(engineConfig).isFile()){engines_->start("udp2raw",engineConfig);return;}
-        QString executable;for(const QString& name:{QString("udp2raw"),QString("udp2raw_amd64"),QString("udp2raw_arm64"),QString("udp2raw_arm"),QString("udp2raw_mp")}){executable=QStandardPaths::findExecutable(name);if(!executable.isEmpty())break;}
-        log(executable.isEmpty()?"udp2raw engine not found on PATH. Attach mode requires your installed forwarder.":"udp2raw executable detected; attach mode requires the engine to be running with your server configuration.");
-    }
-    void saveTransportSettings(){
-        QFile source(configPath_->text());if(!source.open(QIODevice::ReadOnly)){log("Transport policy was not saved Â· configuration unavailable");return;}const QByteArray original=source.readAll();QJsonParseError error;auto document=QJsonDocument::fromJson(original,&error);source.close();if(error.error!=QJsonParseError::NoError||!document.isObject()){log("Transport policy was not saved Â· invalid JSON");return;}
-        auto root=document.object();auto adaptive=root.value("adaptive_transport").toObject();adaptive["enabled"]=adaptiveEnabled_->isChecked();adaptive["mode"]=adaptiveMode_->currentData().toString();if(!adaptive.contains("loss_switch_percent"))adaptive["loss_switch_percent"]=12.0;if(!adaptive.contains("jitter_switch_ms"))adaptive["jitter_switch_ms"]=45.0;if(!adaptive.contains("failure_switch_count"))adaptive["failure_switch_count"]=3;if(!adaptive.contains("recovery_probe_count"))adaptive["recovery_probe_count"]=4;if(!adaptive.contains("minimum_dwell_ms"))adaptive["minimum_dwell_ms"]=5000;root["adaptive_transport"]=adaptive;
-        auto shaping=root.value("traffic_shaping").toObject();shaping["enabled"]=shapingEnabled_->isChecked();shaping["max_padding_bytes"]=shapingPadding_->value();shaping["max_delay_ms"]=shapingDelay_->value();if(!shaping.contains("max_queue_packets"))shaping["max_queue_packets"]=256;if(!shaping.contains("max_queue_bytes"))shaping["max_queue_bytes"]=524288;root["traffic_shaping"]=shaping;
-        auto nativeTunnel=root.value("tunnel").toObject();if(nativeTunnel.value("plugin").toString()=="wireguard"||nativeTunnel.value("plugin").toString()=="openvpn"){nativeTunnel["plugin"]="pqvpn";nativeTunnel.remove("config_path");root["tunnel"]=nativeTunnel;}if(innerTunnelEnabled_->isChecked()){const QFileInfo innerConfig(innerTunnelConfig_->text());if(!innerConfig.isAbsolute()||!innerConfig.isFile()){QMessageBox::warning(this,"Inner VPN configuration","Choose an existing absolute WireGuard or OpenVPN 3 client configuration.");return;}root["inner_tunnel"]=QJsonObject{{"enabled",true},{"backend",innerTunnelBackend_->currentData().toString()},{"config_path",innerConfig.absoluteFilePath()}};}else root.remove("inner_tunnel");
-        document.setObject(root);const QByteArray updated=document.toJson(QJsonDocument::Indented);if(updated==original){statusBar()->showMessage("Transport policy already matches this configuration",3000);log("Transport policy unchanged Â· idempotent save");return;}QSaveFile output(configPath_->text());if(!output.open(QIODevice::WriteOnly)||output.write(updated)<0||!output.commit()){log("Transport policy could not be written safely");return;}invalidate("Transport policy saved. Validate before connecting.");loadConfig(configPath_->text());log(QString("Transport policy saved Â· %1 Â· shaping %2 Â· inner %3").arg(adaptiveMode_->currentData().toString(),shapingEnabled_->isChecked()?"enabled":"disabled",innerTunnelEnabled_->isChecked()?innerTunnelBackend_->currentData().toString():"off"));
-    }
-    void invalidate(const QString& reason){configValid_=false;validatedConfigHash_.clear();validatedExecutableHash_.clear();connectButton_->setEnabled(false);configHealth_->setText(reason);refreshConnectionPresentation();}
-    void chooseConfig(){if(process_.state()!=QProcess::NotRunning){log("Disconnect before choosing another configuration.");return;}const QString path=QFileDialog::getOpenFileName(this,"Choose PQVPN configuration",QFileInfo(configPath_->text()).absolutePath(),"JSON configuration (*.json)");if(!path.isEmpty())configPath_->setText(path);}
-    void chooseExecutable(){if(process_.state()!=QProcess::NotRunning){log("Disconnect before choosing another executable.");return;}const QString path=QFileDialog::getOpenFileName(this,"Choose pqvpn_node",QFileInfo(executablePath_->text()).absolutePath());if(!path.isEmpty())executablePath_->setText(path);}
-    void runNodeTool(const QStringList& arguments,const QString& title){
-        const QFileInfo binary(executablePath_->text());
-        if(!binary.exists()||!binary.isExecutable()){configHealth_->setText("Choose an executable pqvpn_node binary.");switchPage(Connection);return;}
-        auto* tool=new QProcess(this);tool->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(tool);log(title+" started");
-        connect(tool,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,tool,title](int code,QProcess::ExitStatus status){
-            QByteArray raw=tool->property("pqvpnOutput").toByteArray()+tool->readAllStandardOutput();if(raw.size()>1024*1024)raw=QByteArray("[earlier output discarded]\n")+raw.right(1024*1024);QString output=QString::fromUtf8(raw).trimmed();if(output.isEmpty())output="No output was produced.";log(title+QString(" finished Â· exit %1").arg(code));
-            QDialog dialog(this);dialog.setWindowTitle(title);dialog.resize(760,520);auto* layout=new QVBoxLayout(&dialog);auto* heading=text(status==QProcess::NormalExit&&code==0?title+" completed":title+QString(" failed Â· exit %1").arg(code),"sectionTitle");layout->addWidget(heading);auto* report=new QPlainTextEdit(output);report->setReadOnly(true);layout->addWidget(report,1);auto* close=new QPushButton("Close");connect(close,&QPushButton::clicked,&dialog,&QDialog::accept);layout->addWidget(close,0,Qt::AlignRight);dialog.exec();tool->deleteLater();
-        });
-        connect(tool,&QProcess::errorOccurred,this,[this,tool,title](QProcess::ProcessError){log(title+" failed to start Â· "+tool->errorString());});
-        tool->start(executablePath_->text(),arguments);
-    }
-    void finishValidation(bool passed,const QString& message){
-        configValid_=passed;configHealth_->setText(message);connectButton_->setEnabled(passed);
-        if(passed){validatedConfigHash_=fileFingerprint(configPath_->text());validatedExecutableHash_=fileFingerprint(executablePath_->text());
-            if(validatedConfigHash_.isEmpty()||validatedExecutableHash_.isEmpty()){invalidate("Validated files are no longer readable. Validate again.");passed=false;}}
-        else{validatedConfigHash_.clear();validatedExecutableHash_.clear();}
-        validateButton_->setEnabled(true);refreshConnectionPresentation();log(passed?"Configuration and platform preflight passed":"Connection preflight failed");
-    }
-    void validatePlatform(){
-        if(noTunnel_&&noTunnel_->isChecked()){
-            finishValidation(true,"Validated for relay mode. Local traffic will not be tunneled.");return;
-        }
-#ifdef _WIN32
-        auto* platform=new QProcess(this);platform->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(platform);
-        connect(platform,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,platform](int code,QProcess::ExitStatus status){
-            const QString output=QString::fromUtf8(platform->property("pqvpnOutput").toByteArray()+platform->readAllStandardOutput()).trimmed();
-            const bool ready=status==QProcess::NormalExit&&code==0&&output.contains("driver=ready");
-            QString message="PQVPN driver is ready. Configuration and platform checks passed.";
-            if(!ready&&output.contains("driver=access-denied"))message="Driver access denied. Run the installed application with the required privileges.";
-            else if(!ready&&output.contains("driver=not-installed"))message="PQVPN driver is not installed. A local tunnel cannot start safely.";
-            else if(!ready)message="PQVPN driver preflight failed. Review Activity before connecting.";
-            finishValidation(ready,message);platform->deleteLater();
-        });
-        connect(platform,&QProcess::errorOccurred,this,[this,platform](QProcess::ProcessError){finishValidation(false,"Platform inspection could not start: "+platform->errorString());platform->deleteLater();});
-        platform->start(executablePath_->text(),{"--platform-info"});
-#else
-        finishValidation(true,"Configuration and platform checks passed. Route readiness will be verified at runtime.");
-#endif
-    }
-    void validateConfig(bool switchToConnection=true) {
-        if(process_.state()!=QProcess::NotRunning) return;
-        const QFileInfo binary(executablePath_->text());
-        if(!binary.exists()||!binary.isExecutable()) {
-            configHealth_->setText("Choose an executable pqvpn_node binary.");
-            log("Validation blocked Â· node executable unavailable");
-            return;
-        }
-        validateButton_->setEnabled(false); configHealth_->setText("Validating with pqvpn_nodeâ€¦"); log("Configuration validation started");
-        auto* check=new QProcess(this); check->setProcessChannelMode(QProcess::MergedChannels);captureBoundedOutput(check);
-        connect(check,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this,check](int code,QProcess::ExitStatus status){
-            check->readAllStandardOutput();
-            const bool valid=status==QProcess::NormalExit&&code==0&&loadConfig(configPath_->text());check->deleteLater();
-            if(valid){log("Configuration validation passed; checking platform readiness");validatePlatform();}
-            else finishValidation(false,QString("Validation failed with exit code %1. Review Activity.").arg(code));
-        });
-        check->start(executablePath_->text(),{"--smoke-test","--config",configPath_->text()}); if(switchToConnection) switchPage(Connection);
-    }
-    void toggleConnection(){if(process_.state()==QProcess::NotRunning){if(!configValid_)return;if(fileFingerprint(configPath_->text())!=validatedConfigHash_||fileFingerprint(executablePath_->text())!=validatedExecutableHash_){invalidate("Configuration or executable changed after validation. Validate again.");log("Connection blocked Â· validated files changed");return;}stopping_=false;processFailed_=false;bool noTunnel=false;
-        noTunnel=noTunnel_&&noTunnel_->isChecked();
-        log(QString("Connect requested Â· config %1 Â· log %2%3").arg(configPath_->text(),logLevel_->currentText(),noTunnel?" Â· no-tunnel":""));QStringList args={"--config",configPath_->text(),"--log-level",logLevel_->currentText(),"--control-stdin"};if(noTunnel)args<<"--no-tunnel";
-        process_.start(executablePath_->text(),args);
-        }else requestStop();}
-    QString strangeMarkup(QString value) const {return value.toHtmlEscaped().replace("\n","<br>");}
-    void appendStrangeSystem(const QString& value){if(!strangeTranscript_)return;strangeTranscript_->append(QString("<table width='100%' cellspacing='0' cellpadding='5'><tr><td align='center'><span style='color:#8fa4c9;font-size:9pt'>%1</span></td></tr></table>").arg(strangeMarkup(value)));}
-    void appendStrangeText(const QString& value){appendStrangeSystem(value);}
-    void appendStrangeMessageBubble(const QString& sender,const QString& value,qint64 timestamp,bool outbound){if(!strangeTranscript_)return;const QString label=outbound?QStringLiteral("You"):sender.left(12);const QString time=timestamp>0?QDateTime::fromMSecsSinceEpoch(timestamp).toLocalTime().toString("HH:mm"):QDateTime::currentDateTime().toString("HH:mm");const QString side=outbound?QStringLiteral("right"):QStringLiteral("left");const QString background=outbound?QStringLiteral("#5432c9"):QStringLiteral("#202a48");strangeTranscript_->append(QString("<table width='100%' cellspacing='0' cellpadding='3'><tr><td align='%1'><table width='72%' cellspacing='0' cellpadding='12' bgcolor='%2'><tr><td><span style='color:#bfcaf0;font-size:8pt;font-weight:600'>%3 Â· %4</span><br><span style='color:#ffffff;font-size:11pt'>%5</span></td></tr></table></td></tr></table>").arg(side,background,label.toHtmlEscaped(),time,strangeMarkup(value)));}
-    void appendStrangeSticker(const QString& payload,const QString& sender){QJsonParseError error;const auto object=QJsonDocument::fromJson(payload.toUtf8(),&error).object();const QString emoji=object.value("emoji").toString(),caption=object.value("caption").toString(),color=object.value("color").toString();const QStringList palette{"#5432c9","#0f8fa8","#b83280","#b86b18","#226c4a","#3d4d73"};if(error.error!=QJsonParseError::NoError||emoji.isEmpty()||emoji.size()>16||caption.size()>48||!palette.contains(color)){appendStrangeSystem("A malformed sticker was discarded safely.");return;}const QString side=sender=="You"?QStringLiteral("right"):QStringLiteral("left");strangeTranscript_->append(QString("<table width='100%' cellspacing='0' cellpadding='3'><tr><td align='%1'><table width='46%' cellpadding='14' bgcolor='%2'><tr><td><span style='font-size:34pt'>%3</span><br><span style='color:white;font-size:12pt;font-weight:700'>%4</span><br><span style='color:#e8e9ff;font-size:8pt'>%5</span></td></tr></table></td></tr></table>").arg(side,color,emoji.toHtmlEscaped(),caption.toHtmlEscaped(),sender.toHtmlEscaped()));}
-    void appendStrangeReaction(const QString& payload,const QString& sender,qulonglong fallbackSequence){QJsonParseError error;const auto object=QJsonDocument::fromJson(payload.toUtf8(),&error).object();const QString emoji=object.value("emoji").toString(),target=object.value("target").toString().left(12);const auto sequence=object.value("sequence").toVariant().toULongLong();if(error.error!=QJsonParseError::NoError||emoji.isEmpty()||emoji.size()>16){appendStrangeSystem("A malformed reaction was discarded safely.");return;}appendStrangeSystem(QString("%1 reacted %2 to %3 Â· message %4").arg(sender,emoji,target.isEmpty()?QString("the latest message"):target).arg(sequence?sequence:fallbackSequence));}
-    void recordStrangeProof(const QString& name,const QJsonObject& event){if(!strangeProofEnabled_||!strangeProofEnabled_->isChecked())return;const QStringList committed{"strangenet.message","strangenet.direct","strangenet.sticker","strangenet.reaction","strangenet.delivered","strangenet.sent"};if(!committed.contains(name))return;const bool accepted=strangeProofChain_.append(QJsonDocument(event).toJson(QJsonDocument::Compact));if(!accepted){strangeProofStatus_->setText("Proof chain limit reached; copy this anchor before starting a new chain.");return;}strangeProofCopy_->setEnabled(true);strangeProofStatus_->setText(QString("%1 event(s) committed in memory Â· content excluded from the anchor.").arg(strangeProofChain_.size()));}
-    void notifyStrangeActivity(){if(pages_->currentIndex()==StrangeNet&&isActiveWindow())return;unreadStrange_=qMin(unreadStrange_+1,999);const QString label=QString("04   StrangeNet Â· %1").arg(unreadStrange_);pageButtons_[StrangeNet]->setProperty("fullText",label);if(sidebar_->width()>100)pageButtons_[StrangeNet]->setText(label);const auto now=QDateTime::currentMSecsSinceEpoch();if(strangeNotifications_->isChecked()&&tray_->isVisible()&&now-lastStrangeNotificationMs_>=3000){lastStrangeNotificationMs_=now;tray_->showMessage("New encrypted StrangeNet activity","Open PQVPN to view it.",QSystemTrayIcon::Information,3500);}}
-    bool validStrangeRoom() { const QString room=strangeRoom_->text().trimmed();const bool valid=room.size()<=64&&room.split('/').size()<=8&&QRegularExpression("^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$").match(room).hasMatch();if(!valid)appendStrangeText("Use a safe room path: 1â€“64 characters, at most 8 levels, for example mainnet/friends/poetry.");return valid; }
-    void sendControl(const QJsonObject& command){process_.write(QJsonDocument(command).toJson(QJsonDocument::Compact)+'\n');}
-    void sendStrangeJoin(){const auto selected=peerDirectory_->selectedItems();activeStrangeGroup_.clear();if(selected.size()>=2){QJsonArray peers;for(const auto* item:selected){const QString peer=item->data(Qt::UserRole).toString();peers.append(peer);activeStrangeGroup_.append(peer);}sendControl({{"command","strangenet.join"},{"room",strangeRoom_->text().trimmed()},{"peer","auto"},{"peers",peers}});return;}sendControl({{"command","strangenet.join"},{"room",strangeRoom_->text().trimmed()},{"peer","auto"}});}
-    void toggleStrangeNet(){if(strangeActive_){sendControl({{"command","strangenet.leave"}});return;}if(!validStrangeRoom())return;if(process_.state()==QProcess::NotRunning){if(!configValid_){appendStrangeText("Validate the mainnet configuration before joining.");switchPage(Connection);return;}pendingStrangeJoin_=true;appendStrangeText("Starting the mainnet connection for room '"+strangeRoom_->text().trimmed()+"'â€¦");toggleConnection();return;}sendStrangeJoin();}
-    void sendStrangeMessage(){const QString value=strangeMessage_->toPlainText();const QByteArray message=value.toUtf8();if(!strangeActive_||!strangeRecipientReady()||process_.state()!=QProcess::Running||QDateTime::currentMSecsSinceEpoch()<strangeSendBlockedUntilMs_||value.trimmed().isEmpty()||message.size()>2048)return;const QString direct=selectedDirectPeer();if(!direct.isEmpty())sendControl({{"command","strangenet.dm"},{"peer",direct},{"text",value}});else sendControl({{"command","strangenet.send"},{"text",value},{"reply_to",static_cast<qint64>(pendingReplyTo_)}});strangeSend_->setEnabled(false);}
-    QAudioFormat strangeVoiceFormat() const {QAudioFormat format;format.setSampleRate(16000);format.setChannelCount(1);format.setSampleFormat(QAudioFormat::Int16);return format;}
-    void startStrangeVoice(){
-        if(strangeAudioSource_||!strangeActive_||!strangeRecipientReady())return;
-        const auto device=QMediaDevices::defaultAudioInput();const auto format=strangeVoiceFormat();
-        if(device.isNull()||!device.isFormatSupported(format)){appendStrangeSystem("Microphone unavailable Â· StrangeNet requires 16 kHz mono PCM support.");return;}
-        strangeAudioSource_=new QAudioSource(device,format,this);strangeAudioSource_->setBufferSize(1280);strangeAudioInput_=strangeAudioSource_->start();
-        if(!strangeAudioInput_){appendStrangeSystem("Microphone could not start.");strangeAudioSource_->deleteLater();strangeAudioSource_=nullptr;return;}
-        strangeVoice_->setText("Release to stop");strangePresence_->setText("LIVE Â· SPEAKING");
-        connect(strangeAudioInput_,&QIODevice::readyRead,this,[this]{while(strangeAudioInput_&&strangeAudioInput_->bytesAvailable()>=640){const QByteArray pcm=strangeAudioInput_->read(640);const QJsonObject packet{{"rate",16000},{"channels",1},{"sample","s16le"},{"audio",QString::fromLatin1(pcm.toBase64())}};sendControl({{"command","strangenet.voice"},{"text",QString::fromUtf8(QJsonDocument(packet).toJson(QJsonDocument::Compact))}});}});
-    }
-    void stopStrangeVoice(){if(!strangeAudioSource_)return;strangeAudioSource_->stop();strangeAudioSource_->deleteLater();strangeAudioSource_=nullptr;strangeAudioInput_=nullptr;strangeVoice_->setText("Hold to talk");strangePresence_->setText(strangeActive_?"LIVE Â· E2E":"OFFLINE");}
-    void playStrangeVoice(const QString& payload){
-        QJsonParseError error;const auto packet=QJsonDocument::fromJson(payload.toUtf8(),&error).object();const auto pcm=QByteArray::fromBase64(packet.value("audio").toString().toLatin1());
-        if(error.error!=QJsonParseError::NoError||packet.value("rate").toInt()!=16000||packet.value("channels").toInt()!=1||packet.value("sample").toString()!="s16le"||pcm.isEmpty()||pcm.size()>1024){appendStrangeSystem("Malformed voice data was discarded safely.");return;}
-        if(!strangeAudioSink_){const auto device=QMediaDevices::defaultAudioOutput();const auto format=strangeVoiceFormat();if(device.isNull()||!device.isFormatSupported(format)){appendStrangeSystem("Audio output does not support the StrangeNet voice format.");return;}strangeAudioSink_=new QAudioSink(device,format,this);strangeAudioSink_->setBufferSize(6400);strangeAudioOutput_=strangeAudioSink_->start();}
-        if(strangeAudioOutput_)strangeAudioOutput_->write(pcm);
-    }
-    QString piholeExecutable() const {return QStandardPaths::findExecutable("pihole");}
-    void applyShieldProfile(){
-        if(shieldProcess_.state()!=QProcess::NotRunning)return;const QString executable=piholeExecutable(),ftl=QStandardPaths::findExecutable("pihole-FTL");if(executable.isEmpty()||ftl.isEmpty()){shieldStatus_->setText("Pi-hole CLI/FTL was not found. Install local Pi-hole before applying a profile.");return;}
-        QStringList regexes;for(const QString& raw:shieldRegex_->toPlainText().split('\n')){const QString expression=raw.trimmed();if(expression.isEmpty())continue;if(expression.toUtf8().size()>512||regexes.size()>=128){shieldStatus_->setText("Regex rejected: maximum 128 rules and 512 bytes per rule.");return;}QString base=expression;int cut=base.size();const int queryType=base.indexOf(";querytype=");const int invert=base.indexOf(";invert");if(queryType>=0)cut=qMin(cut,queryType);if(invert>=0)cut=qMin(cut,invert);base.truncate(cut);QRegularExpression compiled(base);if(!compiled.isValid()||compiled.match("").hasMatch()){shieldStatus_->setText("Regex rejected: invalid or capable of matching every domain Â· "+expression.left(80));return;}regexes.append(expression);}
-#ifdef __linux__
-        QString helper="/usr/lib/pqvpn/pqvpn-shield-helper";if(!QFileInfo(helper).isExecutable())helper=QDir(QCoreApplication::applicationDirPath()).absoluteFilePath("../pqvpn-shield-helper");const QString pkexec=QStandardPaths::findExecutable("pkexec");if(QFileInfo(helper).isExecutable()&&!pkexec.isEmpty()){QStringList arguments{helper,"apply",shieldProfile_->currentData(Qt::UserRole+1).toString()};arguments.append(regexes);shieldQueue_.clear();shieldApply_->setEnabled(false);shieldProcess_.setProperty("shieldOneClick",true);shieldProcess_.setProperty("shieldCommand","PQVPN Shield profile update");shieldStatus_->setText(QString("Applying %1 source(s) and %2 validated regex rule(s) in one authorized operationâ€¦").arg(shieldProfile_->currentData().toStringList().size()).arg(regexes.size()));shieldProcess_.start(pkexec,arguments);return;}
-#endif
-        shieldQueue_.clear();for(const QString& url:shieldProfile_->currentData().toStringList()){const QString sql=QString("INSERT OR IGNORE INTO adlist (address,enabled,comment) VALUES ('%1',1,'PQVPN Shield');").arg(url);shieldQueue_.append(QStringList{ftl,"sqlite3","-ni","/etc/pihole/gravity.db",sql});}for(const QString& expression:regexes)shieldQueue_.append(QStringList{executable,"--regex",expression});shieldQueue_.append(QStringList{executable,"-g"});shieldApply_->setEnabled(false);shieldStatus_->setText(QString("Applying %1 source(s) and %2 validated regex rule(s)â€¦").arg(shieldProfile_->currentData().toStringList().size()).arg(regexes.size()));runNextShieldCommand();
-    }
-    void runNextShieldCommand(){if(shieldQueue_.isEmpty()){shieldApply_->setEnabled(true);QSettings("PQVPN","Privacy Console").setValue("shieldProfile",shieldProfile_->currentIndex());QSettings("PQVPN","Privacy Console").setValue("shieldRegex",shieldRegex_->toPlainText());shieldStatus_->setText("Shield profile applied. Gravity updated; refreshing aggregate countersâ€¦");refreshShieldCounters();return;}QStringList command=shieldQueue_.takeFirst();const QString program=command.takeFirst();shieldProcess_.setProperty("shieldCommand",program+" "+command.join(' '));shieldProcess_.start(program,command);}
-    void shieldCommandFinished(int code,QProcess::ExitStatus status){if(shieldProcess_.property("shieldStats").toBool())return;const bool oneClick=shieldProcess_.property("shieldOneClick").toBool();shieldProcess_.setProperty("shieldOneClick",false);const QString error=QString::fromUtf8(shieldProcess_.readAllStandardError()).trimmed().left(500);if(status!=QProcess::NormalExit||code!=0){shieldQueue_.clear();shieldApply_->setEnabled(true);shieldStatus_->setText("Shield update stopped safely Â· "+(error.isEmpty()?shieldProcess_.property("shieldCommand").toString():error));return;}if(oneClick){shieldApply_->setEnabled(true);QSettings("PQVPN","Privacy Console").setValue("shieldProfile",shieldProfile_->currentIndex());QSettings("PQVPN","Privacy Console").setValue("shieldRegex",shieldRegex_->toPlainText());shieldStatus_->setText("Shield applied in one operation. Gravity updated; refreshing aggregate countersâ€¦");refreshShieldCounters();return;}runNextShieldCommand();}
-    void refreshShieldCounters(){if(shieldProcess_.state()!=QProcess::NotRunning)return;const QString executable=piholeExecutable();if(executable.isEmpty()){shieldStatus_->setText("Pi-hole CLI was not found; counters are unavailable.");return;}shieldRefresh_->setEnabled(false);shieldProcess_.setProperty("shieldStats",true);shieldProcess_.start(executable,QStringList{"-c","-j"});connect(&shieldProcess_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus status){if(!shieldProcess_.property("shieldStats").toBool())return;shieldProcess_.setProperty("shieldStats",false);shieldRefresh_->setEnabled(true);if(status!=QProcess::NormalExit||code!=0){shieldStatus_->setText("Pi-hole did not return aggregate statistics.");return;}QJsonParseError error;const auto stats=QJsonDocument::fromJson(shieldProcess_.readAllStandardOutput(),&error).object();if(error.error!=QJsonParseError::NoError){shieldStatus_->setText("Pi-hole statistics were not valid JSON.");return;}const auto today=stats.value("ads_blocked_today").toVariant().toULongLong();const auto total=stats.value("domains_being_blocked").toVariant().toULongLong();if(!shieldBaseline_)shieldBaseline_=today;shieldSessionCount_=today>=shieldBaseline_?today-shieldBaseline_:0;shieldSession_->setText(QString::number(shieldSessionCount_));shieldToday_->setText(QString::number(today));shieldTotal_->setText(QString::number(total));shieldStatus_->setText("Aggregate counters refreshed Â· query history and client identities were not read.");},Qt::SingleShotConnection);}
-    void runShieldSpeedTest(){if(speedProcess_.state()!=QProcess::NotRunning)return;const QString executable=QStandardPaths::findExecutable("iperf3");if(executable.isEmpty()){speedResult_->setText("iperf3 is not installed; no network test was started.");return;}const QString target=speedTarget_->text().trimmed();if(target.size()>253||!QRegularExpression("^[A-Za-z0-9][A-Za-z0-9.:_-]*$").match(target).hasMatch()){speedResult_->setText("Enter one explicit hostname or LAN address; subnet ranges are not accepted.");return;}speedRun_->setEnabled(false);speedResult_->setText("Testing the selected target for 5 secondsâ€¦");speedProcess_.start(executable,QStringList{"-c",target,"-p",QString::number(speedPort_->value()),"-J","-t","5"});}
-    void speedTestFinished(int code,QProcess::ExitStatus status){speedRun_->setEnabled(true);if(status!=QProcess::NormalExit||code!=0){speedResult_->setText("Speed test failed Â· "+QString::fromUtf8(speedProcess_.readAllStandardError()).trimmed().left(300));return;}QJsonParseError error;const auto root=QJsonDocument::fromJson(speedProcess_.readAllStandardOutput(),&error).object();const auto end=root.value("end").toObject();const double down=end.value("sum_received").toObject().value("bits_per_second").toDouble()/1000000.0;const double up=end.value("sum_sent").toObject().value("bits_per_second").toDouble()/1000000.0;if(error.error!=QJsonParseError::NoError||down<=0){speedResult_->setText("iperf3 returned no usable throughput result.");return;}speedResult_->setText(QString("Selected target only Â· receive %1 Mbit/s Â· send %2 Mbit/s Â· 5 seconds").arg(down,0,'f',1).arg(up,0,'f',1));}
-    void sendStrangeReaction(const QString& emoji){if(!strangeActive_||!strangeRecipientReady()||QDateTime::currentMSecsSinceEpoch()<strangeSendBlockedUntilMs_||lastStrangeSequence_==0)return;const QJsonObject reaction{{"emoji",emoji},{"target",lastStrangeSender_},{"sequence",static_cast<qint64>(lastStrangeSequence_)}};sendControl({{"command","strangenet.react"},{"reply_to",static_cast<qint64>(lastStrangeSequence_)},{"text",QString::fromUtf8(QJsonDocument(reaction).toJson(QJsonDocument::Compact))}});}
-    void createStrangeSticker(){if(!strangeActive_||!strangeRecipientReady()||QDateTime::currentMSecsSinceEpoch()<strangeSendBlockedUntilMs_){appendStrangeText("Join a room with an authenticated recipient and wait for antiflood readiness before creating a sticker.");return;}QDialog dialog(this);dialog.setWindowTitle("Create encrypted sticker");auto* layout=new QVBoxLayout(&dialog);auto* emoji=new QComboBox;emoji->addItems({"ğŸš€","ğŸ”","ğŸ›¡ï¸","ğŸ‰","ğŸ”¥","ğŸ’œ","ğŸŒŒ","âš¡","ğŸ‘‹","ğŸ‘"});auto* caption=new QLineEdit;caption->setMaxLength(48);caption->setPlaceholderText("Short caption");auto* color=new QComboBox;const QList<QPair<QString,QString>> colors{{"Violet","#5432c9"},{"Cyan","#0f8fa8"},{"Magenta","#b83280"},{"Amber","#b86b18"},{"Green","#226c4a"},{"Slate","#3d4d73"}};for(const auto& entry:colors)color->addItem(entry.first,entry.second);auto* preview=text("","heroTitle");auto refresh=[=]{preview->setText(emoji->currentText()+"  "+caption->text());preview->setStyleSheet("padding:18px;border-radius:14px;background:"+color->currentData().toString()+";color:white");};connect(emoji,&QComboBox::currentTextChanged,&dialog,[=]{refresh();});connect(caption,&QLineEdit::textChanged,&dialog,[=]{refresh();});connect(color,&QComboBox::currentTextChanged,&dialog,[=]{refresh();});layout->addWidget(text("EMOJI","eyebrow"));layout->addWidget(emoji);layout->addWidget(text("CAPTION","eyebrow"));layout->addWidget(caption);layout->addWidget(text("COLOR","eyebrow"));layout->addWidget(color);layout->addWidget(preview);auto* send=new QPushButton("Send sticker E2E");layout->addWidget(send);connect(send,&QPushButton::clicked,&dialog,&QDialog::accept);refresh();if(dialog.exec()!=QDialog::Accepted)return;const QJsonObject sticker{{"emoji",emoji->currentText()},{"caption",caption->text()},{"color",color->currentData().toString()}};sendControl({{"command","strangenet.sticker"},{"text",QString::fromUtf8(QJsonDocument(sticker).toJson(QJsonDocument::Compact))}});}
-    void requestStop(){if(process_.state()==QProcess::NotRunning)return;stopping_=true;refreshConnectionPresentation();statusText_->setText("Disconnecting cleanlyâ€¦");log("Disconnect requested");process_.write("{\"command\":\"node.shutdown\"}\n");process_.closeWriteChannel();QTimer::singleShot(5000,this,[this]{if(process_.state()!=QProcess::NotRunning){log("Clean shutdown timed out; process termination escalated");process_.kill();}});}
-    void quitApplication(){quitting_=true;if(process_.state()!=QProcess::NotRunning){pendingQuit_=true;requestStop();}else{savePreferences();qApp->quit();}}
-    void restoreFromTray(){showNormal();raise();activateWindow();}
-    void fadeWidget(QWidget* widget,int duration=240){if(!widget||!reduceMotion_||reduceMotion_->isChecked())return;if(widget->graphicsEffect())widget->setGraphicsEffect(nullptr);auto* effect=new QGraphicsOpacityEffect(widget);widget->setGraphicsEffect(effect);auto* animation=new QPropertyAnimation(effect,"opacity",effect);animation->setDuration(duration);animation->setStartValue(0.18);animation->setEndValue(1.0);animation->setEasingCurve(QEasingCurve::OutCubic);connect(animation,&QPropertyAnimation::finished,widget,[widget,effect]{if(widget->graphicsEffect()!=effect)return;effect->setEnabled(false);QTimer::singleShot(0,widget,[widget,effect]{if(widget->graphicsEffect()==effect)widget->setGraphicsEffect(nullptr);});});animation->start(QAbstractAnimation::DeleteWhenStopped);}
-    void switchPage(int index){if(!pages_||index<0||index>=pages_->count())return;pageButtons_.value(index)->setChecked(true);if(index==StrangeNet&&unreadStrange_){unreadStrange_=0;const QString label="04   StrangeNet";pageButtons_[StrangeNet]->setProperty("fullText",label);if(sidebar_->width()>100)pageButtons_[StrangeNet]->setText(label);}const bool changed=pages_->currentIndex()!=index;if(changed)pages_->setCurrentIndex(index);if(pageScroll_)pageScroll_->verticalScrollBar()->setValue(0);if(changed)fadeWidget(pages_->currentWidget(),260);}
-    void setMotion(bool enabled){if(!auroraAnimation_){auroraAnimation_=new QPropertyAnimation(aurora_,"phase",this);auroraAnimation_->setStartValue(0.0);auroraAnimation_->setEndValue(6.283185307);auroraAnimation_->setDuration(15000);auroraAnimation_->setLoopCount(-1);pulseAnimation_=new QPropertyAnimation(orb_,"pulse",this);pulseAnimation_->setStartValue(0.0);pulseAnimation_->setEndValue(1.0);pulseAnimation_->setDuration(1700);pulseAnimation_->setEasingCurve(QEasingCurve::InOutSine);pulseAnimation_->setLoopCount(-1);}if(enabled){auroraAnimation_->start();pulseAnimation_->start();}else{auroraAnimation_->stop();pulseAnimation_->stop();aurora_->setPhase(0);orb_->setPulse(0);}}
-    void setSidebarCompact(bool compact){QSettings("PQVPN","Privacy Console").setValue("compactSidebar",compact);const int width=compact?82:238;brandWords_->setVisible(!compact);for(int i=0;i<navButtons_.size();++i)navButtons_[i]->setText(compact?QString("%1").arg(i+1,2,10,QChar('0')):navButtons_[i]->property("fullText").toString());sidebar_->setFixedWidth(width);}
-    void applyTheme(QString mode){
-        if(applyingTheme_)return;
-        applyingTheme_=true;
-        if(mode!="dark"&&mode!="light"&&mode!="souls")mode="system";
-        bool dark=systemDark_;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
-        if(mode=="system")dark=QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Dark;
-#endif
-        if(mode=="dark"||mode=="souls")dark=true;else if(mode=="light")dark=false;
-        const bool changed=themeMode_!=mode||activeDarkTheme_!=dark;
-        themeMode_=mode;activeDarkTheme_=dark;
-        const bool souls=mode=="souls";
-        qApp->setStyleSheet(souls?QString::fromUtf8(darkTheme)+QString::fromUtf8(soulsThemeOverrides):QString::fromUtf8(dark?darkTheme:lightTheme));if(aurora_){aurora_->setDark(dark);aurora_->setSouls(souls);}if(orb_)orb_->setSouls(souls);
-        const QColor pageColor(souls?"#090806":dark?"#080b17":"#f4f6fb");
-        QList<QWidget*> opaquePages{pageScroll_,pageScroll_?pageScroll_->viewport():nullptr,pages_};
-        if(pages_)for(int index=0;index<pages_->count();++index)opaquePages.append(pages_->widget(index));
-        for(QWidget* widget:opaquePages){if(!widget)continue;QPalette palette=widget->palette();palette.setColor(QPalette::Window,pageColor);widget->setPalette(palette);widget->setAutoFillBackground(true);widget->setAttribute(Qt::WA_TranslucentBackground,false);widget->update();}
-        for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_})if(action){QSignalBlocker guard(action);action->setChecked(action->data().toString()==mode);}
-        QSettings("PQVPN","Privacy Console").setValue("theme",mode);
-        applyingTheme_=false;
-        refreshConnectionPresentation();
-        if(changed&&isVisible())fadeWidget(centralWidget(),220);
-    }
-    void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");settings.remove("minimizeToTray");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());const bool geekEnabled=settings.value("geekTelemetry",false).toBool();geekTelemetry_->setChecked(geekEnabled);setGeekMode(geekEnabled);strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());if(shieldProfile_)shieldProfile_->setCurrentIndex(qBound(0,settings.value("shieldProfile",0).toInt(),shieldProfile_->count()-1));if(shieldRegex_)shieldRegex_->setPlainText(settings.value("shieldRegex").toString());applyTheme(settings.value("theme","system").toString());}
-    void savePreferences(){QSettings settings("PQVPN","Privacy Console");settings.setValue("geometry",saveGeometry());settings.setValue("config",configPath_->text());settings.remove("minimizeToTray");settings.setValue("strangeNotifications",strangeNotifications_->isChecked());settings.setValue("theme",themeMode_);}
-    void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line.left(16384));}
-    void copyDiagnostics(){const auto phase=pqvpn::console::connection_phase({process_.state()!=QProcess::NotRunning,mainnetReady_,tunnelReady_,noTunnel_&&noTunnel_->isChecked(),stopping_,processFailed_});const QString state=QString::fromUtf8(pqvpn::console::phase_label(phase).data());const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied â€” activity log excluded",3000);log("Diagnostics copied");}
-    void showCommandPalette(){QDialog dialog(this);dialog.setWindowTitle("Command palette");dialog.resize(540,410);auto* layout=new QVBoxLayout(&dialog);auto* search=new QLineEdit;search->setPlaceholderText("Type a commandâ€¦");auto* list=new QListWidget;const QList<QPair<QString,QString>> commands={{"Go to overview","overview"},{"Review connection","connection"},{"Inspect transports","transports"},{"Open StrangeNet","strangenet"},{"Open DNS Shield","shield"},{"Open activity","activity"},{"Privacy principles","privacy"},{"Validate configuration","validate"},{"Copy diagnostics","diagnostics"},{"About PQVPN","about"}};for(const auto& command:commands){auto* item=new QListWidgetItem(command.first,list);item->setData(Qt::UserRole,command.second);}layout->addWidget(search);layout->addWidget(list);connect(search,&QLineEdit::textChanged,&dialog,[list](const QString& query){for(int row=0;row<list->count();++row)list->item(row)->setHidden(!list->item(row)->text().contains(query,Qt::CaseInsensitive));});connect(list,&QListWidget::itemActivated,&dialog,[this,&dialog](QListWidgetItem* item){const QString command=item->data(Qt::UserRole).toString();const QHash<QString,int> pages={{"overview",Overview},{"connection",Connection},{"transports",Transports},{"strangenet",StrangeNet},{"shield",Shield},{"activity",Activity},{"privacy",Privacy},{"about",About}};if(pages.contains(command))switchPage(pages.value(command));else if(command=="validate")validateConfig();else if(command=="diagnostics")copyDiagnostics();dialog.accept();});list->setCurrentRow(0);search->setFocus();dialog.exec();}
-};
+KØÙ[™K˜›İÛJ
+KY›ÛÜ•Ü
+ÌJKPÛÛÜŠˆÌÌLŠJNÂˆ›ÜŠ[OY›ÛÜ•ÜŞOØÙ[™K˜›İÛJ
+NŞJÏLN
+^Ù›ÜŠ[\ØÙ[™K›Y
 
-int main(int argc,char** argv){bool softwareRendering=false;for(int index=1;index<argc;++index){const QString argument=QString::fromLocal8Bit(argv[index]);if(argument=="--software-rendering"||argument=="--smoke-test")softwareRendering=true;}const QString platform=qEnvironmentVariable("QT_QPA_PLATFORM");const bool headless=platform=="offscreen"||platform=="minimal";if(!headless&&!softwareRendering&&!qEnvironmentVariableIsSet("PQVPN_DISABLE_OPENGL"))QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);QApplication app(argc,argv);QFont uiFont=QFontDatabase::systemFont(QFontDatabase::GeneralFont);
-#ifdef Q_OS_WIN
-    for(const QString& name:QStringList{QStringLiteral("Segoe UI"),QStringLiteral("Arial"),QStringLiteral("Tahoma")}){
-        const QFont candidate(name);
-        if(QFontDatabase::families().contains(name,Qt::CaseInsensitive)&&QFontMetrics(candidate).inFont(QChar('A'))){uiFont=candidate;break;}
-    }
-#endif
-    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!window.verifyClosePolicy()||!window.verifyPrimaryActions()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
+NŞØÙ[™KœšYÚ
 
-#include "pqvpn_monitor.moc"
+NŞ
+ÏLÍŠ^ØÛÛœİ›ÛÛ[\›˜]OJ
+\ØÙ[™K›Y
+
+JKÌÍŠÊKY›ÛÜ•Ü
+KÌN
+ILÜ™š[™Xİ
+T™Xİ
+KÍ‹N
+KPÛÛÜŠ[\›˜]OÈˆÌ™ØŒˆˆÌÌÍÍHŠJNß_Bˆ›ÛÛ\×Ë˜ÛX\Š
+NØÛÛœİTİš[™Ó\İX™[ŞÈÛÛ[[ÛœÈ‹”Ù]H‹Y\ˆ\šÈŸNØÛÛœİTİš[™Ó\İ]ŞÈ›XZ[›™]ÙœšY[™È‹›XZ[›™]ÙœšY[™ËÜÙ]H‹›XZ[›™]ÙœšY[™ËØY\‹Y\šÈŸNÂˆÛÛœİ[Ø\LLØÛÛœİ[›ÛÛUÚYJØÙ[™KÚY
+
+KYØ\
+
+KÌÎØÛÛœİ[ÜY›ÛÜ•Ü
+ÌNÂˆ›ÜŠ[OLÚOÎÊÊÚJ^ÔT™XİŠØÙ[™K›Y
+
+JÙØ\
+ÚJŠ›ÛÛUÚY
+ÙØ\
+KÜ›ÛÛUÚYLŠNÜ›ÛÛ\×Ë˜\[™
+Ü‹]ÖÚW_JNØÛÛœİ›ÛÛÙ[XİY\›ÛÛWÏO\]ÖÚWNÜ™š[™Xİ
+‹PÛÛÜŠÙ[XİYÈˆÍ™NˆˆÌMLXŒÌHŠJNÜœÙ][ŠT[ŠPÛÛÜŠÙ[XİYÈˆØÍØ™ˆˆˆÍŒÌXˆŠKŠJNÜ™˜]Ô™Xİ
+‹˜Y\İY
+KKL‹LŠJNÜ™š[™Xİ
+T™Xİ
+‹›Y
+
+JÎ‹˜›İÛJ
+KLŒ‹‹ÚY
+
+KLM‹LŠKPÛÛÜŠÙ[XİYÈˆÎ˜Ù™ˆˆˆÌÍMM™ˆŠJNÜœÙ][Š]Ú]JNÜ™˜]Õ^
+‹˜Y\İY
+NL
+K][YÛ’Ù[\Ÿ][YÛ•ÜX™[ÖÚWJNÜœÙ][ŠPÛÛÜŠˆØØÌ™ˆŠJNÜ™˜]Õ^
+‹˜Y\İY
+ÌNN
+K][YÛ’Ù[\Ÿ]•^ÛÜ™Ü˜\Ù[XİYÈœÙ[XİYˆ˜ÛXÚÈÈÚÛÜÙHŠNßBˆÛÛœİ[]˜]\œÏ\SZ[ŠY\Ûİ[ÊÊ]™WÏÌNŒ
+KÊNØÛÛœİ[˜\ÙVO\ØÙ[™K˜›İÛJ
+KLÎÂˆ›ÜŠ[OLÚO]˜]\œÎÊÊÚJ^ØÛÛœİ[\ØÙ[™K›Y
+
+JÌ
+ÚJÜœÙ][Š]“›Ô[ŠNÜœÙ]œ\Ú
+PÛÛÜŠOOLÈˆÍYM™™ˆ”Tİš[™Ó\İÈˆÙ™ØXXÈ‹ˆÍÌY˜˜È‹ˆÙ™™Mˆ‹ˆÎYÙ™ˆŸVÚIMJJNÜ™˜]Ô™Xİ
+˜\ÙVKLŒ‹MM
+NÜ™˜]Ô™Xİ
+M˜\ÙVKMËŒ‹NJNÜœÙ][ŠPÛÛÜŠˆÌLLMŒ˜HŠJNÜ™˜]ÔÚ[
+
+Í˜\ÙVKLMÊNÜ™˜]ÔÚ[
+
+ÎK˜\ÙVKLMÊNÜœÙ][ŠPÛÛÜŠˆÙ™LÙ™ˆŠJNÜ™˜]Õ^
+T™Xİ
+LL˜\ÙVJÌLËÍMŠK][YÛÙ[\‹OOLÈ–SÕH”Tİš[™Î›[X™\ŠJJNßBˆœÙ][ŠPÛÛÜŠˆÙÙŒˆŠJNÜ™˜]Õ^
+T™Xİ
+ØÙ[™K›Y
+
+JÜSX^
+Í]˜]\œÊ
+ÌÌ
+KØÙ[™K˜›İÛJ
+KMMØÙ[™KÚY
+
+K\SX^
+ÍL]˜]\œÊ
+Í
+KŠK][YÛ”šYÚ][YÛ•Ù[\‹Y\Ûİ[ÏÔTİš[™Ê‰LH]][XØ]YY\‰Lˆ0­ÈY\ˆQÈÛ›HŠK˜\™ÊY\Ûİ[ÊK˜\™ÊY\Ûİ[ÏOLOÈˆˆœÈŠNˆ•ØZ][™È›Üˆ]][XØ]YY\œÈŠNÂˆYŠ\Ñ›Øİ\Ê
+J^ÜœÙ][ŠT[ŠPÛÛÜŠˆÍØÙXÙ™ˆŠK‹]‘\Ú[™JJNÜœÙ]œ\Ú
+]“›Ğœ\Ú
+NÜ™˜]Ô™Xİ
+ØÙ[™K˜Y\İY
+‹‹LËLÊJNßBˆBˆ›ÚY[İ\ÙT™\ÜÑ]™[
+S[İ\ÙQ]™[
+ˆ]™[
+Hİ™\œšYHÜÙ]›Øİ\Ê
+NÙ›ÜŠÛÛœİ]]Éˆ›ÛÛNœ›ÛÛ\×ÊZYŠ›ÛÛK™š\œİ˜ÛÛZ[œÊ]™[OœÜÚ][ÛŠ
+KÔÚ[
+
+JJ^ØÚÛÜÙJ›ÛÛKœÙXÛÛ™
+NØœ™XZÎß_Bˆ›ÚYÙ^T™\ÜÑ]™[
+RÙ^Q]™[
+ˆ]™[
+Hİ™\œšYHÚYŠ]™[OšÙ^J
+OOT]’Ù^WÓY]™[OšÙ^J
+OOT]’Ù^WÔšYÚ
+^ØÛÛœİTİš[™Ó\İ]ŞÈ›XZ[›™]ÙœšY[™È‹›XZ[›™]ÙœšY[™ËÜÙ]H‹›XZ[›™]ÙœšY[™ËØY\‹Y\šÈŸNÚ[[™^\SX^
+]Ëš[™^ÙŠ›ÛÛWÊJNÚ[™^J[™^
+Ê]™[OšÙ^J
+OOT]’Ù^WÔšYÚÌNœ]ËœÚ^™J
+KLJJI\]ËœÚ^™J
+NØÚÛÜÙJ]ÖÚ[™^JNÙ]™[O˜XØÙ\
+
+NÜ™]\›ßTUÚYÙ]šÙ^T™\ÜÑ]™[
+]™[
+NßBœš]˜]N‚ˆ›ÚYÚÛÜÙJÛÛœİTİš[™Éˆ›ÛÛJ^Ü›ÛÛWÏ\›ÛÛNİ\]J
+NÚYŠ›ÛÛTÙ[XİY
+\›ÛÛTÙ[XİY
+›ÛÛJNßBˆU™XİÜTZ\T™XİTİš[™Ïˆ›ÛÛ\×ÎÔTİš[™È›ÛÛWÏH›XZ[›™]ÙœšY[™ÈÚ[Y\Ûİ[ÏLØ›ÛÛ]™WÏY˜[ÙNÂŸNÂ‚˜Û\ÜÈ™\ÜÛœÚ]™TİXÚÈš[˜[ˆX›XÈTİXÚÙYÚYÙ]ÂœX›XÎ‚ˆ™\ÜÛœÚ]™TİXÚÊ
+HÈÛÛ›™Xİ
+\Ë	”TİXÚÙYÚYÙ]˜İ\œ™[Ú[™ÙY\Ëİ\×^İ\]QÙ[ÛY]J
+NßJNÈBˆTÚ^™HÚ^™R[
+
+HÛÛœİİ™\œšYHÈ™]\›ˆİ\œ™[ÚYÙ]
+
+OØİ\œ™[ÚYÙ]
+
+KOœÚ^™R[
+
+N”TÚ^™^ßNÈBˆTÚ^™HZ[š[][TÚ^™R[
+
+HÛÛœİİ™\œšYHÂˆÛÛœİTÚ^™H[Xİ\œ™[ÚYÙ]
+
+OØİ\œ™[ÚYÙ]
+
+KO›Z[š[][TÚ^™R[
+
+N”TÚ^™^ßNÂˆ™]\›ˆÌ[šZYÚ
+
+_NÂˆBŸNÂ‚˜Û\ÜÈİX›TØÜ›Û\™XHš[˜[ˆX›XÈTØÜ›Û\™XHÂœX›XÎ‚ˆİX›TØÜ›Û\™XJ
+HÂˆÛÛœİTİš[™È]›Ü›O\Q[š\›Û›Y[˜\šXX›J”UÔTWÔU“Ô“HŠNÂˆÛÛœİ›ÛÛXY\ÜÏ\]›Ü›OOH›Ù™œØÜ™Y[ˆŸ]›Ü›OOH›Z[š[X[ÂˆÛÛœİ›ÛÛÛÙØ\™OTP\XØ][Û˜\™İ[Y[Ê
+K˜ÛÛZ[œÊ‹K\ÛÙØ\™K\™[™\š[™ÈŠ_P\XØ][Û˜\™İ[Y[Ê
+K˜ÛÛZ[œÊ‹K\Û[ÚÙK]\İŠ_Q[š\›Û›Y[˜\šXX›R\ÔÙ]
+”U”—ÑTĞP“WÓÔS‘ÓŠNÂˆËÈSÜ[‘ÓÚYÙ]\ÈÜZ[ˆ›ÜˆHØÜ›ÛšY]ÜÜˆÛˆØ^[[™ÑÓ“ÓQKˆËÈ[X™Y[™ÈÚ[ÛÛ›ÛÈ[ˆ[ˆÜ[‘ÓPXœİ˜XİØÜ›Û\™XHšY]ÜÜˆËÈØ[ˆ›ÙXÙHİ[Hœ˜[Y\È[™[˜ÛÜœ™Xİ[İ\ÙH]ÛÛÜ™[˜]\ÈY\‚ˆËÈØÜ›Û[™ËˆH˜]]™H˜\İ\ˆšY]ÜÜ\È›İ˜\İ\ˆ›ÜˆÚYÙ]È[™ˆËÈ™[XX›H›Üˆ]ÛœÎÈÜ[‘Ó™[XZ[œÈ]˜Z[X›H›ÜˆXYÛ›ÜİXÜË‚ˆÛÛœİ›ÛÛÜ[‘Û™\]Y\İY\Q[š\›Û›Y[˜\šXX›R[˜[YJ”U”—ÑSP“WÓÔS‘ÓŠOŒÂˆYŠÜ[‘Û™\]Y\İY	‰ˆZXY\ÜÉ‰ˆ\ÛÙØ\™J^Âˆ]]ÊˆÛšY]ÜÜ[™]ÈSÜ[‘ÓÚYÙ]ÂˆÛšY]ÜÜOœÙ]\]P™Z]š[ÜŠSÜ[‘ÓÚYÙ]“›Ô\X[\]JNÂˆÙ]šY]ÜÜ
+ÛšY]ÜÜ
+NÂˆÜ[‘ÛšY]ÜÜÏ]YNÂˆBˆBˆ›ÛÛ\Ù\ÓÜ[‘Ó
+
+HÛÛœİÈ™]\›ˆÜ[‘ÛšY]ÜÜÎÈBœ›İXİY‚ˆ›ÚYØÜ›ÛÛÛ[ĞJ[[JHİ™\œšYHÂˆTØÜ›Û\™XNœØÜ›ÛÛÛ[ĞJJNÂˆËÈ™\Z[HÛÛ\]HÜ[‘Óİ\™˜XÙHY\ˆTØÜ›Û\™XH[İ™\È]ÈÚ[‚ˆËÈ\È]›ÚYÈİ[H^[ÛÜY\ÈÛˆØ^[[™ÛÛ\ÜÚ]ÜœË‚ˆšY]ÜÜ
+
+KO\]J
+NÂˆBœš]˜]N‚ˆ›ÛÛÜ[‘ÛšY]ÜÜÏY˜[ÙNÂŸNÂ‚˜Û\ÜÈÚ]ÛÛ\ÜÙ\ˆš[˜[ˆX›XÈTZ[•^Y]ÂœX›XÎ‚ˆ^XÚ]Ú]ÛÛ\ÜÙ\ŠUÚYÙ]
+ˆ\™[[[ŠHˆTZ[•^Y]
+\™[
+HÂˆÙ]XÚ[™Ù\Ñ›Øİ\ÊYJNÂˆÙ]ÛÜ™Ü˜\[ÙJU^Ü[Û•Ü˜\]ÛÜ™›İ[™\SÜ[]Ú\™JNÂˆBˆ›ÚYÙ]Ù[S[ÙJ›ÛÛ[˜X›Y
+HÈÙ[S[ÙWÏY[˜X›YÈBˆİ™[˜İ[Û›ÚY
+
+OˆİX›Z]Âœ›İXİY‚ˆ›ÚYÙ^T™\ÜÑ]™[
+RÙ^Q]™[
+ˆ]™[
+Hİ™\œšYHÂˆÛÛœİ›ÛÛ[\Y]™[OšÙ^J
+OOT]’Ù^WÔ™]\›Ÿ]™[OšÙ^J
+OOT]’Ù^WÑ[\ÂˆYŠY[\Š^ÔTZ[•^Y]šÙ^T™\ÜÑ]™[
+]™[
+NÜ™]\›ßBˆÛÛœİ]]È[ÙYšY\œÏY]™[O›[ÙYšY\œÊ
+NÂˆÛÛœİ›ÛÛ^XÚ]İX›Z][[ÙYšY\œË\İ›YÊ]ÛÛ›Û[ÙYšY\Š_[ÙYšY\œË\İ›YÊ]“Y]S[ÙYšY\ŠNÂˆÛÛœİ›ÛÛ™]Û[™OJÙ[S[ÙWÉ‰ˆY^XÚ]İX›Z]
+_
+\Ù[S[ÙWÉ‰›[ÙYšY\œË\İ›YÊ]”ÚY[ÙYšY\ŠJNÂˆYŠ™]Û[™J^ÔTZ[•^Y]šÙ^T™\ÜÑ]™[
+]™[
+NÜ™]\›ßBˆYŠİX›Z]
+\İX›Z]
+
+NÂˆ]™[O˜XØÙ\
+
+NÂˆBœš]˜]N‚ˆ›ÛÛÙ[S[ÙWÏY˜[ÙNÂŸNÂ‚˜Û\ÜÈÚ[™İÈš[˜[ˆX›XÈSXZ[•Ú[™İÈÂˆWÓĞ’‘PÕœX›XÎ‚ˆÚ[™İÊ
+HÂˆÙ]Ú[™İÕ]J”U”ˆŠNÂˆÙ]Ú[™İÒXÛÛŠRXÛÛŠ‹Øœ˜[™ÛÙÛËœİ™ÈŠJNÂˆÙ]Z[š[][TÚ^™JML
+NÈ™\Ú^™JL
+NÈÙ]XØÙ\›ÜÊYJNÂˆ›ØÙ\Ü×ËœÙ]›ØÙ\ÜĞÚ[›™[[ÙJT›ØÙ\ÜÎ“Y\™ÙYÚ[›™[ÊNÂˆZ[Y[\Ê
+NÈZ[ZJ
+NÈZ[˜^J
+NÈÛÛ›™Xİ›ØÙ\ÜÊ
+NÈ\T™Y™\™[˜Ù\Ê
+NÈ\Tİ\\\™İ[Y[Ê
+NÈØYÛÛ™šYÊÛÛ™šYÔ]ËO^
+
+JNÂˆÚYˆUÕ‘T”ÒSÓˆHUÕ‘T”ÒSÓ—ĞÒPÒÊ‹K
+BˆÛÛ›™Xİ
+QİZP\XØ][Ûœİ[R[Ê
+K	”Tİ[R[Î˜ÛÛÜ”ØÚ[YPÚ[™ÙY\Ëİ\×J]ÛÛÜ”ØÚ[YJ^ÚYŠ[YS[ÙWÏOHœŞ\İ[HŠX\U[YJœŞ\İ[HŠNßJNÂˆÙ[ÙBˆÛÛ›™Xİ
+P\	”QİZP\XØ][Ûœ[]PÚ[™ÙY\Ëİ\×JÛÛœİT[]Iˆ[]J^ÜŞ\İ[Q\š×Ï\[]K˜ÛÛÜŠT[]N•Ú[™İÊK›YÚ™\ÜÊ
+OLÚYŠ[YS[ÙWÏOHœŞ\İ[HŠX\U[YJœŞ\İ[HŠNßJNÂˆÙ[™Y‚ˆİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ”™XYH8 %›ÈÛÛ›™Xİ[Ûˆİ\ÈÚ]İ][İ\ˆXİ[ÛˆŠNÂˆU[Y\œÚ[™ÛTÚİ
+\Ëİ\×^ÈYŠXÛÛ™šYÕ˜[YÈ	‰ˆTP\XØ][Û˜\™İ[Y[Ê
+K˜ÛÛZ[œÊ‹K\Û[ÚÙK]\İŠJH˜[Y]PÛÛ™šYÊ˜[ÙJNÈJNÂˆBˆ›ÚY™\\™TÛ[ÚÙTYÙJÛÛœİTİš[™Éˆ™\]Y\İ
+HÂˆTÚYÛ˜[›ØÚÙ\ˆİX\™
+™YXÙS[İ[Û—ÊNÈ™YXÙS[İ[Û—ËOœÙ]ÚXÚÙY
+YJNÈÙ][İ[ÛŠ˜[ÙJNÂˆÛÛœİR\ÚTİš[™Ë[ˆYÙ\ŞŞÈ˜ÛÛ›™Xİ[Ûˆ‹ÛÛ›™Xİ[ÛŸKÈ˜[œÜÜÈ‹˜[œÜÜßKÈœİ˜[™Ù[™]‹İ˜[™ÙS™]KÈœÚY[‹ÚY[KÈ˜Xİ]š]H‹Xİ]š]_KÈœš]˜XŞH‹š]˜XŞ_KÈ˜X›İ]‹X›İ]_NÂˆİÚ]ÚYÙJYÙ\Ë˜[YJ™\]Y\İİ™\šY]ÊJNÈP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆBˆ›ÛÛ™\šYR[œİ[][ÛŠ
+HÛÛœİÂˆYŠTQš[R[™›Ê^Xİ]X›T]ËO^
+
+JKš\Ñ^Xİ]X›J
+J^ÜPÜš]XØ[
+
+K››Ü][İJ
+O”U”ˆ[œİ[][ÛˆÚXÚÎˆ›ÙH\È›İ^Xİ]X›Nˆ^Xİ]X›T]ËO^
+
+NÜ™]\›ˆ˜[ÙNßBˆYŠTQš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JKš\Ñš[J
+J^ÜPÜš]XØ[
+
+K››Ü][İJ
+O”U”ˆ[œİ[][ÛˆÚXÚÎˆÛÛ™šYİ\˜][Ûˆ\È›İHš[NˆÛÛ™šYÔ]ËO^
+
+NÜ™]\›ˆ˜[ÙNßBˆT›ØÙ\ÜÈÚXÚÎØÚXÚËœİ\
+^Xİ]X›T]ËO^
+
+KÈ‹K]˜[Y]KXÛÛ™šYÈ‹‹KXÛÛ™šYÈ‹ÛÛ™šYÔ]ËO^
+
+_JNÂˆYŠXÚXÚËØZ]›Ü”İ\Y
+L
+J^ÜPÜš]XØ[
+
+K››Ü][İJ
+O”U”ˆ[œİ[][ÛˆÚXÚÎˆÛİ[›İİ\›ÙNˆÚXÚË™\œ›Ü”İš[™Ê
+NÜ™]\›ˆ˜[ÙNßBˆYŠXÚXÚËØZ]›Ü‘š[š\ÚY
+L
+J^ØÚXÚËšÚ[
+
+NØÚXÚËØZ]›Ü‘š[š\ÚY
+
+NÜPÜš]XØ[
+
+O”U”ˆ[œİ[][ÛˆÚXÚÎˆ›ÙH˜[Y][Ûˆ[YYİ]Ü™]\›ˆ˜[ÙNßBˆYŠÚXÚË™^]İ]\Ê
+HOTT›ØÙ\ÜÎ“›Ü›X[^]ÚXÚË™^]ÛÙJ
+HOL
+^ÜPÜš]XØ[
+
+K››Ü][İJ
+O”U”ˆ[œİ[][ÛˆÚXÚÎˆ›ÙH˜[Y][Ûˆ˜Z[YÚ]^]ÛÙHÚXÚË™^]ÛÙJ
+OTİš[™Î™œ›ÛU]
+ÚXÚËœ™XY[
+
+JKš[[YY
+
+NÜ™]\›ˆ˜[ÙNßBˆ™]\›ˆYNÂˆBˆ›ÛÛ™\šYU˜^RXÛÛœÊ
+HÛÛœİÂˆ\Ú[™È]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙNÂˆ›ÜŠ]]È\ÙNĞÛÛ›™Xİ[Û”\ÙN‘\ØÛÛ›™XİYÛÛ›™Xİ[Û”\ÙNÛÛ›™Xİ[™ËÛÛ›™Xİ[Û”\ÙN”›İXİYÛÛ›™Xİ[Û”\ÙN‘˜Z[YJ^ÂˆÛÛœİ]]È[XYÙOXÛÛ›™Xİ[Û•˜^RXÛÛŠ\ÙJKœ^X\
+
+KÒ[XYÙJ
+NÂˆYŠ[XYÙKš\Ó[
+
+_[XYÙKœ^[ÛÛÜŠÌ‹ÌÊHOTPÛÛÜŠTİš[™Î™œ›ÛU]
+]œ˜ÛÛœÛÛNœ\ÙWØÛÛÜŠ\ÙJK™]J
+JJJ\™]\›ˆ˜[ÙNÂˆBˆ™]\›ˆYNÂˆBˆ›ÛÛ™\šYUš\İX[^[İ]
+
+HÛÛœİÂˆÛÛœİ]]È˜Z[V×JÛÛœİTİš[™ÉˆY\ÜØYÙJ^ÜPÜš]XØ[
+
+K››Ü][İJ
+OY\ÜØYÙNØÛÛœİTİš[™È[XYÙO\Q[š\›Û›Y[˜\šXX›J”U”—ÔÓSÒÑWÒSPQÑHŠNÚYŠZ[XYÙKš\Ñ[\J
+J^ÔQš[HXYÛ›ÜİXÊ[XYÙJÈ‹™\œ›Ü‹ŠNÚYŠXYÛ›ÜİXË›Ü[ŠRSÑ]šXÙN•Üš]SÛ›_RSÑ]šXÙN•[˜Ø]JJYXYÛ›ÜİXËÜš]JY\ÜØYÙKÕ]
+
+JNß\™]\›ˆ˜[ÙNßNÂˆËÈÛˆ]	ÜÈÙ™œØÜ™Y[ˆÚ[™İÜÈYÚ[‹[‘›Û
+	ĞIÊHØ[ˆ™]\›ˆ˜[ÙH›ÜˆBˆËÈÙ[™\šXÈ›Û]™[ˆÚ[ˆ]XİX[H˜\İ\š^™\ÈH][ˆÛ\ˆÙY\ˆËÈHÛİ™\˜YÙHÚXÚË]™\šYH™[™\™YÛ\[šÈ˜]\ˆ[ˆ\İ[™ÂˆËÈÛ›HH›ÛY]X˜\ÙHY]Y]K‚ˆÛÛœİ]]È™[™\œÑ\İ[˜İ][‘Û\ÏV×JÛÛœİQ›Û	ˆ›Û
+^ÂˆÛÛœİ]]È™[™\VÉ™›ÛJPÚ\ˆÛ\
+^ÂˆR[XYÙH[šÊM‹M‹R[XYÙN‘›Ü›X]ĞT‘ĞŒÌ—Ô™[][\YY
+NÂˆ[šË™š[
+]˜[œÜ\™[
+NÂˆTZ[\ˆZ[\Š	š[šÊNÂˆZ[\‹œÙ]™[™\’[
+TZ[\•^[X[X\Ú[™ËYJNÂˆZ[\‹œÙ][Š]Ú]JNÂˆZ[\‹œÙ]›Û
+›Û
+NÂˆZ[\‹™˜]Õ^
+TÚ[
+
+KTİš[™ÊÛ\
+JNÂˆZ[\‹™[™
+
+NÂˆ™]\›ˆ[šÎÂˆNÂˆÛÛœİR[XYÙHO\™[™\ŠPÚ\Š	ĞIÊJNÂˆÛÛœİR[XYÙHÏ\™[™\ŠPÚ\Š	ÕÉÊJNÂˆYŠOO]ÊH™]\›ˆ˜[ÙNÈËÈY[XØ[™\XÙ[Y[Û\ÈÜˆ›È[šÂˆÛÛœİ]]È\Ò[šÏV×JÛÛœİR[XYÙIˆ[XYÙJ^Âˆ›ÜŠ[OLŞO[XYÙKšZYÚ
+
+NÊÊŞJBˆ›ÜŠ[LŞ[XYÙKÚY
+
+NÊÊŞ
+BˆYŠP[J[XYÙKœ^[
+JJHOL
+H™]\›ˆYNÂˆ™]\›ˆ˜[ÙNÂˆNÂˆ™]\›ˆ\Ò[šÊJI‰š\Ò[šÊÊNÂˆNÂˆTÙ]Tİš[™ÏˆÚXÚÙY›ÛÎÂˆÛÛœİ]]ÈX™[ÏYš[™Ú[™[SX™[
+Š
+NÂˆ›ÜŠÛÛœİ]]ÊˆX™[›X™[Ê^ÂˆYŠ[X™[Oš\Õš\ÚX›J
+_[X™[O^
+
+K˜ÛÛZ[œÊT™Yİ[\‘^™\ÜÚ[ÛŠ–ĞKV˜K^—HŠJJHÛÛ[YNÂˆYŠX™[O™›ÛY]šXÜÊ
+Kš[‘›Û
+PÚ\Š	ĞIÊJJHÛÛ[YNÂˆÛÛœİQ›Û›Û[X™[O™›Û
+
+NÂˆÛÛœİTİš[™ÈÙ^OY›ÛÔİš[™Ê
+NÂˆYŠÚXÚÙY›ÛË˜ÛÛZ[œÊÙ^JJHÛÛ[YNÂˆYŠ\™[™\œÑ\İ[˜İ][‘Û\Ê›Û
+JBˆ™]\›ˆ˜Z[
+”U”ˆš\İX[ÚXÚÎˆRH›Û˜Z[Y][ˆÛ\˜\İ\ˆÚXÚÎˆŠÙ›Û™˜[Z[J
+JNÂˆÚXÚÙY›ÛËš[œÙ\
+Ù^JNÂˆBˆÛÛœİ]]ÊˆØÜ›ÛYš[™Ú[TØÜ›Û\™XJŠœYÙTØÜ›ÛŠNÂˆYŠ\ØÜ›Û
+\™]\›ˆ˜Z[
+”U”ˆš\İX[ÚXÚÎˆYÙHØÜ›Û\™XH\ÈZ\ÜÚ[™ÈŠNÂˆYŠØÜ›ÛOšÜš^›Û[ØÜ›Û˜\Š
+KO›X^[][J
+OŒŠ\™]\›ˆ˜Z[
+Tİš[™Ê”U”ˆš\İX[ÚXÚÎˆYÙH\ÈÜš^›Û[İ™\™›İÎˆ	LHŠK˜\™ÊØÜ›ÛOšÜš^›Û[ØÜ›Û˜\Š
+KO›X^[][J
+JJNÂˆ™]\›ˆYNÂˆBˆ›ÛÛ™\šYTØÜ›Û˜]šYØ][ÛŠ
+HÂˆYŠ\YÙTØÜ›ÛÊ\™]\›ˆ˜[ÙNÂˆÙ][İ[ÛŠ˜[ÙJNÂˆ›ÛÛ^\˜Ú\ÙYØÜ›Û[™ÏY˜[ÙNÂˆ›ÜŠ[[™^LÚ[™^YÙ\×ËO˜Ûİ[
+
+NÊÊÚ[™^
+^ÂˆYÙ\×ËOœÙ]İ\œ™[[™^
+[™^
+NÂˆYÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KOœÙ]˜[YJ
+NÂˆP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆÛÛœİ[X^[][O\YÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KO›X^[][J
+NÂˆÛÛœİR[XYÙH™Y›Ü™O\YÙTØÜ›ÛËOšY]ÜÜ
+
+KO™Ü˜XŠ
+KÒ[XYÙJ
+NÂˆYŠX^[][OŒ
+^Âˆ^\˜Ú\ÙYØÜ›Û[™Ï]YNÂˆ›ÜŠ[İ\LNÜİ\MÊÊÜİ\
+^ÜYÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KOœÙ]˜[YJX^[][Jœİ\ÍŠNÔP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NßBˆYÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KOœÙ]˜[YJ
+NÂˆP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆÛÛœİR[XYÙHY\\YÙTØÜ›ÛËOšY]ÜÜ
+
+KO™Ü˜XŠ
+KÒ[XYÙJ
+NÂˆYŠ™Y›Ü™Kš\Ó[
+
+_Y\‹š\Ó[
+
+_™Y›Ü™KœÚ^™J
+HOXY\‹œÚ^™J
+J^ÂˆPÜš]XØ[
+
+O”U”ˆ™[™\š[™ÈÚXÚÎˆšY]ÜÜÚ[™ÙYY\ˆH›İ[™]š\ØÜ›ÛÛˆYÙH[™^Âˆ™]\›ˆ˜[ÙNÂˆBˆZ[Ú[™ÙY^[ÏLÂˆÛÛœİZ[İ[^[Ï\Z[
+™Y›Ü™KÚY
+
+JJ˜™Y›Ü™KšZYÚ
+
+NÂˆ›ÜŠ[OLŞO™Y›Ü™KšZYÚ
+
+NÊÊŞJY›ÜŠ[LŞ™Y›Ü™KÚY
+
+NÊÊŞ
+^ÂˆÛÛœİPÛÛÜˆÏX™Y›Ü™Kœ^[ÛÛÜŠJKšÏXY\‹œ^[ÛÛÜŠJNÂˆYŠİ˜XœÊËœ™Y
+
+K\šËœ™Y
+
+JOŒMŸİ˜XœÊË™Ü™Y[Š
+K\šË™Ü™Y[Š
+JOŒMŸİ˜XœÊË˜›YJ
+K\šË˜›YJ
+JOŒMŸİ˜XœÊË˜[J
+K\šË˜[J
+JOŒMŠJÊØÚ[™ÙY^[ÎÂˆBˆYŠİ[^[ÏŒ	‰˜Ú[™ÙY^[ÊŒLİ[^[ÊŒŠ^ÂˆPÜš]XØ[
+
+O”U”ˆ™[™\š[™ÈÚXÚÎˆ^Ù\ÜÚ]™HšY]ÜÜ™\ÚYYHY\ˆØÜ›Û[™ÈYÙH[™^Ú[™ÙY^[Ï›Ùˆİ[^[Ïœ^[ÈÂˆ™]\›ˆ˜[ÙNÂˆBˆYÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KOœÙ]˜[YJX^[][JNÂˆBˆP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆÛÛœİ[™^J[™^
+ÌJI\YÙ\×ËO˜Ûİ[
+
+NÂˆYÙP]Ûœ×Ë˜[YJ™^
+KO˜ÛXÚÊ
+NÂˆP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆYŠYÙ\×ËO˜İ\œ™[[™^
+
+HO[™^YÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KO˜[YJ
+HOL
+^ÂˆPÜš]XØ[
+
+O”U”ˆ[\˜Xİ[ÛˆÚXÚÎˆ˜]šYØ][Ûˆ˜Z[YY\ˆØÜ›Û[™È[™^™^Âˆ™]\›ˆ˜[ÙNÂˆBˆÛÛœİR[XYÙHœ˜[YO\YÙTØÜ›ÛËOšY]ÜÜ
+
+KO™Ü˜XŠ
+KÒ[XYÙJ
+NÂˆYŠœ˜[YKš\Ó[
+
+J^ÂˆPÜš]XØ[
+
+O”U”ˆ[\˜Xİ[ÛˆÚXÚÎˆØÜ›ÛšY]ÜÜY›İ™[™\ˆÂˆ™]\›ˆ˜[ÙNÂˆBˆBˆYŠY^\˜Ú\ÙYØÜ›Û[™Ê\R[™›Ê
+O”U”ˆ[\˜Xİ[ÛˆÚXÚÎˆ[YÙ\Èš]Ú]İ]ØÜ›Û[™È]\È]›Ü›IÜÈÛ[ÚÙK]\İÚ^™HÂˆ™]\›ˆYNÂˆBˆ›ÛÛ™\šYTš[X\PXİ[ÛœÊ
+HÂˆYŠZ›İ\›™^PÛÛ™šYİ\™WßZ›İ\›™^P]][XØ]WßZ›İ\›™^T›İXİÊ\™]\›ˆ˜[ÙNÂˆÛÛœİ›ÛÛ™\İÜ™QÙYZÏYÙYZÕ[[Y]WÉ‰™ÙYZÕ[[Y]WËOš\ĞÚXÚÙY
+
+NÂˆÙ]ÙYZÓ[ÙJ˜[ÙJNÙ›ÜŠ]]ÊˆÚYÙ]™ÙYZÕÚYÙ]×ÊZYŠÚYÙ]	‰ˆ]ÚYÙ]Oš\ÒY[Š
+J\™]\›ˆ˜[ÙNÂˆÙ]ÙYZÓ[ÙJYJNÙ›ÜŠ]]ÊˆÚYÙ]™ÙYZÕÚYÙ]×ÊZYŠÚYÙ]	‰ÚYÙ]Oš\ÒY[Š
+J\™]\›ˆ˜[ÙNÂˆÙ]ÙYZÓ[ÙJ™\İÜ™QÙYZÊNÂˆ›İ\›™^PÛÛ™šYİ\™WËO˜ÛXÚÊ
+NÔP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÚYŠYÙ\×ËO˜İ\œ™[[™^
+
+HOPÛÛ›™Xİ[ÛŠ\™]\›ˆ˜[ÙNÂˆ›İ\›™^P]][XØ]WËO˜ÛXÚÊ
+NÔP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÚYŠYÙ\×ËO˜İ\œ™[[™^
+
+HOPÛÛ›™Xİ[ÛŠ\™]\›ˆ˜[ÙNÂˆ›İ\›™^T›İXİËO˜ÛXÚÊ
+NÔP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÚYŠYÙ\×ËO˜İ\œ™[[™^
+
+HOPÛÛ›™Xİ[ÛŠ\™]\›ˆ˜[ÙNÂˆYÙP]Ûœ×Ë˜[YJİ™\šY]ÊKO˜ÛXÚÊ
+NÔP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÂˆ™]\›ˆYÙ\×ËO˜İ\œ™[[™^
+
+OOSİ™\šY]ÎÂˆBˆ›ÚY™\\™TÛ[ÚÙU[YJÛÛœİTİš[™Éˆ™\]Y\İ
+HÈ\U[YJ™\]Y\İ
+NÈP\XØ][Ûœ›ØÙ\ÜÑ]™[Ê
+NÈBˆ›ÛÛ™\šYPÛÜÙTÛXŞJ
+HÛÛœİÂˆ™]\›ˆÛÜÙRÙY\Ğ\XØ][Û”[›š[™Ê˜[ÙJH	‰ˆXÛÜÙRÙY\Ğ\XØ][Û”[›š[™ÊYJNÂˆBœ›İXİY‚ˆ›ÚYÛÜÙQ]™[
+PÛÜÙQ]™[
+ˆ]™[
+Hİ™\œšYHÂˆYˆ
+ÛÜÙRÙY\Ğ\XØ][Û”[›š[™Ê]Z][™×ÊJHÂˆØ]™T™Y™\™[˜Ù\Ê
+NÂˆÛÛœİ›ÛÛ˜^T™XYO]˜^WÉ‰˜^WËOš\Õš\ÚX›J
+I‰”TŞ\İ[U˜^RXÛÛš\ÔŞ\İ[U˜^P]˜Z[X›J
+NÂˆYŠ˜^T™XYJ^ÂˆYJ
+NÂˆYŠ]˜^S›İXÙTÚİÛ—Ê^İ˜^WËOœÚİÓY\ÜØYÙJ”U”ˆ\Èİ[[›š[™È‹•HÚ[™İÈØ\È[İ™YÈH˜^Kˆ\ÙH^]U”ˆÈİÜH\XØ][Û‹ˆ‹TŞ\İ[U˜^RXÛÛ’[™›Ü›X][Û‹L
+Nİ˜^S›İXÙTÚİÛ—Ï]YNßBˆY[Ù^ÂˆËÈ™]™\ˆİ˜[™H[›š[™ÈÛÛ›™Xİ[ÛˆÚ[ˆH\ÚİÜ\È›ÂˆËÈİ]\Ó›İYšY\‹Ğ\[™XØ]ÜˆÜİˆÙY\H™XÛİ™\˜X›H\ÚØ˜\‚ˆËÈÚ[™İÈ[œİXYÙˆ[\œ™][™ÈH]KX˜\ˆ\È^]‚ˆÚİÓZ[š[Z^™Y
+
+NÂˆİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ”U”ˆ\Èİ[[›š[™È0­È\ÙHš[H8¡¤ˆ^]U”ˆÈ]Z]‹L
+NÂˆBˆ]™[OšYÛ›Ü™J
+NÂˆ™]\›ÂˆBˆYˆ
+›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™ÊHÂˆ[™[™Ô]Z]Ï]YNÈ™\]Y\İİÜ
+
+NÈ]™[OšYÛ›Ü™J
+NÈ™]\›ÂˆBˆØ]™T™Y™\™[˜Ù\Ê
+NÈ]™[O˜XØÙ\
+
+NÈU[Y\œÚ[™ÛTÚİ
+P\	”PÛÜ™P\XØ][Ûœ]Z]
+NÂˆBˆ›ÚY˜YÑ[\‘]™[
+Q˜YÑ[\‘]™[
+ˆ]™[
+Hİ™\œšYHÂˆYˆ
+]™[O›Z[YQ]J
+KOš\Õ\›Ê
+H	‰ˆ]™[O›Z[YQ]J
+KO\›Ê
+KœÚ^™J
+OOLH	‰ˆ]™[O›Z[YQ]J
+KO\›Ê
+K˜ÛÛœİš\œİ
+
+KÓØØ[š[J
+K™[™ÕÚ]
+‹šœÛÛˆ‹]Ø\ÙR[œÙ[œÚ]]™JJH]™[O˜XØÙ\›ÜÜÙYXİ[ÛŠ
+NÂˆBˆ›ÚY›Ü]™[
+Q›Ü]™[
+ˆ]™[
+Hİ™\œšYHÂˆYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^Ù]™[OšYÛ›Ü™J
+NÛÙÊ‘\ØÛÛ›™Xİ™Y›Ü™HÚ[™Ú[™ÈÛÛ™šYİ\˜][Û‹ˆŠNÜ™]\›ßBˆÛÛœİTİš[™È]Y]™[O›Z[YQ]J
+KO\›Ê
+K˜ÛÛœİš\œİ
+
+KÓØØ[š[J
+NÂˆYˆ
+ØYÛÛ™šYÊ]
+JHÈÛÛ™šYÔ]ËOœÙ]^
+]
+NÈÙÊÛÛ™šYİ\˜][ÛˆÙ[XİY0­ÈŠÔQ\Ó˜]]™TÙ\\˜]ÜœÊ]
+JNÈ]™[O˜XØÙ\›ÜÜÙYXİ[ÛŠ
+NÈBˆBœš]˜]N‚ˆT›ØÙ\ÜÈ›ØÙ\Ü×ÎÂˆ]œ˜ÛÛœÛÛN‘[™Ú[™SX[˜YÙ\Šˆ[™Ú[™\×Ï[[Âˆ]œ˜ÛÛœÛÛN”™[X\ÙU\]\Šˆ\]\—Ï[[ÂˆTİXÚÙYÚYÙ]
+ˆYÙ\×Ï[[ÈTØÜ›Û\™XJˆYÙTØÜ›ÛÏ[[ÈUÚYÙ]
+ˆÚYX˜\—Ï[[ÈUÚYÙ]
+ˆœ˜[™ÛÜ™×Ï[[Âˆ]\›Ü˜Jˆ]\›Ü˜WÏ[[Èİ]\ÓÜ˜ŠˆÜ˜—Ï[[ÈT›Ü\P[š[X][Ûˆ
+˜]\›Ü˜P[š[X][Û—Ï[[‹
+œ[ÙP[š[X][Û—Ï[[ÂˆR\Ú[T\Ú]ÛŠˆYÙP]Ûœ×ÎÈS\İT\Ú]ÛŠˆ˜]]Ûœ×ÎÂˆS[™QY]
+˜ÛÛ™šYÔ]Ï[[‹
+™^Xİ]X›T]Ï[[ÈPÛÛX›Ğ›Ş
+›ÙÓ]™[Ï[[‹
+˜Y\]™S[ÙWÏ[[ÈPÚXÚĞ›Ş
+ˆ›Õ[›™[Ï[[ÂˆT\Ú]ÛŠˆİ™\šY]ĞXİ[Û—Ï[[ÂˆSX™[
+˜ÛÛ™šYİ\˜][Û”İ\Ï[[‹
+œY\”İ\Ï[[‹
+œ›İXİ[Û”İ\Ï[[ÂˆT\Ú]Ûˆ
+˜ÛÛ›™Xİ]Û—Ï[[‹
+˜[Y]P]Û—Ï[[ÈSX™[
+œİ]SX™[Ï[[‹
+œİ]\Õ^Ï[[‹
+™[™Ú[Y]šX×Ï[[‹
+™\šYšXØ][Û“Y]šX×Ï[[‹
+œÚ\[™ÓY]šX×Ï[[‹
+›XZ[›™]Y]šX×Ï[[‹
+[›™[Y]šX×Ï[[‹
+™YÜ™\ÜÓY]šX×Ï[[‹
+˜[œÜÜY]šX×Ï[[‹
+˜[œÜÜ]Z[×Ï[[‹
+˜ÛÛ™šYÒX[Ï[[ÂˆPÚXÚĞ›Ş
+˜Y\]™Q[˜X›YÏ[[‹
+œÚ\[™Ñ[˜X›YÏ[[‹
+š[›™\•[›™[[˜X›YÏ[[ÈSX™[
+˜Y\]™SY]šX×Ï[[‹
+˜[œÜÜİ]\×Ï[[ÈT\Ú]Ûˆ
+œØ]™U˜[œÜÜ]Û—Ï[[‹
+š[›™\•[›™[œ›İÜÙWÏ[[ÂˆPÛÛX›Ğ›Ş
+ˆ[›™\•[›™[˜XÚÙ[™Ï[[ÈS[™QY]
+ˆ[›™\•[›™[ÛÛ™šY×Ï[[ÂˆTÜ[›Ş
+œÚ\[™ÔY[™×Ï[[‹
+œÚ\[™Ñ[^WÏ[[ÂˆR\ÚTİš[™ËT\Ú]ÛŠˆ[™Ú[™Tİ\]Ûœ×Ë[™Ú[™TİÜ]Ûœ×Ë[™Ú[™PÛÛ™šYĞ]Ûœ×ÎÂˆS[™QY]
+ˆİ˜[™ÙT›ÛÛWÏ[[ÂˆÚ]ÛÛ\ÜÙ\Šˆİ˜[™ÙSY\ÜØYÙWÏ[[ÂˆPÛÛX›Ğ›Ş
+œİ˜[™ÙP]YY[˜ÙWÏ[[‹
+œİ˜[™ÙUÜš][™Ó[ÙWÏ[[ÈS\İÚYÙ]
+ˆY\‘\™XİÜWÏ[[ÂˆU^œ›İÜÙ\Šˆİ˜[™ÙU˜[œØÜš\Ï[[È™]›ÓØ˜Jˆİ˜[™ÙSØ˜WÏ[[ÈT\Ú]Ûˆ
+œİ˜[™ÙR›Ú[—Ï[[‹
+œİ˜[™ÙTÙ[™Ï[[‹
+œİ˜[™ÙT™\WÏ[[‹
+œİ˜[™ÙU›ÚXÙWÏ[[‹
+œİ˜[™ÙT™XXİ[Û—Ï[[‹
+œİ˜[™ÙT›ÛÙÛÜWÏ[[ÈSX™[
+œİ˜[™ÙP]\×Ï[[‹
+œY\Ûİ[Ï[[‹
+œİ˜[™ÙT›ÛÙ”İ]\×Ï[[‹
+œİ˜[™ÙQ›ÛÙİ]\×Ï[[‹
+œİ˜[™ÙT™\Ù[˜ÙWÏ[[‹
+œİ˜[™ÙPÛÛ\ÜÙ\’[Ï[[ÔPÚXÚĞ›Ş
+ˆİ˜[™ÙT›ÛÙ‘[˜X›YÏ[[ÂˆP]Y[ÔÛİ\˜ÙJˆİ˜[™ÙP]Y[ÔÛİ\˜ÙWÏ[[ÔRSÑ]šXÙJˆİ˜[™ÙP]Y[Ò[œ]Ï[[ÔP]Y[ÔÚ[šÊˆİ˜[™ÙP]Y[ÔÚ[š×Ï[[ÔRSÑ]šXÙJˆİ˜[™ÙP]Y[Óİ]]Ï[[ÂˆTZ[•^Y]
+ˆXİ]š]WÏ[[ÈPXİ[Ûˆ
+œ™YXÙS[İ[Û—Ï[[‹
+˜ÛÛ\XİÚYX˜\—Ï[[‹
+œİ˜[™ÙS›İYšXØ][Ûœ×Ï[[‹
+™ÙYZÕ[[Y]WÏ[[ÂˆPÛÛX›Ğ›Ş
+ˆÚY[›Ùš[WÏ[[ÔTZ[•^Y]
+ˆÚY[™YÙ^Ï[[ÔSX™[
+œÚY[›Ùš[Q]Z[Ï[[‹
+œÚY[İ]\×Ï[[‹
+œÚY[Ù\ÜÚ[Û—Ï[[‹
+œÚY[Ù^WÏ[[‹
+œÚY[İ[Ï[[‹
+œÜYY™\İ[Ï[[ÔS[™QY]
+ˆÜYY\™Ù]Ï[[ÔTÜ[›Ş
+ˆÜYYÜÏ[[ÔT\Ú]Ûˆ
+œÚY[\WÏ[[‹
+œÚY[™Yœ™\ÚÏ[[‹
+œÜYY[—Ï[[ÔT›ØÙ\ÜÈÚY[›ØÙ\Ü×ËÜYY›ØÙ\Ü×ÎÔS\İTİš[™Ó\İˆÚY[]Y]YWÎÜ][Û™ÛÛ™ÈÚY[Ù\ÜÚ[ÛÛİ[ÏLÚY[˜\Ù[[™WÏLÂˆPXİ[Û‘Ü›İ\
+ˆ[YQÜ›İ\Ï[[ÈPXİ[Ûˆ
+œŞ\İ[U[YWÏ[[‹
+™\šÕ[YPXİ[Û—Ï[[‹
+›YÚ[YPXİ[Û—Ï[[‹
+œÛİ[Õ[YPXİ[Û—Ï[[ÂˆTŞ\İ[U˜^RXÛÛŠˆ˜^WÏ[[ÈSY[Jˆ˜^SY[WÏ[[ÈPXİ[Ûˆ
+˜^Tİ]\×Ï[[‹
+˜^UÙÙÛWÏ[[ÂˆT\Ú]Ûˆ
+š›İ\›™^PÛÛ™šYİ\™WÏ[[‹
+š›İ\›™^P]][XØ]WÏ[[‹
+š›İ\›™^T›İXİÏ[[‹
+™ÙYZÕÙÙÛWÏ[[ÈSX™[
+ˆÙYZÔ™XYİ]Ï[[ÔS\İUÚYÙ]
+ˆÙYZÕÚYÙ]×ÎÂˆP]P\œ˜^H›ØÙ\ÜĞY™™\—ÎÂˆP]P\œ˜^H˜[Y]YÛÛ™šYÒ\ÚË˜[Y]Y^Xİ]X›R\ÚÎÂˆ]œ˜ÛÛœÛÛN”İ˜[™ÙS™]›ÛÙÚZ[ˆİ˜[™ÙT›ÛÙÚZ[—ÎÂˆTİš[™È[YS[ÙWÏHœŞ\İ[HÂˆTİš[™È\İİ˜[™ÙTÙ[™\—ËXİ]™Tİ˜[™ÙTY\—ÏH˜]]ÈÔTİš[™Ó\İXİ]™Tİ˜[™ÙQÜ›İ\ÎÔR\ÚTİš[™ËTİš[™Ïˆ]][XØ]YY\œ×ÎÔTÙ]][Û™ÛÛ™ÏˆİÛ”İ˜[™ÙTÙ\]Y[˜Ù\×ÎÜ][Û™ÛÛ™È\İİ˜[™ÙTÙ\]Y[˜ÙWÏL[™[™Ô™\U×ÏLÚ[[œ™XYİ˜[™ÙWÏLÜZ[\İİ˜[™ÙS›İYšXØ][Û“\×ÏLİ˜[™ÙTÙ[™›ØÚÙY[[\×ÏLÂˆ›ÛÛ›ØÙ\ÜÑ˜Z[YÏY˜[ÙNÂˆ›ÛÛÛÛ™šYÕ˜[YÏY˜[ÙKİÜ[™×ÏY˜[ÙK]Z][™×ÏY˜[ÙK[™[™Ô]Z]ÏY˜[ÙK˜^S›İXÙTÚİÛ—ÏY˜[ÙKİ˜[™ÙPXİ]™WÏY˜[ÙKXZ[›™]™XYWÏY˜[ÙK[›™[™XYWÏY˜[ÙK[™[™Ôİ˜[™ÙR›Ú[—ÏY˜[ÙKŞ\İ[Q\š×ÏY˜[ÙKXİ]™Q\šÕ[YWÏ]YK\Z[™Õ[YWÏY˜[ÙK›İXİY™]Ø\™ÚİÛ—ÏY˜[ÙNÂ‚ˆ›ÚYÙ]ÙYZÓ[ÙJ›ÛÛ[˜X›Y
+^ÂˆYŠÙYZÔ™XYİ]ÊYÙYZÔ™XYİ]ËOœÙ]š\ÚX›J[˜X›Y
+NÂˆYŠÙYZÕÙÙÛWÉ‰™ÙYZÕÙÙÛWËOš\ĞÚXÚÙY
+
+HOY[˜X›Y
+^ÔTÚYÛ˜[›ØÚÙ\ˆİX\™
+ÙYZÕÙÙÛWÊNÙÙYZÕÙÙÛWËOœÙ]ÚXÚÙY
+[˜X›Y
+NßBˆ›ÜŠ]]ÊˆÚYÙ]™ÙYZÕÚYÙ]×ÊZYŠÚYÙ]
+]ÚYÙ]OœÙ]š\ÚX›J[˜X›Y
+NÂˆYŠYÙTØÜ›ÛÊ\YÙTØÜ›ÛËOÚYÙ]
+
+KO\]QÙ[ÛY]J
+NÂˆB‚ˆ›ÚY™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+HÂˆÛÛœİTİš[™È™]š[İ\Õ]O\İ]SX™[ËO^
+
+NÂˆÛÛœİ›ÛÛXİ]™O\›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™ÎÂˆÛÛœİ›ÛÛ™[^O[›Õ[›™[É‰››Õ[›™[ËOš\ĞÚXÚÙY
+
+NÂˆTİš[™È]OH‘\ØÛÛ›™XİY‹]Z[H‘\ØÛÛ›™XİYˆ›È›ÙH›ØÙ\ÜÈ\È[›š[™Èœ›ÛH\ÈÛÛœÛÛKˆÂˆ›ÛÛ›İXİY]Y˜[ÙNÂˆYŠXİ]™I‰ˆ[XZ[›™]™XYWÊ^İ]OHÛÛ›™Xİ[™ÈÙ]Z[H“™YÛİX][™È[ˆ]][XØ]YXZ[›™]Ù\ÜÚ[Û¸ )ˆßBˆ[ÙHYŠXİ]™I‰›XZ[›™]™XYWÉ‰œ™[^J^İ]OH“XZ[›™]ÛÛ›™XİY0­È™[^H[ÙHÙ]Z[H]][XØ]YY\ˆ™XYKˆØØ[Ş\İ[H˜Y™šXÈ\È›İ›İ]Y›İYÚU”‹ˆßBˆ[ÙHYŠXİ]™I‰›XZ[›™]™XYWÉ‰ˆ][›™[™XYWÊ^İ]OH”Y\ˆ™XYH0­ÈÙXİ\š[™È›İ]\ÈÙ]Z[H•HY\ˆ\È]][XØ]YÈØZ][™È›ÜˆHÜ\˜][™Ë\Ş\İ[H[›™[[™˜Z[XÛÜÙY›İ]\ËˆßBˆ[ÙHYŠXİ]™I‰›XZ[›™]™XYWÉ‰[›™[™XYWÊ^İ]OH”›İXİYÙ]Z[H]][XØ]YY\‹[›™[Y\\ˆ[™XZË\ØY™H›İ]\È\™H™XYKˆÜ›İXİY]]YNßBˆİ]SX™[ËOœÙ]^
+]JNÜİ]\Õ^ËOœÙ]^
+]Z[
+NÛÜ˜—ËOœÙ]ÛÛ›™XİY
+›İXİY]	‰ˆ\İÜ[™×ÊNÂˆYŠ™]š[İ\Õ]HO]]J^Ù˜YUÚYÙ]
+İ]SX™[ËŒŒ
+NÙ˜YUÚYÙ]
+İ]\Õ^Ë
+NßBˆÛÛœİ]]È\ÙO\]œ˜ÛÛœÛÛN˜ÛÛ›™Xİ[Û—Ü\ÙJØXİ]™KXZ[›™]™XYWË[›™[™XYWË™[^KİÜ[™×Ë›ØÙ\ÜÑ˜Z[YßJNÂˆYŠ\ÙOO\]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙN”İÜ[™Ê^İ]OH‘\ØÛÛ›™Xİ[™ÈÜİ]\Õ^ËOœÙ]^
+”İÜ[™ÈH›ÙH[™™\İÜš[™È]ÈİÛ™Y™]ÛÜšÈİ]x )ˆŠNßBˆYŠ\ÙOO\]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙN‘˜Z[Y
+^İ]OHÛÛ›™Xİ[Ûˆ˜Z[YÜİ]\Õ^ËOœÙ]^
+“Ü[ˆXİ]š]H›ÜˆH›ÙH\œ›Ü‹[ˆ™]šY]È[™˜[Y]HHÛÛ™šYİ\˜][Û‹ˆŠNßBˆYŠ[YS[ÙWÏOHœÛİ[ÈŠ^Âˆ\Ú[™È\ÙO\]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙNÂˆYŠ\ÙOOT\ÙN‘\ØÛÛ›™XİY
+^İ]OH•S“UÜİ]\Õ^ËOœÙ]^
+“›È[›™[\ÈXİ]™Kˆ™YÚ[ˆYØZ[ˆÚ[ˆ[İH\™H™XYKˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙNÛÛ›™Xİ[™Ê^İ]OH‘S•T’S‘ÈH“ÑÈÜİ]\Õ^ËOœÙ]^
+”ÙYZÚ[™È[ˆ]][XØ]Y]›İYÚHXZ[›™]8 )ˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙN”ÙXİ\š[™Ê^İ]OH’ÒS‘S‘ÈH“ÕUHÜİ]\Õ^ËOœÙ]^
+•HY\ˆ[œİÙ\™Yˆ˜Z[XÛÜÙY›İ]\È\™H›İY]™XYKˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙN”™[^J^İ]OH•ĞVHÑˆÒUH0­È‘SVHÜİ]\Õ^ËOœÙ]^
+•HY\ˆ\È]][XØ]YÈ\ÈÛÛ\]\‰ÜÈ˜Y™šXÈ™[XZ[œÈİ]ÚYHH[›™[ˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙN”›İXİY
+^İ]OH‘SP‘Tˆ‘TÕÔ‘QÜİ]\Õ^ËOœÙ]^
+”Y\‹[›™[[™XZË\ØY™H›İ]\Èİ[™ÙÙ]\‹ˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙN”İÜ[™Ê^İ]OH”‘UT“’S‘ÈÈ“Ó‘’T‘HÜİ]\Õ^ËOœÙ]^
+”™\İÜš[™ÈH™]ÛÜšÈİ]HİÛ™YHU”¸ )ˆŠNßBˆ[ÙHYŠ\ÙOOT\ÙN‘˜Z[Y
+^İ]OH–SÕHQQ0­ÈRSÓÔÑQÜİ]\Õ^ËOœÙ]^
+•H›İXİY]™[ˆ˜Y™šXÈ™[XZ[œÈÙX[YÈ[œÜXİXİ]š]H™Y›Ü™HZ[™ÈYØZ[‹ˆŠNßBˆBˆÛÛœİ]]ÈÙ]Z[\İÛ™OV×JT\Ú]ÛŠˆ]Û‹ÛÛœİTİš[™Éˆ˜[YKÛÛœİTİš[™ÉˆX™[
+^ÂˆYŠX]ÛŠ\™]\›ÂˆYŠ]Û‹Oœ›Ü\J›Z[\İÛ™HŠKÔİš[™Ê
+HO]˜[YJ^Ø]Û‹OœÙ]›Ü\J›Z[\İÛ™H‹˜[YJNØ]Û‹Oœİ[J
+KO[œÛ\Ú
+]ÛŠNØ]Û‹Oœİ[J
+KOœÛ\Ú
+]ÛŠNßBˆ]Û‹OœÙ]^
+X™[
+NÂˆNÂˆÙ]Z[\İÛ™J›İ\›™^PÛÛ™šYİ\™WËÛÛ™šYÕ˜[YÏÈ™Û™Hˆ˜Xİ]™H‹ÛÛ™šYÕ˜[YÏÈ¸§$ÈÛÛ™šYİ\™YˆŒHÛÛ™šYİ\™HŠNÂˆÙ]Z[\İÛ™J›İ\›™^P]][XØ]WËXZ[›™]™XYWÉ‰˜Xİ]™OÈ™Û™H˜ÛÛ™šYÕ˜[YÉ‰˜Xİ]™OÈ˜Xİ]™Hˆœ[™[™È‹XZ[›™]™XYWÉ‰˜Xİ]™OÈ¸§$È]][XØ]YˆŒˆ]][XØ]HŠNÂˆÙ]Z[\İÛ™J›İ\›™^T›İXİË›İXİY]È™Û™H›XZ[›™]™XYWÉ‰˜Xİ]™OÈ˜Xİ]™Hˆœ[™[™È‹›İXİY]È¸§$È›İXİYˆŒÈ›İXİŠNÂˆYŠÙYZÔ™XYİ]Ê^ÙÙYZÔ™XYİ]ËOœÙ]^
+Tİš[™Ê‰LH0­È	Lˆ0­È	LÈŠK˜\™Ê[™Ú[Y]šX×ÏÙ[™Ú[Y]šX×ËO^
+
+Nˆ•Q‹™\šYšXØ][Û“Y]šX×Ïİ™\šYšXØ][Û“Y]šX×ËO^
+
+NˆšXœšY]]‹˜[œÜÜY]šX×Ïİ˜[œÜÜY]šX×ËO^
+
+Nˆ™\™Xİ]ŠJNÙÙYZÔ™XYİ]ËOœÙ]š\ÚX›JÙYZÕ[[Y]WÉ‰™ÙYZÕ[[Y]WËOš\ĞÚXÚÙY
+
+JNßBˆYŠ›İXİY]	‰ˆ\›İXİY™]Ø\™ÚİÛ—Ê^Ü›İXİY™]Ø\™ÚİÛ—Ï]YNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ”›İXİY]ÛÛ\]H0­ÈY\‹[›™[[™˜Z[XÛÜÙY›İ]\È™\šYšYY‹Ì
+NÙ˜YUÚYÙ]
+›İ\›™^T›İXİËÍŒ
+NßBˆYŠXXİ]™J\›İXİY™]Ø\™ÚİÛ—ÏY˜[ÙNÂˆİ]SX™[ËOœÙ]^
+]JNÂˆ˜^WËOœÙ]XÛÛŠÛÛ›™Xİ[Û•˜^RXÛÛŠ\ÙJJNÂˆ˜^Tİ]\×ËOœÙ]^
+]JNİ˜^WËOœÙ]ÛÛ\
+”U”ˆ0­ÈŠİ]JNÂˆYŠİ™\šY]ĞXİ[Û—Ê^Ûİ™\šY]ĞXİ[Û—ËOœÙ]^
+Xİ]™OÈ‘\ØÛÛ›™Xİ˜ÛÛ™šYÕ˜[YÏÈÛÛ›™XİÙXİ\™[HˆÛÛ™šYİ\™HÛÛ›™Xİ[ÛˆŠNÛİ™\šY]ĞXİ[Û—ËOœÙ]›Ü\J™[™Ù\ˆ‹Xİ]™JNÛİ™\šY]ĞXİ[Û—ËOœİ[J
+KO[œÛ\Ú
+İ™\šY]ĞXİ[Û—ÊNÛİ™\šY]ĞXİ[Û—ËOœİ[J
+KOœÛ\Ú
+İ™\šY]ĞXİ[Û—ÊNßBˆYŠÛÛ™šYİ\˜][Û”İ\ÊXÛÛ™šYİ\˜][Û”İ\ËOœÙ]^
+ÛÛ™šYÕ˜[YÏÈŒHÛÛ™šYİ\˜][Ûˆ™\šYšYYˆŒHÚÛÜÙH[™™\šYHÛÛ™šYİ\˜][ÛˆŠNÂˆYŠY\”İ\Ê\Y\”İ\ËOœÙ]^
+XZ[›™]™XYWÉ‰˜Xİ]™OÈŒˆY\ˆ]][XØ]YˆŒˆY\ˆÙ\ÜÚ[Ûˆ[™[™ÈŠNÂˆYŠ›İXİ[Û”İ\Ê\›İXİ[Û”İ\ËOœÙ]^
+›İXİY]ÈŒÈŞ\İ[H˜Y™šXÈ›İXİYœ™[^OÈŒÈ™[^H[ÙH0­ÈØØ[˜Y™šXÈ[˜Ú[™ÙYˆŒÈ[›™[[™›İ]\È[™[™ÈŠNÂˆBˆP]P\œ˜^Hš[Qš[™Ù\œš[
+ÛÛœİTİš[™Éˆ]
+HÛÛœİÂˆQš[Hš[J]
+NÚYŠYš[K›Ü[ŠRSÑ]šXÙN”™XYÛ›JJ\™]\›ˆßNÂˆPÜ\ÙÜ˜\XÒ\Ú\Ú
+PÜ\ÙÜ˜\XÒ\Ú”ÚLMŠNÂˆÚ[JYš[K˜][™
+
+JZ\Ú˜Y]Jš[Kœ™XY
+L
+ŒL
+JNÂˆ™]\›ˆ\Úœ™\İ[
+
+NÂˆBˆ›ÚYØ\\™P›İ[™Yİ]]
+T›ØÙ\ÜÊˆÚ[
+HÂˆÚ[OœÙ]›Ü\Jœ]œ“İ]]‹P]P\œ˜^^ßJNÂˆÛÛ›™Xİ
+Ú[	”T›ØÙ\ÜÎœ™XYT™XYİ[™\™İ]]Ú[ØÚ[^ÂˆP]P\œ˜^Hİ]]XÚ[Oœ›Ü\Jœ]œ“İ]]ŠKĞ]P\œ˜^J
+NÛİ]]˜\[™
+Ú[Oœ™XY[İ[™\™İ]]
+
+JNÂˆYŠİ]]œÚ^™J
+OŒL
+ŒL
+[İ]]TP]P\œ˜^J–ÙX\›Y\ˆİ]]\ØØ\™YWˆŠJÛİ]]œšYÚ
+L
+ŒL
+NÂˆÚ[OœÙ]›Ü\Jœ]œ“İ]]‹İ]]
+NÂˆJNÂˆB‚ˆ›ÚYZ[Y[\Ê
+HÂˆ]]Êˆš[O[Y[P˜\Š
+KO˜YY[J‘š[HŠNÈš[KO˜YXİ[ÛŠÚÛÜÙHÛÛ™šYİ\˜][Û¸ )ˆ‹RÙ^TÙ\]Y[˜ÙN“Ü[‹\Ë	•Ú[™İÎ˜ÚÛÜÙPÛÛ™šYÊNÈš[KO˜YXİ[ÛŠ•˜[Y]HÛÛ™šYİ\˜][Ûˆ‹RÙ^TÙ\]Y[˜ÙJİ›
+ÔÚY
+ÕˆŠK\Ë	•Ú[™İÎ˜[Y]PÛÛ™šYÊNÈš[KO˜YÙ\\˜]ÜŠ
+NÈš[KO˜YXİ[ÛŠ‘^]U”ˆ‹RÙ^TÙ\]Y[˜ÙN”]Z]\Ë	•Ú[™İÎœ]Z]\XØ][ÛŠNÂˆ]]ÊˆšY]Ï[Y[P˜\Š
+KO˜YY[J•šY]ÈŠNØ]]Êˆ[YSY[O]šY]ËO˜YY[J\X\˜[˜ÙHŠNİ[YQÜ›İ\Ï[™]ÈPXİ[Û‘Ü›İ\
+\ÊNİ[YQÜ›İ\ËOœÙ]^Û\Ú]™JYJNÜŞ\İ[U[YWÏ][YSY[KO˜YXİ[ÛŠ‘›ÛİÈŞ\İ[HŠNÙ\šÕ[YPXİ[Û—Ï][YSY[KO˜YXİ[ÛŠ‘\šÈŠNÛYÚ[YPXİ[Û—Ï][YSY[KO˜YXİ[ÛŠ“YÚŠNÜÛİ[Õ[YPXİ[Û—Ï][YSY[KO˜YXİ[ÛŠ‘\šÈÛİ[È[ÙH0­È˜Z[ÛÜÙYŠNÙ›ÜŠ]]ÊˆXİ[ÛÜŞ\İ[U[YWË\šÕ[YPXİ[Û—ËYÚ[YPXİ[Û—ËÛİ[Õ[YPXİ[Û—ßJ^ØXİ[Û‹OœÙ]ÚXÚØX›JYJNİ[YQÜ›İ\ËO˜YXİ[ÛŠXİ[ÛŠNß\Ş\İ[U[YWËOœÙ]]JœŞ\İ[HŠNÙ\šÕ[YPXİ[Û—ËOœÙ]]J™\šÈŠNÛYÚ[YPXİ[Û—ËOœÙ]]J›YÚŠNÜÛİ[Õ[YPXİ[Û—ËOœÙ]]JœÛİ[ÈŠNÜŞ\İ[U[YWËOœÙ]ÚXÚÙY
+YJNİšY]ËO˜YÙ\\˜]ÜŠ
+NÜ™YXÙS[İ[Û—Ï]šY]ËO˜YXİ[ÛŠ”™YXÙH[İ[ÛˆŠNÈ™YXÙS[İ[Û—ËOœÙ]ÚXÚØX›JYJNÈÛÛ\XİÚYX˜\—Ï]šY]ËO˜YXİ[ÛŠÛÛ\XİÚYX˜\ˆŠNÈÛÛ\XİÚYX˜\—ËOœÙ]ÚXÚØX›JYJNÙÙYZÕ[[Y]WÏ]šY]ËO˜YXİ[ÛŠ‘ÙYZÈ[[Y]HŠNÙÙYZÕ[[Y]WËOœÙ]ÚXÚØX›JYJNÜİ˜[™ÙS›İYšXØ][Ûœ×Ï]šY]ËO˜YXİ[ÛŠ”š]˜]Hİ˜[™ÙS™]›İYšXØ][ÛœÈŠNÜİ˜[™ÙS›İYšXØ][Ûœ×ËOœÙ]ÚXÚØX›JYJNÜİ˜[™ÙS›İYšXØ][Ûœ×ËOœÙ]ÚXÚÙY
+YJNÂˆÛÛ›™Xİ
+[YQÜ›İ\Ë	”PXİ[Û‘Ü›İ\šYÙÙ\™Y\Ëİ\×JPXİ[ÛŠˆXİ[ÛŠ^Ø\U[YJXİ[Û‹O™]J
+KÔİš[™Ê
+JNßJNÂˆÛÛ›™Xİ
+™YXÙS[İ[Û—Ë	”PXİ[ÛÙÙÛY\Ëİ\×J›ÛÛÚXÚÙY
+^ÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœ™YXÙS[İ[Ûˆ‹ÚXÚÙY
+NÜÙ][İ[ÛŠXÚXÚÙY
+NßJNÂˆÛÛ›™Xİ
+ÛÛ\XİÚYX˜\—Ë	”PXİ[ÛÙÙÛY\Ë	•Ú[™İÎœÙ]ÚYX˜\ÛÛ\Xİ
+NÂˆÛÛ›™Xİ
+ÙYZÕ[[Y]WË	”PXİ[ÛÙÙÛY\Ëİ\×J›ÛÛÚXÚÙY
+^ÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJ™ÙYZÕ[[Y]H‹ÚXÚÙY
+NÜÙ]ÙYZÓ[ÙJÚXÚÙY
+NßJNÂˆÛÛ›™Xİ
+İ˜[™ÙS›İYšXØ][Ûœ×Ë	”PXİ[ÛÙÙÛY\Ë×J›ÛÛÚXÚÙY
+^ÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœİ˜[™ÙS›İYšXØ][ÛœÈ‹ÚXÚÙY
+NßJNÂˆ]]ÊˆÛÛÏ[Y[P˜\Š
+KO˜YY[J•ÛÛÈŠNÈÛÛËO˜YXİ[ÛŠÛÛ[X[™[]x )ˆ‹RÙ^TÙ\]Y[˜ÙJİ›
+ÒÈŠK\Ë	•Ú[™İÎœÚİĞÛÛ[X[™[]JNÈÛÛËO˜YXİ[ÛŠÛÜHXYÛ›ÜİXÜÈ‹RÙ^TÙ\]Y[˜ÙJİ›
+ÔÚY
+ĞÈŠK\Ë	•Ú[™İÎ˜ÛÜQXYÛ›ÜİXÜÊNÂˆBˆ›ÚYZ[ZJ
+HÂˆ]]Êˆ›Ûİ[™]ÈUÚYÙ]È]]ÊˆİXÚÏ[™]ÈTİXÚÙY^[İ]
+›Ûİ
+NÈİXÚËOœÙ]İXÚÚ[™Ó[ÙJTİXÚÙY^[İ]”İXÚĞ[
+NÈ]\›Ü˜WÏ[™]È]\›Ü˜NÂˆ]]ÊˆÚ[[™]ÈUÚYÙ]È]]Êˆ›İÏ[™]ÈR›Ş^[İ]
+Ú[
+NÈ›İËOœÙ]ÛÛ[ÓX\™Ú[œÊ
+NÈ›İËOœÙ]ÜXÚ[™Ê
+NÈZ[ÚYX˜\Š›İÊNÂˆYÙ\×Ï[™]È™\ÜÛœÚ]™TİXÚÎÜYÙ\×ËOœÙ]]]Ñš[˜XÚÙÜ›İ[™
+YJNÜYÙ\×ËOœÙ]Ú^™TÛXŞJTÚ^™TÛXŞN’YÛ›Ü™YTÚ^™TÛXŞN”™Y™\œ™Y
+NÜYÙ\×ËO˜YÚYÙ]
+Z[İ™\šY]Ê
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[ÛÛ›™Xİ[ÛŠ
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[˜[œÜÜÊ
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[İ˜[™ÙS™]
+
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[ÚY[
+
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[Xİ]š]J
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[š]˜XŞJ
+JNÜYÙ\×ËO˜YÚYÙ]
+Z[X›İ]
+
+JNÙ›ÜŠ[[™^LÚ[™^YÙ\×ËO˜Ûİ[
+
+NÊÊÚ[™^
+^ÜYÙ\×ËOÚYÙ]
+[™^
+KOœÙ]Z[š[][UÚY
+
+NÜYÙ\×ËOÚYÙ]
+[™^
+KOœÙ]Ú^™TÛXŞJTÚ^™TÛXŞN’YÛ›Ü™YTÚ^™TÛXŞN”™Y™\œ™Y
+NÜYÙ\×ËOÚYÙ]
+[™^
+KOœÙ]]]Ñš[˜XÚÙÜ›İ[™
+YJNß\YÙTØÜ›ÛÏ[™]ÈİX›TØÜ›Û\™XNÜYÙTØÜ›ÛËOœÙ]Øš™Xİ˜[YJœYÙTØÜ›ÛŠNÜYÙTØÜ›ÛËOœÙ]œ˜[YTÚ\JQœ˜[YN“›Ñœ˜[YJNÜYÙTØÜ›ÛËOœÙ]ÚYÙ]™\Ú^˜X›JYJNÜYÙTØÜ›ÛËOœÙ]Üš^›Û[ØÜ›Û˜\”ÛXŞJ]”ØÜ›Û˜\[Ø^\ÓÙ™ŠNÜYÙTØÜ›ÛËOœÙ]]]Ñš[˜XÚÙÜ›İ[™
+YJNÜYÙTØÜ›ÛËOšY]ÜÜ
+
+KOœÙ]]]Ñš[˜XÚÙÜ›İ[™
+YJNÜYÙTØÜ›ÛËOœÙ]ÚYÙ]
+YÙ\×ÊNÂˆ]]ÊˆÛÛ[[™]ÈUÚYÙ]Ø]]ÊˆÛÛ[^[İ][™]ÈU›Ş^[İ]
+ÛÛ[
+NØÛÛ[^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊM‹L‹M‹
+NØÛÛ[^[İ]OœÙ]ÜXÚ[™ÊL
+NØ]]Êˆ›İ\›™^O[™]ÈQœ˜[YNÚ›İ\›™^KOœÙ]›Ü\J˜Ø\™‹YJNØ]]Êˆ›İ\›™^S^[İ][™]ÈR›Ş^[İ]
+›İ\›™^JNÚ›İ\›™^S^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊMLML
+NÚ›İ\›™^S^[İ]OœÙ]ÜXÚ[™ÊJNØ]]Êˆ›İ]O]^
+–SÕTˆ“ÕUH‹™^YXœ›İÈŠNÚ›İ\›™^S^[İ]O˜YÚYÙ]
+›İ]JNÚ›İ\›™^PÛÛ™šYİ\™WÏ[™]ÈT\Ú]ÛŠŒHÛÛ™šYİ\™HŠNÚ›İ\›™^P]][XØ]WÏ[™]ÈT\Ú]ÛŠŒˆ]][XØ]HŠNÚ›İ\›™^T›İXİÏ[™]ÈT\Ú]ÛŠŒÈ›İXİŠNÙ›ÜŠ]]Êˆİ\Ú›İ\›™^PÛÛ™šYİ\™WË›İ\›™^P]][XØ]WË›İ\›™^T›İXİßJ^Üİ\OœÙ]›Ü\Jœ]ZY]‹YJNÚ›İ\›™^S^[İ]O˜YÚYÙ]
+İ\
+NßYÙYZÔ™XYİ]Ï]^
+•Q0­ÈXœšY]]0­È˜Z[XÛÜÙYİ]H‹™^YXœ›İÈŠNÙÙYZÔ™XYİ]ËOœÙ]›Ü\J›]]Y‹YJNÚ›İ\›™^S^[İ]O˜Yİ™]Ú
+
+NÚ›İ\›™^S^[İ]O˜YÚYÙ]
+ÙYZÔ™XYİ]ÊNÙÙYZÕÙÙÛWÏ[™]ÈT\Ú]ÛŠ‘ÙYZÈŠNÙÙYZÕÙÙÛWËOœÙ]ÚXÚØX›JYJNÙÙYZÕÙÙÛWËOœÙ]›Ü\Jœ]ZY]‹YJNÙÙYZÕÙÙÛWËOœÙ]ÛÛ\
+”™]™X[[™Ú[™K™[˜ÚX\šÈ[™›İØÛÛÛÛ›ÛÈÚ]İ]Ú[™Ú[™ÈHXİ]™HÛÛ›™Xİ[Û‹ˆŠNÚ›İ\›™^S^[İ]O˜YÚYÙ]
+ÙYZÕÙÙÛWÊNØÛÛ›™Xİ
+›İ\›™^PÛÛ™šYİ\™WË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÜİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNßJNØÛÛ›™Xİ
+›İ\›™^P]][XØ]WË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÜİÚ]ÚYÙJ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÏĞÛÛ›™Xİ[ÛXİ]š]JNßJNØÛÛ›™Xİ
+›İ\›™^T›İXİË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÜİÚ]ÚYÙJ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÏĞÛÛ›™Xİ[Û“İ™\šY]ÊNßJNØÛÛ›™Xİ
+ÙYZÕÙÙÛWË	”T\Ú]ÛÙÙÛYÙYZÕ[[Y]WË	”PXİ[ÛœÙ]ÚXÚÙY
+NØÛÛ[^[İ]O˜YÚYÙ]
+›İ\›™^JNØÛÛ[^[İ]O˜YÚYÙ]
+YÙTØÜ›ÛËJNÜ›İËO˜YÚYÙ]
+ÛÛ[JNÂˆİXÚËO˜YÚYÙ]
+]\›Ü˜WÊNÈİXÚËO˜YÚYÙ]
+Ú[
+NÈİXÚËOœÙ]İ\œ™[ÚYÙ]
+Ú[
+NÈÙ]Ù[˜[ÚYÙ]
+›Ûİ
+NÈİÚ]ÚYÙJİ™\šY]ÊNÈÙ][İ[ÛŠYJNÂˆBˆ›ÚYZ[ÚYX˜\ŠR›Ş^[İ]
+ˆÚ[
+HÂˆÚYX˜\—Ï[™]ÈUÚYÙ]ÈÚYX˜\—ËOœÙ]Øš™Xİ˜[YJœÚYX˜\ˆŠNÈÚYX˜\—ËOœÙ]Z[š[][UÚY
+ŒÎ
+NÈÚYX˜\—ËOœÙ]X^[][UÚY
+ŒÎ
+NÂˆ]]Êˆ^[İ][™]ÈU›Ş^[İ]
+ÚYX˜\—ÊNÈ^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊNNŒ
+NÈ^[İ]OœÙ]ÜXÚ[™Ê
+NÂˆ]]Êˆœ˜[™[™]ÈR›Ş^[İ]È]]ÊˆXÛÛ[™]ÈSX™[ÈXÛÛ‹OœÙ]^X\
+RXÛÛŠ‹Øœ˜[™ÛÙÛËœİ™ÈŠKœ^X\
+‹ŠJNÈœ˜[™ÛÜ™×Ï[™]ÈUÚYÙ]È]]ÊˆÛÜ™Ï[™]ÈU›Ş^[İ]
+œ˜[™ÛÜ™×ÊNÈÛÜ™ËOœÙ]ÛÛ[ÓX\™Ú[œÊ
+NÈÛÜ™ËOœÙ]ÜXÚ[™Ê
+NÈÛÜ™ËO˜YÚYÙ]
+^
+”U”ˆ‹ÛÜ™X\šÈŠJNÈÛÜ™ËO˜YÚYÙ]
+^
+”’UPÖHÓÓ”ÓÓH‹˜œ˜[™İXˆŠJNÈœ˜[™O˜YÚYÙ]
+XÛÛŠNÈœ˜[™O˜YÚYÙ]
+œ˜[™ÛÜ™×ËJNÈ^[İ]O˜Y^[İ]
+œ˜[™
+NÈ^[İ]O˜YÜXÚ[™Ê
+NÂˆ]]ÊˆÜ›İ\[™]ÈP]Û‘Ü›İ\
+\ÊNÈÜ›İ\OœÙ]^Û\Ú]™JYJNÈÛÛœİS\İTZ\Tİš[™Ë[ˆ][\ŞŞÈ“İ™\šY]È‹İ™\šY]ßKÈÛÛ›™Xİ‹ÛÛ›™Xİ[ÛŸKÈ•˜[œÜÜÈ‹˜[œÜÜßKÈ”İ˜[™ÙS™]‹İ˜[™ÙS™]KÈ”ÚY[‹ÚY[KÈXİ]š]H‹Xİ]š]_KÈ”š]˜XŞH‹š]˜XŞ_KÈX›İ]‹X›İ]_NÂˆ›Üˆ
+ÛÛœİ]]ÉˆÛ˜[YKYÙWNš][\ÊHÈ]]Êˆ]Û[™]ÈT\Ú]ÛŠTİš[™Ê‰LH	LˆŠK˜\™ÊYÙJÌK‹LPÚ\Š	Ì	ÊJK˜\™Ê˜[YJJNÈ]Û‹OœÙ]›Ü\J™[^‹]Û‹O^
+
+JNÈ]Û‹OœÙ]›Ü\J›˜]ˆ‹YJNÈ]Û‹OœÙ]ÚXÚØX›JYJNÈÜ›İ\O˜Y]ÛŠ]Û‹YÙJNÈYÙP]Ûœ×ÖÜYÙWOX]ÛÈ˜]]Ûœ×Ë˜\[™
+]ÛŠNÈ^[İ]O˜YÚYÙ]
+]ÛŠNÈÛÛ›™Xİ
+]Û‹	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËYÙW^ÜİÚ]ÚYÙJYÙJNßJNÈBˆ^[İ]O˜Yİ™]Ú
+
+NÈ]]Êˆ]XÜÏ]^
+–SÕHÒÓÔÑHÒSˆÈÓÓ“‘PÕ““ÈPÒÒS‘È0­È“ÈT’ÈUT“”ÈŠNÈ]XÜËOœÙ]Øš™Xİ˜[YJ™^YXœ›İÈŠNÈ^[İ]O˜YÚYÙ]
+]XÜÊNÈÚ[O˜YÚYÙ]
+ÚYX˜\—ÊNÂˆBˆUÚYÙ]
+ˆYÙTÚ[
+ÛÛœİTİš[™Éˆ]KÛÛœİTİš[™ÉˆİX]KU›Ş^[İ]
+Šˆ›ÙJHÈ]]ÊˆYÙO[™]ÈUÚYÙ]È]]Êˆİ]\[™]ÈU›Ş^[İ]
+YÙJNÈİ]\‹OœÙ]ÛÛ[ÓX\™Ú[œÊÍÍ
+NÈİ]\‹OœÙ]ÜXÚ[™ÊN
+NÈİ]\‹O˜YÚYÙ]
+^
+]KœYÙU]HŠJNÈİ]\‹O˜YÚYÙ]
+^
+İX]KœYÙTİX]HŠJNÈ
+˜›ÙO[İ]\È™]\›ˆYÙNÈBˆSX™[
+ˆY]šXÊÛÛœİTİš[™Éˆ]KÛÛœİTİš[™Éˆ˜[YKR›Ş^[İ]
+ˆ›İÊHÈ]]Êˆ^[İ][™]ÈU›Ş^[İ]È^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÈ^[İ]O˜YÚYÙ]
+^
+]K™^YXœ›İÈŠJNÈ]]Êˆ™\İ[]^
+˜[YK›Y]šXÈŠNÈ^[İ]O˜YÚYÙ]
+™\İ[
+NÈ›İËO˜YÚYÙ]
+Ø\™
+^[İ]
+KJNÈ™]\›ˆ™\İ[ÈBˆUÚYÙ]
+ˆZ[İ™\šY]Ê
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+–[İ\ˆš]˜]H›İ]K]HÛ[˜ÙH‹”™X[İ]HÛ›Kˆ›İ[™ÈÛÛ›™XİÈÜˆÚ[™Ù\È›İ]\È[[[İH\ÚËˆ‹	˜›ÙJNÂˆ]]Êˆ\›Ï[™]ÈR›Ş^[İ]È\›ËOœÙ]ÛÛ[ÓX\™Ú[œÊKJNÈ]]ÊˆÛÜO[™]ÈU›Ş^[İ]ÈÛÜKO˜YÚYÙ]
+^
+”ÔÕTUPS•SH’UPÖH‹™^YXœ›İÈŠJNÈİ]SX™[Ï]^
+‘\ØÛÛ›™XİY‹š\›Õ]HŠNÈÛÜKO˜YÚYÙ]
+İ]SX™[ÊNÈİ]\Õ^Ï]^
+ÚÛÜÙHHÛÛ™šYİ\˜][Û‹˜[Y]H][ˆÛÛ›™XİÚ[ˆ[İH\™H™XYKˆŠNÈİ]\Õ^ËOœÙ]›Ü\J›]]Y‹YJNÈÛÜKO˜YÚYÙ]
+İ]\Õ^ÊNÈİ™\šY]ĞXİ[Û—Ï[™]ÈT\Ú]ÛŠÛÛ™šYİ\™HÛÛ›™Xİ[ÛˆŠNÈÛÛ›™Xİ
+İ™\šY]ĞXİ[Û—Ë	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™ßÛÛ™šYÕ˜[YÊ]ÙÙÛPÛÛ›™Xİ[ÛŠ
+NÙ[ÙHİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNßJNÈÛÜKO˜YÚYÙ]
+İ™\šY]ĞXİ[Û—Ë][YÛ“Y
+NÈ\›ËO˜Y^[İ]
+ÛÜKJNÈÜ˜—Ï[™]Èİ]\ÓÜ˜È\›ËO˜YÚYÙ]
+Ü˜—Ë][YÛÙ[\ŠNÈ›ÙKO˜YÚYÙ]
+Ø\™
+\›ËYJJNÂˆ]]ÊˆY]šXÜÏ[™]ÈR›Ş^[İ]ÈXZ[›™]Y]šX×Ï[Y]šXÊ“PRS“‘U“ÓÕÕT‹“›İØYY‹Y]šXÜÊNÈ[™Ú[Y]šX×Ï[Y]šXÊ“ĞĞSTÕS‘Tˆ‹“›İØYY‹Y]šXÜÊNÈ™\šYšXØ][Û“Y]šX×Ï[Y]šXÊ”QTˆÓPÖH‹•[šÛ›İÛˆ‹Y]šXÜÊNÈ›ÙKO˜Y^[İ]
+Y]šXÜÊNÂˆ]]ÊˆØ\Xš[]Y\Ï[™]ÈR›Ş^[İ]È[›™[Y]šX×Ï[Y]šXÊ•S“‘S“ÕS‘T–H‹•[šÛ›İÛˆ‹Ø\Xš[]Y\ÊNÈYÜ™\ÜÓY]šX×Ï[Y]šXÊ‘VUSÑH‹“Ù™ˆ‹Ø\Xš[]Y\ÊNÈÚ\[™ÓY]šX×Ï[Y]šXÊ•Q‘’PÈÒTS‘È‹“Ù™ˆ‹Ø\Xš[]Y\ÊNÈ›ÙKO˜Y^[İ]
+Ø\Xš[]Y\ÊNÂˆ]]Êˆ^Z[[™]ÈU›Ş^[İ]È^Z[‹OœÙ]ÛÛ[ÓX\™Ú[œÊŒ‹ŒŒ‹Œ
+NÈ^Z[‹OœÙ]ÜXÚ[™ÊL
+NÈ^Z[‹O˜YÚYÙ]
+^
+ÛÛ›™Xİ[ÛˆÚXÚÛ\İ‹œÙXİ[Û•]HŠJNÂˆÛÛ™šYİ\˜][Û”İ\Ï]^
+ŒHÚÛÜÙH[™™\šYHÛÛ™šYİ\˜][ÛˆŠNÜY\”İ\Ï]^
+ŒˆY\ˆÙ\ÜÚ[Ûˆ[™[™ÈŠNÜ›İXİ[Û”İ\Ï]^
+ŒÈ[›™[[™›İ]\È[™[™ÈŠNÂˆ›ÜŠ]]Êˆİ\ØÛÛ™šYİ\˜][Û”İ\ËY\”İ\Ë›İXİ[Û”İ\ßJY^Z[‹O˜YÚYÙ]
+İ\
+NÂˆ]]Êˆ›İO]^
+‘Ü™Y[ˆYX[œÈ[ˆ]][XØ]YÛÛ›™Xİ[Û‹ˆ™[^H[ÙHX]™\È\ÈÛÛ\]\‰ÜÈ˜Y™šXÈ[˜Ú[™ÙYÈ›İXİYY][Û˜[H™\]Z\™\ÈH™XYH[›™[[™˜Z[XÛÜÙY›İ]\ËˆŠNÛ›İKOœÙ]›Ü\J›]]Y‹YJNÙ^Z[‹O˜YÚYÙ]
+›İJNØ›ÙKO˜YÚYÙ]
+Ø\™
+^Z[ŠJNØ›ÙKO˜Yİ™]Ú
+
+NÈ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[ÛÛ›™Xİ[ÛŠ
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+ÛÛ›™Xİ‹HÚÜ™]™\œÚX›H›İÈÚ]˜[Y][Ûˆ™Y›Ü™H^Xİ][Û‹ˆ‹	˜›ÙJNÈ]]Êˆ›Ü›O[™]ÈU›Ş^[İ]È›Ü›KOœÙ]ÛÛ[ÓX\™Ú[œÊŒËŒKŒËŒJNÈ›Ü›KOœÙ]ÜXÚ[™ÊLŠNÂˆ]]Êˆ›İ\›™^O[™]ÈQÜšY^[İ]Ú›İ\›™^KOœÙ]ÜXÚ[™ÊL
+NÚ›İ\›™^KO˜YÚYÙ]
+Ø\Xš[]JŒH0­ÈÓÓ‘’QÕT‘H‹ÚÛÜÙH›ÙH
+ÈÛXŞH‹“ØØ[‹YJK
+NÚ›İ\›™^KO˜YÚYÙ]
+Ø\Xš[]JŒˆ0­È‘T’Q–H‹”™X[›ÙH˜[Y][Ûˆ‹”™\]Z\™Y‹YJKJNÚ›İ\›™^KO˜YÚYÙ]
+Ø\Xš[]JŒÈ0­ÈÓÓ“‘PÕ‹’XœšYXZ[›™]Ù\ÜÚ[Ûˆ‹“ØœÙ\™Y‹YJKK
+NÚ›İ\›™^KO˜YÚYÙ]
+Ø\Xš[]JŒ0­ÈTÑH‹•[›™[
+Èİ˜[™ÙS™]‹“Û™HÙ\ÜÚ[Ûˆ‹YJKKJNÚ›İ\›™^KOœÙ]ÛÛ[[”İ™]Ú
+JNÚ›İ\›™^KOœÙ]ÛÛ[[”İ™]Ú
+KJNØ›ÙKO˜Y^[İ]
+›İ\›™^JNÂˆ›Ü›KO˜YÚYÙ]
+^
+ÓÓ‘’QÕTUSÓˆ‹™^YXœ›İÈŠJNÈ]]ÊˆÜ[™]ÈR›Ş^[İ]ÈÛÛ™šYÔ]Ï[™]ÈS[™QY]
+Tİš[™Î™œ›ÛTİİš[™Ê]œ˜ÛÛœÛÛN™Y˜][Ü›Ùš[JQš[R[™›ÊY˜][^Xİ]X›J
+JK˜XœÛÛ]T]
+
+KÔİİš[™Ê
+JK™Ù[™\šX×Üİš[™Ê
+JJNÈ]]ÊˆØ[™]ÈT\Ú]ÛŠÚÛÜÙx )ˆŠNÈØ‹OœÙ]›Ü\Jœ]ZY]‹YJNÈÜ‹O˜YÚYÙ]
+ÛÛ™šYÔ]ËJNÈÜ‹O˜YÚYÙ]
+ØŠNÈ›Ü›KO˜Y^[İ]
+ÜŠNÂˆ]]Êˆ›ÙPY˜[˜ÙY[™]ÈUÚYÙ]Ø]]Êˆ›ÙPY˜[˜ÙY^[İ][™]ÈU›Ş^[İ]
+›ÙPY˜[˜ÙY
+NÛ›ÙPY˜[˜ÙY^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊ
+NÛ›ÙPY˜[˜ÙY^[İ]OœÙ]ÜXÚ[™Ê
+NÛ›ÙPY˜[˜ÙY^[İ]O˜YÚYÙ]
+^
+““ÑHVPÕUP“H‹™^YXœ›İÈŠJNÈ]]Êˆ\[™]ÈR›Ş^[İ]È^Xİ]X›T]Ï[™]ÈS[™QY]
+Y˜][^Xİ]X›J
+JNÈ]]ÊˆX[™]ÈT\Ú]ÛŠÚÛÜÙx )ˆŠNÈX‹OœÙ]›Ü\Jœ]ZY]‹YJNÈ\‹O˜YÚYÙ]
+^Xİ]X›T]ËJNÈ\‹O˜YÚYÙ]
+XŠNÛ›ÙPY˜[˜ÙY^[İ]O˜Y^[İ]
+\ŠNÙ›Ü›KO˜YÚYÙ]
+›ÙPY˜[˜ÙY
+NÙÙYZÕÚYÙ]×Ë˜\[™
+›ÙPY˜[˜ÙY
+NÂˆ]]ÊˆÜ[ÛœÏ[™]ÈR›Ş^[İ]ÈÜ[ÛœËO˜YÚYÙ]
+^
+“ÑÈURS‹™^YXœ›İÈŠJNÈÙÓ]™[Ï[™]ÈPÛÛX›Ğ›ŞÈÙÓ]™[ËO˜Y][\ÊÈš[™›È‹™XYÈ‹Ø\›š[™È‹™\œ›ÜˆŸJNÈÜ[ÛœËO˜YÚYÙ]
+ÙÓ]™[ÊNÂˆ›Õ[›™[Ï[™]ÈPÚXÚĞ›Ş
+”™[^HÈ^]Û›H
+›ÈØØ[[›™[
+HŠNÈ›Õ[›™[ËOœÙ]ÛÛ\
+”[ˆH]][XØ]Y›ÙHÚ]İ]HÜ\˜][™Ë\Ş\İ[H[›™[›İ[™\KˆXZ[›™][™İ˜[™ÙS™]İ[ÛÜšË]ØØ[Ş\İ[H˜Y™šXÈ\È›İ[›™[YˆŠNÈ›Õ[›™[ËOœÙ]ÚXÚÙY
+˜[ÙJNÈÜ[ÛœËO˜YÚYÙ]
+›Õ[›™[ÊNÂˆÜ[ÛœËO˜Yİ™]Ú
+
+NØ]]ÊˆÛÛ›™Xİ[ÛY˜[˜ÙY[™]ÈUÚYÙ]ØÛÛ›™Xİ[ÛY˜[˜ÙYOœÙ]^[İ]
+Ü[ÛœÊNÙ›Ü›KO˜YÚYÙ]
+ÛÛ›™Xİ[ÛY˜[˜ÙY
+NÙÙYZÕÚYÙ]×Ë˜\[™
+ÛÛ›™Xİ[ÛY˜[˜ÙY
+NÈÛÛ™šYÒX[Ï]^
+ÛÛ™šYİ\˜][Ûˆ\È›İ™Y[ˆ˜[Y]YˆŠNÈÛÛ™šYÒX[ËOœÙ]›Ü\J›]]Y‹YJNÈ›Ü›KO˜YÚYÙ]
+ÛÛ™šYÒX[ÊNÈ›ÙKO˜YÚYÙ]
+Ø\™
+›Ü›JJNÂˆ]]Êˆ][]Y\Ï[™]ÈR›Ş^[İ]Ø]]Êˆ[œÜXİ[™]ÈT\Ú]ÛŠ’[œÜXİŞ\İ[HŠNÚ[œÜXİOœÙ]›Ü\Jœ]ZY]‹YJNØ]]Êˆ›Ü›X[^™Y[™]ÈT\Ú]ÛŠ”™]šY]È›Ü›X[^™YÛÛ™šYÈŠNÛ›Ü›X[^™YOœÙ]›Ü\Jœ]ZY]‹YJNØ]]ÊˆY]›ÙO[™]ÈT\Ú]ÛŠ‘Y]ÛÛ™šYİ\˜][ÛˆŠNÙY]›ÙKOœÙ]›Ü\Jœ]ZY]‹YJNİ][]Y\ËO˜YÚYÙ]
+Y]›ÙJNØÛÛ›™Xİ
+Y]›ÙK	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÚYŠ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊYY]ÛÛ™šYİ\˜][ÛŠÛÛ™šYÔ]ËO^
+
+KYJNßJNİ][]Y\ËO˜YÚYÙ]
+[œÜXİ
+Nİ][]Y\ËO˜YÚYÙ]
+›Ü›X[^™Y
+Nİ][]Y\ËO˜Yİ™]Ú
+
+NÙ›Ü›KO˜Y^[İ]
+][]Y\ÊNÂˆ]]ÊˆXİ[ÛœÏ[™]ÈR›Ş^[İ]È˜[Y]P]Û—Ï[™]ÈT\Ú]ÛŠ•˜[Y]Hš\œİŠNÈ˜[Y]P]Û—ËOœÙ]›Ü\Jœ]ZY]‹YJNÈÛÛ›™Xİ]Û—Ï[™]ÈT\Ú]ÛŠÛÛ›™XİÙXİ\™[HŠNÈÛÛ›™Xİ]Û—ËOœÙ][˜X›Y
+˜[ÙJNÈXİ[ÛœËO˜YÚYÙ]
+˜[Y]P]Û—ÊNÈXİ[ÛœËO˜Yİ™]Ú
+
+NÈXİ[ÛœËO˜YÚYÙ]
+ÛÛ›™Xİ]Û—ÊNÈ›ÙKO˜Y^[İ]
+Xİ[ÛœÊNÈ]]ÊˆÛÛœÙ[]^
+”İ\[™ÈX^HÜ™X]HH[›™[Y\\ˆÜˆÚ[™ÙH›İ]\ÈXØÛÜ™[™ÈÈ[İ\ˆÛÛ™šYİ\˜][Ûˆ[™ÔÈ\›Z\ÜÚ[ÛœËˆÛÜÚ[™ÈHÚ[™İÈØ[ˆÙY\U”ˆ[ˆH˜^HÚ]İ]Ú[™Ú[™ÈHÛÛ›™Xİ[Û‹ˆŠNÈÛÛœÙ[OœÙ]›Ü\J›]]Y‹YJNÈ›ÙKO˜YÚYÙ]
+ÛÛœÙ[
+NÈ›ÙKO˜Yİ™]Ú
+
+NÂˆÛÛ›™Xİ
+Ø‹	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎ˜ÚÛÜÙPÛÛ™šYÊNÈÛÛ›™Xİ
+X‹	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎ˜ÚÛÜÙQ^Xİ]X›JNÈÛÛ›™Xİ
+˜[Y]P]Û—Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎ˜[Y]PÛÛ™šYÊNÈÛÛ›™Xİ
+ÛÛ›™Xİ]Û—Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎÙÙÛPÛÛ›™Xİ[ÛŠNØÛÛ›™Xİ
+[œÜXİ	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^Ü[“›ÙUÛÛ
+È‹K\]›Ü›KZ[™›ÈŸK”Ş\İ[H[œÜXİ[ÛˆŠNßJNØÛÛ›™Xİ
+›Ü›X[^™Y	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^Ü[“›ÙUÛÛ
+È‹K\š[XÛÛ™šYÈ‹‹KXÛÛ™šYÈ‹ÛÛ™šYÔ]ËO^
+
+_K“›Ü›X[^™YÛÛ™šYİ\˜][ÛˆŠNßJNÂˆÛÛ›™Xİ
+ÛÛ™šYÔ]Ë	”S[™QY]^Ú[™ÙY\Ëİ\×JÛÛœİTİš[™Éˆ]
+^Ú[˜[Y]JÛÛ™šYİ\˜][ÛˆÚ[™ÙYˆ˜[Y]H™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÛØYÛÛ™šYÊ]
+NßJNÈÛÛ›™Xİ
+^Xİ]X›T]Ë	”S[™QY]^Ú[™ÙY\Ëİ\×^Ú[˜[Y]J‘^Xİ]X›HÚ[™ÙYˆ˜[Y]H™Y›Ü™HÛÛ›™Xİ[™ËˆŠNßJNÈÛÛ›™Xİ
+›Õ[›™[Ë	”PÚXÚĞ›ŞÙÙÛY\Ëİ\×^Ú[˜[Y]JÛÛ›™Xİ[Ûˆ[ÙHÚ[™ÙYˆ˜[Y]H™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÛØYÛÛ™šYÊÛÛ™šYÔ]ËO^
+
+JNßJNÈ™]\›ˆYÙNÂˆBˆQœ˜[YJˆØ\Xš[]JÛÛœİTİš[™Éˆ˜[YKÛÛœİTİš[™ÉˆÚ[™ÛÛœİTİš[™Éˆİ]\Ë›ÛÛ]˜Z[X›JHÈ]]Êˆ^[İ][™]ÈU›Ş^[İ]È^[İ]OœÙ]ÛÛ[ÓX\™Ú[œÊMËMMËM
+NÛ^[İ]OœÙ]ÜXÚ[™ÊJNÛ^[İ]O˜YÚYÙ]
+^
+˜[YKœÙXİ[Û•]HŠJNÈ]]Êˆ\O]^
+Ú[™
+NÈ\KOœÙ]›Ü\J›]]Y‹YJNÈ^[İ]O˜YÚYÙ]
+\JNÈ]]ÊˆÚ\]^
+]˜Z[X›OÜİ]\Îˆ“›İ[YÜ˜]Y0­ÈŠÜİ]\ÊNÈÚ\OœÙ]›Ü\J˜Ú\‹YJNÈ^[İ]O˜YÚYÙ]
+Ú\][YÛ“Y
+NØ]]Êˆ™\İ[XØ\™
+^[İ]
+NÜ™\İ[OœÙ]Ú^™TÛXŞJTÚ^™TÛXŞN”™Y™\œ™YTÚ^™TÛXŞN“X^[][JNÜ™]\›ˆ™\İ[ÈBˆUÚYÙ]
+ˆZ[˜[œÜÜÊ
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+•˜[œÜÜÈ‹Ø\Xš[]Y\È™XYœ›ÛHÛÛ™šYİ\˜][Ûˆ8 %›È[\YYİ\Üˆ‹	˜›ÙJNÈ]]Êˆİ\œ™[[™]ÈU›Ş^[İ]Èİ\œ™[OœÙ]ÛÛ[ÓX\™Ú[œÊŒËŒKŒËŒJNÈİ\œ™[O˜YÚYÙ]
+^
+”ÑSPÕQÕUTˆU‹™^YXœ›İÈŠJNÈ˜[œÜÜY]šX×Ï]^
+‘\™XİU”ˆQ‹š\›Õ]HŠNÈİ\œ™[O˜YÚYÙ]
+˜[œÜÜY]šX×ÊNÈ˜[œÜÜ]Z[×Ï]^
+“ØYHÛÛ™šYİ\˜][ÛˆÈ[œÜXİ]È˜[œÜÜÛÛœİ˜Z[ËˆŠNÈ˜[œÜÜ]Z[×ËOœÙ]›Ü\J›]]Y‹YJNÈİ\œ™[O˜YÚYÙ]
+˜[œÜÜ]Z[×ÊNÈ›ÙKO˜YÚYÙ]
+Ø\™
+İ\œ™[YJJNÂˆ]]ÊˆY\]™O[™]ÈU›Ş^[İ]ÈY\]™KOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÈY\]™KO˜YÚYÙ]
+^
+”UQTU‘HU‹™^YXœ›İÈŠJNÈY\]™SY]šX×Ï]^
+‘\ØX›Y‹œÙXİ[Û•]HŠNÈY\]™KO˜YÚYÙ]
+Y\]™SY]šX×ÊNÈY\]™Q[˜X›YÏ[™]ÈPÚXÚĞ›Ş
+‘[˜X›H]]ÛX]XÈQÕÔ˜Z[İ™\ˆŠNØY\]™KO˜YÚYÙ]
+Y\]™Q[˜X›YÊNØ]]ÊˆY\]™T›İÏ[™]ÈR›Ş^[İ]ÈY\]™S[ÙWÏ[™]ÈPÛÛX›Ğ›ŞÈY\]™S[ÙWËO˜Y][J]]ÛX]XÈ0­È™Y™\ˆQ‹˜]]ÈŠNÈY\]™S[ÙWËO˜Y][J•QÛ›H‹YŠNÈY\]™S[ÙWËO˜Y][J•ÔÛ›H‹ÜŠNÈØ]™U˜[œÜÜ]Û—Ï[™]ÈT\Ú]ÛŠ”Ø]™H˜[œÜÜÛXŞHŠNÈØ]™U˜[œÜÜ]Û—ËOœÙ]›Ü\Jœ]ZY]‹YJNÈY\]™T›İËO˜YÚYÙ]
+Y\]™S[ÙWÊNÈY\]™T›İËO˜Yİ™]Ú
+
+NÈY\]™T›İËO˜YÚYÙ]
+Ø]™U˜[œÜÜ]Û—ÊNÈY\]™KO˜Y^[İ]
+Y\]™T›İÊNÈ]]ÊˆY\]™PÛÜO]^
+]]ÛX]XÈ[ÙH™\Ù\™\ÈH]][XØ]YU”ˆœ˜[YK\Ù\ÈQ›ÜˆİÈ][˜ŞK˜[È˜XÚÈÈÔY\ˆYX\İ\™YÜÜËš]\ˆÜˆ›ØÚÚ[™Ë[™›Ø™\ÈQ™Y›Ü™H™]\›š[™ËˆŠNÈY\]™PÛÜKOœÙ]›Ü\J›]]Y‹YJNÈY\]™KO˜YÚYÙ]
+Y\]™PÛÜJNÈ›ÙKO˜YÚYÙ]
+Ø\™
+Y\]™JJNÈÛÛ›™Xİ
+Ø]™U˜[œÜÜ]Û—Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎœØ]™U˜[œÜÜÙ][™ÜÊNÂˆ]]ÊˆÚ\[™Ï[™]ÈU›Ş^[İ]ÜÚ\[™ËOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÜÚ\[™ËO˜YÚYÙ]
+^
+”’UPÖHQ‘’PÈÒTS‘È‹™^YXœ›İÈŠJNÜÚ\[™Ñ[˜X›YÏ[™]ÈPÚXÚĞ›Ş
+‘[˜X›H›İ[™Y[˜Ü\YY[™È[™[Z[™ÈÚ\[™ÈŠNÜÚ\[™ËO˜YÚYÙ]
+Ú\[™Ñ[˜X›YÊNØ]]ÊˆÚ\[™Ô›İÏ[™]ÈR›Ş^[İ]ÜÚ\[™Ô›İËO˜YÚYÙ]
+^
+“X^[][HY[™È
+]\ÊHŠJNÜÚ\[™ÔY[™×Ï[™]ÈTÜ[›ŞÜÚ\[™ÔY[™×ËOœÙ]˜[™ÙJMŠNÜÚ\[™ÔY[™×ËOœÙ]˜[YJL
+NÜÚ\[™Ô›İËO˜YÚYÙ]
+Ú\[™ÔY[™×ÊNÜÚ\[™Ô›İËO˜YÜXÚ[™ÊN
+NÜÚ\[™Ô›İËO˜YÚYÙ]
+^
+“X^[][H[^H
+\ÊHŠJNÜÚ\[™Ñ[^WÏ[™]ÈTÜ[›ŞÜÚ\[™Ñ[^WËOœÙ]˜[™ÙJL
+NÜÚ\[™Ñ[^WËOœÙ]˜[YJŒ
+NÜÚ\[™Ô›İËO˜YÚYÙ]
+Ú\[™Ñ[^WÊNÜÚ\[™Ô›İËO˜Yİ™]Ú
+
+NÜÚ\[™ËO˜Y^[İ]
+Ú\[™Ô›İÊNØ]]ÊˆÚ\[™ĞÛÜO]^
+”Ú\[™Èİ^\È[œÚYH]][XØ]Y[˜Ü\[Û‹\Ù\È›İ[™YØØ[™YXİÜœË[™™]™\ˆİÛ›ØYÈH[Ù[ÜˆÙ[™È[[Y]Kˆ›İY\œÈ]\İİ\ÜÚ\Yœ˜[Y\ËˆŠNÜÚ\[™ĞÛÜKOœÙ]›Ü\J›]]Y‹YJNÜÚ\[™ËO˜YÚYÙ]
+Ú\[™ĞÛÜJNØ›ÙKO˜YÚYÙ]
+Ø\™
+Ú\[™ÊJNÂˆ]]Êˆ[›™\[™]ÈU›Ş^[İ]Ú[›™\‹OœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÚ[›™\‹O˜YÚYÙ]
+^
+’S“‘Tˆ”ˆ0­ÈÓ‘HÓPÖH“ÔˆÓKRH	ˆÕRH‹™^YXœ›İÈŠJNÚ[›™\•[›™[[˜X›YÏ[™]ÈPÚXÚĞ›Ş
+“^Y\ˆ[›İ\ˆ”ˆ[œÚYHH›İXİYU”ˆ[›™[ŠNÚ[›™\‹O˜YÚYÙ]
+[›™\•[›™[[˜X›YÊNØ]]Êˆ[›™\”›İÏ[™]ÈR›Ş^[İ]Ú[›™\•[›™[˜XÚÙ[™Ï[™]ÈPÛÛX›Ğ›ŞÚ[›™\•[›™[˜XÚÙ[™ËO˜Y][J•Ú\™QİX\™0­ÈÙË\]ZXÚÈ‹Ú\™YİX\™ŠNÚ[›™\•[›™[˜XÚÙ[™ËO˜Y][J“Ü[•”ˆÈ[^‹›Ü[œŒÈŠNÚ[›™\•[›™[ÛÛ™šY×Ï[™]ÈS[™QY]Ú[›™\•[›™[ÛÛ™šY×ËOœÙ]XÙZÛ\•^
+XœÛÛ]HÚ\™QİX\™ÜˆÜ[•”ˆÈÛY[ÛÛ™šYİ\˜][ÛˆŠNÚ[›™\•[›™[ÛÛ™šY×ËOœÙ]XØÙ\ÜÚX›S˜[YJ’[›™\ˆ”ˆÛÛ™šYİ\˜][Ûˆ]ŠNÚ[›™\•[›™[œ›İÜÙWÏ[™]ÈT\Ú]ÛŠÚÛÜÙHÛÛ™šYø )ˆŠNÚ[›™\•[›™[œ›İÜÙWËOœÙ]›Ü\Jœ]ZY]‹YJNÚ[›™\”›İËO˜YÚYÙ]
+[›™\•[›™[˜XÚÙ[™ÊNÚ[›™\”›İËO˜YÚYÙ]
+[›™\•[›™[ÛÛ™šY×ËJNÚ[›™\”›İËO˜YÚYÙ]
+[›™\•[›™[œ›İÜÙWÊNÚ[›™\‹O˜Y^[İ]
+[›™\”›İÊNØ]]Êˆ[›™\ÛÜO]^
+“Û™HÛXÚÈ\Ù\È[İ\ˆİ\YYÛÛ™šYÈÚ]H[œİ[YÙË\]ZXÚÈÜˆÜ[œŒÈÛY[ˆU”ˆ\İX›\Ú\È]È˜]]™H˜Z[XÛÜÙY[›™[š\œİ[ˆİ\ÈH[›™\ˆÛY[È™\X]Y\H[™X\™İÛˆ\™HY[\İ[ˆ›ÈÜ™Y[X[Üˆ›İšY\ˆÛÙØ\™H\ÈİÛ›ØYYˆŠNÚ[›™\ÛÜKOœÙ]›Ü\J›]]Y‹YJNÚ[›™\‹O˜YÚYÙ]
+[›™\ÛÜJNØ›ÙKO˜YÚYÙ]
+Ø\™
+[›™\ŠJNØÛÛ›™Xİ
+[›™\•[›™[œ›İÜÙWË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ØÛÛœİTİš[™È]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙH[›™\ˆ”ˆÛÛ™šYİ\˜][Ûˆ‹Q\šÛYT]
+
+K•”ˆÛÛ™šYİ\˜][Ûˆ
+
+‹˜ÛÛ™ˆ
+‹›İœŠNÎĞ[š[\È
+
+ŠHŠNÚYŠ\]š\Ñ[\J
+JZ[›™\•[›™[ÛÛ™šY×ËOœÙ]^
+Qš[R[™›Ê]
+K˜XœÛÛ]Qš[T]
+
+JNßJNØÛÛ›™Xİ
+[›™\•[›™[[˜X›YË	”PÚXÚĞ›ŞÙÙÛY\Ëİ\×J›ÛÛ[˜X›Y
+^Ú[›™\•[›™[˜XÚÙ[™ËOœÙ][˜X›Y
+[˜X›Y	‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNÚ[›™\•[›™[ÛÛ™šY×ËOœÙ][˜X›Y
+[˜X›Y	‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNÚ[›™\•[›™[œ›İÜÙWËOœÙ][˜X›Y
+[˜X›Y	‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNßJNÂˆ[™Ú[™\×Ï[™]È]œ˜ÛÛœÛÛN‘[™Ú[™SX[˜YÙ\Š\ÊNİ˜[œÜÜİ]\×Ï]^
+•˜[œÜÜ[™Ú[™\È\™HYKˆÚÛÜÙHHÛÛ™šYİ\˜][Ûˆ™Y›Ü™Hİ\[™ÈÛ™KˆŠNİ˜[œÜÜİ]\×ËOœÙ]›Ü\J›]]Y‹YJNØ›ÙKO˜YÚYÙ]
+˜[œÜÜİ]\×ÊNÙ[™Ú[™\×ËOœ™\ÜVİ\×JÛÛœİTİš[™ÉˆY\ÜØYÙJ^İ˜[œÜÜİ]\×ËOœÙ]^
+Y\ÜØYÙJNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJY\ÜØYÙKŒ
+NÛÙÊY\ÜØYÙJNßNÙ[™Ú[™\×ËO˜Xİ]š]PÚ[™ÙYVİ\×JÛÛœİTİš[™ÉˆY›ÛÛXİ]™J^ÚYŠ[™Ú[™Tİ\]Ûœ×Ë˜ÛÛZ[œÊY
+JY[™Ú[™Tİ\]Ûœ×ÖÚYKOœÙ][˜X›Y
+XXİ]™JNÚYŠ[™Ú[™TİÜ]Ûœ×Ë˜ÛÛZ[œÊY
+JY[™Ú[™TİÜ]Ûœ×ÖÚYKOœÙ][˜X›Y
+Xİ]™JNÚYŠ[™Ú[™PÛÛ™šYĞ]Ûœ×Ë˜ÛÛZ[œÊY
+JY[™Ú[™PÛÛ™šYĞ]Ûœ×ÖÚYKOœÙ][˜X›Y
+XXİ]™JNßNÂˆ]]ÊˆÛÛ›ÛÏ[™]ÈU›Ş^[İ]ØÛÛ›ÛËOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÂˆÛÛ›ÛËO˜YÚYÙ]
+^
+‘S‘ÒS‘TÈÓˆSPS‘‹™^YXœ›İÈŠJNÂˆS\İTZ\Tİš[™ËPÚXÚĞ›Ş
+ˆÙ[XİYÂˆ›ÜŠÛÛœİTİš[™ÉˆY”Tİš[™Ó\İÈYœ˜]È‹œÚYİÜÛØÚÜÈ‹Œœ˜^H‹›Ø™œÍŸJ^Âˆ]]Êˆ[™Ú[™P›ØÚÏ[™]ÈU›Ş^[İ]Ø]]Êˆ›İÏ[™]ÈR›Ş^[İ]Ø]]Êˆ[˜X›Y[™]ÈPÚXÚĞ›Ş
+Y
+NÜ›İËO˜YÚYÙ]
+[˜X›Y
+NÜÙ[XİY˜\[™
+ÚY[˜X›YJNÂˆ]]ÊˆÚÛÜÙO[™]ÈT\Ú]ÛŠÚÛÜÙHÛÛ™šYø )ˆŠNØ]]ÊˆY][™]ÈT\Ú]ÛŠ‘Y]ÛÛ™šYÈŠNØ]]Êˆİ\[™]ÈT\Ú]ÛŠ’[œİ[Èİ\ŠNØ]]ÊˆİÜ[™]ÈT\Ú]ÛŠ”İÜŠNÂˆ[™Ú[™Tİ\]Ûœ×ÖÚYO\İ\Ù[™Ú[™TİÜ]Ûœ×ÖÚYO\İÜÙ[™Ú[™PÛÛ™šYĞ]Ûœ×ÖÚYOXÚÛÜÙNÜİÜOœÙ][˜X›Y
+˜[ÙJNÂˆ›ÜŠ]]Êˆ]ÛØÚÛÜÙKY]İÜJX]Û‹OœÙ]›Ü\Jœ]ZY]‹YJNÂˆ›İËO˜Yİ™]Ú
+
+NÜ›İËO˜YÚYÙ]
+İ\
+NÜ›İËO˜YÚYÙ]
+İÜ
+NÙ[™Ú[™P›ØÚËO˜Y^[İ]
+›İÊNØ]]ÊˆÛÛ™šYÔ›İÏ[™]ÈR›Ş^[İ]ØÛÛ™šYÔ›İËO˜YÚYÙ]
+ÚÛÜÙJNØÛÛ™šYÔ›İËO˜YÚYÙ]
+Y]
+NØÛÛ™šYÔ›İËO˜Yİ™]Ú
+
+NÙ[™Ú[™P›ØÚËO˜Y^[İ]
+ÛÛ™šYÔ›İÊNØÛÛ›ÛËO˜Y^[İ]
+[™Ú[™P›ØÚÊNÂˆÛÛ›™Xİ
+ÚÛÜÙK	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËY^ÚYŠ[™Ú[™\×ËO˜Xİ]™JY
+J\™]\›ØÛÛœİTİš[™È]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙHŠÚY
+ÈˆÛÛ™šYİ\˜][Ûˆ‹Q\šÛYT]
+
+JNÚYŠ\]š\Ñ[\J
+JTTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJY
+ÈÛÛ™šYÔ]‹Qš[R[™›Ê]
+K˜XœÛÛ]Qš[T]
+
+JNßJNÂˆÛÛ›™Xİ
+Y]	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËY^ÚYŠY[™Ú[™\×ËO˜Xİ]™JY
+JYY]ÛÛ™šYİ\˜][ÛŠTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠK˜[YJY
+ÈÛÛ™šYÔ]ŠKÔİš[™Ê
+KYOHYœ˜]ÈŠNßJNÂˆÛÛ›™Xİ
+İ\	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËY^Ù[™Ú[™\×ËOœİ\
+Y[™Ú[™PÛÛ™šYİ\˜][ÛŠY
+JNßJNÂˆÛÛ›™Xİ
+İÜ	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËY^Ù[™Ú[™\×ËOœİÜ
+Y
+NßJNÂˆBˆ]]Êˆİ\Ù[XİY[™]ÈT\Ú]ÛŠ”İ\Ù[XİY[™Ú[™\ÈŠNØÛÛ›ÛËO˜YÚYÙ]
+İ\Ù[XİY][YÛ”šYÚ
+NÂˆÛÛ›™Xİ
+İ\Ù[XİY	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËÙ[XİY^Ù›ÜŠÛÛœİ]]Éˆ][NœÙ[XİY
+ZYŠ][KœÙXÛÛ™Oš\ĞÚXÚÙY
+
+I‰ˆY[™Ú[™\×ËO˜Xİ]™J][K™š\œİ
+JY[™Ú[™\×ËOœİ\
+][K™š\œİ[™Ú[™PÛÛ™šYİ\˜][ÛŠ][K™š\œİ
+JNßJNÂˆ]]Êˆ›İO]^
+‘İÛ›ØYÈ\™H™\šYšYY[™İÜ™YÙ\\˜][Hœ›ÛHU”‹ˆ][\H[™Ú[™\ÈØ[ˆ[ˆÙÙ]\ˆ\Ú[™È[İ\ˆX]Ú[™ÈÛÛ™šYİ\˜][ÛœËˆU”ˆØ[ˆ]XÚ\™XİHÈYœ˜]ÎÈÓĞÒÔÈ[™Ô[™Ú[™\È™\]Z\™HHÛÛ™šYİ\™YQ™[^Kˆ[™Ú[™Hİ\\[Û™HÙ\È›İYX[ˆH”ˆ\ÈÛÛ›™XİYˆŠNÛ›İKOœÙ]›Ü\J›]]Y‹YJNØÛÛ›ÛËO˜YÚYÙ]
+›İJNØ]]Êˆ[™Ú[™PÛÛ›ÛÏXØ\™
+ÛÛ›ÛÊNØ›ÙKO˜YÚYÙ]
+[™Ú[™PÛÛ›ÛÊNÙÙYZÕÚYÙ]×Ë˜\[™
+[™Ú[™PÛÛ›ÛÊNÂˆ]]Êˆ™\Ù]Ï[™]ÈR›Ş^[İ]Ø]]ÊˆY™\Ù][™]ÈT\Ú]ÛŠ]]ËXÛÛ™šYİ\™HYœ˜]ÈŠNØ]]Êˆ[™Ú[™R[™›Ï]^
+”™\Ù\™\È[İ\ˆY[]H[™[œİ[ÈÈİ\ÈYœ˜]Èœ›ÛH[İ\ˆ^\İ[™ÈÙ\™\ˆÛÛ™šYİ\˜][Û‹ˆŠNÙ[™Ú[™R[™›ËOœÙ]›Ü\J›]]Y‹YJNÜ™\Ù]ËO˜YÚYÙ]
+Y™\Ù]
+NØ]]ÊˆÚÛÜÙQ[™Ú[™O[™]ÈT\Ú]ÛŠÚÛÜÙH[™Ú[™HÛÛ™šYø )ˆŠNØÚÛÜÙQ[™Ú[™KOœÙ]›Ü\Jœ]ZY]‹YJNÜ™\Ù]ËO˜YÚYÙ]
+ÚÛÜÙQ[™Ú[™JNÜ™\Ù]ËO˜YÚYÙ]
+[™Ú[™R[™›ËJNÂˆÛÛ›™Xİ
+ÚÛÜÙQ[™Ú[™K	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê\™]\›ØÛÛœİTİš[™È]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙH^\İ[™ÈYœ˜]ÈÛY[ÛÛ™šYİ\˜][Ûˆ‹Q\šÛYT]
+
+K‘[™Ú[™HÛÛ™šYİ\˜][Ûˆ
+
+‹˜ÛÛ™ˆ
+‹˜Ù™ÊNÎĞ[š[\È
+
+ŠHŠNÚYŠ\]š\Ñ[\J
+J^ÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJYœ˜]ĞÛÛ™šYÔ]‹]
+NÜ™\\™UYœ˜]Ô›Ùš[J
+Nß_JNØ]]Êˆ[™Ú[™T™\Ù]Ï[™]ÈUÚYÙ]Ù[™Ú[™T™\Ù]ËOœÙ]^[İ]
+™\Ù]ÊNØ›ÙKO˜YÚYÙ]
+[™Ú[™T™\Ù]ÊNÙÙYZÕÚYÙ]×Ë˜\[™
+[™Ú[™T™\Ù]ÊNÂˆÛÛ›™Xİ
+Y™\Ù]	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎœ™\\™UYœ˜]Ô›Ùš[JNÂˆ›ÙKO˜Yİ™]Ú
+
+NÈ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[İ˜[™ÙS™]
+
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+”İ˜[™ÙS™]‹H]š[™È›ÛÛH›ÜˆÜ™[˜\HÛÜ™È[™[˜ÛÛ[[ÛˆÛ™\Ëˆ‹	˜›ÙJNÂˆ]]Êˆ[›Ï[™]ÈU›Ş^[İ]È[›ËOœÙ]ÛÛ[ÓX\™Ú[œÊŒKŒJNÈ[›ËO˜YÚYÙ]
+^
+”ÕS‘ÑS‘U0­ÈÑTÔÒSÓ‹SÓ“H”ÒU‹™^YXœ›İÈŠJNÈ[›ËO˜YÚYÙ]
+^
+”ÜXZÈZ[›KˆÜš]H™X]]Y[KˆÙY\H›ÛÛH[İ\œËˆ‹š\›Õ]HŠJNÈ]]Êˆ›İO]^
+‘]™\HÜ›İ\Y\ÜØYÙH\È[˜Ü\Y[™\[™[H›Üˆ]™\H]][XØ]YY\ˆQˆ[Y[X™\œÈÛÛšX]H›İYÚZ\ˆXœšYÙ\ÜÚ[ÛœÎÈ›ÈÙ\™\ˆÜˆÚ[™ÛH\XÚ\[İÛœÈHÙ[˜[Ü›İ\ÙXÜ™]ˆ›ÈX›XÈ\İÜK›È™\]Z\™YXØÛİ[›È›ÛZ\ÙHÙˆ\™™Xİ[›Û[Z]KˆU”ˆ™[XZ[œÈ^\š[Y[[[™\È›İ™XÙZ]™Y[ˆ[™\[™[ÙXİ\š]H]Y]ˆŠNÈ›İKOœÙ]›Ü\J›]]Y‹YJNÈ[›ËO˜YÚYÙ]
+›İJNÈ›ÙKO˜YÚYÙ]
+Ø\™
+[›ËYJJNÂ‚ˆ]]Êˆ™]›Ï[™]ÈU›Ş^[İ]Ü™]›ËOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NØ]]Êˆ™]›ÒXY\[™]ÈR›Ş^[İ]Ü™]›ÒXY\‹O˜YÚYÙ]
+^
+”VSÓÓSSÓ”È0­ÈÓĞÒPSĞ–H‹™^YXœ›İÈŠJNØ]]Êˆ™]›Ò[]^
+ÚÛÜÙHHÜXÙK[ˆ[\ˆ]™[İÈŠNÜ™]›Ò[OœÙ]›Ü\J›]]Y‹YJNÜ™]›ÒXY\‹O˜Yİ™]Ú
+
+NÜ™]›ÒXY\‹O˜YÚYÙ]
+™]›Ò[
+NÜ™]›ËO˜Y^[İ]
+™]›ÒXY\ŠNÜİ˜[™ÙSØ˜WÏ[™]È™]›ÓØ˜NÜİ˜[™ÙSØ˜WËOœÙ]›ÛÛJ›XZ[›™]ÙœšY[™ÈŠNÜ™]›ËO˜YÚYÙ]
+İ˜[™ÙSØ˜WÊNØ]]Êˆ™]›Ó›İO]^
+H^Y[™]›ÈØ˜Hİ™\ˆH™X[İ˜[™ÙS™]˜[œÜÜˆHšYİ\™\È™\™\Ù[]][XØ]YY\ˆQË™]™\ˆTY™\ÜÙ\ËˆÙ[Xİ[™ÈHÜXÙHÚ[™Ù\ÈH›ÛÛH]ÈY\ÜØYÙ\Èİ[\ÙH›İ[™Y\‹\™XÚ\Y[L‘H[]™\H[™HØ[YH[Y›ÛÙÛXŞKˆŠNÜ™]›Ó›İKOœÙ]›Ü\J›]]Y‹YJNÜ™]›ËO˜YÚYÙ]
+™]›Ó›İJNØ›ÙKO˜YÚYÙ]
+Ø\™
+™]›ÊJNÂ‚ˆ]]ÊˆÙ\ÜÚ[Û[™]ÈU›Ş^[İ]ÈÙ\ÜÚ[Û‹OœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NØ]]ÊˆÙ\ÜÚ[Û’XY\[™]ÈR›Ş^[İ]ÜÙ\ÜÚ[Û’XY\‹O˜YÚYÙ]
+^
+”“ÓÓHU	ˆUQQSÑH‹™^YXœ›İÈŠJNÜİ˜[™ÙT™\Ù[˜ÙWÏ]^
+“Ñ‘“S‘HŠNÜİ˜[™ÙT™\Ù[˜ÙWËOœÙ]›Ü\J˜Ú\‹YJNÜÙ\ÜÚ[Û’XY\‹O˜Yİ™]Ú
+
+NÜÙ\ÜÚ[Û’XY\‹O˜YÚYÙ]
+İ˜[™ÙT™\Ù[˜ÙWÊNÜÙ\ÜÚ[Û‹O˜Y^[İ]
+Ù\ÜÚ[Û’XY\ŠNØ]]ÊˆšY[Ï[™]ÈR›Ş^[İ]Èİ˜[™ÙT›ÛÛWÏ[™]ÈS[™QY]
+›XZ[›™]ÙœšY[™ÈŠNÈİ˜[™ÙT›ÛÛWËOœÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]›ÛÛH]ŠNÜİ˜[™ÙT›ÛÛWËOœÙ]XÙZÛ\•^
+ÛÛ[][š]KØÚ[›™[0­ÈXZ[›™]ÙœšY[™ÈŠNÈİ˜[™ÙT›ÛÛWËOœÙ]X^[™İ
+
+NÈİ˜[™ÙP]YY[˜ÙWÏ[™]ÈPÛÛX›Ğ›ŞÜİ˜[™ÙP]YY[˜ÙWËOœÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]]YY[˜ÙHŠNÜİ˜[™ÙP]YY[˜ÙWËO˜Y][J”›ÛÛH0­È]][XØ]YY\ˆQÈÛ›H‹˜]]ÈŠNÈšY[ËO˜YÚYÙ]
+İ˜[™ÙT›ÛÛWËJNÙšY[ËO˜YÚYÙ]
+İ˜[™ÙP]YY[˜ÙWËŠNÈÙ\ÜÚ[Û‹O˜Y^[İ]
+šY[ÊNÈ]]ÊˆXİ[ÛœÏ[™]ÈR›Ş^[İ]Èİ˜[™ÙR›Ú[—Ï[™]ÈT\Ú]ÛŠ‘[\ˆ›ÛÛHŠNÜİ˜[™ÙR›Ú[—ËOœÙ]XØÙ\ÜÚX›S˜[YJ‘[\ˆÜˆX]™Hİ˜[™ÙS™]›ÛÛHŠNÈXİ[ÛœËO˜YÚYÙ]
+İ˜[™ÙR›Ú[—ÊNØXİ[ÛœËO˜Yİ™]Ú
+
+NØ]]Êˆš]˜XŞO]^
+”Y\ˆQÈ\™Hš\ÚX›Kˆ\XÚ\[TY™\ÜÙ\È\™H™]™\ˆÚİÛ‹ˆŠNÜš]˜XŞKOœÙ]›Ü\J›]]Y‹YJNØXİ[ÛœËO˜YÚYÙ]
+š]˜XŞJNÜÙ\ÜÚ[Û‹O˜Y^[İ]
+Xİ[ÛœÊNÈ›ÙKO˜YÚYÙ]
+Ø\™
+Ù\ÜÚ[ÛŠJNÂˆİ˜[™ÙSØ˜WËOœ›ÛÛTÙ[XİYVİ\×JÛÛœİTİš[™Éˆ›ÛÛJ^ÚYŠİ˜[™ÙPXİ]™WÊ^Ø\[™İ˜[™ÙTŞ\İ[J“X]™HHİ\œ™[›ÛÛH™Y›Ü™H[İš[™ÈÈ[›İ\ˆØ˜HÜXÙKˆŠNÜİ˜[™ÙSØ˜WËOœÙ]›ÛÛJİ˜[™ÙT›ÛÛWËO^
+
+Kš[[YY
+
+JNÜ™]\›ß\İ˜[™ÙT›ÛÛWËOœÙ]^
+›ÛÛJNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ”İ˜[™ÙS™]›ÛÛHÙ[XİY0­ÈŠÜ›ÛÛKL
+NßNØÛÛ›™Xİ
+İ˜[™ÙT›ÛÛWË	”S[™QY]^Ú[™ÙY\Ëİ\×JÛÛœİTİš[™Éˆ›ÛÛJ^ÚYŠİ˜[™ÙSØ˜WÊ\İ˜[™ÙSØ˜WËOœÙ]›ÛÛJ›ÛÛKš[[YY
+
+JNßJNÂ‚ˆ]]ÊˆÛÛ™\œØ][Û’XY\[™]ÈR›Ş^[İ]ØÛÛ™\œØ][Û’XY\‹O˜YÚYÙ]
+^
+•HÓÓ•‘T”ĞUSÓˆ‹™^YXœ›İÈŠJNØÛÛ™\œØ][Û’XY\‹O˜Yİ™]Ú
+
+NØ]]ÊˆÛÜPÚ][™]ÈT\Ú]ÛŠÛÜHš\ÚX›H^ŠNØÛÜPÚ]OœÙ]›Ü\Jœ]ZY]‹YJNØ]]ÊˆÛX\Ú][™]ÈT\Ú]ÛŠÛX\ˆšY]ÈŠNØÛX\Ú]OœÙ]›Ü\Jœ]ZY]‹YJNØÛÛ™\œØ][Û’XY\‹O˜YÚYÙ]
+ÛÜPÚ]
+NØÛÛ™\œØ][Û’XY\‹O˜YÚYÙ]
+ÛX\Ú]
+NØ›ÙKO˜Y^[İ]
+ÛÛ™\œØ][Û’XY\ŠNÂˆİ˜[™ÙU˜[œØÜš\Ï[™]ÈU^œ›İÜÙ\Üİ˜[™ÙU˜[œØÜš\ËOœÙ]Øš™Xİ˜[YJœİ˜[™ÙU˜[œØÜš\ŠNÜİ˜[™ÙU˜[œØÜš\ËOœÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]ÛÛ™\œØ][ÛˆŠNÜİ˜[™ÙU˜[œØÜš\ËOœÙ]Ü[‘^\›˜[[šÜÊ˜[ÙJNÜİ˜[™ÙU˜[œØÜš\ËOœÙ]Ü[“[šÜÊ˜[ÙJNÜİ˜[™ÙU˜[œØÜš\ËO™Øİ[Y[
+
+KOœÙ]X^[][P›ØÚĞÛİ[
+L
+NÜİ˜[™ÙU˜[œØÜš\ËOœÙ]Z[š[][RZYÚ
+ÌÌ
+NÜİ˜[™ÙU˜[œØÜš\ËOœÙ]XÙZÛ\•^
+•H›ÛÛH\È]ZY]ˆ[İ\ˆÛÜ™ÈÚ[\X\ˆ\™HY\ˆ[İH›Ú[‹ˆŠNØ›ÙKO˜YÚYÙ]
+İ˜[™ÙU˜[œØÜš\ÊNÂ‚ˆ]]ÊˆÜš][™Ğ˜\[™]ÈR›Ş^[İ]İÜš][™Ğ˜\‹O˜YÚYÙ]
+^
+•Ô’US‘ÈSÑH‹™^YXœ›İÈŠJNÜİ˜[™ÙUÜš][™Ó[ÙWÏ[™]ÈPÛÛX›Ğ›ŞÜİ˜[™ÙUÜš][™Ó[ÙWËO˜Y][JÛÛ™\œØ][Ûˆ0­È[\ˆÙ[™È‹˜[ÙJNÜİ˜[™ÙUÜš][™Ó[ÙWËO˜Y][J”Ù[H0­È[\ˆXZÙ\ÈH™]È[™H‹YJNÜİ˜[™ÙUÜš][™Ó[ÙWËOœÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]Üš][™È[ÙHŠNİÜš][™Ğ˜\‹O˜YÚYÙ]
+İ˜[™ÙUÜš][™Ó[ÙWÊNİÜš][™Ğ˜\‹O˜Yİ™]Ú
+
+NØ›ÙKO˜Y^[İ]
+Üš][™Ğ˜\ŠNÂˆİ˜[™ÙSY\ÜØYÙWÏ[™]ÈÚ]ÛÛ\ÜÙ\Üİ˜[™ÙSY\ÜØYÙWËOœÙ]Øš™Xİ˜[YJœİ˜[™ÙPÛÛ\ÜÙ\ˆŠNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]XØÙ\ÜÚX›S˜[YJ”İ˜[™ÙS™]Y\ÜØYÙHÛÛ\ÜÙ\ˆŠNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]XÙZÛ\•^
+•Üš]HHY\ÜØYÙx )ˆ[\ˆÈÙ[™0­ÈÚY
+Ñ[\ˆ›ÜˆH™]È[™HŠNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]š^YZYÚ
+L
+NØ›ÙKO˜YÚYÙ]
+İ˜[™ÙSY\ÜØYÙWÊNÂˆ]]ÊˆÛÛ\ÜÙ\[™]ÈR›Ş^[İ]Ø]]Êˆ[[ÚšO[™]ÈT\Ú]ÛŠ‘[[ÚšHŠNÙ[[ÚšKOœÙ]›Ü\Jœ]ZY]‹YJNØ]]Êˆ[[ÚšSY[O[™]ÈSY[J[[ÚšJNÙ›ÜŠÛÛœİTİš[™Éˆ˜[YN”Tİš[™Ó\İÈ¼'æ ‹¼'æ ˆ‹¼'æ#H‹¼'é%‹¼'æ+ˆ‹¼'æ(ˆ‹¼'äcH‹¼'äcÈ‹¼'ã¢H‹¼'å)H‹¸§i;î#È‹¼'æ ‹¼'å$‹¼'æè{î#È‹¼'ã&H‹¸§*ŸJ^Ø]]ÊˆXİ[ÛY[[ÚšSY[KO˜YXİ[ÛŠ˜[YJNØÛÛ›™Xİ
+Xİ[Û‹	”PXİ[ÛšYÙÙ\™Y\Ëİ\Ë˜[YW^Üİ˜[™ÙSY\ÜØYÙWËOš[œÙ\Z[•^
+˜[YJNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NßJNßY[[ÚšKOœÙ]Y[J[[ÚšSY[JNÜİ˜[™ÙT™\WÏ[™]ÈT\Ú]ÛŠ”™\HÈ]\İŠNÜİ˜[™ÙT™\WËOœÙ]›Ü\Jœ]ZY]‹YJNÜİ˜[™ÙT™\WËOœÙ][˜X›Y
+˜[ÙJNÜİ˜[™ÙU›ÚXÙWÏ[™]ÈT\Ú]ÛŠ’ÛÈ[ÈŠNÜİ˜[™ÙU›ÚXÙWËOœÙ]›Ü\Jœ]ZY]‹YJNÜİ˜[™ÙU›ÚXÙWËOœÙ][˜X›Y
+˜[ÙJNÜİ˜[™ÙT™XXİ[Û—Ï[™]ÈT\Ú]ÛŠ”™XXİÈ]\İŠNÜİ˜[™ÙT™XXİ[Û—ËOœÙ]›Ü\Jœ]ZY]‹YJNÜİ˜[™ÙT™XXİ[Û—ËOœÙ][˜X›Y
+˜[ÙJNØ]]Êˆ™XXİ[Û“Y[O[™]ÈSY[Jİ˜[™ÙT™XXİ[Û—ÊNÙ›ÜŠÛÛœİTİš[™Éˆ˜[YN”Tİš[™Ó\İÈ¼'äcH‹¸§i;î#È‹¼'æ ˆ‹¼'æ+ˆ‹¼'ã¢H‹¼'å)HŸJ^Ø]]ÊˆXİ[Û\™XXİ[Û“Y[KO˜YXİ[ÛŠ˜[YJNØÛÛ›™Xİ
+Xİ[Û‹	”PXİ[ÛšYÙÙ\™Y\Ëİ\Ë˜[YW^ÜÙ[™İ˜[™ÙT™XXİ[ÛŠ˜[YJNßJNß\İ˜[™ÙT™XXİ[Û—ËOœÙ]Y[J™XXİ[Û“Y[JNÜİ˜[™ÙTÙ[™Ï[™]ÈT\Ú]ÛŠ”Ù[™ÙXİ\™[HŠNÜİ˜[™ÙTÙ[™ËOœÙ][˜X›Y
+˜[ÙJNØÛÛ\ÜÙ\‹O˜YÚYÙ]
+[[ÚšJNØÛÛ\ÜÙ\‹O˜YÚYÙ]
+İ˜[™ÙT™\WÊNØÛÛ\ÜÙ\‹O˜YÚYÙ]
+İ˜[™ÙU›ÚXÙWÊNØÛÛ\ÜÙ\‹O˜YÚYÙ]
+İ˜[™ÙT™XXİ[Û—ÊNØÛÛ\ÜÙ\‹O˜Yİ™]Ú
+
+NØÛÛ\ÜÙ\‹O˜YÚYÙ]
+İ˜[™ÙTÙ[™ÊNØ›ÙKO˜Y^[İ]
+ÛÛ\ÜÙ\ŠNÂˆ]]ÊˆÛÛ\ÜÙ\”İ]\Ï[™]ÈR›Ş^[İ]Üİ˜[™ÙPÛÛ\ÜÙ\’[Ï]^
+‘[\ˆÙ[™È0­ÈÚY
+Ñ[\ˆÜš]\ÈH™]È[™HŠNÜİ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]›Ü\J›]]Y‹YJNØÛÛ\ÜÙ\”İ]\ËO˜YÚYÙ]
+İ˜[™ÙPÛÛ\ÜÙ\’[ËJNÜİ˜[™ÙQ›ÛÙİ]\×Ï]^
+[Y›ÛÙ™XYH‹™^YXœ›İÈŠNÜİ˜[™ÙQ›ÛÙİ]\×ËOœÙ]›Ü\J›]]Y‹YJNØÛÛ\ÜÙ\”İ]\ËO˜YÚYÙ]
+İ˜[™ÙQ›ÛÙİ]\×ÊNÜİ˜[™ÙP]\×Ï]^
+ŒÈŒ]\ÈŠNÜİ˜[™ÙP]\×ËOœÙ]›Ü\J›]]Y‹YJNØÛÛ\ÜÙ\”İ]\ËO˜YÚYÙ]
+İ˜[™ÙP]\×Ë][YÛ”šYÚ
+NØ›ÙKO˜Y^[İ]
+ÛÛ\ÜÙ\”İ]\ÊNÂ‚ˆ]]ÊˆY\œÏ[™]ÈU›Ş^[İ]ÜY\œËOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NØ]]ÊˆY\’XY\[™]ÈR›Ş^[İ]ÜY\’XY\‹O˜YÚYÙ]
+^
+UUS•PĞUQQTˆQÈ‹™^YXœ›İÈŠJNÜY\Ûİ[Ï]^
+Œ]][XØ]Y‹œÙXİ[Û•]HŠNÜY\’XY\‹O˜Yİ™]Ú
+
+NÜY\’XY\‹O˜YÚYÙ]
+Y\Ûİ[ÊNÜY\œËO˜Y^[İ]
+Y\’XY\ŠNØ]]ÊˆY\“›İO]^
+ÚÛÜÙHH\™XİL‘H™XÚ\Y[œ›ÛH]YY[˜ÙH›ÜˆHÛ™K]Ë[Û™H^ÛÛ™\œØ][Û‹ˆÙ[Xİ]X\İÛÈQÈ™[İÈÛ›HÈ[ˆHÜ›İ\Ùˆ™YHÜˆ[Ü™H[˜ÛY[™È[İKˆ™]ÛÜšÈY™\ÜÙ\È\™H™]™\ˆ\Ü^YYÈY[]H\ÈH]][XØ]YY\ˆQˆŠNÜY\“›İKOœÙ]›Ü\J›]]Y‹YJNÜY\œËO˜YÚYÙ]
+Y\“›İJNÜY\‘\™XİÜWÏ[™]ÈS\İÚYÙ]ÜY\‘\™XİÜWËOœÙ]XØÙ\ÜÚX›S˜[YJ]][XØ]Yİ˜[™ÙS™]Y\ˆQÈŠNÜY\‘\™XİÜWËOœÙ]Ù[Xİ[Û“[ÙJPXœİ˜Xİ][UšY]Î‘^[™YÙ[Xİ[ÛŠNÜY\‘\™XİÜWËOœÙ]X^[][RZYÚ
+ML
+NÜY\œËO˜YÚYÙ]
+Y\‘\™XİÜWÊNØ›ÙKO˜YÚYÙ]
+Ø\™
+Y\œÊJNÂ‚ˆ]]Êˆ›ÛÙ[™]ÈU›Ş^[İ]Ü›ÛÙ‹OœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NØ]]Êˆ›ÛÙ’XY\[™]ÈR›Ş^[İ]Ü›ÛÙ’XY\‹O˜YÚYÙ]
+^
+“ÔSÓSÑTÔÒSÓˆSÒÔˆ‹™^YXœ›İÈŠJNÜİ˜[™ÙT›ÛÙ‘[˜X›YÏ[™]ÈPÚXÚĞ›Ş
+Z[Hš]˜]H›ÛÙˆÚZ[ˆ[ˆY[[ÜHŠNÜ›ÛÙ’XY\‹O˜Yİ™]Ú
+
+NÜ›ÛÙ’XY\‹O˜YÚYÙ]
+İ˜[™ÙT›ÛÙ‘[˜X›YÊNÜ›ÛÙ‹O˜Y^[İ]
+›ÛÙ’XY\ŠNÜİ˜[™ÙT›ÛÙ”İ]\×Ï]^
+“Ù™ˆ0­È›Èİ˜[™ÙS™]ÛÛ[\È™XÛÜ™YˆŠNÜİ˜[™ÙT›ÛÙ”İ]\×ËOœÙ]›Ü\J›]]Y‹YJNÜ›ÛÙ‹O˜YÚYÙ]
+İ˜[™ÙT›ÛÙ”İ]\×ÊNØ]]Êˆ›ÛÙXİ[ÛœÏ[™]ÈR›Ş^[İ]Üİ˜[™ÙT›ÛÙÛÜWÏ[™]ÈT\Ú]ÛŠÛÜHÚZ[ˆ[˜ÚÜˆŠNÜİ˜[™ÙT›ÛÙÛÜWËOœÙ]›Ü\Jœ]ZY]‹YJNÜİ˜[™ÙT›ÛÙÛÜWËOœÙ][˜X›Y
+˜[ÙJNÜ›ÛÙXİ[ÛœËO˜Yİ™]Ú
+
+NÜ›ÛÙXİ[ÛœËO˜YÚYÙ]
+İ˜[™ÙT›ÛÙÛÜWÊNÜ›ÛÙ‹O˜Y^[İ]
+›ÛÙXİ[ÛœÊNØ]]Êˆ›ÛÙ“›İO]^
+“Ü[ˆÈZ[HØ[YÒKLMˆÛÛ[Z]HÚZ[ˆ[ˆY[[ÜKˆU”ˆÙ\È›İX›\ÚH˜[œØXİ[ÛˆÜˆ\œÚ\İY\ÜØYÙ\ËY[]Y\Ë›ÛÛ\ËÜˆHš]˜]HØ[ˆŠNÜ›ÛÙ“›İKOœÙ]›Ü\J›]]Y‹YJNÜ›ÛÙ‹O˜YÚYÙ]
+›ÛÙ“›İJNØ›ÙKO˜YÚYÙ]
+Ø\™
+›ÛÙŠJNÂˆÛÛ›™Xİ
+İ˜[™ÙT›ÛÙ‘[˜X›YË	”PÚXÚĞ›ŞÙÙÛY\Ëİ\×J›ÛÛ[˜X›Y
+^Üİ˜[™ÙT›ÛÙÚZ[—Ëœ™\Ù]
+
+NÜİ˜[™ÙT›ÛÙÛÜWËOœÙ][˜X›Y
+˜[ÙJNÜİ˜[™ÙT›ÛÙ”İ]\×ËOœÙ]^
+[˜X›YÈ”™XYH0­ÈH[‹[Y[[ÜHÚZ[ˆİ\ÈÚ]H™^İ˜[™ÙS™]]™[ˆˆ“Ù™ˆ0­È›Èİ˜[™ÙS™]ÛÛ[\È™XÛÜ™YˆŠNßJNØÛÛ›™Xİ
+İ˜[™ÙT›ÛÙÛÜWË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ØÛÛœİ]]È[˜ÚÜ\İ˜[™ÙT›ÛÙÚZ[—Ë˜[˜ÚÜŠ
+NÚYŠ[˜ÚÜ‹š\Ñ[\J
+J\™]\›ÔP\XØ][Û˜Û\›Ø\™
+
+KOœÙ]^
+Tİš[™Î™œ›ÛU]
+RœÛÛ‘Øİ[Y[
+[˜ÚÜŠKÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+JJNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ”İ˜[™ÙS™]ÚZ[ˆ[˜ÚÜˆÛÜYY‹Ì
+NßJNÂˆÛÛ›™Xİ
+ÛÜPÚ]	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÔP\XØ][Û˜Û\›Ø\™
+
+KOœÙ]^
+İ˜[™ÙU˜[œØÜš\ËOÔZ[•^
+
+JNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ•š\ÚX›Hİ˜[™ÙS™]^ÛÜYY‹L
+NßJNØÛÛ›™Xİ
+ÛX\Ú]	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^Üİ˜[™ÙU˜[œØÜš\ËO˜ÛX\Š
+NØ\[™İ˜[™ÙTŞ\İ[J•šY]ÈÛX\™YØØ[H0­ÈH›ÛÛH[™™]ÛÜšÈÙ\ÜÚ[ÛˆÙ\™H›İÚ[™ÙYˆŠNßJNÂˆÛÛ›™Xİ
+İ˜[™ÙUÜš][™Ó[ÙWËSİ™\›ØY[Š	”PÛÛX›Ğ›Ş˜İ\œ™[[™^Ú[™ÙY
+K\Ëİ\×J[
+^ØÛÛœİ›ÛÛÙ[O\İ˜[™ÙUÜš][™Ó[ÙWËO˜İ\œ™[]J
+KĞ›ÛÛ
+
+NÜİ˜[™ÙSY\ÜØYÙWËOœÙ]Ù[S[ÙJÙ[JNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]XÙZÛ\•^
+Ù[OÈ•Üš]HÚ]İ]›][š[™ÈH[™\ø )ˆİ›
+Ñ[\ˆÈÙ[™ˆ•Üš]HHY\ÜØYÙx )ˆ[\ˆÈÙ[™0­ÈÚY
+Ñ[\ˆ›ÜˆH™]È[™HŠNÜİ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+Ù[OÈ”Ù[H[ÙH0­È[\ˆÜš]\ÈH™]È[™H0­Èİ›
+Ñ[\ˆÙ[™Èˆ‘[\ˆÙ[™È0­ÈÚY
+Ñ[\ˆÜš]\ÈH™]È[™HŠNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NßJNÂˆÛÛ›™Xİ
+İ˜[™ÙP]YY[˜ÙWËSİ™\›ØY[Š	”PÛÛX›Ğ›Ş˜İ\œ™[[™^Ú[™ÙY
+K\Ëİ\×J[
+^ØÛÛœİTİš[™ÈY\\Ù[XİY\™XİY\Š
+NÜİ˜[™ÙTÙ[™ËOœÙ]^
+Y\‹š\Ñ[\J
+OÈ”Ù[™ÙXİ\™[Hˆ”Ù[™\™XİL‘HŠNÚYŠ\Y\‹š\Ñ[\J
+J\İ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+Tİš[™Ê‘\™Xİ^ÈY\ˆ	Lx )ˆ0­È›È\XÚ\[T\È^ÜÙYŠK˜\™ÊY\‹›Y
+LŠJJNÙ[ÙHYŠ\İ˜[™ÙUÜš][™Ó[ÙWËO˜İ\œ™[]J
+KĞ›ÛÛ
+
+J\İ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+‘[\ˆÙ[™È0­ÈÚY
+Ñ[\ˆÜš]\ÈH™]È[™HŠNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NßJNÂˆÛÛ›™Xİ
+İ˜[™ÙR›Ú[—Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎÙÙÛTİ˜[™ÙS™]
+NØÛÛ›™Xİ
+İ˜[™ÙTÙ[™Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎœÙ[™İ˜[™ÙSY\ÜØYÙJNØÛÛ›™Xİ
+İ˜[™ÙU›ÚXÙWË	”T\Ú]Ûœ™\ÜÙY\Ë	•Ú[™İÎœİ\İ˜[™ÙU›ÚXÙJNØÛÛ›™Xİ
+İ˜[™ÙU›ÚXÙWË	”T\Ú]Ûœ™[X\ÙY\Ë	•Ú[™İÎœİÜİ˜[™ÙU›ÚXÙJNØÛÛ›™Xİ
+İ˜[™ÙT™\WË	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÚYŠ[™[™Ô™\U×Ê^Ü[™[™Ô™\U×ÏLÜİ˜[™ÙT™\WËOœÙ]^
+”™\HÈ]\İŠNÜİ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+‘[\ˆÙ[™È0­ÈÚY
+Ñ[\ˆÜš]\ÈH™]È[™HŠNßY[ÙHYŠ\İİ˜[™ÙTÙ\]Y[˜ÙWÊ^Ü[™[™Ô™\U×Ï[\İİ˜[™ÙTÙ\]Y[˜ÙWÎÜİ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+Tİš[™Ê”™\Z[™ÈÈY\ˆ	Lx )ˆ0­ÈY\ÜØYÙH	Lˆ0­ÈÛXÚÈYØZ[ˆÈØ[˜Ù[ŠK˜\™Ê\İİ˜[™ÙTÙ[™\—Ë›Y
+LŠJK˜\™Ê\İİ˜[™ÙTÙ\]Y[˜ÙWÊJNÜİ˜[™ÙT™\WËOœÙ]^
+Ø[˜Ù[™\HŠNß\İ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NßJNÜİ˜[™ÙSY\ÜØYÙWËOœİX›Z]Vİ\×^ÜÙ[™İ˜[™ÙSY\ÜØYÙJ
+NßNØÛÛ›™Xİ
+İ˜[™ÙSY\ÜØYÙWË	”TZ[•^Y]^Ú[™ÙY\Ëİ\×^ÔTİš[™È˜[YO\İ˜[™ÙSY\ÜØYÙWËOÔZ[•^
+
+NİÚ[J˜[YKÕ]
+
+KœÚ^™J
+OŒŒ
+^ÚYŠ˜[YKœÚ^™J
+OL‰‰˜[YK˜˜XÚÊ
+Kš\ÓİÔİ\œ›ÙØ]J
+I‰˜[YK˜]
+˜[YKœÚ^™J
+KLŠKš\ÒYÚİ\œ›ÙØ]J
+J]˜[YK˜ÚÜ
+ŠNÙ[ÙH˜[YK˜ÚÜ
+JNßZYŠ]˜[YKš\Ñ[\J
+I‰˜[YK˜˜XÚÊ
+Kš\ÒYÚİ\œ›ÙØ]J
+J]˜[YK˜ÚÜ
+JNÚYŠ˜[YHO\İ˜[™ÙSY\ÜØYÙWËOÔZ[•^
+
+J^ÔTÚYÛ˜[›ØÚÙ\ˆİX\™
+İ˜[™ÙSY\ÜØYÙWÊNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]Z[•^
+˜[YJNÜİ˜[™ÙSY\ÜØYÙWËO›[İ™Pİ\œÛÜŠU^İ\œÛÜ‘[™
+NßXÛÛœİ]]È]\Ï]˜[YKÕ]
+
+KœÚ^™J
+NÜİ˜[™ÙP]\×ËOœÙ]^
+Tİš[™Ê‰LHÈŒ]\ÈŠK˜\™Ê]\ÊJNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NßJNÂˆ\[™İ˜[™ÙTŞ\İ[J•Ù[ÛÛYHÈİ˜[™ÙS™]0­È›Ú[ˆH›ÛÛHÚ[ˆ[ˆ]][XØ]YY\ˆ\È]˜Z[X›Kˆ›İ[™È\™H\ÈÜš][ˆÈÚ]\İÜHÛˆ\ÚËˆŠNÂˆ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[ÚY[
+
+HÂˆU›Ş^[İ]
+ˆ›ÙNØ]]ÊˆYÙO\YÙTÚ[
+”ÚY[‹”KZÛH›Ùš[\ËYÙÜ™YØ]H›ØÚÚ[™È]šY[˜ÙH[™›İ[™YSˆÜYY\İËˆ‹	˜›ÙJNÂˆ]]Êˆ\›Ï[™]ÈU›Ş^[İ]Ú\›ËOœÙ]ÛÛ[ÓX\™Ú[œÊŒKŒJNÚ\›ËO˜YÚYÙ]
+^
+‘”ÈÒQS0­È’UPÖKT‘TÑT•’S‘È‹™^YXœ›İÈŠJNÚ\›ËO˜YÚYÙ]
+^
+›ØÚÈ\›KˆÙY\[ÜHİ]ÙˆHÙËˆ‹š\›Õ]HŠJNØ]]Êˆ\ØÛÜİ\™O]^
+‘”Èš[\š[™È™YXÙ\È^Üİ\™NÈ]Ø[››İ[œÜXİ[˜Ü\YYÙHÛÛ[ÜˆİX\˜[YHÚ[ØY™]KˆU”ˆ™XYÈYÙÜ™YØ]HÛİ[\œÈÛ›H[™™]™\ˆ[\ÜÈKZÛH]Y\H\İÜHÜˆÛY[TY™\ÜÙ\ËˆŠNÙ\ØÛÜİ\™KOœÙ]›Ü\J›]]Y‹YJNÚ\›ËO˜YÚYÙ]
+\ØÛÜİ\™JNØ›ÙKO˜YÚYÙ]
+Ø\™
+\›ËYJJNÂˆ]]ÊˆÛİ[\œÏ[™]ÈR›Ş^[İ]ÜÚY[Ù\ÜÚ[Û—Ï[Y]šXÊ¼'æèHÑTÔÒSÓˆ‹Œ‹Ûİ[\œÊNÜÚY[Ù^WÏ[Y]šXÊ¼'æèH“ĞÒÑQÑVH‹•[˜]˜Z[X›H‹Ûİ[\œÊNÜÚY[İ[Ï[Y]šXÊ‘’ST‘QÓPRS”È‹•[˜]˜Z[X›H‹Ûİ[\œÊNØ›ÙKO˜Y^[İ]
+Ûİ[\œÊNÂˆ]]Êˆ›Ùš[O[™]ÈU›Ş^[İ]Ü›Ùš[KOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÜ›Ùš[KO˜YÚYÙ]
+^
+“Ó‘KPÓPÒÈKRÓHÒQS‹™^YXœ›İÈŠJNÜÚY[›Ùš[WÏ[™]ÈPÛÛX›Ğ›ŞØÛÛœİ]]ÈYÚY[Vİ\×JÛÛœİTİš[™Éˆ˜[YKÛÛœİTİš[™ÉˆYÛÛœİTİš[™Éˆ]Z[ÛÛœİTİš[™Ó\İ	ˆÛİ\˜Ù\Ê^ØÛÛœİ[›İÏ\ÚY[›Ùš[WËO˜Ûİ[
+
+NÜÚY[›Ùš[WËO˜Y][J˜[YKÛİ\˜Ù\ÊNÜÚY[›Ùš[WËOœÙ]][Q]J›İËY]•\Ù\”›ÛJÌJNÜÚY[›Ùš[WËOœÙ]][Q]J›İË]Z[]•\Ù\”›ÛJÌŠNßNØYÚY[
+˜[[˜ÙYš]˜XŞH0­È™XÛÛ[Y[™Y‹œš]˜XŞH‹“ÒTÑšYÈ0­Èœ›ØYš]˜XŞHÛİ™\˜YÙH0­ÈİË]Ë[[Ù\˜]HÚ]KXœ™XZØYÙHš\ÚÈ‹Tİš[™Ó\İÈšÎ‹ËØšYË›Ú\Ù››ÈŸJNØYÚY[
+•™X]Y™[˜ÙH‹œÙXİ\š]H‹“ÒTÑšYÈ
+ÈQÙVšHQˆ0­ÈX[Ø\™K\Ú[™È[™ÛÛ[X[™X[™XÛÛ›Û0­ÈİË]Ë[[Ù\˜]Hš\ÚÈ‹Tİš[™Ó\İÈšÎ‹ËØšYË›Ú\Ù››È‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËİY‹ŸJNØYÚY[
+‘˜[Z[H›İ[™\šY\È‹™˜[Z[H‹•™X]Y™[˜ÙH
+ÈY[[™Ø[X›[™ÈØ]YÛÜšY\È0­È[[[Û˜[ÛÛ[™\İšXİ[ÛœÈ0­È™]šY]ÈÚ]İ\ÙZÛY[X™\œÈ‹Tİš[™Ó\İÈšÎ‹ËØšYË›Ú\Ù››È‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËİY‹‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËÛœÙË‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËÙØ[X›[™ËŸJNØYÚY[
+“X^[][H0­È^\‹›X^[][H‹’QÙVšH›È
+ÈQˆ
+È˜[Z[HØ]YÛÜšY\È0­Èİ›Û™Ù\İ™\Ù]0­ÈYÚ\ˆ˜[ÙK\ÜÚ]]™H[™œ™XZØYÙHš\ÚÈ‹Tİš[™Ó\İÈšÎ‹ËØšYË›Ú\Ù››È‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËÜ›Ë‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËİY‹‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËÛœÙË‹šÎ‹ËØÙ‹šœÙ[]œ‹›™]ÙÚÚYÙ^šKÙœËX›ØÚÛ\İĞ]\İÙÛXZ[œËÙØ[X›[™ËŸJNÜ›Ùš[KO˜YÚYÙ]
+ÚY[›Ùš[WÊNÜÚY[›Ùš[Q]Z[Ï]^
+ÚY[›Ùš[WËOš][Q]J]•\Ù\”›ÛJÌŠKÔİš[™Ê
+JNÜÚY[›Ùš[Q]Z[ËOœÙ]›Ü\J›]]Y‹YJNÜ›Ùš[KO˜YÚYÙ]
+ÚY[›Ùš[Q]Z[ÊNÜ›Ùš[KO˜YÚYÙ]
+^
+ÕTÕÓHS–H‘QÑV0­ÈÜ[Û˜[0­ÈÛ™HKZÛHT‘H\ˆ[™H‹™^YXœ›İÈŠJNÜÚY[™YÙ^Ï[™]ÈTZ[•^Y]ÜÚY[™YÙ^ËOœÙ]X^[][RZYÚ
+LL
+NÜÚY[™YÙ^ËOœÙ]XÙZÛ\•^
+ŠŸŠY^[\Wš[˜[Y	ŠNÜ›Ùš[KO˜YÚYÙ]
+ÚY[™YÙ^ÊNØ]]ÊˆXİ[ÛœÏ[™]ÈR›Ş^[İ]ÜÚY[\WÏ[™]ÈT\Ú]ÛŠ\HÚY[[ˆÛ™HÛXÚÈŠNÜÚY[™Yœ™\ÚÏ[™]ÈT\Ú]ÛŠ”™Yœ™\ÚÚY[Ûİ[\œÈŠNÜÚY[™Yœ™\ÚËOœÙ]›Ü\Jœ]ZY]‹YJNØXİ[ÛœËO˜YÚYÙ]
+ÚY[\WÊNØXİ[ÛœËO˜YÚYÙ]
+ÚY[™Yœ™\ÚÊNØXİ[ÛœËO˜Yİ™]Ú
+
+NÜ›Ùš[KO˜Y^[İ]
+Xİ[ÛœÊNÜÚY[İ]\×Ï]^
+”™XYKˆH[^XÚØYÙH\Ù\ÈÛ™H˜\œ›İÛHØÛÜYYZ[š\İ˜]ÜˆXİ[ÛÈKZÛH]\İ[™XYH™H[œİ[YˆŠNÜÚY[İ]\×ËOœÙ]›Ü\J›]]Y‹YJNÜ›Ùš[KO˜YÚYÙ]
+ÚY[İ]\×ÊNØ›ÙKO˜YÚYÙ]
+Ø\™
+›Ùš[JJNÂˆ]]ÊˆÜYY[™]ÈU›Ş^[İ]ÜÜYYOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+NÜÜYYO˜YÚYÙ]
+^
+“ÕS‘QSˆÈ”ˆÔQQTÕ‹™^YXœ›İÈŠJNØ]]ÊˆÜYYšY[Ï[™]ÈR›Ş^[İ]ÜÜYY\™Ù]Ï[™]ÈS[™QY]ÜÜYY\™Ù]ËOœÙ]XÙZÛ\•^
+‘^XÚ]\\™ŒÈÙ\™\ˆÜİ˜[YHÜˆSˆY™\ÜÈŠNÜÜYYÜÏ[™]ÈTÜ[›ŞÜÜYYÜËOœÙ]˜[™ÙJKMLÍJNÜÜYYÜËOœÙ]˜[YJLŒJNÜÜYY[—Ï[™]ÈT\Ú]ÛŠ”[ˆK\ÙXÛÛ™\İŠNÜÜYYšY[ËO˜YÚYÙ]
+ÜYY\™Ù]ËJNÜÜYYšY[ËO˜YÚYÙ]
+ÜYYÜÊNÜÜYYšY[ËO˜YÚYÙ]
+ÜYY[—ÊNÜÜYYO˜Y^[İ]
+ÜYYšY[ÊNÜÜYY™\İ[Ï]^
+“›È\İ[‹ˆU”ˆ™]™\ˆØØ[œÈ[İ\ˆİX›™]È]ÛÛXİÈÛ›HH\™Ù][İH[\‹ˆŠNÜÜYY™\İ[ËOœÙ]›Ü\J›]]Y‹YJNÜÜYYO˜YÚYÙ]
+ÜYY™\İ[ÊNØ]]ÊˆÜYYØ\™XØ\™
+ÜYY
+NØ›ÙKO˜YÚYÙ]
+ÜYYØ\™
+NÙÙYZÕÚYÙ]×Ë˜\[™
+ÜYYØ\™
+NØ›ÙKO˜Yİ™]Ú
+
+NÂˆÛÛ›™Xİ
+ÚY[›Ùš[WËSİ™\›ØY[Š	”PÛÛX›Ğ›Ş˜İ\œ™[[™^Ú[™ÙY
+K\Ëİ\×J[›İÊ^ÜÚY[›Ùš[Q]Z[ËOœÙ]^
+ÚY[›Ùš[WËOš][Q]J›İË]•\Ù\”›ÛJÌŠKÔİš[™Ê
+JNßJNØÛÛ›™Xİ
+ÚY[\WË	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎ˜\TÚY[›Ùš[JNØÛÛ›™Xİ
+ÚY[™Yœ™\ÚË	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎœ™Yœ™\ÚÚY[Ûİ[\œÊNØÛÛ›™Xİ
+ÜYY[—Ë	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎœ[”ÚY[ÜYY\İ
+NÂˆÛÛ›™Xİ
+	œÚY[›ØÙ\Ü×ËSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ë	•Ú[™İÎœÚY[ÛÛ[X[™š[š\ÚY
+NØÛÛ›™Xİ
+	œÜYY›ØÙ\Ü×ËSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ë	•Ú[™İÎœÜYY\İš[š\ÚY
+NÂˆ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[Xİ]š]J
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+Xİ]š]H‹•\ÈÙ\ÜÚ[ÛˆÛ›Kˆİ]]ÛÛY\Èœ›ÛHHXİX[›ÙH›ØÙ\ÜËˆ‹	˜›ÙJNÈXİ]š]WÏ[™]ÈTZ[•^Y]ÈXİ]š]WËOœÙ]™XYÛ›JYJNÈXİ]š]WËO™Øİ[Y[
+
+KOœÙ]X^[][P›ØÚĞÛİ[
+Œ
+NÈXİ]š]WËOœÙ]XÙZÛ\•^
+•˜[Y][Û‹›ÙHİ]][™›ØÙ\ÜÈ]™[ÈÚ[\X\ˆ\™KˆŠNÈ›ÙKO˜YÚYÙ]
+Xİ]š]WËJNÈ]]Êˆ›İÏ[™]ÈR›Ş^[İ]È]]ÊˆÛÜO[™]ÈT\Ú]ÛŠÛÜHXİ]š]HŠNÈÛÜKOœÙ]›Ü\Jœ]ZY]‹YJNÈ]]ÊˆÛX\[™]ÈT\Ú]ÛŠÛX\ˆŠNÈÛX\‹OœÙ]›Ü\Jœ]ZY]‹YJNÈ›İËO˜Yİ™]Ú
+
+NÈ›İËO˜YÚYÙ]
+ÛÜJNÈ›İËO˜YÚYÙ]
+ÛX\ŠNÈ›ÙKO˜Y^[İ]
+›İÊNÈÛÛ›™Xİ
+ÛÜK	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^ÔP\XØ][Û˜Û\›Ø\™
+
+KOœÙ]^
+Xİ]š]WËOÔZ[•^
+
+JNßJNÈÛÛ›™Xİ
+ÛX\‹	”T\Ú]Û˜ÛXÚÙYXİ]š]WË	”TZ[•^Y]˜ÛX\ŠNÈ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[š]˜XŞJ
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+”š]˜XŞH	ˆÛÛ›Û‹ÛX\ˆ›ÛZ\Ù\ËØœÙ\˜X›H[Z]È[™ÚÚXÙ\È]İ^H[İ\œËˆ‹	˜›ÙJNÈÛÛœİS\İTZ\Tİš[™ËTİš[™Ïˆš[˜Ú\\Ï^ŞÈ“ØØ[HY˜][‹“›È[˜[]XÜÈÜˆ[[Y]HÛY[ˆŸKÈ–™\›Ë]\İY\œÈ‹‘\ØÛİ™\HÜ˜[È›ÈXØÙ\ÜËˆHY\ˆ\X\œÈÛ›HY\ˆXœšY]][XØ][Ûˆ[™ÛÛ™šYİ\™YYZ\ÜÚ[ÛˆÛXŞH\ÜËˆŸKÈ’Û™\İİ]\È‹‘]™\Hİ]\È[™]™[ÛÛY\Èœ›ÛHH›ÙH›ØÙ\ÜËˆŸKÈ”™]™\œÚX›HXİ[ÛœÈ‹–[İH^XÚ]HÛÛ›™Xİ\ØÛÛ›™XİYHÜˆ^]ˆŸKÈ“[İ[Ûˆ\ÈÜ[Û˜[‹”™YXÙH[İ[ÛˆİÜÈ[XšY[[ÙH[™YÙH[š[X][ÛœËˆŸKÈ“›È™X\ˆÜˆ\™Ù[˜ŞH‹“›ÈÛİ[İÛœËİ™XZÜËØÛÜ™\ÈÜˆ™\Üİ\™HXİXÜËˆŸKÈXØİ\˜]HÛZ[\È‹”Ú\[™È[™˜[œÜÜÈ™YXÙH]\›œÎÈHRH™]™\ˆ›ÛZ\Ù\È[š\ÚXš[]KˆŸ_NÂˆ›Üˆ
+ÛÛœİ]]Éˆİ]KÛÜWNœš[˜Ú\\ÊHÈ]]Êˆ›İÏ[™]ÈR›Ş^[İ]È›İËOœÙ]ÛÛ[ÓX\™Ú[œÊŒMËŒMÊNÈ]]ÊˆXÛÛ]^
+¸§$È‹›Y]šXÈŠNÈXÛÛ‹OœÙ]š^YÚY
+Í
+NÈ]]ÊˆÛÜ™Ï[™]ÈU›Ş^[İ]ÈÛÜ™ËO˜YÚYÙ]
+^
+]KœÙXİ[Û•]HŠJNÈ]]Êˆ]Z[]^
+ÛÜJNÈ]Z[OœÙ]›Ü\J›]]Y‹YJNÈÛÜ™ËO˜YÚYÙ]
+]Z[
+NÈ›İËO˜YÚYÙ]
+XÛÛŠNÈ›İËO˜Y^[İ]
+ÛÜ™ËJNÈ›ÙKO˜YÚYÙ]
+Ø\™
+›İÊJNÈH›ÙKO˜Yİ™]Ú
+
+NÈ™]\›ˆYÙNÂˆBˆUÚYÙ]
+ˆZ[X›İ]
+
+HÂˆU›Ş^[İ]
+ˆ›ÙNÈ]]ÊˆYÙO\YÙTÚ[
+X›İ]U”ˆ‹H˜]]™HÊÊÌŒÈÛÛœÛÛH›ÜˆHÜİ\]X[[H›ÙKˆ‹	˜›ÙJNÈ]]Êˆ[™›Ï[™]ÈU›Ş^[İ]È[™›ËOœÙ]ÛÛ[ÓX\™Ú[œÊËKËJNÈ]]ÊˆÙÛÏ[™]ÈSX™[ÈÙÛËOœÙ]^X\
+RXÛÛŠ‹Øœ˜[™ÛÙÛËœİ™ÈŠKœ^X\
+M‹MŠJNÈ[™›ËO˜YÚYÙ]
+ÙÛË][YÛ“Y
+NÈ[™›ËO˜YÚYÙ]
+^
+”U”ˆ‹š\›Õ]HŠJNÈ[™›ËO˜YÚYÙ]
+^
+”š]˜XŞHÛÛœÛÛH0­È]ˆ0­ÈÊÊÌŒÈ0­ÈˆU”—Ğ•RSÕ‘T”ÒSÓ‹œÙXİ[Û•]HŠJNÈ]]Êˆ]Z[]^
+•H›ÙHİÛœÈÜ\ÙÜ˜\KÙ\ÜÚ[ÛœË›İ][™ËÚ\[™È[™˜[œÜÜÛXŞKˆ]İÛœÈ™\Ù[][Ûˆ[™][˜Ú\ÈHØ[YH]œ—Û›ÙH^Xİ]X›H\ÙYHHÓKˆŠNÈ]Z[OœÙ]›Ü\J›]]Y‹YJNÈ[™›ËO˜YÚYÙ]
+]Z[
+NÈ]]ÊˆXYÛ›ÜİXÏ[™]ÈT\Ú]ÛŠÛÜHXYÛ›ÜİXÜÈŠNÈXYÛ›ÜİXËOœÙ]›Ü\Jœ]ZY]‹YJNÈÛÛ›™Xİ
+XYÛ›ÜİXË	”T\Ú]Û˜ÛXÚÙY\Ë	•Ú[™İÎ˜ÛÜQXYÛ›ÜİXÜÊNÈ[™›ËO˜YÚYÙ]
+XYÛ›ÜİXË][YÛ“Y
+NÈ›ÙKO˜YÚYÙ]
+Ø\™
+[™›ËYJJNÂˆ]]Êˆ\]\Ï[™]ÈU›Ş^[İ]İ\]\ËOœÙ]ÛÛ[ÓX\™Ú[œÊŒNŒN
+Nİ\]\ËO˜YÚYÙ]
+^
+”‘SPTÑHTUTÈ‹™^YXœ›İÈŠJNØ]]Êˆ\]Tİ]\Ï]^
+•\]\È\™HÚXÚÙYÛ›HÚ[ˆ[İH\ÚËˆŠNİ\]Tİ]\ËOœÙ]›Ü\J›]]Y‹YJNİ\]\ËO˜YÚYÙ]
+\]Tİ]\ÊNØ]]Êˆ\]PXİ[ÛœÏ[™]ÈR›Ş^[İ]Ø]]ÊˆÚXÚÕ\]O[™]ÈT\Ú]ÛŠÚXÚÈ™[X\Ù\ÈŠNØ]]ÊˆİÛ›ØY\]O[™]ÈT\Ú]ÛŠ‘İÛ›ØY™\šYšYY\]HŠNÙİÛ›ØY\]KOœÙ][˜X›Y
+˜[ÙJNÙİÛ›ØY\]KOœÙ]›Ü\Jœ]ZY]‹YJNİ\]PXİ[ÛœËO˜YÚYÙ]
+ÚXÚÕ\]JNİ\]PXİ[ÛœËO˜YÚYÙ]
+İÛ›ØY\]JNİ\]PXİ[ÛœËO˜Yİ™]Ú
+
+Nİ\]\ËO˜Y^[İ]
+\]PXİ[ÛœÊNØ]]Êˆ\]S›İO]^
+”U”ˆ™\]Z\™\ÈH]›Ü›HXÚØYÙH[™ÒLM”ÕSTÈœ›ÛHHØ[YHÚ]Xˆ™[X\ÙKˆHÛÛœÛÛH™\šYšY\ÈHİÛ›ØYÜ[œÈ]È›Û\‹[™X]™\È[œİ[][Ûˆ[™\ˆ[İ\ˆÛÛ›ÛˆŠNİ\]S›İKOœÙ]›Ü\J›]]Y‹YJNİ\]\ËO˜YÚYÙ]
+\]S›İJNØ›ÙKO˜YÚYÙ]
+Ø\™
+\]\ÊJNÂˆ\]\—Ï[™]È]œ˜ÛÛœÛÛN”™[X\ÙU\]\ŠU”—Ğ•RSÕ‘T”ÒSÓ‹\ÊNİ\]\—ËOœ™\ÜVİ\Ë\]Tİ]\ËÚXÚÕ\]WJÛÛœİTİš[™Éˆ˜[YJ^İ\]Tİ]\ËOœÙ]^
+˜[YJNÛÙÊ˜[YJNØÚXÚÕ\]KOœÙ][˜X›Y
+YJNßNİ\]\—ËO™İÛ›ØYX›OVÙİÛ›ØY\]WJ›ÛÛ[˜X›Y
+^ÙİÛ›ØY\]KOœÙ][˜X›Y
+[˜X›Y
+NßNØÛÛ›™Xİ
+ÚXÚÕ\]K	”T\Ú]Û˜ÛXÚÙY\Ëİ\ËÚXÚÕ\]W^ØÚXÚÕ\]KOœÙ][˜X›Y
+˜[ÙJNİ\]\—ËO˜ÚXÚÊ
+NßJNØÛÛ›™Xİ
+İÛ›ØY\]K	”T\Ú]Û˜ÛXÚÙY\Ëİ\×^İ\]\—ËO™İÛ›ØY
+
+NßJNØ›ÙKO˜Yİ™]Ú
+
+NÈ™]\›ˆYÙNÂˆBˆ›ÚYZ[˜^J
+HÂˆ˜^WÏ[™]ÈTŞ\İ[U˜^RXÛÛŠÛÛ›™Xİ[Û•˜^RXÛÛŠ]œ˜ÛÛœÛÛNÛÛ›™Xİ[Û”\ÙN‘\ØÛÛ›™XİY
+K\ÊNÈ˜^SY[WÏ[™]ÈSY[NÈ˜^Tİ]\×Ï]˜^SY[WËO˜YXİ[ÛŠ‘\ØÛÛ›™XİYŠNÈ˜^Tİ]\×ËOœÙ][˜X›Y
+˜[ÙJNÈ˜^SY[WËO˜YÙ\\˜]ÜŠ
+NÈ]]ÊˆÚİÏ]˜^SY[WËO˜YXİ[ÛŠ”ÚİÈš]˜XŞHÛÛœÛÛHŠNÈÛÛ›™Xİ
+ÚİË	”PXİ[ÛšYÙÙ\™Y\Ë	•Ú[™İÎœ™\İÜ™Qœ›ÛU˜^JNÈ˜^UÙÙÛWÏ]˜^SY[WËO˜YXİ[ÛŠÛÛ›™XİÙXİ\™[HŠNÈÛÛ›™Xİ
+˜^UÙÙÛWË	”PXİ[ÛšYÙÙ\™Y\Ëİ\×^Ü™\İÜ™Qœ›ÛU˜^J
+NÈYŠ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™É‰ˆXÛÛ™šYÕ˜[YÊ\İÚ]ÚYÙJÛÛ›™Xİ[ÛŠNÈ[ÙHÙÙÛPÛÛ›™Xİ[ÛŠ
+NßJNÈ˜^SY[WËO˜YÙ\\˜]ÜŠ
+NÈ]]Êˆ^]]˜^SY[WËO˜YXİ[ÛŠ‘^]U”ˆŠNÈÛÛ›™Xİ
+^]	”PXİ[ÛšYÙÙ\™Y\Ë	•Ú[™İÎœ]Z]\XØ][ÛŠNÈ˜^WËOœÙ]ÛÛ^Y[J˜^SY[WÊNÈÛÛ›™Xİ
+˜^WË	”TŞ\İ[U˜^RXÛÛ˜Xİ]˜]Y\Ëİ\×JTŞ\İ[U˜^RXÛÛXİ]˜][Û”™X\ÛÛˆ™X\ÛÛŠ^ÚYŠ™X\ÛÛOTTŞ\İ[U˜^RXÛÛ•šYÙÙ\Ÿ™X\ÛÛOTTŞ\İ[U˜^RXÛÛ‘İX›PÛXÚÊ\™\İÜ™Qœ›ÛU˜^J
+NßJNÈ˜^WËOœÚİÊ
+NÂˆBˆTİš[™ÈY˜][^Xİ]X›J
+HÛÛœİÈÛÛœİTİš[™È˜[YOBˆÚY™YˆÕÒSŒÌ‚ˆœ]œ—Û›ÙK™^HÂˆÙ[ÙBˆœ]œ—Û›ÙHÂˆÙ[™Y‚ˆÛÛœİQ\ˆ\™XİÜJPÛÜ™P\XØ][Û˜\XØ][Û‘\”]
+
+JNÂˆ›ÜŠÛÛœİTİš[™ÉˆØ[™Y]NÙ\™XİÜK˜XœÛÛ]Qš[T]
+˜[YJK\™XİÜK˜XœÛÛ]Qš[T]
+‹‹‹Ë‹‹Ë‹‹Øš[‹ÈŠÛ˜[YJK\™XİÜK˜XœÛÛ]Qš[T]
+‹‹‹Ë‹‹Ë‹‹ÈŠÛ˜[YJ_JZYŠQš[R[™›Î™^\İÊØ[™Y]JJ\™]\›ˆQ\˜ÛX[”]
+Ø[™Y]JNÂˆ™]\›ˆQ\˜İ\œ™[
+
+K˜XœÛÛ]Qš[T]
+˜Z[ÈŠÛ˜[YJNÈB‚ˆ›ÚY\Tİ\\\™İ[Y[Ê
+^ÂˆÛÛœİTİš[™Ó\İ\™İ[Y[ÏTP\XØ][Û˜\™İ[Y[Ê
+NÂˆ›ÜŠ[[™^LNÚ[™^\™İ[Y[ËœÚ^™J
+NÊÊÚ[™^
+^ÂˆYŠ
+\™İ[Y[ÖÚ[™^OOH‹KXÛÛ™šYÈŸ\™İ[Y[ÖÚ[™^OOH‹K[›ÙHŠI‰š[™^
+ÌO\™İ[Y[ËœÚ^™J
+J^ÂˆÛÛœİTİš[™È˜[YOTQš[R[™›Ê\™İ[Y[ÖÊÊÚ[™^JK˜XœÛÛ]Qš[T]
+
+NÂˆYŠ\™İ[Y[ÖÚ[™^LWOOH‹KXÛÛ™šYÈŠXÛÛ™šYÔ]ËOœÙ]^
+˜[YJNÙ[ÙH^Xİ]X›T]ËOœÙ]^
+˜[YJNÂˆBˆBˆB‚ˆTİš[™ÈÙ[XİY\™XİY\Š
+HÛÛœİÚYŠ\İ˜[™ÙP]YY[˜ÙWÊ\™]\›ˆßNØÛÛœİTİš[™È˜[YO\İ˜[™ÙP]YY[˜ÙWËO˜İ\œ™[]J
+KÔİš[™Ê
+NÜ™]\›ˆ˜[YKœİ\ÕÚ]
+™NˆŠOİ˜[YK›ZY
+ÊN”Tİš[™ŞßNßBˆ›ÛÛİ˜[™ÙT™XÚ\Y[™XYJ
+HÛÛœİÚYŠ[XZ[›™]™XYWÊ\™]\›ˆ˜[ÙNØÛÛœİTİš[™È\™Xİ\Ù[XİY\™XİY\Š
+NÚYŠY\™Xİš\Ñ[\J
+J\™]\›ˆ]][XØ]YY\œ×Ë˜ÛÛZ[œÊ\™Xİ
+NÚYŠXXİ]™Tİ˜[™ÙQÜ›İ\Ëš\Ñ[\J
+J^Ù›ÜŠÛÛœİ]]ÉˆY\˜Xİ]™Tİ˜[™ÙQÜ›İ\ÊZYŠX]][XØ]YY\œ×Ë˜ÛÛZ[œÊY\ŠJ\™]\›ˆ˜[ÙNÜ™]\›ˆYNß\™]\›ˆXİ]™Tİ˜[™ÙTY\—ÏOH˜]]ÈŸ]][XØ]YY\œ×Ë˜ÛÛZ[œÊXİ]™Tİ˜[™ÙTY\—ÊNßBˆ›ÚY™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+^ÚYŠ\İ˜[™ÙTÙ[™ß\İ˜[™ÙSY\ÜØYÙWÊ\™]\›ØÛÛœİ]]È]\Ï\İ˜[™ÙSY\ÜØYÙWËOÔZ[•^
+
+Kš[[YY
+
+KÕ]
+
+KœÚ^™J
+NØÛÛœİ›ÛÛİ]›İ[™™XYO\İ˜[™ÙPXİ]™WÉ‰œİ˜[™ÙT™XÚ\Y[™XYJ
+I‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ”[›š[™É‰”Q]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+O\İ˜[™ÙTÙ[™›ØÚÙY[[\×ÎØÛÛœİ›ÛÛ\™XİH\Ù[XİY\™XİY\Š
+Kš\Ñ[\J
+NÜİ˜[™ÙTÙ[™ËOœÙ][˜X›Y
+İ]›İ[™™XYI‰˜]\ÏŒ	‰˜]\ÏLŒ
+NÚYŠİ˜[™ÙT™\WÊ\İ˜[™ÙT™\WËOœÙ][˜X›Y
+Y\™Xİ	‰›İ]›İ[™™XYI‰›\İİ˜[™ÙTÙ\]Y[˜ÙWÈOL
+NÚYŠİ˜[™ÙU›ÚXÙWÊ\İ˜[™ÙU›ÚXÙWËOœÙ][˜X›Y
+Y\™Xİ	‰›İ]›İ[™™XYJNÚYŠİ˜[™ÙT™XXİ[Û—Ê\İ˜[™ÙT™XXİ[Û—ËOœÙ][˜X›Y
+Y\™Xİ	‰›İ]›İ[™™XYI‰›\İİ˜[™ÙTÙ\]Y[˜ÙWÈOL
+NßBˆ›ÚY\Tİ˜[™ÙT˜]S[Z]
+Z[™]PY\“\Ê^ÚYŠ™]PY\“\ÏJ\™]PY\“\ÏLNÙ[ÙHYŠ™]PY\“\ÏŒ
+\™]PY\“\ÏMŒØÛÛœİZ[XY[™OTQ]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+JÜ™]PY\“\ÎÜİ˜[™ÙTÙ[™›ØÚÙY[[\×Ï\SX^
+İ˜[™ÙTÙ[™›ØÚÙY[[\×ËXY[™JNÜİ˜[™ÙQ›ÛÙİ]\×ËOœÙ]^
+Tİš[™Ê[Y›ÛÙ[™ØYÙY0­È™]H]˜Z[X›H[ˆ	LH\ÈŠK˜\™Ê™]PY\“\ÊJNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÔU[Y\œÚ[™ÛTÚİ
+™]PY\“\Ë\Ëİ\ËXY[™W^ÚYŠİ˜[™ÙTÙ[™›ØÚÙY[[\×ÈOYXY[™J\™]\›Üİ˜[™ÙTÙ[™›ØÚÙY[[\×ÏLÜİ˜[™ÙQ›ÛÙİ]\×ËOœÙ]^
+[Y›ÛÙ™XYHŠNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NßJNßBˆ›ÚY™\Ù]İ˜[™ÙT˜]S[Z]
+
+^Üİ˜[™ÙTÙ[™›ØÚÙY[[\×ÏLÚYŠİ˜[™ÙQ›ÛÙİ]\×Ê\İ˜[™ÙQ›ÛÙİ]\×ËOœÙ]^
+[Y›ÛÙ™XYHŠNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NßBˆ›ÚY™Yœ™\ÚY\‘\™XİÜJ
+^ÂˆYŠ\İ˜[™ÙP]YY[˜ÙWß\Y\‘\™XİÜWÊ\™]\›ØÛÛœİTİš[™È™]š[İ\Ï\İ˜[™ÙP]YY[˜ÙWËO˜İ\œ™[]J
+KÔİš[™Ê
+NŞÔTÚYÛ˜[›ØÚÙ\ˆİX\™
+İ˜[™ÙP]YY[˜ÙWÊNÜİ˜[™ÙP]YY[˜ÙWËO˜ÛX\Š
+NÜİ˜[™ÙP]YY[˜ÙWËO˜Y][JTİš[™Ê”›ÛÛH˜[›İ]0­È	LH]][XØ]YY\ˆQ
+ÊHŠK˜\™Ê]][XØ]YY\œ×ËœÚ^™J
+JK˜]]ÈŠNÜY\‘\™XİÜWËO˜ÛX\Š
+NÔTİš[™Ó\İY[]Y\ÏX]][XØ]YY\œ×ËšÙ^\Ê
+NÚY[]Y\ËœÛÜ
+]Ø\ÙR[œÙ[œÚ]]™JNÙ›ÜŠÛÛœİTİš[™ÉˆY[]NšY[]Y\Ê^ØÛÛœİTİš[™ÈÚÜYZY[]K›Y
+Œ
+NÜİ˜[™ÙP]YY[˜ÙWËO˜Y][JTİš[™Ê‘\™XİL‘H0­ÈY\ˆ	Lx )ˆŠK˜\™ÊÚÜY
+K™NˆŠÚY[]JNØÛÛœİTİš[™ÈX™[TTİš[™Ê”Y\ˆ	Lx )ˆ0­È]][XØ]Y
+ÈÛXŞHXØÙ\YŠK˜\™ÊÚÜY
+NØ]]Êˆ][O[™]ÈS\İÚYÙ]][JX™[Y\‘\™XİÜWÊNÚ][KOœÙ]]J]•\Ù\”›ÛKY[]JNÚ][KOœÙ]ÛÛ\
+”Y\ˆQˆŠÚY[]JNßXÛÛœİ[™\İÜ™Y\İ˜[™ÙP]YY[˜ÙWËO™š[™]J™]š[İ\ÊNÜİ˜[™ÙP]YY[˜ÙWËOœÙ]İ\œ™[[™^
+™\İÜ™YLÜ™\İÜ™YŒ
+NßXÛÛœİTİš[™È\™Xİ\Ù[XİY\™XİY\Š
+NÚYŠİ˜[™ÙTÙ[™Ê\İ˜[™ÙTÙ[™ËOœÙ]^
+\™Xİš\Ñ[\J
+OÈ”Ù[™ÙXİ\™[Hˆ”Ù[™\™XİL‘HŠNÜY\Ûİ[ËOœÙ]^
+Tİš[™Ê‰LH]][XØ]YŠK˜\™Ê]][XØ]YY\œ×ËœÚ^™J
+JJNÚYŠİ˜[™ÙSØ˜WÊ\İ˜[™ÙSØ˜WËOœÙ]Y\Ûİ[
+]][XØ]YY\œ×ËœÚ^™J
+JNÙ˜YUÚYÙ]
+Y\‘\™XİÜWËN
+NÂˆBˆ›ÚYÛÛ›™Xİ›ØÙ\ÜÊ
+HÂˆÛÛ›™Xİ
+	œ›ØÙ\Ü×Ë	”T›ØÙ\ÜÎœ™XYT™XYİ[™\™İ]]\Ëİ\×^Âˆ›ØÙ\ÜĞY™™\—Ë˜\[™
+›ØÙ\Ü×Ëœ™XY[İ[™\™İ]]
+
+JNÂˆYŠ›ØÙ\ÜĞY™™\—ËœÚ^™J
+OŒL
+ŒL
+^Ü›ØÙ\ÜĞY™™\—Ë˜ÛX\Š
+NÛÙÊ“›ÙHİ]]\ØØ\™Y0­È[\›Z[˜]Y™XÛÜ™^ÙYYYHZPˆŠNÜ™]\›ßBˆ\Ú^™]\H™]Û[™OLÂˆÚ[J
+™]Û[™O\›ØÙ\ÜĞY™™\—Ëš[™^ÙŠ	×‰ÊJOL
+^ÂˆÛÛœİTİš[™ÈÛX[TTİš[™Î™œ›ÛU]
+›ØÙ\ÜĞY™™\—Ë›Y
+™]Û[™JJKš[[YY
+
+K›Y
+MŒÎ
+NÂˆ›ØÙ\ÜĞY™™\—Ëœ™[[İ™J™]Û[™JÌJNÂˆYŠÛX[‹š\Ñ[\J
+JXÛÛ[YNÂˆÙÊÛX[ŠNÂˆYŠXÛX[‹œİ\ÕÚ]
+”U”—ÑU‘S•ŠJXÛÛ[YNÂˆRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]È]™[TRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÛX[‹›ZY
+LŠKÕ]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NÂˆYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŠXÛÛ[YNÂˆÛÛœİTİš[™È˜[YOY]™[˜[YJ™]™[ŠKÔİš[™Ê
+NÂˆ™XÛÜ™İ˜[™ÙT›ÛÙŠ˜[YK]™[
+NÂˆYŠ˜[YOOHœY\‹˜ÛÛ›™XİYŠ^ÂˆÛÛœİTİš[™ÈY\Y]™[˜[YJœY\ˆŠKÔİš[™Ê
+KÓİÙ\Š
+NÚYŠT™Yİ[\‘^™\ÜÚ[ÛŠ—–ÌNXKY—^ÍIŠK›X]Ú
+Y\ŠKš\ÓX]Ú
+
+JX]][XØ]YY\œ×Ëš[œÙ\
+Y\‹˜]][XØ]YŠNÜ™Yœ™\ÚY\‘\™XİÜJ
+NÛXZ[›™]™XYWÏHX]][XØ]YY\œ×Ëš\Ñ[\J
+NÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÂˆY[ÙHYŠ˜[YOOHœY\‹™\ØÛÛ›™XİYŠ^ÂˆÛÛœİTİš[™ÈY\Y]™[˜[YJœY\ˆŠKÔİš[™Ê
+KÓİÙ\Š
+NØ]][XØ]YY\œ×Ëœ™[[İ™JY\ŠNÜ™Yœ™\ÚY\‘\™XİÜJ
+NÛXZ[›™]™XYWÏHX]][XØ]YY\œ×Ëš\Ñ[\J
+NÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÚYŠİ˜[™ÙPXİ]™WÉ‰˜Xİ]™Tİ˜[™ÙTY\—ÏO\Y\Š^Üİ˜[™ÙT™XXİ[Û—ËOœÙ][˜X›Y
+˜[ÙJNØ\[™İ˜[™ÙU^
+”Ù[XİYY\ˆ\ØÛÛ›™XİYˆ™\›Ë]\İ\™Ù][™È™[XZ[œÈ[›™YÈX]™HH›ÛÛHÈÚÛÜÙH[›İ\ˆY\‹ˆŠNßBˆY[ÙHYŠ˜[YOOH[›™[œ™XYHŠ^Âˆ[›™[™XYWÏY]™[˜[YJ™˜Z[ØÛÜÙYŠKĞ›ÛÛ
+˜[ÙJI‰™]™[˜[YJš\ŠKÔİš[™Ê
+OOH™[Âˆ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]š›Ú[™YŠ^Âˆİ˜[™ÙPXİ]™WÏ]YNÜ[™[™Ôİ˜[™ÙR›Ú[—ÏY˜[ÙNØXİ]™Tİ˜[™ÙTY\—ÏY]™[˜[YJœY\ˆŠKÔİš[™Ê˜]]ÈŠKÓİÙ\Š
+NÜİ˜[™ÙR›Ú[—ËOœÙ]^
+“X]™H›ÛÛHŠNÂˆİ˜[™ÙT›ÛÛWËOœÙ][˜X›Y
+˜[ÙJNÜİ˜[™ÙP]YY[˜ÙWËOœÙ][˜X›Y
+YJNÜY\‘\™XİÜWËOœÙ][˜X›Y
+˜[ÙJNÜ™\Ù]İ˜[™ÙT˜]S[Z]
+
+NÂˆİ˜[™ÙT™\Ù[˜ÙWËOœÙ]^
+“U‘H0­ÈL‘HŠNÚYŠİ˜[™ÙSØ˜WÊ^Üİ˜[™ÙSØ˜WËOœÙ]›ÛÛJ]™[˜[YJœ›ÛÛHŠKÔİš[™Ê
+JNÜİ˜[™ÙSØ˜WËOœÙ]]™JYJNßXÛÛœİ[Ü›İ\Ú^™OY]™[˜[YJ™Ü›İ\ÜÚ^™HŠKÒ[
+
+NØ\[™İ˜[™ÙTŞ\İ[JÜ›İ\Ú^™OLÏÔTİš[™Ê‘[\™Y	LH0­È	L‹[Y[X™\ˆ[›™YÜ›İ\0­È[™\[™[XœšYÙXÜ™]\ˆ™XÚ\Y[0­È›ÈÙ[˜[Ü›İ\Ù^HŠK˜\™Ê]™[˜[YJœ›ÛÛHŠKÔİš[™Ê
+JK˜\™ÊÜ›İ\Ú^™JNŠXİ]™Tİ˜[™ÙTY\—ÏOH˜]]ÈÔTİš[™Ê‘[\™Y	LH0­È]][XØ]Y]YY[˜ÙHŠK˜\™Ê]™[˜[YJœ›ÛÛHŠKÔİš[™Ê
+JN”Tİš[™Ê‘[\™Y	LH0­È[›™YÈ	L¸ )ˆŠK˜\™Ê]™[˜[YJœ›ÛÛHŠKÔİš[™Ê
+KXİ]™Tİ˜[™ÙTY\—Ë›Y
+MŠJJJNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]›YŠ^Âˆİ˜[™ÙPXİ]™WÏY˜[ÙNÜİ˜[™ÙR›Ú[—ËOœÙ]^
+‘[\ˆ›ÛÛHŠNÜİ˜[™ÙT™\Ù[˜ÙWËOœÙ]^
+“Ñ‘“S‘HŠNÜ™\Ù]İ˜[™ÙT˜]S[Z]
+
+NÜİ˜[™ÙT™XXİ[Û—ËOœÙ][˜X›Y
+˜[ÙJNÂˆİ˜[™ÙT›ÛÛWËOœÙ][˜X›Y
+YJNÜİ˜[™ÙP]YY[˜ÙWËOœÙ][˜X›Y
+YJNÜY\‘\™XİÜWËOœÙ][˜X›Y
+YJNØXİ]™Tİ˜[™ÙTY\—ÏH˜]]ÈØXİ]™Tİ˜[™ÙQÜ›İ\Ë˜ÛX\Š
+NÚYŠİ˜[™ÙSØ˜WÊ\İ˜[™ÙSØ˜WËOœÙ]]™J˜[ÙJNØ\[™İ˜[™ÙU^
+“Y›ÛÛKˆŠNÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]›Y\ÜØYÙHŠ^Âˆ\İİ˜[™ÙTÙ[™\—ÏY]™[˜[YJœÙ[™\ˆŠKÔİš[™Ê
+NÛ\İİ˜[™ÙTÙ\]Y[˜ÙWÏY]™[˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NØ\[™İ˜[™ÙSY\ÜØYÙPX˜›J\İİ˜[™ÙTÙ[™\—Ë]™[˜[YJ^ŠKÔİš[™Ê
+K]™[˜[YJ[Y\İ[\Û\ÈŠKÕ˜\šX[
+
+KÓÛ™ÓÛ™Ê
+K˜[ÙJNÛ›İYTİ˜[™ÙPXİ]š]J
+NÂˆÛÛœİ]]È™\UÏY]™[˜[YJœ™\WİÈŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NÚYŠ™\UÉ‰›İÛ”İ˜[™ÙTÙ\]Y[˜Ù\×Ë˜ÛÛZ[œÊ™\UÊJ^İ˜^WËOœÚİÓY\ÜØYÙJ”ÛÛY[Û™H™\YYÈ[İH‹Tİš[™Ê“Ü[ˆ	LHÈ™XYH™\KˆŠK˜\™Ê]™[˜[YJœ›ÛÛHŠKÔİš[™Ê
+JKTŞ\İ[U˜^RXÛÛ’[™›Ü›X][Û‹L
+NßBˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]™\™XİŠ^ÂˆÛÛœİTİš[™ÈY\Y]™[˜[YJœY\ˆŠKÔİš[™Ê
+KÓİÙ\Š
+NÛ\İİ˜[™ÙTÙ[™\—Ï\Y\Û\İİ˜[™ÙTÙ\]Y[˜ÙWÏY]™[˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NØ\[™İ˜[™ÙTŞ\İ[JTİš[™Ê‘\™XİL‘Hœ›ÛH]][XØ]YY\ˆ	Lx )ˆ0­ÈÙ[Xİ]Y\ˆQ[™\ˆ]YY[˜ÙHÈ™\Hš]˜][KˆŠK˜\™ÊY\‹›Y
+LŠJJNØ\[™İ˜[™ÙSY\ÜØYÙPX˜›JY\‹]™[˜[YJ^ŠKÔİš[™Ê
+K]™[˜[YJ[Y\İ[\Û\ÈŠKÕ˜\šX[
+
+KÓÛ™ÓÛ™Ê
+K˜[ÙJNÛ›İYTİ˜[™ÙPXİ]š]J
+NÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]œİXÚÙ\ˆŠ^Âˆ\İİ˜[™ÙTÙ[™\—ÏY]™[˜[YJœÙ[™\ˆŠKÔİš[™Ê
+NÛ\İİ˜[™ÙTÙ\]Y[˜ÙWÏY]™[˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NØ\[™İ˜[™ÙTİXÚÙ\Š]™[˜[YJ^ŠKÔİš[™Ê
+K\İİ˜[™ÙTÙ[™\—Ë›Y
+LŠJNÛ›İYTİ˜[™ÙPXİ]š]J
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]œ™XXİ[ÛˆŠ^Âˆ\[™İ˜[™ÙT™XXİ[ÛŠ]™[˜[YJ^ŠKÔİš[™Ê
+K]™[˜[YJœÙ[™\ˆŠKÔİš[™Ê
+K›Y
+LŠK]™[˜[YJœ™\WİÈŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+JNÛ›İYTİ˜[™ÙPXİ]š]J
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]›ÚXÙHŠ^Âˆ^Tİ˜[™ÙU›ÚXÙJ]™[˜[YJ^ŠKÔİš[™Ê
+JNØ\[™İ˜[™ÙTŞ\İ[JTİš[™Ê•›ÚXÙHœ›ÛHY\ˆ	Lx )ˆ0­È]™K›İİÜ™YŠK˜\™Ê]™[˜[YJœÙ[™\ˆŠKÔİš[™Ê
+K›Y
+LŠJJNÛ›İYTİ˜[™ÙPXİ]š]J
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]™[]™\™YŠ^Âˆ\[™İ˜[™ÙTŞ\İ[JTİš[™Ê‘[]™\™Y0­ÈY\ÜØYÙH	LH0­ÈY\ˆ	LˆŠK˜\™Ê]™[˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+JK˜\™Ê]™[˜[YJœY\ˆŠKÔİš[™Ê
+K›Y
+LŠJJNÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]œÙ[Š^ÂˆÛÛœİTİš[™ÈÚ[™Y]™[˜[YJšÚ[™ŠKÔİš[™Ê
+NÚYŠÚ[™OH›ÚXÙHŠX\[™İ˜[™ÙTŞ\İ[J•›ÚXÙHÙ[]™H0­È›İİÜ™YŠNÙ[ÙHYŠÚ[™OHœİXÚÙ\ˆŠX\[™İ˜[™ÙTİXÚÙ\Š]™[˜[YJ^ŠKÔİš[™Ê
+K–[İHŠNÙ[ÙHYŠÚ[™OHœ™XXİ[ÛˆŠX\[™İ˜[™ÙT™XXİ[ÛŠ]™[˜[YJ^ŠKÔİš[™Ê
+K–[İH‹
+NÙ[Ù^Ø\[™İ˜[™ÙSY\ÜØYÙPX˜›J–[İH‹]™[˜[YJ^ŠKÔİš[™Ê
+KQ]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+KYJNÜİ˜[™ÙSY\ÜØYÙWËO˜ÛX\Š
+NÛİÛ”İ˜[™ÙTÙ\]Y[˜Ù\×Ëš[œÙ\
+]™[˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+JNİÚ[JİÛ”İ˜[™ÙTÙ\]Y[˜Ù\×ËœÚ^™J
+OŒMŠ[İÛ”İ˜[™ÙTÙ\]Y[˜Ù\×Ë™\˜\ÙJİÛ”İ˜[™ÙTÙ\]Y[˜Ù\×Ë˜™YÚ[Š
+JNÜ[™[™Ô™\U×ÏLÜİ˜[™ÙT™\WËOœÙ]^
+”™\HÈ]\İŠNÜİ˜[™ÙPÛÛ\ÜÙ\’[ËOœÙ]^
+Ú[™OH™\™XİÔTİš[™Ê‘\™Xİ^[]™\™YÈY\ˆ	Lx )ˆ0­È›È\XÚ\[T^ÜÙYŠK˜\™Ê]™[˜[YJœY\ˆŠKÔİš[™Ê
+K›Y
+LŠJNˆ‘[\ˆÙ[™È0­ÈÚY
+Ñ[\ˆÜš]\ÈH™]È[™HŠNßX\[™İ˜[™ÙTŞ\İ[JÚ[™OH™\™XİÈ‘\™XİL‘H[]™\H\ÙYÛ™H]][XØ]YY\ˆÙ\ÜÚ[Û‹ˆ”Tİš[™Ê‘[˜Ü\YÙ\\˜][H›Üˆ	LH]][XØ]YY\ŠÊKˆŠK˜\™Ê]™[˜[YJœ™XÚ\Y[ÈŠKÒ[
+
+JJNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]œ˜]WÛ[Z]YŠ^ÂˆÛÛœİZ[™]OY]™[˜[YJœ™]WØY\—Û\ÈŠKÕ˜\šX[
+
+KÓÛ™ÓÛ™Ê
+NØ\[™İ˜[™ÙU^
+Tİš[™Ê[Y›ÛÙ0­ÈY\ÜØYÙH]\ÙYÈ™]H[ˆ	LH\ËˆŠK˜\™Ê™]JJNØ\Tİ˜[™ÙT˜]S[Z]
+™]JNÜİ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NÂˆY[ÙHYŠ˜[YOOHœİ˜[™Ù[™]™Y™\œ™YŸ˜[YOOH˜ÛÛ›Û™\œ›ÜˆŠ^Âˆ\[™İ˜[™ÙU^
+“›İXÙH0­ÈŠÙ]™[˜[YJ›Y\ÜØYÙHŠKÔİš[™Ê
+JNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÜİ˜[™ÙSY\ÜØYÙWËOœÙ]›Øİ\Ê
+NÂˆBˆBˆJNÂˆÛÛ›™Xİ
+	œ›ØÙ\Ü×Ë	”T›ØÙ\ÜÎœİ]PÚ[™ÙY\Ëİ\×JT›ØÙ\ÜÎ”›ØÙ\ÜÔİ]Hİ]J^ØÛÛœİ›ÛÛXİ]™O\İ]HOTT›ØÙ\ÜÎ“›İ[›š[™Ë[›š[™Ï\İ]OOTT›ØÙ\ÜÎ”[›š[™ÎÚYŠXXİ]™J^ÜİÜİ˜[™ÙU›ÚXÙJ
+NÛXZ[›™]™XYWÏY˜[ÙNİ[›™[™XYWÏY˜[ÙNØ]][XØ]YY\œ×Ë˜ÛX\Š
+NÜ™Yœ™\ÚY\‘\™XİÜJ
+Nß\™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NØÛÛ›™Xİ]Û—ËOœÙ]^
+Xİ]™OÈ‘\ØÛÛ›™XİˆÛÛ›™XİÙXİ\™[HŠNÈÛÛ›™Xİ]Û—ËOœÙ]›Ü\J™[™Ù\ˆ‹Xİ]™JNÈÛÛ›™Xİ]Û—ËOœİ[J
+KO[œÛ\Ú
+ÛÛ›™Xİ]Û—ÊNØÛÛ›™Xİ]Û—ËOœİ[J
+KOœÛ\Ú
+ÛÛ›™Xİ]Û—ÊNÈ˜[Y]P]Û—ËOœÙ][˜X›Y
+XXİ]™JNÈÛÛ™šYÔ]ËOœÙ][˜X›Y
+XXİ]™JNÙ^Xİ]X›T]ËOœÙ][˜X›Y
+XXİ]™JNÛ›Õ[›™[ËOœÙ][˜X›Y
+XXİ]™JNÛÙÓ]™[ËOœÙ][˜X›Y
+XXİ]™JNØY\]™Q[˜X›YËOœÙ][˜X›Y
+XXİ]™JNØY\]™S[ÙWËOœÙ][˜X›Y
+XXİ]™JNÜÚ\[™Ñ[˜X›YËOœÙ][˜X›Y
+XXİ]™JNÜÚ\[™ÔY[™×ËOœÙ][˜X›Y
+XXİ]™JNÜÚ\[™Ñ[^WËOœÙ][˜X›Y
+XXİ]™JNÚ[›™\•[›™[[˜X›YËOœÙ][˜X›Y
+XXİ]™JNÚ[›™\•[›™[˜XÚÙ[™ËOœÙ][˜X›Y
+XXİ]™I‰š[›™\•[›™[[˜X›YËOš\ĞÚXÚÙY
+
+JNÚ[›™\•[›™[ÛÛ™šY×ËOœÙ][˜X›Y
+XXİ]™I‰š[›™\•[›™[[˜X›YËOš\ĞÚXÚÙY
+
+JNÚ[›™\•[›™[œ›İÜÙWËOœÙ][˜X›Y
+XXİ]™I‰š[›™\•[›™[[˜X›YËOš\ĞÚXÚÙY
+
+JNÜØ]™U˜[œÜÜ]Û—ËOœÙ][˜X›Y
+XXİ]™JNÈ˜^UÙÙÛWËOœÙ]^
+Xİ]™OÈ‘\ØÛÛ›™XİˆÛÛ›™XİÙXİ\™[HŠNÚYŠİ˜[™ÙR›Ú[—Ê^Üİ˜[™ÙR›Ú[—ËOœÙ][˜X›Y
+[›š[™ß
+XXİ]™I‰˜ÛÛ™šYÕ˜[YÊJNÜ™Yœ™\Úİ˜[™ÙTÙ[™[˜X›Y
+
+NÜİ˜[™ÙT™XXİ[Û—ËOœÙ][˜X›Y
+İ˜[™ÙPXİ]™WÉ‰œİ˜[™ÙT™XÚ\Y[™XYJ
+I‰›\İİ˜[™ÙTÙ\]Y[˜ÙWÈOL
+NÜİ˜[™ÙT›ÛÛWËOœÙ][˜X›Y
+\İ˜[™ÙPXİ]™WÊNÜİ˜[™ÙP]YY[˜ÙWËOœÙ][˜X›Y
+\İ˜[™ÙPXİ]™WÊNÜY\‘\™XİÜWËOœÙ][˜X›Y
+\İ˜[™ÙPXİ]™WÊNßZYŠXXİ]™J^Üİ˜[™ÙPXİ]™WÏY˜[ÙNÜ[™[™Ôİ˜[™ÙR›Ú[—ÏY˜[ÙNØXİ]™Tİ˜[™ÙTY\—ÏH˜]]ÈØXİ]™Tİ˜[™ÙQÜ›İ\Ë˜ÛX\Š
+NÜ™\Ù]İ˜[™ÙT˜]S[Z]
+
+NÜİ˜[™ÙR›Ú[—ËOœÙ]^
+‘[\ˆ›ÛÛHŠNÚYŠİ˜[™ÙT™\Ù[˜ÙWÊ\İ˜[™ÙT™\Ù[˜ÙWËOœÙ]^
+“Ñ‘“S‘HŠNÚYŠİ˜[™ÙSØ˜WÊ\İ˜[™ÙSØ˜WËOœÙ]]™J˜[ÙJNß_JNÂˆÛÛ›™Xİ
+	œ›ØÙ\Ü×Ë	”T›ØÙ\ÜÎœİ\Y\Ëİ\×^ÛÙÊ“›ÙH›ØÙ\ÜÈİ\YŠNÚYŠİ˜[™ÙT›ÛÙ‘[˜X›YÉ‰œİ˜[™ÙT›ÛÙ‘[˜X›YËOš\ĞÚXÚÙY
+
+J^Üİ˜[™ÙT›ÛÙÚZ[—Ëœ™\Ù]
+
+NÜİ˜[™ÙT›ÛÙÛÜWËOœÙ][˜X›Y
+˜[ÙJNÜİ˜[™ÙT›ÛÙ”İ]\×ËOœÙ]^
+”™XYH0­È™]È›ÙHÙ\ÜÚ[Û‹ØZ][™È›Üˆİ˜[™ÙS™]]™[ËˆŠNßZYŠ[™[™Ôİ˜[™ÙR›Ú[—Ê\Ù[™İ˜[™ÙR›Ú[Š
+NßJNÈÛÛ›™Xİ
+	œ›ØÙ\Ü×Ë	”T›ØÙ\ÜÎ™\œ›Ü“ØØİ\œ™Y\Ëİ\×JT›ØÙ\ÜÎ”›ØÙ\ÜÑ\œ›ÜŠ^Ü›ØÙ\ÜÑ˜Z[YÏ]YNÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÛÙÊ”›ØÙ\ÜÈ\œ›Üˆ0­ÈŠÜ›ØÙ\Ü×Ë™\œ›Ü”İš[™Ê
+JNÜİ]\Õ^ËOœÙ]^
+•H›ÙHÛİ[›İÛÛ[YNˆŠÜ›ØÙ\Ü×Ë™\œ›Ü”İš[™Ê
+JNßJNÂˆÛÛ›™Xİ
+	œ›ØÙ\Ü×ËSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ëİ\×J[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÚYŠ\›ØÙ\ÜĞY™™\—Ëš\Ñ[\J
+J^ÛÙÊTİš[™Î™œ›ÛU]
+›ØÙ\ÜĞY™™\—ÊKš[[YY
+
+JNÜ›ØÙ\ÜĞY™™\—Ë˜ÛX\Š
+Nß[ÙÊTİš[™Ê“›ÙHİÜY0­È^]	LH0­È	LˆŠK˜\™ÊÛÙJK˜\™Êİ]\ÏOTT›ØÙ\ÜÎ“›Ü›X[^]È››Ü›X[ˆ˜Ü˜\ÚYŠJNÜİ]\Õ^ËOœÙ]^
+İÜ[™×É‰œİ]\ÏOTT›ØÙ\ÜÎ“›Ü›X[^]È‘\ØÛÛ›™XİYÛX[›Kˆ”Tİš[™Ê“›ÙHİÜYÚ]^]ÛÙH	LKˆ™]šY]ÈXİ]š]KˆŠK˜\™ÊÛÙJJNÜ›ØÙ\ÜÑ˜Z[YÏH\İÜ[™×É‰Šİ]\ÈOTT›ØÙ\ÜÎ“›Ü›X[^]ÛÙHOL
+NÜİÜ[™×ÏY˜[ÙNÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NØÛÛ›™Xİ]Û—ËOœÙ][˜X›Y
+ÛÛ™šYÕ˜[YÊNÚYŠ[™[™Ô]Z]Ê^Ü[™[™Ô]Z]ÏY˜[ÙNÜ]Z][™×Ï]YNÜØ]™T™Y™\™[˜Ù\Ê
+NÜP\Oœ]Z]
+
+Nß_JNÂˆBˆ›ÛÛØYÛÛ™šYÊÛÛœİTİš[™Éˆ]
+HÂˆQš[Hš[J]
+NÈYŠYš[K›Ü[ŠRSÑ]šXÙN”™XYÛ›JJ^ÜÙ][šÛ›İÛÛÛ™šYÊ
+NÜ™]\›ˆ˜[ÙNßHRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜÈÛÛœİ]]ÈØÏTRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠš[Kœ™XY[
+
+K	™\œ›ÜŠNÈYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸYØËš\ÓØš™Xİ
+
+J^ØÛÛ™šYÒX[ËOœÙ]^
+’”ÓÓˆÛİ[›İ™H™XYˆŠÙ\œ›Ü‹™\œ›Ü”İš[™Ê
+JNÜ™]\›ˆ˜[ÙNßBˆÛÛœİ]]È›ÛİYØË›Øš™Xİ
+
+K™]ÛÜšÏ\›Ûİ˜[YJ›™]ÛÜšÈŠKÓØš™Xİ
+
+KÙXİ\š]O\›Ûİ˜[YJœÙXİ\š]HŠKÓØš™Xİ
+
+KÚ\[™Ï\›Ûİ˜[YJ˜Y™šX×ÜÚ\[™ÈŠKÓØš™Xİ
+
+K^\›˜[\›Ûİ˜[YJ™^\›˜[İ˜[œÜÜŠKÓØš™Xİ
+
+KY\]™O\›Ûİ˜[YJ˜Y\]™Wİ˜[œÜÜŠKÓØš™Xİ
+
+K[›™[\›Ûİ˜[YJ[›™[ŠKÓØš™Xİ
+
+K[›™\•[›™[\›Ûİ˜[YJš[›™\—İ[›™[ŠKÓØš™Xİ
+
+KYÜ™\ÜÏ\›Ûİ˜[YJ™YÜ™\ÜÈŠKÓØš™Xİ
+
+NÂˆÛÛœİ]]È›Ûİİ˜\\›Ûİ˜[YJ˜›Ûİİ˜\ŠKĞ\œ˜^J
+NÂˆXZ[›™]Y]šX×ËOœÙ]^
+›Ûİİ˜\š\Ñ[\J
+OÈ“\İ[™\ˆÛ›H”Tİš[™Ê‰LH›Ûİİ˜\›İ]JÊHŠK˜\™Ê›Ûİİ˜\œÚ^™J
+JJNÂˆ[™Ú[Y]šX×ËOœÙ]^
+Tİš[™Ê•QÜ	LHŠK˜\™Ê™]ÛÜšË˜[YJœÜŠKÒ[
+LL
+JJNÂˆ™\šYšXØ][Û“Y]šX×ËOœÙ]^
+Tİš[™Ê‰LH0­È	LˆŠK˜\™ÊÙXİ\š]K˜[YJœİšXİÜÚY×İ™\šYHŠKĞ›ÛÛ
+YJOÈ’XœšYİšXİˆ”™[^Y‹ÙXİ\š]K˜[YJÙHŠKĞ›ÛÛ
+YJOÈ•Ñ•Hˆ”[›™YŠJNÂˆÚ\[™ÓY]šX×ËOœÙ]^
+Ú\[™Ë˜[YJ™[˜X›YŠKĞ›ÛÛ
+˜[ÙJOÈ‘[˜X›Yˆ“Ù™ˆŠNÙYÜ™\ÜÓY]šX×ËOœÙ]^
+YÜ™\ÜË˜[YJ™[˜X›YŠKĞ›ÛÛ
+˜[ÙJOÈ‘[˜X›Yˆ”™[^HÛ›HŠNÂˆÚY™YˆÕÒSŒÌ‚ˆ[›™[Y]šX×ËOœÙ]^
+›Õ[›™[É‰››Õ[›™[ËOš\ĞÚXÚÙY
+
+OÈ•Q[Û›Hˆ”U”ˆ‘TÈŠNÂˆÙ[YˆYš[™Y
+×ĞTW×ÊBˆ[›™[Y]šX×ËOœÙ]^
+“™]ÛÜšÈ^[œÚ[ÛˆŠNÂˆÙ[ÙBˆ[›™[Y]šX×ËOœÙ]^
+“[^SˆŠNÂˆÙ[™Y‚ˆYŠ][›™[š\Ñ[\J
+I‰[›™[˜[YJœYÚ[ˆŠKÔİš[™Êœ]œˆŠHOHœ]œˆŠ][›™[Y]šX×ËOœÙ]^
+[›™[˜[YJœYÚ[ˆŠKÔİš[™Ê
+KÕ\\Š
+JNÂˆÛÛœİ›ÛÛÚ\[™ÓÛ\Ú\[™Ë˜[YJ™[˜X›YŠKĞ›ÛÛ
+˜[ÙJNÜÚ\[™Ñ[˜X›YËOœÙ]ÚXÚÙY
+Ú\[™ÓÛŠNÜÚ\[™ÔY[™×ËOœÙ]˜[YJÚ\[™Ë˜[YJ›X^ÜY[™×Ø]\ÈŠKÒ[
+L
+JNÜÚ\[™Ñ[^WËOœÙ]˜[YJÚ\[™Ë˜[YJ›X^Ù[^WÛ\ÈŠKÒ[
+Œ
+JNÂˆÛÛœİTİš[™ÈYØXŞP˜XÚÙ[™][›™[˜[YJœYÚ[ˆŠKÔİš[™Ê
+NØÛÛœİ›ÛÛYØXŞR[›™\[YØXŞP˜XÚÙ[™OHÚ\™YİX\™ŸYØXŞP˜XÚÙ[™OH›Ü[œˆØÛÛœİ›ÛÛ[›™\“ÛZ[›™\•[›™[˜[YJ™[˜X›YŠKĞ›ÛÛ
+˜[ÙJ_YØXŞR[›™\ÔTİš[™È[›™\˜XÚÙ[™[YØXŞR[›™\ÛYØXŞP˜XÚÙ[™š[›™\•[›™[˜[YJ˜˜XÚÙ[™ŠKÔİš[™ÊÚ\™YİX\™ŠNÚYŠ[›™\˜XÚÙ[™OH›Ü[œˆŠZ[›™\˜XÚÙ[™H›Ü[œŒÈØÛÛœİTİš[™È[›™\”][YØXŞR[›™\İ[›™[˜[YJ˜ÛÛ™šY×Ü]ŠKÔİš[™Ê
+Nš[›™\•[›™[˜[YJ˜ÛÛ™šY×Ü]ŠKÔİš[™Ê
+NÚ[›™\•[›™[[˜X›YËOœÙ]ÚXÚÙY
+[›™\“ÛŠNÚ[›™\•[›™[˜XÚÙ[™ËOœÙ]İ\œ™[[™^
+SX^
+[›™\•[›™[˜XÚÙ[™ËO™š[™]J[›™\˜XÚÙ[™
+JJNÚ[›™\•[›™[ÛÛ™šY×ËOœÙ]^
+[›™\”]
+NÚ[›™\•[›™[˜XÚÙ[™ËOœÙ][˜X›Y
+[›™\“Û‰‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNÚ[›™\•[›™[ÛÛ™šY×ËOœÙ][˜X›Y
+[›™\“Û‰‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNÚ[›™\•[›™[œ›İÜÙWËOœÙ][˜X›Y
+[›™\“Û‰‰œ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™ÊNØÛÛœİ›ÛÛY\]™SÛXY\]™K˜[YJ™[˜X›YŠKĞ›ÛÛ
+˜[ÙJNØÛÛœİTİš[™ÈY\]™S[ÙOXY\]™K˜[YJ›[ÙHŠKÔİš[™Ê˜]]ÈŠNØY\]™Q[˜X›YËOœÙ]ÚXÚÙY
+Y\]™SÛŠNØY\]™S[ÙWËOœÙ]İ\œ™[[™^
+SX^
+Y\]™S[ÙWËO™š[™]JY\]™S[ÙJJJNØY\]™SY]šX×ËOœÙ]^
+Y\]™SÛÔTİš[™Ê‘[˜X›Y0­È	LHŠK˜\™ÊY\]™S[ÙKÕ\\Š
+JNˆ‘\ØX›Y0­È\™XİQŠNÚYŠ^\›˜[š\Ñ[\J
+J^İ˜[œÜÜY]šX×ËOœÙ]^
+Y\]™SÛÈ”UY\]™H]ˆ‘\™XİU”ˆQŠNİ˜[œÜÜ]Z[×ËOœÙ]^
+Tİš[™Ê‰LILˆŠK˜\™ÊY\]™SÛÈ”ÛXŞH\ÈÛÛ™šYİ\™YÈ[[YH]™[È™\Ü]™\H[™HÚ[™ÙKˆˆ“›È^\›˜[˜[œÜÜÙ[XİYˆ‹[›™\“ÛÔTİš[™Êˆ0­È	LH[œÚYHU”ˆŠK˜\™Ê[›™\˜XÚÙ[™Õ\\Š
+JN”Tİš[™Ê
+JJNßY[Ù^İ˜[œÜÜY]šX×ËOœÙ]^
+^\›˜[˜[YJ™[™Ú[™HŠKÔİš[™Ê•[šÛ›İÛˆŠJNİ˜[œÜÜ]Z[×ËOœÙ]^
+Tİš[™Ê]XÚ[ÙH0­È	LN‰Lˆ0­È^\›˜[›ØÙ\ÜÈ™\]Z\™YŠK˜\™Ê^\›˜[˜[YJšÜİŠKÔİš[™Ê
+JK˜\™Ê^\›˜[˜[YJœÜŠKÒ[
+
+JJNß\™]\›ˆ\›Ûİš\Ñ[\J
+NÂˆBˆ›ÚYÙ][šÛ›İÛÛÛ™šYÊ
+^ÛXZ[›™]Y]šX×ËOœÙ]^
+“›İØYYŠNÙ[™Ú[Y]šX×ËOœÙ]^
+“›İØYYŠNİ™\šYšXØ][Û“Y]šX×ËOœÙ]^
+•[šÛ›İÛˆŠNİ[›™[Y]šX×ËOœÙ]^
+•[šÛ›İÛˆŠNÙYÜ™\ÜÓY]šX×ËOœÙ]^
+•[šÛ›İÛˆŠNÜÚ\[™ÓY]šX×ËOœÙ]^
+•[šÛ›İÛˆŠNİ˜[œÜÜY]šX×ËOœÙ]^
+ÛÛ™šYİ\˜][Ûˆ[˜]˜Z[X›HŠNİ˜[œÜÜ]Z[×ËOœÙ]^
+ÚÛÜÙHH™XYX›H”ÓÓˆÛÛ™šYİ\˜][Û‹ˆŠNÚYŠY\]™SY]šX×ÊXY\]™SY]šX×ËOœÙ]^
+ÛÛ™šYİ\˜][Ûˆ[˜]˜Z[X›HŠNßBˆTİš[™È[™Ú[™PÛÛ™šYİ\˜][ÛŠÛÛœİTİš[™ÉˆY
+^ÂˆTÙ][™ÜÈÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠNÔTİš[™È]\Ù][™ÜË˜[YJY
+ÈÛÛ™šYÔ]ŠKÔİš[™Ê
+NÚYŠQš[R[™›Ê]
+Kš\Ñš[J
+J\™]\›ˆ]ÂˆÛÛœİTİš[™È^[œÚ[ÛZYOHYœ˜]ÈÈ‹˜ÛÛ™ˆˆ‹šœÛÛˆÂˆ›ÜŠÛÛœİTİš[™ÉˆØ[™Y]N”Tİš[™Ó\İÔTİš[™Î™œ›ÛTİİš[™Ê]œ˜ÛÛœÛÛN\Ù\—Ü›Ùš[WÙ\™XİÜJ
+K™Ù[™\šX×Üİš[™Ê
+JJÈ‹ÈŠÚY
+Ù^[œÚ[Û‹Q\šÛYT]
+
+JÈ‹Ë˜ÛÛ™šYËÈŠÚY
+È‹ØÛÛ™šYÈŠÙ^[œÚ[Û‹Q\šÛYT]
+
+JÈ‹Ë˜ÛÛ™šYËÈŠÚY
+È‹ØÛY[ŠÙ^[œÚ[ÛŸJZYŠQš[R[™›ÊØ[™Y]JKš\Ñš[J
+J^Ü]XØ[™Y]NØœ™XZÎßBˆYŠTQš[R[™›Ê]
+Kš\Ñš[J
+J\]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙH^\İ[™ÈŠÚY
+ÈˆÛÛ™šYİ\˜][Ûˆ‹Q\šÛYT]
+
+JNÂˆYŠ\]š\Ñ[\J
+J\Ù][™ÜËœÙ]˜[YJY
+ÈÛÛ™šYÔ]‹Qš[R[™›Ê]
+K˜XœÛÛ]Qš[T]
+
+JNÜ™]\›ˆ]ÂˆBˆ›ÚYY]ÛÛ™šYİ\˜][ÛŠÛÛœİTİš[™Éˆ]›ÛÛœÛÛŠ^ÂˆQš[HÛİ\˜ÙJ]
+NÚYŠ\Ûİ\˜ÙK›Ü[ŠRSÑ]šXÙN”™XYÛ›J_Ûİ\˜ÙKœÚ^™J
+OŒL
+ŒL
+^ÔSY\ÜØYÙP›Şš[™›Ü›X][ÛŠ\ËÛÛ™šYİ\˜][Ûˆ[˜]˜Z[X›H‹ÚÛÜÙH[ˆ^\İ[™ÈÛÛ™šYİ\˜][Ûˆš[Hš\œİˆŠNÜ™]\›ßBˆQX[ÙÈX[ÙÊ\ÊNÙX[ÙËœÙ]Ú[™İÕ]J‘Y]ÛÛ™šYİ\˜][ÛˆŠNÙX[ÙËœ™\Ú^™JÍŒMŒ
+NØ]]Êˆ^[İ][™]ÈU›Ş^[İ]
+	™X[ÙÊNØ]]ÊˆY]Ü[™]ÈTZ[•^Y]ÙY]Ü‹OœÙ]Z[•^
+Tİš[™Î™œ›ÛU]
+Ûİ\˜ÙKœ™XY[
+
+JJNÜÛİ\˜ÙK˜ÛÜÙJ
+NÛ^[İ]O˜YÚYÙ]
+Y]ÜŠNØ]]Êˆ›İÏ[™]ÈR›Ş^[İ]Ø]]ÊˆØ[˜Ù[[™]ÈT\Ú]ÛŠØ[˜Ù[ŠNØ]]ÊˆØ]™O[™]ÈT\Ú]ÛŠ”Ø]™HŠNÜ›İËO˜YÚYÙ]
+Ø[˜Ù[
+NÜ›İËO˜Yİ™]Ú
+
+NÜ›İËO˜YÚYÙ]
+Ø]™JNÛ^[İ]O˜Y^[İ]
+›İÊNØÛÛ›™Xİ
+Ø[˜Ù[	”T\Ú]Û˜ÛXÚÙY	™X[ÙË	”QX[ÙÎœ™Z™Xİ
+NÂˆÛÛ›™Xİ
+Ø]™K	”T\Ú]Û˜ÛXÚÙY	™X[ÙËÉ‹\×^ØÛÛœİP]P\œ˜^HÛÛ[ÏYY]Ü‹OÔZ[•^
+
+KÕ]
+
+NÚYŠÛÛ[ËœÚ^™J
+OŒL
+ŒL
+\™]\›ÚYŠœÛÛŠ^ÔRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]ÈØİ[Y[TRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÛÛ[Ë	™\œ›ÜŠNÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸYØİ[Y[š\ÓØš™Xİ
+
+J^ÔSY\ÜØYÙP›Şš[™›Ü›X][ÛŠ	™X[ÙË’[˜[YÛÛ™šYİ\˜][Ûˆ‹ÛÛ™šYİ\˜][Ûˆ]\İ™HH”ÓÓˆØš™XİˆŠNÜ™]\›ß_TTØ]™Qš[Hİ]]
+]
+NÚYŠ[İ]]›Ü[ŠRSÑ]šXÙN•Üš]SÛ›J_[İ]]œÙ]\›Z\ÜÚ[ÛœÊQš[Q]šXÙN”™XYİÛ™\ŸQš[Q]šXÙN•Üš]SİÛ™\Š_İ]]Üš]JÛÛ[ÊHOXÛÛ[ËœÚ^™J
+_[İ]]˜ÛÛ[Z]
+
+J^ÔSY\ÜØYÙP›Şš[™›Ü›X][ÛŠ	™X[ÙË”Ø]™H˜Z[Y‹•HÛÛ™šYİ\˜][ÛˆÛİ[›İ™HØ]™YˆŠNÜ™]\›ßZYŠQš[R[™›Ê]
+K˜XœÛÛ]Qš[T]
+
+OOTQš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JK˜XœÛÛ]Qš[T]
+
+J^Ú[˜[Y]JÛÛ™šYİ\˜][ÛˆY]Yˆ˜[Y]H™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÛØYÛÛ™šYÊ]
+NßYX[ÙË˜XØÙ\
+
+NßJNÙX[ÙË™^XÊ
+NÂˆBˆ›ÚY™\\™UYœ˜]Ô›Ùš[J
+^ÂˆYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÛÙÊ‘\ØÛÛ›™Xİ™Y›Ü™HÚ[™Ú[™È˜[œÜÜ›Ùš[\ËˆŠNÜ™]\›ßBˆRœÛÛ“Øš™Xİ›ÛİÔQš[HÛİ\˜ÙJÛÛ™šYÔ]ËO^
+
+JNÂˆYŠÛİ\˜ÙK›Ü[ŠRSÑ]šXÙN”™XYÛ›JJ^ØÛÛœİ]]ÈØİ[Y[TRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÛİ\˜ÙKœ™XY[
+
+JNÚYŠØİ[Y[š\ÓØš™Xİ
+
+J\›ÛİYØİ[Y[›Øš™Xİ
+
+NßBˆYŠ›Ûİš\Ñ[\J
+J^ÔSY\ÜØYÙP›Şš[™›Ü›X][ÛŠ\ËÚÛÜÙHÛÛ™šYİ\˜][Ûˆ‹ÚÛÜÙH[İ\ˆ^\İ[™ÈU”ˆÙ\™\ˆÛÛ™šYİ\˜][Ûˆš\œİˆ[™Ú[™HÙ^\Èİ^H[ˆH[™Ú[™IÜÈİÛˆÛÛ™šYİ\˜][Û‹ˆŠNÜİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNÜ™]\›ßBˆTÙ][™ÜÈÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠNÔTİš[™È[™Ú[™PÛÛ™šYÏ\Ù][™ÜË˜[YJYœ˜]ĞÛÛ™šYÔ]ŠKÔİš[™Ê
+NÂˆYŠTQš[R[™›Ê[™Ú[™PÛÛ™šYÊKš\Ñš[J
+J^Âˆ›ÜŠÛÛœİTİš[™ÉˆØ[™Y]NÔTİš[™Î™œ›ÛTİİš[™Ê
+]œ˜ÛÛœÛÛN\Ù\—Ü›Ùš[WÙ\™XİÜJ
+KÈYœ˜]Ë˜ÛÛ™ˆŠK™Ù[™\šX×Üİš[™Ê
+JKTİ[™\™]ÎÜš]X›SØØ][ÛŠTİ[™\™]Î\ÛÛ™šYÓØØ][ÛŠJÈ‹İYœ˜]Ë˜ÛÛ™ˆ‹Q\šÛYT]
+
+JÈ‹Ë˜ÛÛ™šYËİYœ˜]ËØÛY[˜ÛÛ™ˆŸJZYŠQš[R[™›ÊØ[™Y]JKš\Ñš[J
+J^Ù[™Ú[™PÛÛ™šYÏXØ[™Y]NØœ™XZÎßBˆBˆTİš[™ÈÜİHŒLËŒŒŒHÚ[ÜNLLNÂˆÛÛœİ]]È^\İ[™Ï\›Ûİ˜[YJ™^\›˜[İ˜[œÜÜŠKÓØš™Xİ
+
+NØÛÛœİTİš[™È^\İ[™ÒÜİY^\İ[™Ë˜[YJšÜİŠKÔİš[™Ê
+NØÛÛœİ[^\İ[™ÔÜY^\İ[™Ë˜[YJœÜŠKÒ[
+
+NÂˆYŠ^\İ[™Ë˜[YJ™[™Ú[™HŠKÔİš[™Ê
+OOHYœ˜]È‰‰Š^\İ[™ÒÜİOHŒLËŒŒŒHŸ^\İ[™ÒÜİOHŒHŠI‰™^\İ[™ÔÜŒ	‰™^\İ[™ÔÜMMLÍJ^ÚÜİY^\İ[™ÒÜİÜÜY^\İ[™ÔÜßBˆYŠQš[R[™›Ê[™Ú[™PÛÛ™šYÊKš\Ñš[J
+J^ÂˆQš[H[™Ú[™J[™Ú[™PÛÛ™šYÊNÚYŠY[™Ú[™K›Ü[ŠRSÑ]šXÙN”™XYÛ›JJ\™]\›ÂˆËÈ™XYÛ›HHØØ[\İ[™\ˆ\™Xİ]™H›ÜˆÛÛÜ™[˜][ÛÈ™]™\‚ˆËÈÛÜHÜˆš[[™Ú[™HÜ™Y[X[È[ÈHU”ˆ›Ùš[KÛÙË‚ˆÛÛœİTİš[™ÈÛÛ[ÏTTİš[™Î™œ›ÛU]
+[™Ú[™Kœ™XY
+L
+ŒL
+JNÂˆÛÛœİ]]ÈX]ÚTT™Yİ[\‘^™\ÜÚ[ÛŠŠÎ—ŸŠWÊ‹[ÊŠL×ŒŒŒ_ÎŒWJNŠÌNWJÊHŠK›X]Ú
+ÛÛ[ÊNÂˆYŠ[X]Úš\ÓX]Ú
+
+J^ÔSY\ÜØYÙP›Şš[™›Ü›X][ÛŠ\Ë“ØØ[\İ[™\ˆ™\]Z\™Y‹•H^\İ[™ÈYœ˜]ÈÛÛ™šYİ\˜][Ûˆ™YYÈHÛÜ˜XÚÈ[\İ[™\‹ˆ™]šY]È]ÛÛ™šYİ\˜][Ûˆ™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÜ™]\›ßBˆÜİ[X]Ú˜Ø\\™Y
+JOOH–ÎŒWHÈŒH›X]Ú˜Ø\\™Y
+JNÜÜ[X]Ú˜Ø\\™Y
+ŠKÒ[
+
+NÚYŠÜ_ÜMLÍJ\™]\›ÂˆBˆ]]È™]ÛÜšÏ\›Ûİ˜[YJ›™]ÛÜšÈŠKÓØš™Xİ
+
+NÛ™]ÛÜšÖÈ˜š[™ØY™\ÜÈ—OZÜİÚYŠ™]ÛÜšË˜[YJœÜŠKÒ[
+LL
+OO\Ü
+[™]ÛÜšÖÈœÜ—O\ÜONLLÎLLLLÜ›ÛİÈ›™]ÛÜšÈ—O[™]ÛÜšÎÂˆ›ÛİÈ˜›Ûİİ˜\—OTRœÛÛ\œ˜^^ÔRœÛÛ“Øš™XİŞÈšÜİ‹ÜİKÈœÜ‹Ü__NÂˆ›ÛİÈ™^\›˜[İ˜[œÜÜ—OTRœÛÛ“Øš™XİŞÈ™\œÚ[Ûˆ‹_KÈ›[ÙH‹˜]XÚŸKÈ™[™Ú[™H‹Yœ˜]ÈŸKÈšÜİ‹ÜİKÈœÜ‹Ü_NÂˆ]]ÈÙXİ\š]O\›Ûİ˜[YJœÙXİ\š]HŠKÓØš™Xİ
+
+NÜÙXİ\š]VÈœİšXİÜÚY×İ™\šYH—O]YNÂˆÛÛœİTİš[™È\™XİÜOTTİ[™\™]ÎÜš]X›SØØ][ÛŠTİ[™\™]Î\ÛÛ™šYÓØØ][ÛŠJÈ‹Ü›Ùš[\ÈÚYŠTQ\Š
+K›ZÜ]
+\™XİÜJJ\™]\›ÂˆÛÛœİTİš[™ÈÛ›İÛ\ÙXİ\š]K˜[YJšÛ›İÛ—ÜY\œ×Ùš[HŠKÔİš[™ÊšÛ›İÛ—ÜY\œËšœÛÛˆŠNØÛÛœİTİš[™ÈÜšYÚ[˜[Û›İÛTQš[R[™›ÊÛ›İÛŠKš\Ô™[]]™J
+OÔQš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JK™\Š
+K˜XœÛÛ]Qš[T]
+Û›İÛŠNšÛ›İÛØÛÛœİTİš[™È›Ùš[RÛ›İÛY\™XİÜJÈ‹ÚÛ›İÛ—ÜY\œËšœÛÛˆÂˆYŠTQš[R[™›Ê›Ùš[RÛ›İÛŠK™^\İÊ
+I‰”Qš[R[™›ÊÜšYÚ[˜[Û›İÛŠKš\Ñš[J
+J^ÚYŠTQš[N˜ÛÜJÜšYÚ[˜[Û›İÛ‹›Ùš[RÛ›İÛŠJ\™]\›ÔQš[NœÙ]\›Z\ÜÚ[ÛœÊ›Ùš[RÛ›İÛ‹Qš[Q]šXÙN”™XYİÛ™\ŸQš[Q]šXÙN•Üš]SİÛ™\ŠNßBˆTİš[™ÈY[]O\ÙXİ\š]K˜[YJšY[]WÙš[HŠKÔİš[™Ê››ÙWÚÙ^\ËšœÛÛˆŠNÚYŠY[]Kš\Ñ[\J
+JZY[]OH››ÙWÚÙ^\ËšœÛÛˆÂˆÛÛœİTİš[™ÈÜšYÚ[˜[Y[]OTQš[R[™›ÊY[]JKš\Ô™[]]™J
+OÔQš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JK™\Š
+K˜XœÛÛ]Qš[T]
+Y[]JNšY[]NÂˆÙXİ\š]VÈšY[]WÙš[H—OTQ\˜ÛX[”]
+Qš[R[™›ÊÜšYÚ[˜[Y[]JK˜XœÛÛ]Qš[T]
+
+JNÂˆÙXİ\š]VÈšÛ›İÛ—ÜY\œ×Ùš[H—O\›Ùš[RÛ›İÛÜ›ÛİÈœÙXİ\š]H—O\ÙXİ\š]NÂˆTİš[™È›Ùš[OY\™XİÜJÈ‹İYœ˜]ËšœÛÛˆÚYŠQš[R[™›Ê›Ùš[JK™^\İÊ
+I‰”Q\˜ÛX[”]
+Qš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JK˜XœÛÛ]Qš[T]
+
+JHOTQ\˜ÛX[”]
+›Ùš[JJ\›Ùš[OY\™XİÜJÈ‹İYœ˜]ËHŠÔTİš[™Î›[X™\ŠQ]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+JJÈ‹šœÛÛˆÔTØ]™Qš[Hİ]]
+›Ùš[JNÚYŠ[İ]]›Ü[ŠRSÑ]šXÙN•Üš]SÛ›JJ\™]\›ÚYŠ[İ]]œÙ]\›Z\ÜÚ[ÛœÊQš[Q]šXÙN”™XYİÛ™\ŸQš[Q]šXÙN•Üš]SİÛ™\ŠJ\™]\›ØÛÛœİ]]È›Ùš[P]\ÏTRœÛÛ‘Øİ[Y[
+›Ûİ
+KÒœÛÛŠRœÛÛ‘Øİ[Y[’[™[Y
+NÚYŠİ]]Üš]J›Ùš[P]\ÊHO\›Ùš[P]\ËœÚ^™J
+_[İ]]˜ÛÛ[Z]
+
+J\™]\›ÂˆÛÛ™šYÔ]ËOœÙ]^
+›Ùš[JNÚ[˜[Y]J“ØØ[Yœ˜]È›Ùš[H™\\™Yˆ™\šYHH[™Ú[™H[™Ù\™\ˆ™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÛØYÛÛ™šYÊ›Ùš[JNÜİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNİ˜[Y]PÛÛ™šYÊ
+NÂˆYŠQš[R[™›Ê[™Ú[™PÛÛ™šYÊKš\Ñš[J
+J^Ù[™Ú[™\×ËOœİ\
+Yœ˜]È‹[™Ú[™PÛÛ™šYÊNÜ™]\›ßBˆTİš[™È^Xİ]X›NÙ›ÜŠÛÛœİTİš[™Éˆ˜[YNÔTİš[™ÊYœ˜]ÈŠKTİš[™ÊYœ˜]×Ø[YŠKTİš[™ÊYœ˜]×Ø\›MŠKTİš[™ÊYœ˜]×Ø\›HŠKTİš[™ÊYœ˜]×Û\Š_J^Ù^Xİ]X›OTTİ[™\™]Î™š[™^Xİ]X›J˜[YJNÚYŠY^Xİ]X›Kš\Ñ[\J
+JXœ™XZÎßBˆÙÊ^Xİ]X›Kš\Ñ[\J
+OÈYœ˜]È[™Ú[™H›İ›İ[™ÛˆUˆ]XÚ[ÙH™\]Z\™\È[İ\ˆ[œİ[Y›ÜØ\™\‹ˆˆYœ˜]È^Xİ]X›H]XİYÈ]XÚ[ÙH™\]Z\™\ÈH[™Ú[™HÈ™H[›š[™ÈÚ][İ\ˆÙ\™\ˆÛÛ™šYİ\˜][Û‹ˆŠNÂˆBˆ›ÚYØ]™U˜[œÜÜÙ][™ÜÊ
+^ÂˆQš[HÛİ\˜ÙJÛÛ™šYÔ]ËO^
+
+JNÚYŠ\Ûİ\˜ÙK›Ü[ŠRSÑ]šXÙN”™XYÛ›JJ^ÛÙÊ•˜[œÜÜÛXŞHØ\È›İØ]™Y0­ÈÛÛ™šYİ\˜][Ûˆ[˜]˜Z[X›HŠNÜ™]\›ßXÛÛœİP]P\œ˜^HÜšYÚ[˜[\Ûİ\˜ÙKœ™XY[
+
+NÔRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØ]]ÈØİ[Y[TRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÜšYÚ[˜[	™\œ›ÜŠNÜÛİ\˜ÙK˜ÛÜÙJ
+NÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸYØİ[Y[š\ÓØš™Xİ
+
+J^ÛÙÊ•˜[œÜÜÛXŞHØ\È›İØ]™Y0­È[˜[Y”ÓÓˆŠNÜ™]\›ßBˆ]]È›ÛİYØİ[Y[›Øš™Xİ
+
+NØ]]ÈY\]™O\›Ûİ˜[YJ˜Y\]™Wİ˜[œÜÜŠKÓØš™Xİ
+
+NØY\]™VÈ™[˜X›Y—OXY\]™Q[˜X›YËOš\ĞÚXÚÙY
+
+NØY\]™VÈ›[ÙH—OXY\]™S[ÙWËO˜İ\œ™[]J
+KÔİš[™Ê
+NÚYŠXY\]™K˜ÛÛZ[œÊ›ÜÜ×ÜİÚ]ÚÜ\˜Ù[ŠJXY\]™VÈ›ÜÜ×ÜİÚ]ÚÜ\˜Ù[—OLL‹ŒÚYŠXY\]™K˜ÛÛZ[œÊšš]\—ÜİÚ]ÚÛ\ÈŠJXY\]™VÈšš]\—ÜİÚ]ÚÛ\È—OMKŒÚYŠXY\]™K˜ÛÛZ[œÊ™˜Z[\™WÜİÚ]ÚØÛİ[ŠJXY\]™VÈ™˜Z[\™WÜİÚ]ÚØÛİ[—OLÎÚYŠXY\]™K˜ÛÛZ[œÊœ™XÛİ™\WÜ›Ø™WØÛİ[ŠJXY\]™VÈœ™XÛİ™\WÜ›Ø™WØÛİ[—OMÚYŠXY\]™K˜ÛÛZ[œÊ›Z[š[][WÙÙ[Û\ÈŠJXY\]™VÈ›Z[š[][WÙÙ[Û\È—OMLÜ›ÛİÈ˜Y\]™Wİ˜[œÜÜ—OXY\]™NÂˆ]]ÈÚ\[™Ï\›Ûİ˜[YJ˜Y™šX×ÜÚ\[™ÈŠKÓØš™Xİ
+
+NÜÚ\[™ÖÈ™[˜X›Y—O\Ú\[™Ñ[˜X›YËOš\ĞÚXÚÙY
+
+NÜÚ\[™ÖÈ›X^ÜY[™×Ø]\È—O\Ú\[™ÔY[™×ËO˜[YJ
+NÜÚ\[™ÖÈ›X^Ù[^WÛ\È—O\Ú\[™Ñ[^WËO˜[YJ
+NÚYŠ\Ú\[™Ë˜ÛÛZ[œÊ›X^Ü]Y]YWÜXÚÙ]ÈŠJ\Ú\[™ÖÈ›X^Ü]Y]YWÜXÚÙ]È—OLMÚYŠ\Ú\[™Ë˜ÛÛZ[œÊ›X^Ü]Y]YWØ]\ÈŠJ\Ú\[™ÖÈ›X^Ü]Y]YWØ]\È—OMLÜ›ÛİÈ˜Y™šX×ÜÚ\[™È—O\Ú\[™ÎÂˆ]]È˜]]™U[›™[\›Ûİ˜[YJ[›™[ŠKÓØš™Xİ
+
+NÚYŠ˜]]™U[›™[˜[YJœYÚ[ˆŠKÔİš[™Ê
+OOHÚ\™YİX\™Ÿ˜]]™U[›™[˜[YJœYÚ[ˆŠKÔİš[™Ê
+OOH›Ü[œˆŠ^Û˜]]™U[›™[ÈœYÚ[ˆ—OHœ]œˆÛ˜]]™U[›™[œ™[[İ™J˜ÛÛ™šY×Ü]ŠNÜ›ÛİÈ[›™[—O[˜]]™U[›™[ßZYŠ[›™\•[›™[[˜X›YËOš\ĞÚXÚÙY
+
+J^ØÛÛœİQš[R[™›È[›™\ÛÛ™šYÊ[›™\•[›™[ÛÛ™šY×ËO^
+
+JNÚYŠZ[›™\ÛÛ™šYËš\ĞXœÛÛ]J
+_Z[›™\ÛÛ™šYËš\Ñš[J
+J^ÔSY\ÜØYÙP›ŞØ\›š[™Ê\Ë’[›™\ˆ”ˆÛÛ™šYİ\˜][Ûˆ‹ÚÛÜÙH[ˆ^\İ[™ÈXœÛÛ]HÚ\™QİX\™ÜˆÜ[•”ˆÈÛY[ÛÛ™šYİ\˜][Û‹ˆŠNÜ™]\›ß\›ÛİÈš[›™\—İ[›™[—OTRœÛÛ“Øš™XİŞÈ™[˜X›Y‹Y_KÈ˜˜XÚÙ[™‹[›™\•[›™[˜XÚÙ[™ËO˜İ\œ™[]J
+KÔİš[™Ê
+_KÈ˜ÛÛ™šY×Ü]‹[›™\ÛÛ™šYË˜XœÛÛ]Qš[T]
+
+__NßY[ÙH›Ûİœ™[[İ™Jš[›™\—İ[›™[ŠNÂˆØİ[Y[œÙ]Øš™Xİ
+›Ûİ
+NØÛÛœİP]P\œ˜^H\]YYØİ[Y[ÒœÛÛŠRœÛÛ‘Øİ[Y[’[™[Y
+NÚYŠ\]YO[ÜšYÚ[˜[
+^Üİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ•˜[œÜÜÛXŞH[™XYHX]Ú\È\ÈÛÛ™šYİ\˜][Ûˆ‹Ì
+NÛÙÊ•˜[œÜÜÛXŞH[˜Ú[™ÙY0­ÈY[\İ[Ø]™HŠNÜ™]\›ßTTØ]™Qš[Hİ]]
+ÛÛ™šYÔ]ËO^
+
+JNÚYŠ[İ]]›Ü[ŠRSÑ]šXÙN•Üš]SÛ›J_İ]]Üš]J\]Y
+O[İ]]˜ÛÛ[Z]
+
+J^ÛÙÊ•˜[œÜÜÛXŞHÛİ[›İ™HÜš][ˆØY™[HŠNÜ™]\›ßZ[˜[Y]J•˜[œÜÜÛXŞHØ]™Yˆ˜[Y]H™Y›Ü™HÛÛ›™Xİ[™ËˆŠNÛØYÛÛ™šYÊÛÛ™šYÔ]ËO^
+
+JNÛÙÊTİš[™Ê•˜[œÜÜÛXŞHØ]™Y0­È	LH0­ÈÚ\[™È	Lˆ0­È[›™\ˆ	LÈŠK˜\™ÊY\]™S[ÙWËO˜İ\œ™[]J
+KÔİš[™Ê
+KÚ\[™Ñ[˜X›YËOš\ĞÚXÚÙY
+
+OÈ™[˜X›Yˆ™\ØX›Y‹[›™\•[›™[[˜X›YËOš\ĞÚXÚÙY
+
+OÚ[›™\•[›™[˜XÚÙ[™ËO˜İ\œ™[]J
+KÔİš[™Ê
+Nˆ›Ù™ˆŠJNÂˆBˆ›ÚY[˜[Y]JÛÛœİTİš[™Éˆ™X\ÛÛŠ^ØÛÛ™šYÕ˜[YÏY˜[ÙNİ˜[Y]YÛÛ™šYÒ\ÚË˜ÛX\Š
+Nİ˜[Y]Y^Xİ]X›R\ÚË˜ÛX\Š
+NØÛÛ›™Xİ]Û—ËOœÙ][˜X›Y
+˜[ÙJNØÛÛ™šYÒX[ËOœÙ]^
+™X\ÛÛŠNÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NßBˆ›ÚYÚÛÜÙPÛÛ™šYÊ
+^ÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÛÙÊ‘\ØÛÛ›™Xİ™Y›Ü™HÚÛÜÚ[™È[›İ\ˆÛÛ™šYİ\˜][Û‹ˆŠNÜ™]\›ßXÛÛœİTİš[™È]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙHU”ˆÛÛ™šYİ\˜][Ûˆ‹Qš[R[™›ÊÛÛ™šYÔ]ËO^
+
+JK˜XœÛÛ]T]
+
+K’”ÓÓˆÛÛ™šYİ\˜][Ûˆ
+
+‹šœÛÛŠHŠNÚYŠ\]š\Ñ[\J
+JXÛÛ™šYÔ]ËOœÙ]^
+]
+NßBˆ›ÚYÚÛÜÙQ^Xİ]X›J
+^ÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÛÙÊ‘\ØÛÛ›™Xİ™Y›Ü™HÚÛÜÚ[™È[›İ\ˆ^Xİ]X›KˆŠNÜ™]\›ßXÛÛœİTİš[™È]TQš[QX[ÙÎ™Ù]Ü[‘š[S˜[YJ\ËÚÛÜÙH]œ—Û›ÙH‹Qš[R[™›Ê^Xİ]X›T]ËO^
+
+JK˜XœÛÛ]T]
+
+JNÚYŠ\]š\Ñ[\J
+JY^Xİ]X›T]ËOœÙ]^
+]
+NßBˆ›ÚY[“›ÙUÛÛ
+ÛÛœİTİš[™Ó\İ	ˆ\™İ[Y[ËÛÛœİTİš[™Éˆ]J^ÂˆÛÛœİQš[R[™›Èš[˜\J^Xİ]X›T]ËO^
+
+JNÂˆYŠXš[˜\K™^\İÊ
+_Xš[˜\Kš\Ñ^Xİ]X›J
+J^ØÛÛ™šYÒX[ËOœÙ]^
+ÚÛÜÙH[ˆ^Xİ]X›H]œ—Û›ÙHš[˜\KˆŠNÜİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNÜ™]\›ßBˆ]]ÊˆÛÛ[™]ÈT›ØÙ\ÜÊ\ÊNİÛÛOœÙ]›ØÙ\ÜĞÚ[›™[[ÙJT›ØÙ\ÜÎ“Y\™ÙYÚ[›™[ÊNØØ\\™P›İ[™Yİ]]
+ÛÛ
+NÛÙÊ]JÈˆİ\YŠNÂˆÛÛ›™Xİ
+ÛÛSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ëİ\ËÛÛ]WJ[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÂˆP]P\œ˜^H˜]Ï]ÛÛOœ›Ü\Jœ]œ“İ]]ŠKĞ]P\œ˜^J
+JİÛÛOœ™XY[İ[™\™İ]]
+
+NÚYŠ˜]ËœÚ^™J
+OŒL
+ŒL
+\˜]ÏTP]P\œ˜^J–ÙX\›Y\ˆİ]]\ØØ\™YWˆŠJÜ˜]ËœšYÚ
+L
+ŒL
+NÔTİš[™Èİ]]TTİš[™Î™œ›ÛU]
+˜]ÊKš[[YY
+
+NÚYŠİ]]š\Ñ[\J
+J[İ]]H“›Èİ]]Ø\È›ÙXÙYˆÛÙÊ]JÔTİš[™Êˆš[š\ÚY0­È^]	LHŠK˜\™ÊÛÙJJNÂˆQX[ÙÈX[ÙÊ\ÊNÙX[ÙËœÙ]Ú[™İÕ]J]JNÙX[ÙËœ™\Ú^™JÍŒLŒ
+NØ]]Êˆ^[İ][™]ÈU›Ş^[İ]
+	™X[ÙÊNØ]]ÊˆXY[™Ï]^
+İ]\ÏOTT›ØÙ\ÜÎ“›Ü›X[^]	‰˜ÛÙOOLİ]JÈˆÛÛ\]Y]JÔTİš[™Êˆ˜Z[Y0­È^]	LHŠK˜\™ÊÛÙJKœÙXİ[Û•]HŠNÛ^[İ]O˜YÚYÙ]
+XY[™ÊNØ]]Êˆ™\Ü[™]ÈTZ[•^Y]
+İ]]
+NÜ™\ÜOœÙ]™XYÛ›JYJNÛ^[İ]O˜YÚYÙ]
+™\ÜJNØ]]ÊˆÛÜÙO[™]ÈT\Ú]ÛŠÛÜÙHŠNØÛÛ›™Xİ
+ÛÜÙK	”T\Ú]Û˜ÛXÚÙY	™X[ÙË	”QX[ÙÎ˜XØÙ\
+NÛ^[İ]O˜YÚYÙ]
+ÛÜÙK][YÛ”šYÚ
+NÙX[ÙË™^XÊ
+NİÛÛO™[]S]\Š
+NÂˆJNÂˆÛÛ›™Xİ
+ÛÛ	”T›ØÙ\ÜÎ™\œ›Ü“ØØİ\œ™Y\Ëİ\ËÛÛ]WJT›ØÙ\ÜÎ”›ØÙ\ÜÑ\œ›ÜŠ^ÛÙÊ]JÈˆ˜Z[YÈİ\0­ÈŠİÛÛO™\œ›Ü”İš[™Ê
+JNßJNÂˆÛÛOœİ\
+^Xİ]X›T]ËO^
+
+K\™İ[Y[ÊNÂˆBˆ›ÚYš[š\Ú˜[Y][ÛŠ›ÛÛ\ÜÙYÛÛœİTİš[™ÉˆY\ÜØYÙJ^ÂˆÛÛ™šYÕ˜[YÏ\\ÜÙYØÛÛ™šYÒX[ËOœÙ]^
+Y\ÜØYÙJNØÛÛ›™Xİ]Û—ËOœÙ][˜X›Y
+\ÜÙY
+NÂˆYŠ\ÜÙY
+^İ˜[Y]YÛÛ™šYÒ\ÚÏYš[Qš[™Ù\œš[
+ÛÛ™šYÔ]ËO^
+
+JNİ˜[Y]Y^Xİ]X›R\ÚÏYš[Qš[™Ù\œš[
+^Xİ]X›T]ËO^
+
+JNÂˆYŠ˜[Y]YÛÛ™šYÒ\ÚËš\Ñ[\J
+_˜[Y]Y^Xİ]X›R\ÚËš\Ñ[\J
+J^Ú[˜[Y]J•˜[Y]Yš[\È\™H›ÈÛ™Ù\ˆ™XYX›Kˆ˜[Y]HYØZ[‹ˆŠNÜ\ÜÙYY˜[ÙNß_Bˆ[Ù^İ˜[Y]YÛÛ™šYÒ\ÚË˜ÛX\Š
+Nİ˜[Y]Y^Xİ]X›R\ÚË˜ÛX\Š
+NßBˆ˜[Y]P]Û—ËOœÙ][˜X›Y
+YJNÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÛÙÊ\ÜÙYÈÛÛ™šYİ\˜][Ûˆ[™]›Ü›H™Y›YÚ\ÜÙYˆÛÛ›™Xİ[Ûˆ™Y›YÚ˜Z[YŠNÂˆBˆ›ÚY˜[Y]T]›Ü›J
+^ÂˆYŠ›Õ[›™[É‰››Õ[›™[ËOš\ĞÚXÚÙY
+
+J^Âˆš[š\Ú˜[Y][ÛŠYK•˜[Y]Y›Üˆ™[^H[ÙKˆØØ[˜Y™šXÈÚ[›İ™H[›™[YˆŠNÜ™]\›ÂˆBˆÚY™YˆÕÒSŒÌ‚ˆ]]Êˆ]›Ü›O[™]ÈT›ØÙ\ÜÊ\ÊNÜ]›Ü›KOœÙ]›ØÙ\ÜĞÚ[›™[[ÙJT›ØÙ\ÜÎ“Y\™ÙYÚ[›™[ÊNØØ\\™P›İ[™Yİ]]
+]›Ü›JNÂˆÛÛ›™Xİ
+]›Ü›KSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ëİ\Ë]›Ü›WJ[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÂˆÛÛœİTİš[™Èİ]]TTİš[™Î™œ›ÛU]
+]›Ü›KOœ›Ü\Jœ]œ“İ]]ŠKĞ]P\œ˜^J
+JÜ]›Ü›KOœ™XY[İ[™\™İ]]
+
+JKš[[YY
+
+NÂˆÛÛœİ›ÛÛ™XYO\İ]\ÏOTT›ØÙ\ÜÎ“›Ü›X[^]	‰˜ÛÙOOL	‰›İ]]˜ÛÛZ[œÊ™š]™\\™XYHŠNÂˆTİš[™ÈY\ÜØYÙOH”U”ˆš]™\ˆ\È™XYKˆÛÛ™šYİ\˜][Ûˆ[™]›Ü›HÚXÚÜÈ\ÜÙYˆÂˆYŠ\™XYI‰›İ]]˜ÛÛZ[œÊ™š]™\XXØÙ\ÜËY[šYYŠJ[Y\ÜØYÙOH‘š]™\ˆXØÙ\ÜÈ[šYYˆ[ˆH[œİ[Y\XØ][ÛˆÚ]H™\]Z\™Yš]š[YÙ\ËˆÂˆ[ÙHYŠ\™XYI‰›İ]]˜ÛÛZ[œÊ™š]™\[›İZ[œİ[YŠJ[Y\ÜØYÙOH”U”ˆš]™\ˆ\È›İ[œİ[YˆHØØ[[›™[Ø[››İİ\ØY™[KˆÂˆ[ÙHYŠ\™XYJ[Y\ÜØYÙOH”U”ˆš]™\ˆ™Y›YÚ˜Z[Yˆ™]šY]ÈXİ]š]H™Y›Ü™HÛÛ›™Xİ[™ËˆÂˆš[š\Ú˜[Y][ÛŠ™XYKY\ÜØYÙJNÜ]›Ü›KO™[]S]\Š
+NÂˆJNÂˆÛÛ›™Xİ
+]›Ü›K	”T›ØÙ\ÜÎ™\œ›Ü“ØØİ\œ™Y\Ëİ\Ë]›Ü›WJT›ØÙ\ÜÎ”›ØÙ\ÜÑ\œ›ÜŠ^Ùš[š\Ú˜[Y][ÛŠ˜[ÙK”]›Ü›H[œÜXİ[ÛˆÛİ[›İİ\ˆŠÜ]›Ü›KO™\œ›Ü”İš[™Ê
+JNÜ]›Ü›KO™[]S]\Š
+NßJNÂˆ]›Ü›KOœİ\
+^Xİ]X›T]ËO^
+
+KÈ‹K\]›Ü›KZ[™›ÈŸJNÂˆÙ[ÙBˆš[š\Ú˜[Y][ÛŠYKÛÛ™šYİ\˜][Ûˆ[™]›Ü›HÚXÚÜÈ\ÜÙYˆ›İ]H™XY[™\ÜÈÚ[™H™\šYšYY][[YKˆŠNÂˆÙ[™Y‚ˆBˆ›ÚY˜[Y]PÛÛ™šYÊ›ÛÛİÚ]ÚĞÛÛ›™Xİ[Û]YJHÂˆYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™ÊH™]\›ÂˆÛÛœİQš[R[™›Èš[˜\J^Xİ]X›T]ËO^
+
+JNÂˆYŠXš[˜\K™^\İÊ
+_Xš[˜\Kš\Ñ^Xİ]X›J
+JHÂˆÛÛ™šYÒX[ËOœÙ]^
+ÚÛÜÙH[ˆ^Xİ]X›H]œ—Û›ÙHš[˜\KˆŠNÂˆÙÊ•˜[Y][Ûˆ›ØÚÙY0­È›ÙH^Xİ]X›H[˜]˜Z[X›HŠNÂˆ™]\›ÂˆBˆ˜[Y]P]Û—ËOœÙ][˜X›Y
+˜[ÙJNÈÛÛ™šYÒX[ËOœÙ]^
+•˜[Y][™ÈÚ]]œ—Û›Ùx )ˆŠNÈÙÊÛÛ™šYİ\˜][Ûˆ˜[Y][Ûˆİ\YŠNÂˆ]]ÊˆÚXÚÏ[™]ÈT›ØÙ\ÜÊ\ÊNÈÚXÚËOœÙ]›ØÙ\ÜĞÚ[›™[[ÙJT›ØÙ\ÜÎ“Y\™ÙYÚ[›™[ÊNØØ\\™P›İ[™Yİ]]
+ÚXÚÊNÂˆÛÛ›™Xİ
+ÚXÚËSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ëİ\ËÚXÚ×J[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÂˆÚXÚËOœ™XY[İ[™\™İ]]
+
+NÂˆÛÛœİ›ÛÛ˜[Y\İ]\ÏOTT›ØÙ\ÜÎ“›Ü›X[^]	‰˜ÛÙOOL	‰›ØYÛÛ™šYÊÛÛ™šYÔ]ËO^
+
+JNØÚXÚËO™[]S]\Š
+NÂˆYŠ˜[Y
+^ÛÙÊÛÛ™šYİ\˜][Ûˆ˜[Y][Ûˆ\ÜÙYÈÚXÚÚ[™È]›Ü›H™XY[™\ÜÈŠNİ˜[Y]T]›Ü›J
+NßBˆ[ÙHš[š\Ú˜[Y][ÛŠ˜[ÙKTİš[™Ê•˜[Y][Ûˆ˜Z[YÚ]^]ÛÙH	LKˆ™]šY]ÈXİ]š]KˆŠK˜\™ÊÛÙJJNÂˆJNÂˆÚXÚËOœİ\
+^Xİ]X›T]ËO^
+
+KÈ‹K\Û[ÚÙK]\İ‹‹KXÛÛ™šYÈ‹ÛÛ™šYÔ]ËO^
+
+_JNÈYŠİÚ]ÚĞÛÛ›™Xİ[ÛŠHİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNÂˆBˆ›ÚYÙÙÛPÛÛ›™Xİ[ÛŠ
+^ÚYŠ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÚYŠXÛÛ™šYÕ˜[YÊ\™]\›ÚYŠš[Qš[™Ù\œš[
+ÛÛ™šYÔ]ËO^
+
+JHO]˜[Y]YÛÛ™šYÒ\Úßš[Qš[™Ù\œš[
+^Xİ]X›T]ËO^
+
+JHO]˜[Y]Y^Xİ]X›R\ÚÊ^Ú[˜[Y]JÛÛ™šYİ\˜][ÛˆÜˆ^Xİ]X›HÚ[™ÙYY\ˆ˜[Y][Û‹ˆ˜[Y]HYØZ[‹ˆŠNÛÙÊÛÛ›™Xİ[Ûˆ›ØÚÙY0­È˜[Y]Yš[\ÈÚ[™ÙYŠNÜ™]\›ß\İÜ[™×ÏY˜[ÙNÜ›ØÙ\ÜÑ˜Z[YÏY˜[ÙNØ›ÛÛ›Õ[›™[Y˜[ÙNÂˆ›Õ[›™[[›Õ[›™[É‰››Õ[›™[ËOš\ĞÚXÚÙY
+
+NÂˆÙÊTİš[™ÊÛÛ›™Xİ™\]Y\İY0­ÈÛÛ™šYÈ	LH0­ÈÙÈ	L‰LÈŠK˜\™ÊÛÛ™šYÔ]ËO^
+
+KÙÓ]™[ËO˜İ\œ™[^
+
+K›Õ[›™[Èˆ0­È›Ë][›™[ˆˆŠJNÔTİš[™Ó\İ\™ÜÏ^È‹KXÛÛ™šYÈ‹ÛÛ™šYÔ]ËO^
+
+K‹K[ÙË[]™[‹ÙÓ]™[ËO˜İ\œ™[^
+
+K‹KXÛÛ›Û\İ[ˆŸNÚYŠ›Õ[›™[
+X\™ÜÏ‹K[›Ë][›™[Âˆ›ØÙ\Ü×Ëœİ\
+^Xİ]X›T]ËO^
+
+K\™ÜÊNÂˆY[ÙH™\]Y\İİÜ
+
+NßBˆTİš[™Èİ˜[™ÙSX\šİ\
+Tİš[™È˜[YJHÛÛœİÜ™]\›ˆ˜[YKÒ[\ØØ\Y
+
+Kœ™\XÙJ—ˆ‹œˆŠNßBˆ›ÚY\[™İ˜[™ÙTŞ\İ[JÛÛœİTİš[™Éˆ˜[YJ^ÚYŠ\İ˜[™ÙU˜[œØÜš\Ê\™]\›Üİ˜[™ÙU˜[œØÜš\ËO˜\[™
+Tİš[™ÊX›HÚYIÌL	IÈÙ[ÜXÚ[™ÏIÌ	ÈÙ[Y[™ÏIÍIÏ[YÛIØÙ[\‰ÏÜ[ˆİ[OIØÛÛÜˆÎ˜MÎNÙ›Û\Ú^™N\	Ï‰LOÜÜ[İİİX›OˆŠK˜\™Êİ˜[™ÙSX\šİ\
+˜[YJJJNßBˆ›ÚY\[™İ˜[™ÙU^
+ÛÛœİTİš[™Éˆ˜[YJ^Ø\[™İ˜[™ÙTŞ\İ[J˜[YJNßBˆ›ÚY\[™İ˜[™ÙSY\ÜØYÙPX˜›JÛÛœİTİš[™ÉˆÙ[™\‹ÛÛœİTİš[™Éˆ˜[YKZ[[Y\İ[\›ÛÛİ]›İ[™
+^ÚYŠ\İ˜[™ÙU˜[œØÜš\Ê\™]\›ØÛÛœİTİš[™ÈX™[[İ]›İ[™ÔTİš[™Ó]\˜[
+–[İHŠNœÙ[™\‹›Y
+LŠNØÛÛœİTİš[™È[YO][Y\İ[\ŒÔQ]U[YN™œ›ÛSTÙXÜÔÚ[˜ÙQ\ØÚ
+[Y\İ[\
+KÓØØ[[YJ
+KÔİš[™Ê’›[HŠN”Q]U[YN˜İ\œ™[]U[YJ
+KÔİš[™Ê’›[HŠNØÛÛœİTİš[™ÈÚYO[İ]›İ[™ÔTİš[™Ó]\˜[
+œšYÚŠN”Tİš[™Ó]\˜[
+›YŠNØÛÛœİTİš[™È˜XÚÙÜ›İ[™[İ]›İ[™ÔTİš[™Ó]\˜[
+ˆÍMÌ˜ÎHŠN”Tİš[™Ó]\˜[
+ˆÌŒ˜MŠNÜİ˜[™ÙU˜[œØÜš\ËO˜\[™
+Tİš[™ÊX›HÚYIÌL	IÈÙ[ÜXÚ[™ÏIÌ	ÈÙ[Y[™ÏIÌÉÏ[YÛIÉLIÏX›HÚYIÍÌ‰IÈÙ[ÜXÚ[™ÏIÌ	ÈÙ[Y[™ÏIÌL‰È™ØÛÛÜIÉL‰ÏÜ[ˆİ[OIØÛÛÜˆØ™˜ØYŒÙ›Û\Ú^™NÙ›Û]ÙZYÚŒ	Ï‰LÈ0­È	MÜÜ[œÜ[ˆİ[OIØÛÛÜˆÙ™™™™™Ù›Û\Ú^™NŒL\	Ï‰MOÜÜ[İİİX›OİİİX›OˆŠK˜\™ÊÚYK˜XÚÙÜ›İ[™X™[Ò[\ØØ\Y
+
+K[YKİ˜[™ÙSX\šİ\
+˜[YJJJNßBˆ›ÚY\[™İ˜[™ÙTİXÚÙ\ŠÛÛœİTİš[™Éˆ^[ØYÛÛœİTİš[™ÉˆÙ[™\Š^ÔRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]ÈØš™XİTRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠ^[ØYÕ]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NØÛÛœİTİš[™È[[ÚšO[Øš™Xİ˜[YJ™[[ÚšHŠKÔİš[™Ê
+KØ\[Û[Øš™Xİ˜[YJ˜Ø\[ÛˆŠKÔİš[™Ê
+KÛÛÜ[Øš™Xİ˜[YJ˜ÛÛÜˆŠKÔİš[™Ê
+NØÛÛœİTİš[™Ó\İ[]^ÈˆÍMÌ˜ÎH‹ˆÌ˜N‹ˆØÌ‹ˆØ˜ŒN‹ˆÌŒ˜ÍH‹ˆÌÙÌÈŸNÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸ[[ÚšKš\Ñ[\J
+_[[ÚšKœÚ^™J
+OŒMŸØ\[Û‹œÚ^™J
+O\[]K˜ÛÛZ[œÊÛÛÜŠJ^Ø\[™İ˜[™ÙTŞ\İ[JHX[›Ü›YYİXÚÙ\ˆØ\È\ØØ\™YØY™[KˆŠNÜ™]\›ßXÛÛœİTİš[™ÈÚYO\Ù[™\OH–[İHÔTİš[™Ó]\˜[
+œšYÚŠN”Tİš[™Ó]\˜[
+›YŠNÜİ˜[™ÙU˜[œØÜš\ËO˜\[™
+Tİš[™ÊX›HÚYIÌL	IÈÙ[ÜXÚ[™ÏIÌ	ÈÙ[Y[™ÏIÌÉÏ[YÛIÉLIÏX›HÚYIÍ‰IÈÙ[Y[™ÏIÌM	È™ØÛÛÜIÉL‰ÏÜ[ˆİ[OIÙ›Û\Ú^™NŒÍ	Ï‰LÏÜÜ[œÜ[ˆİ[OIØÛÛÜÚ]NÙ›Û\Ú^™NŒLœÙ›Û]ÙZYÚÌ	Ï‰MÜÜ[œÜ[ˆİ[OIØÛÛÜˆÙNNY™Ù›Û\Ú^™N	Ï‰MOÜÜ[İİİX›OİİİX›OˆŠK˜\™ÊÚYKÛÛÜ‹[[ÚšKÒ[\ØØ\Y
+
+KØ\[Û‹Ò[\ØØ\Y
+
+KÙ[™\‹Ò[\ØØ\Y
+
+JJNßBˆ›ÚY\[™İ˜[™ÙT™XXİ[ÛŠÛÛœİTİš[™Éˆ^[ØYÛÛœİTİš[™ÉˆÙ[™\‹][Û™ÛÛ™È˜[˜XÚÔÙ\]Y[˜ÙJ^ÔRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]ÈØš™XİTRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠ^[ØYÕ]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NØÛÛœİTİš[™È[[ÚšO[Øš™Xİ˜[YJ™[[ÚšHŠKÔİš[™Ê
+K\™Ù][Øš™Xİ˜[YJ\™Ù]ŠKÔİš[™Ê
+K›Y
+LŠNØÛÛœİ]]ÈÙ\]Y[˜ÙO[Øš™Xİ˜[YJœÙ\]Y[˜ÙHŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸ[[ÚšKš\Ñ[\J
+_[[ÚšKœÚ^™J
+OŒMŠ^Ø\[™İ˜[™ÙTŞ\İ[JHX[›Ü›YY™XXİ[ÛˆØ\È\ØØ\™YØY™[KˆŠNÜ™]\›ßX\[™İ˜[™ÙTŞ\İ[JTİš[™Ê‰LH™XXİY	LˆÈ	LÈ0­ÈY\ÜØYÙH	MŠK˜\™ÊÙ[™\‹[[ÚšK\™Ù]š\Ñ[\J
+OÔTİš[™ÊH]\İY\ÜØYÙHŠN\™Ù]
+K˜\™ÊÙ\]Y[˜ÙOÜÙ\]Y[˜ÙN™˜[˜XÚÔÙ\]Y[˜ÙJJNßBˆ›ÚY™XÛÜ™İ˜[™ÙT›ÛÙŠÛÛœİTİš[™Éˆ˜[YKÛÛœİRœÛÛ“Øš™Xİ	ˆ]™[
+^ÚYŠ\İ˜[™ÙT›ÛÙ‘[˜X›Yß\İ˜[™ÙT›ÛÙ‘[˜X›YËOš\ĞÚXÚÙY
+
+J\™]\›ØÛÛœİTİš[™Ó\İÛÛ[Z]YÈœİ˜[™Ù[™]›Y\ÜØYÙH‹œİ˜[™Ù[™]™\™Xİ‹œİ˜[™Ù[™]œİXÚÙ\ˆ‹œİ˜[™Ù[™]œ™XXİ[Ûˆ‹œİ˜[™Ù[™]™[]™\™Y‹œİ˜[™Ù[™]œÙ[ŸNÚYŠXÛÛ[Z]Y˜ÛÛZ[œÊ˜[YJJ\™]\›ØÛÛœİ›ÛÛXØÙ\Y\İ˜[™ÙT›ÛÙÚZ[—Ë˜\[™
+RœÛÛ‘Øİ[Y[
+]™[
+KÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+JNÚYŠXXØÙ\Y
+^Üİ˜[™ÙT›ÛÙ”İ]\×ËOœÙ]^
+”›ÛÙˆÚZ[ˆ[Z]™XXÚYÈÛÜH\È[˜ÚÜˆ™Y›Ü™Hİ\[™ÈH™]ÈÚZ[‹ˆŠNÜ™]\›ß\İ˜[™ÙT›ÛÙÛÜWËOœÙ][˜X›Y
+YJNÜİ˜[™ÙT›ÛÙ”İ]\×ËOœÙ]^
+Tİš[™Ê‰LH]™[
+ÊHÛÛ[Z]Y[ˆY[[ÜH0­ÈÛÛ[^ÛYYœ›ÛHH[˜ÚÜ‹ˆŠK˜\™Êİ˜[™ÙT›ÛÙÚZ[—ËœÚ^™J
+JJNßBˆ›ÚY›İYTİ˜[™ÙPXİ]š]J
+^ÚYŠYÙ\×ËO˜İ\œ™[[™^
+
+OOTİ˜[™ÙS™]	‰š\ĞXİ]™UÚ[™İÊ
+J\™]\›İ[œ™XYİ˜[™ÙWÏ\SZ[Š[œ™XYİ˜[™ÙWÊÌKNNJNØÛÛœİTİš[™ÈX™[TTİš[™ÊŒİ˜[™ÙS™]0­È	LHŠK˜\™Ê[œ™XYİ˜[™ÙWÊNÜYÙP]Ûœ×ÖÔİ˜[™ÙS™]KOœÙ]›Ü\J™[^‹X™[
+NÚYŠÚYX˜\—ËOÚY
+
+OŒL
+\YÙP]Ûœ×ÖÔİ˜[™ÙS™]KOœÙ]^
+X™[
+NØÛÛœİ]]È›İÏTQ]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+NÚYŠİ˜[™ÙS›İYšXØ][Ûœ×ËOš\ĞÚXÚÙY
+
+I‰˜^WËOš\Õš\ÚX›J
+I‰››İË[\İİ˜[™ÙS›İYšXØ][Û“\×ÏLÌ
+^Û\İİ˜[™ÙS›İYšXØ][Û“\×Ï[›İÎİ˜^WËOœÚİÓY\ÜØYÙJ“™]È[˜Ü\Yİ˜[™ÙS™]Xİ]š]H‹“Ü[ˆU”ˆÈšY]È]ˆ‹TŞ\İ[U˜^RXÛÛ’[™›Ü›X][Û‹ÍL
+Nß_Bˆ›ÛÛ˜[Yİ˜[™ÙT›ÛÛJ
+HÈÛÛœİTİš[™È›ÛÛO\İ˜[™ÙT›ÛÛWËO^
+
+Kš[[YY
+
+NØÛÛœİ›ÛÛ˜[Y\›ÛÛKœÚ^™J
+OM	‰œ›ÛÛKœÜ]
+	ËÉÊKœÚ^™J
+ON	‰”T™Yİ[\‘^™\ÜÚ[ÛŠ—–ĞKV˜K^ŒNWVĞKV˜K^ŒNK—ËWJŠÖĞKV˜K^ŒNWVĞKV˜K^ŒNK—ËWJŠJ‰ŠK›X]Ú
+›ÛÛJKš\ÓX]Ú
+
+NÚYŠ]˜[Y
+X\[™İ˜[™ÙU^
+•\ÙHHØY™H›ÛÛH]ˆx $ÍÚ\˜Xİ\œË][Üİ]™[Ë›Üˆ^[\HXZ[›™]ÙœšY[™ËÜÙ]KˆŠNÜ™]\›ˆ˜[YÈBˆ›ÚYÙ[™ÛÛ›Û
+ÛÛœİRœÛÛ“Øš™Xİ	ˆÛÛ[X[™
+^Ü›ØÙ\Ü×ËÜš]JRœÛÛ‘Øİ[Y[
+ÛÛ[X[™
+KÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+JÉ×‰ÊNßBˆ›ÚYÙ[™İ˜[™ÙR›Ú[Š
+^ØÛÛœİ]]ÈÙ[XİY\Y\‘\™XİÜWËOœÙ[XİY][\Ê
+NØXİ]™Tİ˜[™ÙQÜ›İ\Ë˜ÛX\Š
+NÚYŠÙ[XİYœÚ^™J
+OLŠ^ÔRœÛÛ\œ˜^HY\œÎÙ›ÜŠÛÛœİ]]Êˆ][NœÙ[XİY
+^ØÛÛœİTİš[™ÈY\Z][KO™]J]•\Ù\”›ÛJKÔİš[™Ê
+NÜY\œË˜\[™
+Y\ŠNØXİ]™Tİ˜[™ÙQÜ›İ\Ë˜\[™
+Y\ŠNß\Ù[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]š›Ú[ˆŸKÈœ›ÛÛH‹İ˜[™ÙT›ÛÛWËO^
+
+Kš[[YY
+
+_KÈœY\ˆ‹˜]]ÈŸKÈœY\œÈ‹Y\œß_JNÜ™]\›ß\Ù[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]š›Ú[ˆŸKÈœ›ÛÛH‹İ˜[™ÙT›ÛÛWËO^
+
+Kš[[YY
+
+_KÈœY\ˆ‹˜]]ÈŸ_JNßBˆ›ÚYÙÙÛTİ˜[™ÙS™]
+
+^ÚYŠİ˜[™ÙPXİ]™WÊ^ÜÙ[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]›X]™HŸ_JNÜ™]\›ßZYŠ]˜[Yİ˜[™ÙT›ÛÛJ
+J\™]\›ÚYŠ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÚYŠXÛÛ™šYÕ˜[YÊ^Ø\[™İ˜[™ÙU^
+•˜[Y]HHXZ[›™]ÛÛ™šYİ\˜][Ûˆ™Y›Ü™H›Ú[š[™ËˆŠNÜİÚ]ÚYÙJÛÛ›™Xİ[ÛŠNÜ™]\›ß\[™[™Ôİ˜[™ÙR›Ú[—Ï]YNØ\[™İ˜[™ÙU^
+”İ\[™ÈHXZ[›™]ÛÛ›™Xİ[Ûˆ›Üˆ›ÛÛH	ÈŠÜİ˜[™ÙT›ÛÛWËO^
+
+Kš[[YY
+
+JÈ‰ø )ˆŠNİÙÙÛPÛÛ›™Xİ[ÛŠ
+NÜ™]\›ß\Ù[™İ˜[™ÙR›Ú[Š
+NßBˆ›ÚYÙ[™İ˜[™ÙSY\ÜØYÙJ
+^ØÛÛœİTİš[™È˜[YO\İ˜[™ÙSY\ÜØYÙWËOÔZ[•^
+
+NØÛÛœİP]P\œ˜^HY\ÜØYÙO]˜[YKÕ]
+
+NÚYŠ\İ˜[™ÙPXİ]™Wß\İ˜[™ÙT™XÚ\Y[™XYJ
+_›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ”[›š[™ßQ]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+Oİ˜[™ÙTÙ[™›ØÚÙY[[\×ß˜[YKš[[YY
+
+Kš\Ñ[\J
+_Y\ÜØYÙKœÚ^™J
+OŒŒ
+\™]\›ØÛÛœİTİš[™È\™Xİ\Ù[XİY\™XİY\Š
+NÚYŠY\™Xİš\Ñ[\J
+J\Ù[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]™HŸKÈœY\ˆ‹\™XİKÈ^‹˜[Y__JNÙ[ÙHÙ[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]œÙ[™ŸKÈ^‹˜[Y_KÈœ™\WİÈ‹İ]X×ØØ\İZ[Š[™[™Ô™\U×Ê__JNÜİ˜[™ÙTÙ[™ËOœÙ][˜X›Y
+˜[ÙJNßBˆP]Y[Ñ›Ü›X]İ˜[™ÙU›ÚXÙQ›Ü›X]
+
+HÛÛœİÔP]Y[Ñ›Ü›X]›Ü›X]Ù›Ü›X]œÙ]Ø[\T˜]JMŒ
+NÙ›Ü›X]œÙ]Ú[›™[Ûİ[
+JNÙ›Ü›X]œÙ]Ø[\Q›Ü›X]
+P]Y[Ñ›Ü›X]’[MŠNÜ™]\›ˆ›Ü›X]ßBˆ›ÚYİ\İ˜[™ÙU›ÚXÙJ
+^ÂˆYŠİ˜[™ÙP]Y[ÔÛİ\˜ÙWß\İ˜[™ÙPXİ]™Wß\İ˜[™ÙT™XÚ\Y[™XYJ
+J\™]\›ÂˆÛÛœİ]]È]šXÙOTSYYXQ]šXÙ\Î™Y˜][]Y[Ò[œ]
+
+NØÛÛœİ]]È›Ü›X]\İ˜[™ÙU›ÚXÙQ›Ü›X]
+
+NÂˆYŠ]šXÙKš\Ó[
+
+_Y]šXÙKš\Ñ›Ü›X]İ\ÜY
+›Ü›X]
+J^Ø\[™İ˜[™ÙTŞ\İ[J“ZXÜ›ÜÛ™H[˜]˜Z[X›H0­Èİ˜[™ÙS™]™\]Z\™\ÈMˆÒˆ[Û›ÈÓHİ\ÜˆŠNÜ™]\›ßBˆİ˜[™ÙP]Y[ÔÛİ\˜ÙWÏ[™]ÈP]Y[ÔÛİ\˜ÙJ]šXÙK›Ü›X]\ÊNÜİ˜[™ÙP]Y[ÔÛİ\˜ÙWËOœÙ]Y™™\”Ú^™JL
+NÜİ˜[™ÙP]Y[Ò[œ]Ï\İ˜[™ÙP]Y[ÔÛİ\˜ÙWËOœİ\
+
+NÂˆYŠ\İ˜[™ÙP]Y[Ò[œ]Ê^Ø\[™İ˜[™ÙTŞ\İ[J“ZXÜ›ÜÛ™HÛİ[›İİ\ˆŠNÜİ˜[™ÙP]Y[ÔÛİ\˜ÙWËO™[]S]\Š
+NÜİ˜[™ÙP]Y[ÔÛİ\˜ÙWÏ[[Ü™]\›ßBˆİ˜[™ÙU›ÚXÙWËOœÙ]^
+”™[X\ÙHÈİÜŠNÜİ˜[™ÙT™\Ù[˜ÙWËOœÙ]^
+“U‘H0­ÈÔPRÒS‘ÈŠNÂˆÛÛ›™Xİ
+İ˜[™ÙP]Y[Ò[œ]Ë	”RSÑ]šXÙNœ™XYT™XY\Ëİ\×^İÚ[Jİ˜[™ÙP]Y[Ò[œ]É‰œİ˜[™ÙP]Y[Ò[œ]ËO˜]\Ğ]˜Z[X›J
+OM
+^ØÛÛœİP]P\œ˜^HÛO\İ˜[™ÙP]Y[Ò[œ]ËOœ™XY
+
+NØÛÛœİRœÛÛ“Øš™XİXÚÙ]ŞÈœ˜]H‹MŒKÈ˜Ú[›™[È‹_KÈœØ[\H‹œÌM›HŸKÈ˜]Y[È‹Tİš[™Î™œ›ÛS][ŒJÛKĞ˜\ÙM
+
+J__NÜÙ[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]›ÚXÙHŸKÈ^‹Tİš[™Î™œ›ÛU]
+RœÛÛ‘Øİ[Y[
+XÚÙ]
+KÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+J__JNß_JNÂˆBˆ›ÚYİÜİ˜[™ÙU›ÚXÙJ
+^ÚYŠ\İ˜[™ÙP]Y[ÔÛİ\˜ÙWÊ\™]\›Üİ˜[™ÙP]Y[ÔÛİ\˜ÙWËOœİÜ
+
+NÜİ˜[™ÙP]Y[ÔÛİ\˜ÙWËO™[]S]\Š
+NÜİ˜[™ÙP]Y[ÔÛİ\˜ÙWÏ[[Üİ˜[™ÙP]Y[Ò[œ]Ï[[Üİ˜[™ÙU›ÚXÙWËOœÙ]^
+’ÛÈ[ÈŠNÜİ˜[™ÙT™\Ù[˜ÙWËOœÙ]^
+İ˜[™ÙPXİ]™WÏÈ“U‘H0­ÈL‘Hˆ“Ñ‘“S‘HŠNßBˆ›ÚY^Tİ˜[™ÙU›ÚXÙJÛÛœİTİš[™Éˆ^[ØY
+^ÂˆRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]ÈXÚÙ]TRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠ^[ØYÕ]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NØÛÛœİ]]ÈÛOTP]P\œ˜^N™œ›ÛP˜\ÙM
+XÚÙ]˜[YJ˜]Y[ÈŠKÔİš[™Ê
+KÓ][ŒJ
+JNÂˆYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸXÚÙ]˜[YJœ˜]HŠKÒ[
+
+HOLMŒXÚÙ]˜[YJ˜Ú[›™[ÈŠKÒ[
+
+HOL_XÚÙ]˜[YJœØ[\HŠKÔİš[™Ê
+HOHœÌM›HŸÛKš\Ñ[\J
+_ÛKœÚ^™J
+OŒL
+^Ø\[™İ˜[™ÙTŞ\İ[J“X[›Ü›YY›ÚXÙH]HØ\È\ØØ\™YØY™[KˆŠNÜ™]\›ßBˆYŠ\İ˜[™ÙP]Y[ÔÚ[š×Ê^ØÛÛœİ]]È]šXÙOTSYYXQ]šXÙ\Î™Y˜][]Y[Óİ]]
+
+NØÛÛœİ]]È›Ü›X]\İ˜[™ÙU›ÚXÙQ›Ü›X]
+
+NÚYŠ]šXÙKš\Ó[
+
+_Y]šXÙKš\Ñ›Ü›X]İ\ÜY
+›Ü›X]
+J^Ø\[™İ˜[™ÙTŞ\İ[J]Y[Èİ]]Ù\È›İİ\ÜHİ˜[™ÙS™]›ÚXÙH›Ü›X]ˆŠNÜ™]\›ß\İ˜[™ÙP]Y[ÔÚ[š×Ï[™]ÈP]Y[ÔÚ[šÊ]šXÙK›Ü›X]\ÊNÜİ˜[™ÙP]Y[ÔÚ[š×ËOœÙ]Y™™\”Ú^™J
+NÜİ˜[™ÙP]Y[Óİ]]Ï\İ˜[™ÙP]Y[ÔÚ[š×ËOœİ\
+
+NßBˆYŠİ˜[™ÙP]Y[Óİ]]Ê\İ˜[™ÙP]Y[Óİ]]ËOÜš]JÛJNÂˆBˆTİš[™ÈZÛQ^Xİ]X›J
+HÛÛœİÜ™]\›ˆTİ[™\™]Î™š[™^Xİ]X›JœZÛHŠNßBˆ›ÚY\TÚY[›Ùš[J
+^ÂˆYŠÚY[›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê\™]\›ØÛÛœİTİš[™È^Xİ]X›O\ZÛQ^Xİ]X›J
+KTTİ[™\™]Î™š[™^Xİ]X›JœZÛKQ•ŠNÚYŠ^Xİ]X›Kš\Ñ[\J
+_š\Ñ[\J
+J^ÜÚY[İ]\×ËOœÙ]^
+”KZÛHÓKÑ•Ø\È›İ›İ[™ˆ[œİ[ØØ[KZÛH™Y›Ü™H\Z[™ÈH›Ùš[KˆŠNÜ™]\›ßBˆTİš[™Ó\İ™YÙ^\ÎÙ›ÜŠÛÛœİTİš[™Éˆ˜]ÎœÚY[™YÙ^ËOÔZ[•^
+
+KœÜ]
+	×‰ÊJ^ØÛÛœİTİš[™È^™\ÜÚ[Û\˜]Ëš[[YY
+
+NÚYŠ^™\ÜÚ[Û‹š\Ñ[\J
+JXÛÛ[YNÚYŠ^™\ÜÚ[Û‹Õ]
+
+KœÚ^™J
+OLLŸ™YÙ^\ËœÚ^™J
+OLL
+^ÜÚY[İ]\×ËOœÙ]^
+”™YÙ^™Z™XİYˆX^[][HL[\È[™LLˆ]\È\ˆ[KˆŠNÜ™]\›ßTTİš[™È˜\ÙOY^™\ÜÚ[ÛÚ[İ]X˜\ÙKœÚ^™J
+NØÛÛœİ[]Y\U\OX˜\ÙKš[™^ÙŠÜ]Y\]\OHŠNØÛÛœİ[[™\X˜\ÙKš[™^ÙŠÚ[™\ŠNÚYŠ]Y\U\OL
+Xİ]\SZ[Šİ]]Y\U\JNÚYŠ[™\L
+Xİ]\SZ[Šİ][™\
+NØ˜\ÙK[˜Ø]Jİ]
+NÔT™Yİ[\‘^™\ÜÚ[ÛˆÛÛ\[Y
+˜\ÙJNÚYŠXÛÛ\[Yš\Õ˜[Y
+
+_ÛÛ\[Y›X]Ú
+ˆŠKš\ÓX]Ú
+
+J^ÜÚY[İ]\×ËOœÙ]^
+”™YÙ^™Z™XİYˆ[˜[YÜˆØ\X›HÙˆX]Ú[™È]™\HÛXZ[ˆ0­ÈŠÙ^™\ÜÚ[Û‹›Y
+
+JNÜ™]\›ß\™YÙ^\Ë˜\[™
+^™\ÜÚ[ÛŠNßBˆÚY™Yˆ×Û[^×ÂˆTİš[™È[\H‹İ\Ü‹ÛX‹Ü]œ‹Ü]œ‹\ÚY[Z[\ˆÚYŠTQš[R[™›Ê[\ŠKš\Ñ^Xİ]X›J
+JZ[\TQ\ŠPÛÜ™P\XØ][Û˜\XØ][Û‘\”]
+
+JK˜XœÛÛ]Qš[T]
+‹‹‹Ü]œ‹\ÚY[Z[\ˆŠNØÛÛœİTİš[™ÈÙ^XÏTTİ[™\™]Î™š[™^Xİ]X›JœÙ^XÈŠNÚYŠQš[R[™›Ê[\ŠKš\Ñ^Xİ]X›J
+I‰ˆ\Ù^XËš\Ñ[\J
+J^ÔTİš[™Ó\İ\™İ[Y[ŞÚ[\‹˜\H‹ÚY[›Ùš[WËO˜İ\œ™[]J]•\Ù\”›ÛJÌJKÔİš[™Ê
+_NØ\™İ[Y[Ë˜\[™
+™YÙ^\ÊNÜÚY[]Y]YWË˜ÛX\Š
+NÜÚY[\WËOœÙ][˜X›Y
+˜[ÙJNÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[Û™PÛXÚÈ‹YJNÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[ÛÛ[X[™‹”U”ˆÚY[›Ùš[H\]HŠNÜÚY[İ]\×ËOœÙ]^
+Tİš[™Ê\Z[™È	LHÛİ\˜ÙJÊH[™	Lˆ˜[Y]Y™YÙ^[JÊH[ˆÛ™H]]Üš^™YÜ\˜][Û¸ )ˆŠK˜\™ÊÚY[›Ùš[WËO˜İ\œ™[]J
+KÔİš[™Ó\İ
+
+KœÚ^™J
+JK˜\™Ê™YÙ^\ËœÚ^™J
+JJNÜÚY[›ØÙ\Ü×Ëœİ\
+Ù^XË\™İ[Y[ÊNÜ™]\›ßBˆÙ[™Y‚ˆÚY[]Y]YWË˜ÛX\Š
+NÙ›ÜŠÛÛœİTİš[™Éˆ\›œÚY[›Ùš[WËO˜İ\œ™[]J
+KÔİš[™Ó\İ
+
+J^ØÛÛœİTİš[™ÈÜ[TTİš[™Ê’S”ÑT•ÔˆQÓ“Ô‘HS•ÈY\İ
+Y™\ÜË[˜X›YÛÛ[Y[
+HSQTÈ
+	ÉLIËK	ÔU”ˆÚY[	ÊNÈŠK˜\™Ê\›
+NÜÚY[]Y]YWË˜\[™
+Tİš[™Ó\İÙœÜ[]LÈ‹‹[šH‹‹Ù]ËÜZÛKÙÜ˜]š]K™ˆ‹Ü[JNßY›ÜŠÛÛœİTİš[™Éˆ^™\ÜÚ[Ûœ™YÙ^\Ê\ÚY[]Y]YWË˜\[™
+Tİš[™Ó\İÙ^Xİ]X›K‹K\™YÙ^‹^™\ÜÚ[ÛŸJNÜÚY[]Y]YWË˜\[™
+Tİš[™Ó\İÙ^Xİ]X›K‹YÈŸJNÜÚY[\WËOœÙ][˜X›Y
+˜[ÙJNÜÚY[İ]\×ËOœÙ]^
+Tİš[™Ê\Z[™È	LHÛİ\˜ÙJÊH[™	Lˆ˜[Y]Y™YÙ^[JÊx )ˆŠK˜\™ÊÚY[›Ùš[WËO˜İ\œ™[]J
+KÔİš[™Ó\İ
+
+KœÚ^™J
+JK˜\™Ê™YÙ^\ËœÚ^™J
+JJNÜ[“™^ÚY[ÛÛ[X[™
+
+NÂˆBˆ›ÚY[“™^ÚY[ÛÛ[X[™
+
+^ÚYŠÚY[]Y]YWËš\Ñ[\J
+J^ÜÚY[\WËOœÙ][˜X›Y
+YJNÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœÚY[›Ùš[H‹ÚY[›Ùš[WËO˜İ\œ™[[™^
+
+JNÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœÚY[™YÙ^‹ÚY[™YÙ^ËOÔZ[•^
+
+JNÜÚY[İ]\×ËOœÙ]^
+”ÚY[›Ùš[H\YYˆÜ˜]š]H\]YÈ™Yœ™\Ú[™ÈYÙÜ™YØ]HÛİ[\œø )ˆŠNÜ™Yœ™\ÚÚY[Ûİ[\œÊ
+NÜ™]\›ßTTİš[™Ó\İÛÛ[X[™\ÚY[]Y]YWËZÙQš\œİ
+
+NØÛÛœİTİš[™È›ÙÜ˜[OXÛÛ[X[™ZÙQš\œİ
+
+NÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[ÛÛ[X[™‹›ÙÜ˜[JÈˆŠØÛÛ[X[™š›Ú[Š	È	ÊJNÜÚY[›ØÙ\Ü×Ëœİ\
+›ÙÜ˜[KÛÛ[X[™
+NßBˆ›ÚYÚY[ÛÛ[X[™š[š\ÚY
+[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÚYŠÚY[›ØÙ\Ü×Ëœ›Ü\JœÚY[İ]ÈŠKĞ›ÛÛ
+
+J\™]\›ØÛÛœİ›ÛÛÛ™PÛXÚÏ\ÚY[›ØÙ\Ü×Ëœ›Ü\JœÚY[Û™PÛXÚÈŠKĞ›ÛÛ
+
+NÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[Û™PÛXÚÈ‹˜[ÙJNØÛÛœİTİš[™È\œ›ÜTTİš[™Î™œ›ÛU]
+ÚY[›ØÙ\Ü×Ëœ™XY[İ[™\™\œ›ÜŠ
+JKš[[YY
+
+K›Y
+L
+NÚYŠİ]\ÈOTT›ØÙ\ÜÎ“›Ü›X[^]ÛÙHOL
+^ÜÚY[]Y]YWË˜ÛX\Š
+NÜÚY[\WËOœÙ][˜X›Y
+YJNÜÚY[İ]\×ËOœÙ]^
+”ÚY[\]HİÜYØY™[H0­ÈŠÊ\œ›Ü‹š\Ñ[\J
+OÜÚY[›ØÙ\Ü×Ëœ›Ü\JœÚY[ÛÛ[X[™ŠKÔİš[™Ê
+N™\œ›ÜŠJNÜ™]\›ßZYŠÛ™PÛXÚÊ^ÜÚY[\WËOœÙ][˜X›Y
+YJNÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœÚY[›Ùš[H‹ÚY[›Ùš[WËO˜İ\œ™[[™^
+
+JNÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJœÚY[™YÙ^‹ÚY[™YÙ^ËOÔZ[•^
+
+JNÜÚY[İ]\×ËOœÙ]^
+”ÚY[\YY[ˆÛ™HÜ\˜][Û‹ˆÜ˜]š]H\]YÈ™Yœ™\Ú[™ÈYÙÜ™YØ]HÛİ[\œø )ˆŠNÜ™Yœ™\ÚÚY[Ûİ[\œÊ
+NÜ™]\›ß\[“™^ÚY[ÛÛ[X[™
+
+NßBˆ›ÚY™Yœ™\ÚÚY[Ûİ[\œÊ
+^ÚYŠÚY[›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê\™]\›ØÛÛœİTİš[™È^Xİ]X›O\ZÛQ^Xİ]X›J
+NÚYŠ^Xİ]X›Kš\Ñ[\J
+J^ÜÚY[İ]\×ËOœÙ]^
+”KZÛHÓHØ\È›İ›İ[™ÈÛİ[\œÈ\™H[˜]˜Z[X›KˆŠNÜ™]\›ß\ÚY[™Yœ™\ÚËOœÙ][˜X›Y
+˜[ÙJNÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[İ]È‹YJNÜÚY[›ØÙ\Ü×Ëœİ\
+^Xİ]X›KTİš[™Ó\İÈ‹XÈ‹‹ZˆŸJNØÛÛ›™Xİ
+	œÚY[›ØÙ\Ü×ËSİ™\›ØY[T›ØÙ\ÜÎ‘^]İ]\ÏŠ	”T›ØÙ\ÜÎ™š[š\ÚY
+K\Ëİ\×J[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÚYŠ\ÚY[›ØÙ\Ü×Ëœ›Ü\JœÚY[İ]ÈŠKĞ›ÛÛ
+
+J\™]\›ÜÚY[›ØÙ\Ü×ËœÙ]›Ü\JœÚY[İ]È‹˜[ÙJNÜÚY[™Yœ™\ÚËOœÙ][˜X›Y
+YJNÚYŠİ]\ÈOTT›ØÙ\ÜÎ“›Ü›X[^]ÛÙHOL
+^ÜÚY[İ]\×ËOœÙ]^
+”KZÛHY›İ™]\›ˆYÙÜ™YØ]Hİ]\İXÜËˆŠNÜ™]\›ßTRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]Èİ]ÏTRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÚY[›ØÙ\Ü×Ëœ™XY[İ[™\™İ]]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŠ^ÜÚY[İ]\×ËOœÙ]^
+”KZÛHİ]\İXÜÈÙ\™H›İ˜[Y”ÓÓ‹ˆŠNÜ™]\›ßXÛÛœİ]]ÈÙ^O\İ]Ë˜[YJ˜Y×Ø›ØÚÙYİÙ^HŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NØÛÛœİ]]Èİ[\İ]Ë˜[YJ™ÛXZ[œ×Ø™Z[™×Ø›ØÚÙYŠKÕ˜\šX[
+
+KÕSÛ™ÓÛ™Ê
+NÚYŠ\ÚY[˜\Ù[[™WÊ\ÚY[˜\Ù[[™WÏ]Ù^NÜÚY[Ù\ÜÚ[ÛÛİ[Ï]Ù^O\ÚY[˜\Ù[[™WÏİÙ^K\ÚY[˜\Ù[[™WÎŒÜÚY[Ù\ÜÚ[Û—ËOœÙ]^
+Tİš[™Î›[X™\ŠÚY[Ù\ÜÚ[ÛÛİ[ÊJNÜÚY[Ù^WËOœÙ]^
+Tİš[™Î›[X™\ŠÙ^JJNÜÚY[İ[ËOœÙ]^
+Tİš[™Î›[X™\Šİ[
+JNÜÚY[İ]\×ËOœÙ]^
+YÙÜ™YØ]HÛİ[\œÈ™Yœ™\ÚY0­È]Y\H\İÜH[™ÛY[Y[]Y\ÈÙ\™H›İ™XYˆŠNßK]”Ú[™ÛTÚİÛÛ›™Xİ[ÛŠNßBˆ›ÚY[”ÚY[ÜYY\İ
+
+^ÚYŠÜYY›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê\™]\›ØÛÛœİTİš[™È^Xİ]X›OTTİ[™\™]Î™š[™^Xİ]X›Jš\\™ŒÈŠNÚYŠ^Xİ]X›Kš\Ñ[\J
+J^ÜÜYY™\İ[ËOœÙ]^
+š\\™ŒÈ\È›İ[œİ[YÈ›È™]ÛÜšÈ\İØ\Èİ\YˆŠNÜ™]\›ßXÛÛœİTİš[™È\™Ù]\ÜYY\™Ù]ËO^
+
+Kš[[YY
+
+NÚYŠ\™Ù]œÚ^™J
+OŒLßTT™Yİ[\‘^™\ÜÚ[ÛŠ—–ĞKV˜K^ŒNWVĞKV˜K^ŒNK—ËWJ‰ŠK›X]Ú
+\™Ù]
+Kš\ÓX]Ú
+
+J^ÜÜYY™\İ[ËOœÙ]^
+‘[\ˆÛ™H^XÚ]Üİ˜[YHÜˆSˆY™\ÜÎÈİX›™]˜[™Ù\È\™H›İXØÙ\YˆŠNÜ™]\›ß\ÜYY[—ËOœÙ][˜X›Y
+˜[ÙJNÜÜYY™\İ[ËOœÙ]^
+•\İ[™ÈHÙ[XİY\™Ù]›ÜˆHÙXÛÛ™ø )ˆŠNÜÜYY›ØÙ\Ü×Ëœİ\
+^Xİ]X›KTİš[™Ó\İÈ‹XÈ‹\™Ù]‹\‹Tİš[™Î›[X™\ŠÜYYÜËO˜[YJ
+JK‹Rˆ‹‹]‹HŸJNßBˆ›ÚYÜYY\İš[š\ÚY
+[ÛÙKT›ØÙ\ÜÎ‘^]İ]\Èİ]\Ê^ÜÜYY[—ËOœÙ][˜X›Y
+YJNÚYŠİ]\ÈOTT›ØÙ\ÜÎ“›Ü›X[^]ÛÙHOL
+^ÜÜYY™\İ[ËOœÙ]^
+”ÜYY\İ˜Z[Y0­ÈŠÔTİš[™Î™œ›ÛU]
+ÜYY›ØÙ\Ü×Ëœ™XY[İ[™\™\œ›ÜŠ
+JKš[[YY
+
+K›Y
+Ì
+JNÜ™]\›ßTRœÛÛ”\œÙQ\œ›Üˆ\œ›ÜØÛÛœİ]]È›ÛİTRœÛÛ‘Øİ[Y[™œ›ÛRœÛÛŠÜYY›ØÙ\Ü×Ëœ™XY[İ[™\™İ]]
+
+K	™\œ›ÜŠK›Øš™Xİ
+
+NØÛÛœİ]]È[™\›Ûİ˜[YJ™[™ŠKÓØš™Xİ
+
+NØÛÛœİİX›HİÛY[™˜[YJœİ[WÜ™XÙZ]™YŠKÓØš™Xİ
+
+K˜[YJ˜š]×Ü\—ÜÙXÛÛ™ŠKÑİX›J
+KÌLŒØÛÛœİİX›H\Y[™˜[YJœİ[WÜÙ[ŠKÓØš™Xİ
+
+K˜[YJ˜š]×Ü\—ÜÙXÛÛ™ŠKÑİX›J
+KÌLŒÚYŠ\œ›Ü‹™\œ›ÜˆOTRœÛÛ”\œÙQ\œ›Ü“›Ñ\œ›ÜŸİÛL
+^ÜÜYY™\İ[ËOœÙ]^
+š\\™ŒÈ™]\›™Y›È\ØX›H›İYÚ]™\İ[ˆŠNÜ™]\›ß\ÜYY™\İ[ËOœÙ]^
+Tİš[™Ê”Ù[XİY\™Ù]Û›H0­È™XÙZ]™H	LHXš]ÜÈ0­ÈÙ[™	LˆXš]ÜÈ0­ÈHÙXÛÛ™ÈŠK˜\™ÊİÛ‹	Ù‰ËJK˜\™Ê\	Ù‰ËJJNßBˆ›ÚYÙ[™İ˜[™ÙT™XXİ[ÛŠÛÛœİTİš[™Éˆ[[ÚšJ^ÚYŠ\İ˜[™ÙPXİ]™Wß\İ˜[™ÙT™XÚ\Y[™XYJ
+_Q]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+Oİ˜[™ÙTÙ[™›ØÚÙY[[\×ß\İİ˜[™ÙTÙ\]Y[˜ÙWÏOL
+\™]\›ØÛÛœİRœÛÛ“Øš™Xİ™XXİ[ÛŞÈ™[[ÚšH‹[[Úš_KÈ\™Ù]‹\İİ˜[™ÙTÙ[™\—ßKÈœÙ\]Y[˜ÙH‹İ]X×ØØ\İZ[Š\İİ˜[™ÙTÙ\]Y[˜ÙWÊ__NÜÙ[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]œ™XXİŸKÈœ™\WİÈ‹İ]X×ØØ\İZ[Š\İİ˜[™ÙTÙ\]Y[˜ÙWÊ_KÈ^‹Tİš[™Î™œ›ÛU]
+RœÛÛ‘Øİ[Y[
+™XXİ[ÛŠKÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+J__JNßBˆ›ÚYÜ™X]Tİ˜[™ÙTİXÚÙ\Š
+^ÚYŠ\İ˜[™ÙPXİ]™Wß\İ˜[™ÙT™XÚ\Y[™XYJ
+_Q]U[YN˜İ\œ™[TÙXÜÔÚ[˜ÙQ\ØÚ
+
+Oİ˜[™ÙTÙ[™›ØÚÙY[[\×Ê^Ø\[™İ˜[™ÙU^
+’›Ú[ˆH›ÛÛHÚ][ˆ]][XØ]Y™XÚ\Y[[™ØZ]›Üˆ[Y›ÛÙ™XY[™\ÜÈ™Y›Ü™HÜ™X][™ÈHİXÚÙ\‹ˆŠNÜ™]\›ßTQX[ÙÈX[ÙÊ\ÊNÙX[ÙËœÙ]Ú[™İÕ]JÜ™X]H[˜Ü\YİXÚÙ\ˆŠNØ]]Êˆ^[İ][™]ÈU›Ş^[İ]
+	™X[ÙÊNØ]]Êˆ[[ÚšO[™]ÈPÛÛX›Ğ›ŞÙ[[ÚšKO˜Y][\ÊÈ¼'æ ‹¼'å$‹¼'æè{î#È‹¼'ã¢H‹¼'å)H‹¼'ä§‹¼'ã#‹¸¦¨H‹¼'äbÈ‹¼'äcHŸJNØ]]ÊˆØ\[Û[™]ÈS[™QY]ØØ\[Û‹OœÙ]X^[™İ
+
+NØØ\[Û‹OœÙ]XÙZÛ\•^
+”ÚÜØ\[ÛˆŠNØ]]ÊˆÛÛÜ[™]ÈPÛÛX›Ğ›ŞØÛÛœİS\İTZ\Tİš[™ËTİš[™ÏˆÛÛÜœŞŞÈ•š[Û]‹ˆÍMÌ˜ÎHŸKÈŞX[ˆ‹ˆÌ˜NŸKÈ“XYÙ[H‹ˆØÌŸKÈ[X™\ˆ‹ˆØ˜ŒNŸKÈ‘Ü™Y[ˆ‹ˆÌŒ˜ÍHŸKÈ”Û]H‹ˆÌÙÌÈŸ_NÙ›ÜŠÛÛœİ]]Éˆ[N˜ÛÛÜœÊXÛÛÜ‹O˜Y][J[K™š\œİ[KœÙXÛÛ™
+NØ]]Êˆ™]šY]Ï]^
+ˆ‹š\›Õ]HŠNØ]]È™Yœ™\ÚVÏW^Ü™]šY]ËOœÙ]^
+[[ÚšKO˜İ\œ™[^
+
+JÈˆŠØØ\[Û‹O^
+
+JNÜ™]šY]ËOœÙ]İ[TÚY]
+œY[™ÎŒNØ›Ü™\‹\˜Y]\ÎŒMØ˜XÚÙÜ›İ[™ˆŠØÛÛÜ‹O˜İ\œ™[]J
+KÔİš[™Ê
+JÈØÛÛÜÚ]HŠNßNØÛÛ›™Xİ
+[[ÚšK	”PÛÛX›Ğ›Ş˜İ\œ™[^Ú[™ÙY	™X[ÙËÏW^Ü™Yœ™\Ú
+
+NßJNØÛÛ›™Xİ
+Ø\[Û‹	”S[™QY]^Ú[™ÙY	™X[ÙËÏW^Ü™Yœ™\Ú
+
+NßJNØÛÛ›™Xİ
+ÛÛÜ‹	”PÛÛX›Ğ›Ş˜İ\œ™[^Ú[™ÙY	™X[ÙËÏW^Ü™Yœ™\Ú
+
+NßJNÛ^[İ]O˜YÚYÙ]
+^
+‘SSÒ’H‹™^YXœ›İÈŠJNÛ^[İ]O˜YÚYÙ]
+[[ÚšJNÛ^[İ]O˜YÚYÙ]
+^
+ĞTSÓˆ‹™^YXœ›İÈŠJNÛ^[İ]O˜YÚYÙ]
+Ø\[ÛŠNÛ^[İ]O˜YÚYÙ]
+^
+ÓÓÔˆ‹™^YXœ›İÈŠJNÛ^[İ]O˜YÚYÙ]
+ÛÛÜŠNÛ^[İ]O˜YÚYÙ]
+™]šY]ÊNØ]]ÊˆÙ[™[™]ÈT\Ú]ÛŠ”Ù[™İXÚÙ\ˆL‘HŠNÛ^[İ]O˜YÚYÙ]
+Ù[™
+NØÛÛ›™Xİ
+Ù[™	”T\Ú]Û˜ÛXÚÙY	™X[ÙË	”QX[ÙÎ˜XØÙ\
+NÜ™Yœ™\Ú
+
+NÚYŠX[ÙË™^XÊ
+HOTQX[ÙÎXØÙ\Y
+\™]\›ØÛÛœİRœÛÛ“Øš™XİİXÚÙ\ŞÈ™[[ÚšH‹[[ÚšKO˜İ\œ™[^
+
+_KÈ˜Ø\[Ûˆ‹Ø\[Û‹O^
+
+_KÈ˜ÛÛÜˆ‹ÛÛÜ‹O˜İ\œ™[]J
+KÔİš[™Ê
+__NÜÙ[™ÛÛ›Û
+ŞÈ˜ÛÛ[X[™‹œİ˜[™Ù[™]œİXÚÙ\ˆŸKÈ^‹Tİš[™Î™œ›ÛU]
+RœÛÛ‘Øİ[Y[
+İXÚÙ\ŠKÒœÛÛŠRœÛÛ‘Øİ[Y[ÛÛ\Xİ
+J__JNßBˆ›ÚY™\]Y\İİÜ
+
+^ÚYŠ›ØÙ\Ü×Ëœİ]J
+OOTT›ØÙ\ÜÎ“›İ[›š[™Ê\™]\›ÜİÜ[™×Ï]YNÜ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÜİ]\Õ^ËOœÙ]^
+‘\ØÛÛ›™Xİ[™ÈÛX[›x )ˆŠNÛÙÊ‘\ØÛÛ›™Xİ™\]Y\İYŠNÜ›ØÙ\Ü×ËÜš]J×˜ÛÛ[X[™—››ÙKœÚ]İÛ—ŸWˆŠNÜ›ØÙ\Ü×Ë˜ÛÜÙUÜš]PÚ[›™[
+
+NÔU[Y\œÚ[™ÛTÚİ
+L\Ëİ\×^ÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^ÛÙÊÛX[ˆÚ]İÛˆ[YYİ]È›ØÙ\ÜÈ\›Z[˜][Ûˆ\ØØ[]YŠNÜ›ØÙ\Ü×ËšÚ[
+
+Nß_JNßBˆ›ÚY]Z]\XØ][ÛŠ
+^Ü]Z][™×Ï]YNÚYŠ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™Ê^Ü[™[™Ô]Z]Ï]YNÜ™\]Y\İİÜ
+
+NßY[Ù^ÜØ]™T™Y™\™[˜Ù\Ê
+NÜP\Oœ]Z]
+
+Nß_Bˆ›ÚY™\İÜ™Qœ›ÛU˜^J
+^ÜÚİÓ›Ü›X[
+
+NÜ˜Z\ÙJ
+NØXİ]˜]UÚ[™İÊ
+NßBˆ›ÚY˜YUÚYÙ]
+UÚYÙ]
+ˆÚYÙ][\˜][ÛL
+^ÚYŠ]ÚYÙ]\™YXÙS[İ[Û—ß™YXÙS[İ[Û—ËOš\ĞÚXÚÙY
+
+J\™]\›ÚYŠÚYÙ]O™Ü˜\XÜÑY™™Xİ
+
+J]ÚYÙ]OœÙ]Ü˜\XÜÑY™™Xİ
+[ŠNØ]]ÊˆY™™Xİ[™]ÈQÜ˜\XÜÓÜXÚ]QY™™Xİ
+ÚYÙ]
+NİÚYÙ]OœÙ]Ü˜\XÜÑY™™Xİ
+Y™™Xİ
+NØ]]Êˆ[š[X][Û[™]ÈT›Ü\P[š[X][ÛŠY™™Xİ›ÜXÚ]H‹Y™™Xİ
+NØ[š[X][Û‹OœÙ]\˜][ÛŠ\˜][ÛŠNØ[š[X][Û‹OœÙ]İ\˜[YJŒN
+NØ[š[X][Û‹OœÙ][™˜[YJKŒ
+NØ[š[X][Û‹OœÙ]X\Ú[™Ğİ\™JQX\Ú[™Ğİ\™N“İ]İXšXÊNØÛÛ›™Xİ
+[š[X][Û‹	”T›Ü\P[š[X][Û™š[š\ÚYÚYÙ]İÚYÙ]Y™™Xİ^ÚYŠÚYÙ]O™Ü˜\XÜÑY™™Xİ
+
+HOYY™™Xİ
+\™]\›ÙY™™XİOœÙ][˜X›Y
+˜[ÙJNÔU[Y\œÚ[™ÛTÚİ
+ÚYÙ]İÚYÙ]Y™™Xİ^ÚYŠÚYÙ]O™Ü˜\XÜÑY™™Xİ
+
+OOYY™™Xİ
+]ÚYÙ]OœÙ]Ü˜\XÜÑY™™Xİ
+[ŠNßJNßJNØ[š[X][Û‹Oœİ\
+PXœİ˜Xİ[š[X][Û‘[]UÚ[”İÜY
+NßBˆ›ÚYİÚ]ÚYÙJ[[™^
+^ÚYŠ\YÙ\×ß[™^[™^\YÙ\×ËO˜Ûİ[
+
+J\™]\›ÜYÙP]Ûœ×Ë˜[YJ[™^
+KOœÙ]ÚXÚÙY
+YJNÚYŠ[™^OTİ˜[™ÙS™]	‰[œ™XYİ˜[™ÙWÊ^İ[œ™XYİ˜[™ÙWÏLØÛÛœİTİš[™ÈX™[HŒİ˜[™ÙS™]ÜYÙP]Ûœ×ÖÔİ˜[™ÙS™]KOœÙ]›Ü\J™[^‹X™[
+NÚYŠÚYX˜\—ËOÚY
+
+OŒL
+\YÙP]Ûœ×ÖÔİ˜[™ÙS™]KOœÙ]^
+X™[
+NßXÛÛœİ›ÛÛÚ[™ÙY\YÙ\×ËO˜İ\œ™[[™^
+
+HOZ[™^ÚYŠÚ[™ÙY
+\YÙ\×ËOœÙ]İ\œ™[[™^
+[™^
+NÚYŠYÙTØÜ›ÛÊ\YÙTØÜ›ÛËO™\XØ[ØÜ›Û˜\Š
+KOœÙ]˜[YJ
+NÚYŠÚ[™ÙY
+Y˜YUÚYÙ]
+YÙ\×ËO˜İ\œ™[ÚYÙ]
+
+KŒ
+NßBˆ›ÚYÙ][İ[ÛŠ›ÛÛ[˜X›Y
+^ÚYŠX]\›Ü˜P[š[X][Û—Ê^Ø]\›Ü˜P[š[X][Û—Ï[™]ÈT›Ü\P[š[X][ÛŠ]\›Ü˜WËœ\ÙH‹\ÊNØ]\›Ü˜P[š[X][Û—ËOœÙ]İ\˜[YJŒ
+NØ]\›Ü˜P[š[X][Û—ËOœÙ][™˜[YJ‹ŒÌNLÌÊNØ]\›Ü˜P[š[X][Û—ËOœÙ]\˜][ÛŠML
+NØ]\›Ü˜P[š[X][Û—ËOœÙ]ÛÜÛİ[
+LJNÜ[ÙP[š[X][Û—Ï[™]ÈT›Ü\P[š[X][ÛŠÜ˜—Ëœ[ÙH‹\ÊNÜ[ÙP[š[X][Û—ËOœÙ]İ\˜[YJŒ
+NÜ[ÙP[š[X][Û—ËOœÙ][™˜[YJKŒ
+NÜ[ÙP[š[X][Û—ËOœÙ]\˜][ÛŠMÌ
+NÜ[ÙP[š[X][Û—ËOœÙ]X\Ú[™Ğİ\™JQX\Ú[™Ğİ\™N’[“İ]Ú[™JNÜ[ÙP[š[X][Û—ËOœÙ]ÛÜÛİ[
+LJNßZYŠ[˜X›Y
+^Ø]\›Ü˜P[š[X][Û—ËOœİ\
+
+NÜ[ÙP[š[X][Û—ËOœİ\
+
+NßY[Ù^Ø]\›Ü˜P[š[X][Û—ËOœİÜ
+
+NÜ[ÙP[š[X][Û—ËOœİÜ
+
+NØ]\›Ü˜WËOœÙ]\ÙJ
+NÛÜ˜—ËOœÙ][ÙJ
+Nß_Bˆ›ÚYÙ]ÚYX˜\ÛÛ\Xİ
+›ÛÛÛÛ\Xİ
+^ÔTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJ˜ÛÛ\XİÚYX˜\ˆ‹ÛÛ\Xİ
+NØÛÛœİ[ÚYXÛÛ\XİÎŒŒÎØœ˜[™ÛÜ™×ËOœÙ]š\ÚX›JXÛÛ\Xİ
+NÙ›ÜŠ[OLÚO˜]]Ûœ×ËœÚ^™J
+NÊÊÚJ[˜]]Ûœ×ÖÚWKOœÙ]^
+ÛÛ\XİÔTİš[™Ê‰LHŠK˜\™ÊJÌK‹LPÚ\Š	Ì	ÊJN›˜]]Ûœ×ÖÚWKOœ›Ü\J™[^ŠKÔİš[™Ê
+JNÜÚYX˜\—ËOœÙ]š^YÚY
+ÚY
+NßBˆ›ÚY\U[YJTİš[™È[ÙJ^ÂˆYŠ\Z[™Õ[YWÊ\™]\›Âˆ\Z[™Õ[YWÏ]YNÂˆYŠ[ÙHOH™\šÈ‰‰›[ÙHOH›YÚ‰‰›[ÙHOHœÛİ[ÈŠ[[ÙOHœŞ\İ[HÂˆ›ÛÛ\šÏ\Ş\İ[Q\š×ÎÂˆÚYˆUÕ‘T”ÒSÓˆHUÕ‘T”ÒSÓ—ĞÒPÒÊ‹K
+BˆYŠ[ÙOOHœŞ\İ[HŠY\šÏTQİZP\XØ][Ûœİ[R[Ê
+KO˜ÛÛÜ”ØÚ[YJ
+OOT]ÛÛÜ”ØÚ[YN‘\šÎÂˆÙ[™Y‚ˆYŠ[ÙOOH™\šÈŸ[ÙOOHœÛİ[ÈŠY\šÏ]YNÙ[ÙHYŠ[ÙOOH›YÚŠY\šÏY˜[ÙNÂˆÛÛœİ›ÛÛÚ[™ÙY][YS[ÙWÈO[[Ù_Xİ]™Q\šÕ[YWÈOY\šÎÂˆ[YS[ÙWÏ[[ÙNØXİ]™Q\šÕ[YWÏY\šÎÂˆÛÛœİ›ÛÛÛİ[Ï[[ÙOOHœÛİ[ÈÂˆP\OœÙ]İ[TÚY]
+Ûİ[ÏÔTİš[™Î™œ›ÛU]
+\šÕ[YJJÔTİš[™Î™œ›ÛU]
+Ûİ[Õ[YSİ™\œšY\ÊN”Tİš[™Î™œ›ÛU]
+\šÏÙ\šÕ[YN›YÚ[YJJNÚYŠ]\›Ü˜WÊ^Ø]\›Ü˜WËOœÙ]\šÊ\šÊNØ]\›Ü˜WËOœÙ]Ûİ[ÊÛİ[ÊNßZYŠÜ˜—Ê[Ü˜—ËOœÙ]Ûİ[ÊÛİ[ÊNÂˆÛÛœİPÛÛÜˆYÙPÛÛÜŠÛİ[ÏÈˆÌLˆ™\šÏÈˆÌŒMÈˆˆÙ™˜ˆŠNÂˆS\İUÚYÙ]
+ˆÜ\]YTYÙ\ŞÜYÙTØÜ›ÛËYÙTØÜ›ÛÏÜYÙTØÜ›ÛËOšY]ÜÜ
+
+N›[‹YÙ\×ßNÂˆYŠYÙ\×ÊY›ÜŠ[[™^LÚ[™^YÙ\×ËO˜Ûİ[
+
+NÊÊÚ[™^
+[Ü\]YTYÙ\Ë˜\[™
+YÙ\×ËOÚYÙ]
+[™^
+JNÂˆ›ÜŠUÚYÙ]
+ˆÚYÙ]›Ü\]YTYÙ\Ê^ÚYŠ]ÚYÙ]
+XÛÛ[YNÔT[]H[]O]ÚYÙ]Oœ[]J
+NÜ[]KœÙ]ÛÛÜŠT[]N•Ú[™İËYÙPÛÛÜŠNİÚYÙ]OœÙ][]J[]JNİÚYÙ]OœÙ]]]Ñš[˜XÚÙÜ›İ[™
+YJNİÚYÙ]OœÙ]]šX]J]•ĞWÕ˜[œÛXÙ[˜XÚÙÜ›İ[™˜[ÙJNİÚYÙ]O\]J
+NßBˆ›ÜŠ]]ÊˆXİ[ÛÜŞ\İ[U[YWË\šÕ[YPXİ[Û—ËYÚ[YPXİ[Û—ËÛİ[Õ[YPXİ[Û—ßJZYŠXİ[ÛŠ^ÔTÚYÛ˜[›ØÚÙ\ˆİX\™
+Xİ[ÛŠNØXİ[Û‹OœÙ]ÚXÚÙY
+Xİ[Û‹O™]J
+KÔİš[™Ê
+OO[[ÙJNßBˆTÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠKœÙ]˜[YJ[YH‹[ÙJNÂˆ\Z[™Õ[YWÏY˜[ÙNÂˆ™Yœ™\ÚÛÛ›™Xİ[Û”™\Ù[][ÛŠ
+NÂˆYŠÚ[™ÙY	‰š\Õš\ÚX›J
+JY˜YUÚYÙ]
+Ù[˜[ÚYÙ]
+
+KŒŒ
+NÂˆBˆ›ÚY\T™Y™\™[˜Ù\Ê
+^ÔTÙ][™ÜÈÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠNÜŞ\İ[Q\š×Ï\P\Oœ[]J
+K˜ÛÛÜŠT[]N•Ú[™İÊK›YÚ™\ÜÊ
+OLÜ™\İÜ™QÙ[ÛY]JÙ][™ÜË˜[YJ™Ù[ÛY]HŠKĞ]P\œ˜^J
+JNØÛÛœİTİš[™ÈİÜ™Y\Ù][™ÜË˜[YJ˜ÛÛ™šYÈŠKÔİš[™Ê
+NÚYŠ\İÜ™Yš\Ñ[\J
+I‰”Qš[R[™›ÊİÜ™Y
+Kš\Ñš[J
+JXÛÛ™šYÔ]ËOœÙ]^
+İÜ™Y
+NÙ[ÙHYŠ\İÜ™Yš\Ñ[\J
+J\Ù][™ÜËœ™[[İ™J˜ÛÛ™šYÈŠNÜÙ][™ÜËœ™[[İ™J›Z[š[Z^™UÕ˜^HŠNÜ™YXÙS[İ[Û—ËOœÙ]ÚXÚÙY
+Ù][™ÜË˜[YJœ™YXÙS[İ[Ûˆ‹˜[ÙJKĞ›ÛÛ
+
+JNØÛÛ\XİÚYX˜\—ËOœÙ]ÚXÚÙY
+Ù][™ÜË˜[YJ˜ÛÛ\XİÚYX˜\ˆ‹˜[ÙJKĞ›ÛÛ
+
+JNØÛÛœİ›ÛÛÙYZÑ[˜X›Y\Ù][™ÜË˜[YJ™ÙYZÕ[[Y]H‹˜[ÙJKĞ›ÛÛ
+
+NÙÙYZÕ[[Y]WËOœÙ]ÚXÚÙY
+ÙYZÑ[˜X›Y
+NÜÙ]ÙYZÓ[ÙJÙYZÑ[˜X›Y
+NÜİ˜[™ÙS›İYšXØ][Ûœ×ËOœÙ]ÚXÚÙY
+Ù][™ÜË˜[YJœİ˜[™ÙS›İYšXØ][ÛœÈ‹YJKĞ›ÛÛ
+
+JNÚYŠÚY[›Ùš[WÊ\ÚY[›Ùš[WËOœÙ]İ\œ™[[™^
+P›İ[™
+Ù][™ÜË˜[YJœÚY[›Ùš[H‹
+KÒ[
+
+KÚY[›Ùš[WËO˜Ûİ[
+
+KLJJNÚYŠÚY[™YÙ^Ê\ÚY[™YÙ^ËOœÙ]Z[•^
+Ù][™ÜË˜[YJœÚY[™YÙ^ŠKÔİš[™Ê
+JNØ\U[YJÙ][™ÜË˜[YJ[YH‹œŞ\İ[HŠKÔİš[™Ê
+JNßBˆ›ÚYØ]™T™Y™\™[˜Ù\Ê
+^ÔTÙ][™ÜÈÙ][™ÜÊ”U”ˆ‹”š]˜XŞHÛÛœÛÛHŠNÜÙ][™ÜËœÙ]˜[YJ™Ù[ÛY]H‹Ø]™QÙ[ÛY]J
+JNÜÙ][™ÜËœÙ]˜[YJ˜ÛÛ™šYÈ‹ÛÛ™šYÔ]ËO^
+
+JNÜÙ][™ÜËœ™[[İ™J›Z[š[Z^™UÕ˜^HŠNÜÙ][™ÜËœÙ]˜[YJœİ˜[™ÙS›İYšXØ][ÛœÈ‹İ˜[™ÙS›İYšXØ][Ûœ×ËOš\ĞÚXÚÙY
+
+JNÜÙ][™ÜËœÙ]˜[YJ[YH‹[YS[ÙWÊNßBˆ›ÚYÙÊÛÛœİTİš[™ÉˆY\ÜØYÙJ^ØÛÛœİTİš[™Èİ[\TQ]U[YN˜İ\œ™[]U[YJ
+KÔİš[™Ê’›[NœÜÈŠNÙ›ÜŠÛÛœİTİš[™Éˆ[™N›Y\ÜØYÙKœÜ]
+	×‰Ë]”ÚÚ\[\T\ÊJXXİ]š]WËO˜\[™Z[•^
+İ[\
+ÈˆŠÛ[™K›Y
+MŒÎ
+JNßBˆ›ÚYÛÜQXYÛ›ÜİXÜÊ
+^ØÛÛœİ]]È\ÙO\]œ˜ÛÛœÛÛN˜ÛÛ›™Xİ[Û—Ü\ÙJÜ›ØÙ\Ü×Ëœİ]J
+HOTT›ØÙ\ÜÎ“›İ[›š[™ËXZ[›™]™XYWË[›™[™XYWË›Õ[›™[É‰››Õ[›™[ËOš\ĞÚXÚÙY
+
+KİÜ[™×Ë›ØÙ\ÜÑ˜Z[YßJNØÛÛœİTİš[™Èİ]OTTİš[™Î™œ›ÛU]
+]œ˜ÛÛœÛÛNœ\ÙWÛX™[
+\ÙJK™]J
+JNØÛÛœİTİš[™È˜[YOTTİš[™Ê”U”ˆš]˜XŞHÛÛœÛÛW”]	LW“ÔÈ	L—“›ÙH	L×ÛÛ™šYÈ	M”İ]H	MW•˜[œÜÜ	M—”Ú\[™È	MÈŠK˜\™ÊU™\œÚ[ÛŠ
+KTŞ\Ò[™›Îœ™]T›ÙXİ˜[YJ
+K^Xİ]X›T]ËO^
+
+KÛÛ™šYÔ]ËO^
+
+Kİ]K˜[œÜÜY]šX×ËO^
+
+KÚ\[™ÓY]šX×ËO^
+
+JNÔP\XØ][Û˜Û\›Ø\™
+
+KOœÙ]^
+˜[YJNÜİ]\Ğ˜\Š
+KOœÚİÓY\ÜØYÙJ‘XYÛ›ÜİXÜÈÛÜYY8 %Xİ]š]HÙÈ^ÛYY‹Ì
+NÛÙÊ‘XYÛ›ÜİXÜÈÛÜYYŠNßBˆ›ÚYÚİĞÛÛ[X[™[]J
+^ÔQX[ÙÈX[ÙÊ\ÊNÙX[ÙËœÙ]Ú[™İÕ]JÛÛ[X[™[]HŠNÙX[ÙËœ™\Ú^™JML
+NØ]]Êˆ^[İ][™]ÈU›Ş^[İ]
+	™X[ÙÊNØ]]ÊˆÙX\˜Ú[™]ÈS[™QY]ÜÙX\˜ÚOœÙ]XÙZÛ\•^
+•\HHÛÛ[X[™8 )ˆŠNØ]]Êˆ\İ[™]ÈS\İÚYÙ]ØÛÛœİS\İTZ\Tİš[™ËTİš[™ÏˆÛÛ[X[™Ï^ŞÈ‘ÛÈÈİ™\šY]È‹›İ™\šY]ÈŸKÈ”™]šY]ÈÛÛ›™Xİ[Ûˆ‹˜ÛÛ›™Xİ[ÛˆŸKÈ’[œÜXİ˜[œÜÜÈ‹˜[œÜÜÈŸKÈ“Ü[ˆİ˜[™ÙS™]‹œİ˜[™Ù[™]ŸKÈ“Ü[ˆ”ÈÚY[‹œÚY[ŸKÈ“Ü[ˆXİ]š]H‹˜Xİ]š]HŸKÈ”š]˜XŞHš[˜Ú\\È‹œš]˜XŞHŸKÈ•˜[Y]HÛÛ™šYİ\˜][Ûˆ‹˜[Y]HŸKÈÛÜHXYÛ›ÜİXÜÈ‹™XYÛ›ÜİXÜÈŸKÈX›İ]U”ˆ‹˜X›İ]Ÿ_NÙ›ÜŠÛÛœİ]]ÉˆÛÛ[X[™˜ÛÛ[X[™Ê^Ø]]Êˆ][O[™]ÈS\İÚYÙ]][JÛÛ[X[™™š\œİ\İ
+NÚ][KOœÙ]]J]•\Ù\”›ÛKÛÛ[X[™œÙXÛÛ™
+Nß[^[İ]O˜YÚYÙ]
+ÙX\˜Ú
+NÛ^[İ]O˜YÚYÙ]
+\İ
+NØÛÛ›™Xİ
+ÙX\˜Ú	”S[™QY]^Ú[™ÙY	™X[ÙËÛ\İJÛÛœİTİš[™Éˆ]Y\J^Ù›ÜŠ[›İÏLÜ›İÏ\İO˜Ûİ[
+
+NÊÊÜ›İÊ[\İOš][J›İÊKOœÙ]Y[Š[\İOš][J›İÊKO^
+
+K˜ÛÛZ[œÊ]Y\K]Ø\ÙR[œÙ[œÚ]]™JJNßJNØÛÛ›™Xİ
+\İ	”S\İÚYÙ]š][PXİ]˜]Y	™X[ÙËİ\Ë	™X[Ù×JS\İÚYÙ]][Jˆ][J^ØÛÛœİTİš[™ÈÛÛ[X[™Z][KO™]J]•\Ù\”›ÛJKÔİš[™Ê
+NØÛÛœİR\ÚTİš[™Ë[ˆYÙ\Ï^ŞÈ›İ™\šY]È‹İ™\šY]ßKÈ˜ÛÛ›™Xİ[Ûˆ‹ÛÛ›™Xİ[ÛŸKÈ˜[œÜÜÈ‹˜[œÜÜßKÈœİ˜[™Ù[™]‹İ˜[™ÙS™]KÈœÚY[‹ÚY[KÈ˜Xİ]š]H‹Xİ]š]_KÈœš]˜XŞH‹š]˜XŞ_KÈ˜X›İ]‹X›İ]_NÚYŠYÙ\Ë˜ÛÛZ[œÊÛÛ[X[™
+J\İÚ]ÚYÙJYÙ\Ë˜[YJÛÛ[X[™
+JNÙ[ÙHYŠÛÛ[X[™OH˜[Y]HŠ]˜[Y]PÛÛ™šYÊ
+NÙ[ÙHYŠÛÛ[X[™OH™XYÛ›ÜİXÜÈŠXÛÜQXYÛ›ÜİXÜÊ
+NÙX[ÙË˜XØÙ\
+
+NßJNÛ\İOœÙ]İ\œ™[›İÊ
+NÜÙX\˜ÚOœÙ]›Øİ\Ê
+NÙX[ÙË™^XÊ
+NßBŸNÂ‚š[XZ[Š[\™ØËÚ\ŠŠˆ\™İŠ^Ø›ÛÛÛÙØ\™T™[™\š[™ÏY˜[ÙNÙ›ÜŠ[[™^LNÚ[™^\™ØÎÊÊÚ[™^
+^ØÛÛœİTİš[™È\™İ[Y[TTİš[™Î™œ›ÛSØØ[š]
+\™İ–Ú[™^JNÚYŠ\™İ[Y[OH‹K\ÛÙØ\™K\™[™\š[™ÈŸ\™İ[Y[OH‹K\Û[ÚÙK]\İŠ\ÛÙØ\™T™[™\š[™Ï]YNßXÛÛœİTİš[™È]›Ü›O\Q[š\›Û›Y[˜\šXX›J”UÔTWÔU“Ô“HŠNØÛÛœİ›ÛÛXY\ÜÏ\]›Ü›OOH›Ù™œØÜ™Y[ˆŸ]›Ü›OOH›Z[š[X[ÚYŠZXY\ÜÉ‰ˆ\ÛÙØ\™T™[™\š[™É‰ˆ\Q[š\›Û›Y[˜\šXX›R\ÔÙ]
+”U”—ÑTĞP“WÓÔS‘ÓŠJTPÛÜ™P\XØ][ÛœÙ]]šX]J]PWÕ\ÙQ\ÚİÜÜ[‘Ó
+NÔP\XØ][Ûˆ\
+\™ØË\™İŠNÔQ›ÛZQ›ÛTQ›Û]X˜\ÙNœŞ\İ[Q›Û
+Q›Û]X˜\ÙN‘Ù[™\˜[›Û
+NÂˆÚY™YˆWÓÔ×ÕÒS‚ˆ›ÜŠÛÛœİTİš[™Éˆ˜[YN”Tİš[™Ó\İÔTİš[™Ó]\˜[
+”ÙYÛÙHRHŠKTİš[™Ó]\˜[
+\šX[ŠKTİš[™Ó]\˜[
+•ZÛXHŠ_J^ÂˆÛÛœİQ›ÛØ[™Y]J˜[YJNÂˆYŠQ›Û]X˜\ÙN™˜[Z[Y\Ê
+K˜ÛÛZ[œÊ˜[YK]Ø\ÙR[œÙ[œÚ]]™JI‰”Q›ÛY]šXÜÊØ[™Y]JKš[‘›Û
+PÚ\Š	ĞIÊJJ^İZQ›ÛXØ[™Y]NØœ™XZÎßBˆBˆÙ[™Y‚ˆ\œÙ]›Û
+ZQ›Û
+NØ\œÙ]\XØ][Û“˜[YJ”U”ˆš]˜XŞHÛÛœÛÛHŠNØ\œÙ]Ü™Ø[š^˜][Û“˜[YJ”U”ˆŠNØ\œÙ]]Z]Û“\İÚ[™İĞÛÜÙY
+˜[ÙJNØ\œÙ]Ú[™İÒXÛÛŠRXÛÛŠ‹Øœ˜[™ÛÙÛËœİ™ÈŠJNÕÚ[™İÈÚ[™İÎÚYŠQ[š\›Û›Y[˜\šXX›R\ÔÙ]
+”U”—ÔÓSÒÑWĞÓÓTPÕŠJ]Ú[™İËœ™\Ú^™JÚ[™İË›Z[š[][TÚ^™J
+JNİÚ[™İËœÚİÊ
+NÚYŠ\˜\™İ[Y[Ê
+K˜ÛÛZ[œÊ‹K\Û[ÚÙK]\İŠJ^ÚYŠ]Ú[™İË™\šYU˜^RXÛÛœÊ
+_]Ú[™İË™\šYPÛÜÙTÛXŞJ
+_]Ú[™İË™\šYTš[X\PXİ[ÛœÊ
+_\]œ˜ÛÛœÛÛN”İ˜[™ÙS™]›ÛÙÚZ[œÙ[•\İ
+
+_\]œ˜ÛÛœÛÛN”™[X\ÙU\]\œÙ[•\İ
+
+J\™]\›ˆNÚYŠ\˜\™İ[Y[Ê
+K˜ÛÛZ[œÊ‹K]™\šYKZ[œİ[][ÛˆŠI‰ˆ]Ú[™İË™\šYR[œİ[][ÛŠ
+J\™]\›ˆNİÚ[™İËœ™\\™TÛ[ÚÙTYÙJQ[š\›Û›Y[˜\šXX›J”U”—ÔÓSÒÑWÔQÑHŠJNİÚ[™İËœ™\\™TÛ[ÚÙU[YJQ[š\›Û›Y[˜\šXX›J”U”—ÔÓSÒÑWÕSQHŠJNØ\œ›ØÙ\ÜÑ]™[Ê
+NÚYŠ]Ú[™İË™\šYTØÜ›Û˜]šYØ][ÛŠ
+J\™]\›ˆNİÚ[™İËœ™\\™TÛ[ÚÙTYÙJQ[š\›Û›Y[˜\šXX›J”U”—ÔÓSÒÑWÔQÑHŠJNØ\œ›ØÙ\ÜÑ]™[Ê
+NØÛÛœİT^X\œ˜[YO]Ú[™İË™Ü˜XŠ
+NÚYŠœ˜[YKš\Ó[
+
+J\™]\›ˆNØÛÛœİTİš[™Èİ]]\Q[š\›Û›Y[˜\šXX›J”U”—ÔÓSÒÑWÒSPQÑHŠNÚYŠ[İ]]š\Ñ[\J
+I‰ˆYœ˜[YKœØ]™Jİ]]
+J\™]\›ˆNÚYŠ]Ú[™İË™\šYUš\İX[^[İ]
+
+J\™]\›ˆNÜ™]\›ˆß\™]\›ˆ\™^XÊ
+NßB‚ˆÚ[˜ÛYHœ]œ—Û[Ûš]Ü‹›[ØÈ‚

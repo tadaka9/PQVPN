@@ -60,6 +60,15 @@ event log. Authenticated messages and local messages use distinct bubbles;
 receipts, rate limits and room changes remain visually separate so operational
 status cannot be mistaken for something another person wrote.
 
+The **Pixel Commons** is an optional retro social-lobby view over that same
+transport. Its spaces map to ordinary validated StrangeNet room paths, and its
+figures represent the local user plus currently authenticated Peer IDs. It is
+not a separate service, directory, account system, or source of presence data:
+selecting a space updates the canonical room field, while join, antiflood,
+direct messages, group fanout, voice and delivery receipts continue through
+the normal StrangeNet controls. The scene is drawn locally by PQVPN and uses no
+third-party game assets.
+
 The composer has two explicit keyboard modes:
 
 - **Conversation** sends with Enter and inserts a line break with Shift+Enter.
