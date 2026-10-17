@@ -6,12 +6,12 @@
 
 namespace pqvpn::tunnel {
 
-enum class Backend { Native, WireGuard, OpenVPN };
+enum class Backend { Native, WireGuard, OpenVPN3 };
 
 inline Backend backend_from_string(const std::string& value) {
     if (value == "pqvpn") return Backend::Native;
     if (value == "wireguard") return Backend::WireGuard;
-    if (value == "openvpn") return Backend::OpenVPN;
+    if (value == "openvpn3" || value == "openvpn") return Backend::OpenVPN3;
     throw std::invalid_argument("unknown tunnel plugin: " + value);
 }
 
