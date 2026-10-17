@@ -40,6 +40,12 @@ jobs:
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
           "$sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;25.1.8937393'
+          # Qt 6.7 androiddeployqt selects the highest installed platform and
+          # ignores its newer compile-SDK target property. Hosted runners ship
+          # a broken android-36-ext19 android.jar, so remove only that preview
+          # package from this ephemeral job and keep the supported API 35.
+          "$sdkmanager" --uninstall 'platforms;android-36-ext19' || true
+          test -f "$sdk_root/platforms/android-35/android.jar"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
