@@ -15,6 +15,7 @@
 #include "ml_traffic_shaper.hpp"
 #include "external_transport.hpp"
 #include "adaptive_transport.hpp"
+#include "tunnel_plugin.hpp"
 
 namespace pqvpn::config {
     struct KDFConfig {
@@ -155,9 +156,9 @@ namespace pqvpn::config {
         // exit.
         std::string exit_host;
         int exit_port = 0;
-        // Optional external tunnel backend. The native PQVPN backend remains
-        // the default; external backends are explicit and never fall back
-        // silently because they have different trust and privilege models.
+        // Native backend selector. wireguard/openvpn are accepted only as a
+        // compatibility input and migrated to Config::inner_tunnel; new
+        // profiles must use the explicit inner_tunnel section.
         std::string plugin = "pqvpn";
         std::string config_path;
 
@@ -190,6 +191,30 @@ namespace pqvpn::config {
         }
     };
 
+    // Optional VPN layered *inside* the native PQVPN full tunnel.  The outer
+    // PQVPN adapter and fail-closed routing are established first; only then
+    // is the selected client started.  This is deliberately separate from
+    // external_transport, which changes how PQVPN packets reach a peer.
+    struct InnerTunnelConfig {
+        bool enabled = false;
+        std::string backend = "wireguard";
+        std::string config_path;
+
+        friend void from_json(const nlohmann::json& j, InnerTunnelConfig& value) {
+            value.enabled = j.value("enabled", value.enabled);
+            value.backend = j.value("backend", value.backend);
+            value.config_path = j.value("config_path", value.config_path);
+            if (value.backend != "wireguard" && value.backend != "openvpn")
+                throw std::invalid_argument("inner_tunnel.backend must be wireguard or openvpn");
+            if (value.enabled && value.config_path.empty())
+                throw std::invalid_argument("enabled inner_tunnel requires config_path");
+        }
+        friend void to_json(nlohmann::json& j, const InnerTunnelConfig& value) {
+            j = {{"enabled", value.enabled}, {"backend", value.backend}};
+            if (!value.config_path.empty()) j["config_path"] = value.config_path;
+        }
+    };
+
     // User-space egress (OpenVPN-server style NAT): decrypted adapter frames
     // are terminated with real outbound sockets on this host instead of being
     // written to a local TAP segment. Runs without elevation because it only
@@ -213,6 +238,7 @@ namespace pqvpn::config {
         std::vector<BootstrapPeer> bootstrap;
         TuningConfig tuning;
         TunnelConfig tunnel;
+        InnerTunnelConfig inner_tunnel;
         EgressConfig egress;
         transport::AdaptiveConfig adaptive_transport;
         traffic::ShapingConfig traffic_shaping;
@@ -229,6 +255,16 @@ namespace pqvpn::config {
             }
             if (j.contains("tuning")) value.tuning = j.at("tuning").get<TuningConfig>();
             if (j.contains("tunnel")) value.tunnel = j.at("tunnel").get<TunnelConfig>();
+            if (j.contains("inner_tunnel")) value.inner_tunnel = j.at("inner_tunnel").get<InnerTunnelConfig>();
+            // Compatibility with the short-lived external tunnel.plugin
+            // schema: migrate it to the explicit nested layer in memory.
+            if (value.tunnel.plugin == "wireguard" || value.tunnel.plugin == "openvpn") {
+                if (j.contains("inner_tunnel"))
+                    throw std::invalid_argument("define either legacy tunnel.plugin or inner_tunnel, not both");
+                value.inner_tunnel = {true, value.tunnel.plugin, value.tunnel.config_path};
+                value.tunnel.plugin = "pqvpn";
+                value.tunnel.config_path.clear();
+            }
             if (j.contains("egress")) value.egress = j.at("egress").get<EgressConfig>();
             if (j.contains("adaptive_transport")) {
                 const auto& adaptive = j.at("adaptive_transport");
@@ -261,6 +297,8 @@ namespace pqvpn::config {
             }
             if (value.tunnel.enabled || !value.tunnel.interface_name.empty() || value.tunnel.plugin != "pqvpn" ||
                 !value.tunnel.config_path.empty() || !value.tunnel.exit_host.empty()) j["tunnel"] = value.tunnel;
+            if (value.inner_tunnel.enabled || !value.inner_tunnel.config_path.empty())
+                j["inner_tunnel"] = value.inner_tunnel;
             // Emitted only when non-default so existing configs serialize
             // byte-identically to before this section existed.
             if (value.egress.enabled) j["egress"] = value.egress;
@@ -300,6 +338,17 @@ namespace pqvpn::config {
                    cfg.tunnel.exit_port != 0 || cfg.tunnel.plugin != "pqvpn" ||
                    !cfg.tunnel.config_path.empty()) {
             return ConfigError{"relay-only mode cannot define local tunnel fields"};
+        }
+        if (cfg.inner_tunnel.enabled) {
+            if (!cfg.tunnel.enabled || cfg.tunnel.plugin != "pqvpn")
+                return ConfigError{"inner_tunnel requires the native PQVPN full tunnel"};
+            if (cfg.inner_tunnel.backend != "wireguard" && cfg.inner_tunnel.backend != "openvpn")
+                return ConfigError{"inner_tunnel.backend must be wireguard or openvpn"};
+            try {
+                (void)tunnel::validate_config_path(
+                    tunnel::backend_from_string(cfg.inner_tunnel.backend),
+                    cfg.inner_tunnel.config_path);
+            } catch (const std::exception& error) { return ConfigError{error.what()}; }
         }
         if (cfg.external_transport) {
             try {
