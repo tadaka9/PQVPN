@@ -121,6 +121,13 @@ and optional [WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md) as
 the CLI and TUI. An installed helper or open socket is never presented as proof
 that the protected route is connected.
 
+Traffic shaping has one policy across every native surface. GUI fields map to
+the same `--shaping`, `--shaping-mode`, `--shaping-padding` and
+`--shaping-delay` overrides accepted by the CLI and TUI. In the TUI, `s`
+toggles shaping and `p` cycles `ai → ai_blockchain → blockchain`; changes are
+allowed only while disconnected and are passed to the node without rewriting
+the source profile. Reapplying an identical policy is idempotent.
+
 The recommended `ai_blockchain` shaping mode integrates both control systems
 without confusing their roles: private on-device learning proposes timing and
 padding choices while quorum-verified, versioned distributed weights cap every
