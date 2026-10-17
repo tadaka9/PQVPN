@@ -39,16 +39,16 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;25.1.8937393'
+          "$sdkmanager" 'platforms;android-33' 'build-tools;33.0.2' 'ndk;25.1.8937393'
           # Qt 6.7 androiddeployqt selects the highest installed platform and
           # ignores its newer compile-SDK target property. Hosted runners ship
           # a broken android-36-ext19 android.jar, so remove only that preview
           # package from this ephemeral job and keep the supported API 35.
           while IFS= read -r preview; do
             test -z "$preview" || "$sdkmanager" --uninstall "$preview"
-          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[6-9]|[4-9][0-9])/ {print $1}')
-          test -f "$sdk_root/platforms/android-35/android.jar"
-          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[6-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[4-9]|[4-9][0-9])/ {print $1}')
+          test -f "$sdk_root/platforms/android-33/android.jar"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[4-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
@@ -69,8 +69,8 @@ jobs:
             -DANDROID_SDK_ROOT="$sdk_root" \
             -DANDROID_NDK="$ndk_root" \
             -DANDROID_NDK_ROOT="$ndk_root" \
-            -DQT_ANDROID_COMPILE_SDK_VERSION=35 \
-            -DQT_ANDROID_TARGET_SDK_VERSION=35
+            -DQT_ANDROID_COMPILE_SDK_VERSION=33 \
+            -DQT_ANDROID_TARGET_SDK_VERSION=33
       - name: Build APK
         run: cmake --build build-mobile-android --target apk --parallel 2
       - name: Verify APK
