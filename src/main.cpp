@@ -36,6 +36,7 @@
 #include "group_chat.hpp"
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
+#include "console/inner_tunnel_policy.hpp"
 
 namespace {
 
@@ -75,6 +76,7 @@ struct CliArgs {
     std::string strangenet_peer;
     bool control_stdin = false;
     bool no_tunnel = false;
+    pqvpn::console::InnerTunnelOverride inner_tunnel;
     bool help = false;
 #ifdef _WIN32
     std::string tunnel_device;
@@ -96,6 +98,9 @@ void print_usage(const char* program) {
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
         << "      --no-tunnel          Run as a UDP relay/exit without a local tunnel\n"
+        << "      --inner-tunnel-backend NAME  Layer wireguard or openvpn inside PQVPN\n"
+        << "      --inner-tunnel-config PATH   Absolute client configuration path\n"
+        << "      --no-inner-tunnel            Disable a configured inner VPN for this run\n"
 #ifdef _WIN32
         << "      --tunnel-device PATH  PQVPN driver device (default: \\\\.\\PQVPN_TUN0)\n"
 #endif
@@ -126,6 +131,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             else args.strangenet_peer = argv[index];
         } else if (value == "--no-tunnel") {
             args.no_tunnel = true;
+        } else if (value == "--no-inner-tunnel") {
+            args.inner_tunnel.disable = true;
+        } else if (value == "--inner-tunnel-backend" || value == "--inner-tunnel-config") {
+            if (++index >= argc || !pqvpn::console::parse_inner_tunnel_argument(
+                    value, argv[index], args.inner_tunnel)) {
+                std::cerr << value << " requires a valid value\n";
+                return std::nullopt;
+            }
 #ifdef _WIN32
         } else if (value == "--tunnel-device") {
             if (++index >= argc) {
@@ -155,7 +168,28 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
         std::cerr << "--strangenet-peer requires --strangenet-room\n";
         return std::nullopt;
     }
+    if (args.inner_tunnel.disable &&
+        (args.inner_tunnel.backend || args.inner_tunnel.config_path)) {
+        std::cerr << "--no-inner-tunnel cannot be combined with inner tunnel overrides\n";
+        return std::nullopt;
+    }
     return args;
+}
+
+std::optional<pqvpn::config::Config> load_runtime_config(const CliArgs& args,
+                                                         std::string& error) {
+    auto loaded = pqvpn::config::load_config(args.config_path);
+    if (!loaded) { error = "configuration is invalid"; return std::nullopt; }
+    if (const auto override_error =
+            pqvpn::console::apply_inner_tunnel_override(*loaded, args.inner_tunnel)) {
+        error = *override_error;
+        return std::nullopt;
+    }
+    if (args.no_tunnel && loaded->inner_tunnel.enabled) {
+        error = "an inner tunnel cannot run with --no-tunnel";
+        return std::nullopt;
+    }
+    return loaded;
 }
 
 std::optional<std::vector<std::uint8_t>> decode_peer_id(const std::string& value) {
@@ -224,7 +258,8 @@ void print_platform_info() {
 #else
     std::cout << "os=unknown\ntunnel=unsupported\ndriver=not-applicable\n";
 #endif
-    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n";
+    std::cout << "transport=udp\nadaptive-policy=pqtp-udp-tcp\n"
+                 "inner-tunnel=wireguard,openvpn\n";
 }
 
 int run_smoke_test(const CliArgs& args) {
@@ -234,9 +269,10 @@ int run_smoke_test(const CliArgs& args) {
     Logger::info("PQVPN Node Smoke Test Starting...");
     MetricsRegistry::instance().increment_counter("node_smoke_test_total");
 
-    auto config_result = pqvpn::config::load_config(args.config_path);
+    std::string config_error;
+    auto config_result = load_runtime_config(args, config_error);
     if (!config_result) {
-        Logger::error("Error loading configuration: {}", args.config_path);
+        Logger::error("Error loading configuration {}: {}", args.config_path, config_error);
         MetricsRegistry::instance().increment_counter("config_load_failure_total");
         return 1;
     }
@@ -297,9 +333,11 @@ int main(int argc, char** argv) {
     }
 
     if (args.validate_config || args.print_config) {
-        auto checked = pqvpn::config::load_config(args.config_path);
+        std::string config_error;
+        auto checked = load_runtime_config(args, config_error);
         if (!checked) {
-            std::cerr << "Invalid PQVPN configuration: " << args.config_path << "\n";
+            std::cerr << "Invalid PQVPN configuration: " << args.config_path
+                      << " (" << config_error << ")\n";
             return 1;
         }
         if (args.print_config) {
@@ -316,9 +354,11 @@ int main(int argc, char** argv) {
     }
 
     // Start the PQVPN node runtime with the provided configuration
-    auto config = pqvpn::config::load_config(args.config_path);
+    std::string config_error;
+    auto config = load_runtime_config(args, config_error);
     if (!config) {
-        std::cerr << "Failed to load config: " << args.config_path << "\n";
+        std::cerr << "Failed to load config: " << args.config_path
+                  << " (" << config_error << ")\n";
         return 1;
     }
 
@@ -376,18 +416,6 @@ int main(int argc, char** argv) {
         std::cerr << "warning: no node identity established (no ed25519 key); "
                   << "onion relay and local delivery will be rejected\n";
     }
-    std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> external_tunnel;
-    if (config->tunnel.plugin != "pqvpn") {
-        try {
-            const auto backend = pqvpn::tunnel::backend_from_string(config->tunnel.plugin);
-            auto spec = pqvpn::tunnel::make_external_process_spec(backend, config->tunnel.config_path);
-            external_tunnel = std::make_unique<pqvpn::tunnel::ExternalTunnelProcess>(std::move(spec));
-            external_tunnel->start();
-        } catch (const std::exception& error) {
-            std::cerr << "Failed to start tunnel plugin: " << error.what() << "\n";
-            return 1;
-        }
-    }
     pqvpn::network::UdpListener listener(io, config->network);
     listener.set_receive_handler([&io, node](std::vector<uint8_t> packet, const asio::ip::udp::endpoint& sender) {
         asio::co_spawn(io, node->datagram_received(std::move(packet), sender), asio::detached);
@@ -437,8 +465,7 @@ int main(int argc, char** argv) {
 
     // Profiles without a tunnel section are relay-only. --no-tunnel remains
     // an explicit runtime override for a fully configured client profile.
-    const bool no_tunnel = args.no_tunnel || !config->tunnel.enabled ||
-                           config->tunnel.plugin != "pqvpn";
+    const bool no_tunnel = args.no_tunnel || !config->tunnel.enabled;
     if (!config->tunnel.enabled && !args.no_tunnel)
         std::cout << "relay-only profile: local tunnel is disabled by configuration\n";
 
@@ -495,6 +522,7 @@ int main(int argc, char** argv) {
 
     bool adapter_active = false;
     bool linux_network_active = false;
+    std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> inner_tunnel;
     if (adapter) {
         if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
                 // Adapter -> tunnel: forward to the selected established session.
@@ -570,6 +598,7 @@ int main(int argc, char** argv) {
     // as the process starts; publishing the callback later loses that command
     // and leaves the runtime alive indefinitely.
     *shutdown = [&] {
+        if (inner_tunnel) inner_tunnel->stop();
 #ifdef _WIN32
         if (adapter_active) {
             // Remove the installed routes before taking the adapter down, in
@@ -1004,6 +1033,24 @@ int main(int argc, char** argv) {
         }
     }
 #endif
+
+    // Every platform has now committed the native PQVPN adapter and its
+    // fail-closed route plan.  Only at this point may a provider VPN install
+    // its own routes, otherwise it could capture PQVPN's control plane.
+    if (adapter_active && config->inner_tunnel.enabled) {
+        try {
+            const auto backend = pqvpn::tunnel::backend_from_string(config->inner_tunnel.backend);
+            auto spec = pqvpn::tunnel::make_external_process_spec(
+                backend, config->inner_tunnel.config_path);
+            inner_tunnel = std::make_unique<pqvpn::tunnel::ExternalTunnelProcess>(std::move(spec));
+            inner_tunnel->start();
+            std::cout << pqvpn::console::inner_tunnel_label(config->inner_tunnel) << " active\n";
+        } catch (const std::exception& error) {
+            std::cerr << "Failed to start inner tunnel: " << error.what() << "\n";
+            if (*shutdown) (*shutdown)();
+            return 1;
+        }
+    }
 
     asio::signal_set signals(io, SIGINT, SIGTERM);
     signals.async_wait([shutdown](const asio::error_code& error, int) {
