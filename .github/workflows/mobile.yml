@@ -35,20 +35,20 @@ jobs:
           sdkmanager="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+          "$sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;25.1.8937393'
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
-          # Qt 6.12 desktop/iOS is available, while the public Android
-          # repository currently publishes the arm64 kit at 6.10.1.
-          version: '6.10.1'
+          # The aqt Linux/Android repository currently exposes 6.7.3 as
+          # its newest complete arm64 kit. Desktop/iOS remain on 6.12.
+          version: '6.7.3'
           host: linux
           target: android
           arch: android_arm64_v8a
           cache: true
       - name: Configure Android preview
         env:
-          ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.2.12479018
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/25.1.8937393
         run: >-
           "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja
           -DCMAKE_BUILD_TYPE=Release
