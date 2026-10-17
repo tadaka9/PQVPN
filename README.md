@@ -125,6 +125,7 @@ operate and the evidence you have verified.
 | **Hybrid session setup** | X25519 + ML-KEM-1024 key establishment; Ed25519 + ML-DSA-87 authentication; SHA3-512 transcript and HKDF derivation. |
 | **Peer and relay paths** | Configured bootstrap peers, replay-bounded sessions and onion relay layers bound to their intended forwarders. |
 | **User-space egress** | TCP/UDP bridging, IPv4/IPv6 handling, fragment reassembly and bounded multi-client flow state. |
+| **Dual-stack policy** | IPv4/IPv6 transport, tunnel and egress paths with per-peer registry state; unavailable IPv6 is blocked rather than leaked or advertised. |
 | **Native clients** | One configuration model exposed through the node CLI, terminal console and Qt Privacy Console. |
 | **Adaptive transport policy** | UDP-preferred policy with bounded measurements, hysteresis and explicit fallback state. |
 | **StrangeNet** | Encrypted, authenticated peer rooms with bounded messages, replay checks and rate limits. |
@@ -181,6 +182,19 @@ Use `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
 peer. Read [`docs/strangenet.md`](docs/strangenet.md) before treating it as more
 than an experimental communication layer.
 
+### Research Commons: opt-in MIMD science at 1%
+
+StrangeNet can select a scientific field and resume a matching project already
+attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
+disables GPU use, never handles BOINC credentials and never accepts arbitrary
+peer-supplied code. Completed, reported tasks create tamper-evident pending
+1-PQ claims; minting is deliberately disabled until project-validator
+attestations and an audited mesh consensus layer exist. See
+[`docs/research-commons.md`](docs/research-commons.md). The implemented
+permissioned-subnet consensus core, wallet and supply rules are specified in
+[`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
+are not yet a deployed public chain.
+
 ## The cryptographic boundary
 
 | Layer | Policy | What it is meant to provide |
@@ -200,8 +214,11 @@ are serious.
 
 ### 1. Build
 
-Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config and the upstream
-dependency versions pinned in [`.github/dependencies.env`](.github/dependencies.env).
+Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config, OpenSSL 3.0+,
+Argon2 and a compatible liboqs. Official CI and release artifacts use and
+attest the exact upstream versions pinned in
+[`.github/dependencies.env`](.github/dependencies.env); those moving release
+pins are deliberately not treated as the minimum supported local ABI.
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git
@@ -302,6 +319,77 @@ Reduced-motion support disables ambient and transition animation.
 
 ## Evidence, not promises
 
+### Mobile preview builds
+
+PQVPN also builds a responsive Qt Quick preview for Android and iOS. CI emits
+an Android arm64 APK and an unsigned iOS application bundle. These artifacts
+exercise the mobile information architecture, cipher choice and StrangeNet /
+Shield surfaces; they deliberately keep **Connect** disabled. A mobile build
+must not claim VPN protection until Android `VPNService` and iOS Network
+Extension backends have passed the same fail-closed, route, DNS and rollback
+qualification required by the desktop client. See [`mobile/`](mobile/).
+
+### Asgard Cloud storage foundation
+
+[`tools/asgard-cloud.py`](tools/asgard-cloud.py) is a tested, zero-telemetry
+storage core: it chunks locally, encrypts each chunk independently with
+AES-256-GCM and HKDF-derived keys, content-addresses the ciphertext and places
+replicas across explicitly enabled storage roots. No bootstrap, relay or exit
+is silently enrolled as storage. It currently supports local paths and
+operator-mounted volumes. Signed 24-hour storage capabilities, a privacy-safe
+receipt hash chain, independent-failure-domain audit and verified replica
+repair are implemented. Missing mounts are never recreated, and bounded inputs,
+disk reserves and mode-`0600` identities enforce a fail-closed paranoid profile.
+PQVPN-native transport, garbage collection and hostile network testing remain
+gates before it can be called a public distributed cloud. See
+[`docs/asgard-cloud.md`](docs/asgard-cloud.md).
+
+Asgard is not currently a blockchain or payment network. Its signed receipt
+chain proves local record integrity, not global consensus or payment. Proposed
+non-transferable service credits remain fail-closed until
+consensus, custody, refunds, jurisdiction and independently reconcilable
+accounting are implemented. Its declared allocation is 90% of net
+distributable proceeds to a named eligible charity and 10% to PQVPN; no client
+currently accepts money or represents that split as settled on-chain.
+
+### StrangeNet Pixel Commons
+
+The project website includes a complete local-first Pixel Commons quest. It is
+playable with keyboard, pointer or touch, saves only to browser local storage,
+and makes no gameplay network request. Restoring the three signals awards
+**PQ**, bounded local ecosystem progress credits. In this release PQ are not
+money, cryptocurrency, transferable assets or purchasable tokens. A bounded
+local roleplay composer renders speech bubbles over the player and lets the
+Signal Keeper answer nearby; bubble text is never persisted or transmitted.
+
+The native desktop client now carries bounded `World` presence events through
+the same authenticated, pairwise-encrypted StrangeNet sessions as chat. Users
+can move an original pixel avatar with WASD, arrow keys or a click across Gate,
+Forge, Garden and Commons, and send a fixed set of emotes. Remote avatars show
+only shortened authenticated Peer IDs. Coordinates, emotes and local path
+progress are memory-only and are cleared on leave or disconnect; participant
+IP addresses, inventories and movement histories are neither emitted nor
+persisted. Browser play is an original single-player story; authenticated E2E
+multiplayer requires the native client. See
+[`docs/strangenet.md`](docs/strangenet.md).
+
+The [conversation coverage audit](docs/conversation-coverage-audit.md) maps the
+broader product requests to implemented evidence and explicit release gates.
+It prevents a mock UI, roadmap sentence or optimistic claim from being counted
+as a finished security feature.
+
+All interfaces follow the [ethical interaction psychology](docs/ethical-ux.md)
+standard: clear orientation, honest feedback, reversible actions and privacy
+boundaries, without dark patterns or compulsive reward mechanics.
+
+### Woockie addresses
+
+A Woockie combines a canonical authenticated Peer ID with a URL-shaped,
+allowlisted service path, for example
+`woockie://<peer-id>/strangenet/mainnet/friends`. It contains no participant IP,
+DNS hostname, credential, query or fragment and grants no authority merely by
+being shared. See [`docs/woockie.md`](docs/woockie.md).
+
 Every pull request and push to `future` or `main` enters a native build and
 smoke-test matrix:
 
@@ -361,7 +449,7 @@ ignore it.
 
 | Section | Important fields | Purpose |
 |---|---|---|
-| `network` | `port`, `bind_address` | UDP listener. |
+| `network` | `port`, `bind_address`, `exposure` | UDP listener. Use `loopback`, `lan`, or `public`; `lan` requires an explicit private/link-local address and rejects wildcard/public binds. |
 | `bootstrap` | `host:port` entries | Peers contacted until a session exists. |
 | `security` | TOFU, allowlist, known peers, KDF policy | Admission and local key policy. |
 | `tunnel` | enabled state, interface and exit policy | Selects relay-only or full-tunnel behavior explicitly. |
@@ -396,6 +484,7 @@ Useful maps:
 - [`docs/competitive-parity.md`](docs/competitive-parity.md) — desktop parity
   gates
 - [`docs/strangenet.md`](docs/strangenet.md) — encrypted room behavior
+- [`docs/strangenet-feature-matrix.md`](docs/strangenet-feature-matrix.md) — messaging-app comparison and privacy decisions
 - [`docs/update-system.md`](docs/update-system.md) — update trust and rollback
 - [`docs/external-transports.md`](docs/external-transports.md) — transport
   attachment boundaries

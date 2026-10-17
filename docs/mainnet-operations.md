@@ -2,7 +2,7 @@
 
 The public mainnet node runs as the dedicated `pqvpn` user with its configuration and identity under `/var/lib/pqvpn`. Keeping both files together matters because the node derives the persistent identity path from the configuration directory. The systemd service in `packaging/linux` denies privilege escalation, hides home directories and kernel interfaces, grants write access only to PQVPN state, and limits sockets to IPv4/IPv6.
 
-`pqvpn-mainnet-update` checks the repository's newest release that contains a native archive for the host architecture and `SHA256SUMS`. It downloads both over HTTPS, verifies the exact archive checksum, validates the production configuration with the candidate node, runs its smoke test, installs it under `/opt/pqvpn/releases/<tag>`, and atomically moves `/opt/pqvpn/current`. If the service does not become active, the updater restores the previous symlink and restarts the previous release.
+`pqvpn-mainnet-update` chooses the highest comparable release containing exactly one native archive for the host architecture and one `SHA256SUMS`. It refuses a tag older than root-owned `current-version`, pins downloads to the exact repository/tag path, requires one unique archive checksum, validates the production configuration with the candidate node, runs its smoke test, installs it under `/opt/pqvpn/releases/<tag>`, and atomically moves `/opt/pqvpn/current`. If the service does not become active, the updater restores the previous symlink and restarts the previous release.
 
 Install the files as root:
 
@@ -26,6 +26,26 @@ boundaries and their current limits are compared in
 
 The host should expose only SSH and the configured UDP listener. Use key-only SSH, disable forwarding and X11, keep the firewall default-deny, and run the node without capabilities. The service already applies `NoNewPrivileges`, a closed device policy, a read-only system image, namespace and syscall restrictions, and bounded tasks, memory, and file descriptors. Keep the node configuration and `node_keys.json` owned by `pqvpn` with modes `0640` and `0600` respectively.
 
+## Dual-stack readiness
+
+IPv6 readiness is an end-to-end property, not a build flag. A public node may
+advertise IPv6 only when all of these checks pass:
+
+1. the provider assigns a stable global IPv6 address and a default route;
+2. PQVPN listens on UDP 9090 through an IPv6 or verified dual-stack socket;
+3. the host and provider firewalls permit UDP 9090 for IPv6 without opening TCP;
+4. an external IPv6 client completes the authenticated PQVPN handshake;
+5. relay/egress tests cover IPv4 and IPv6 TCP, UDP, DNS and failure recovery;
+6. the registry publishes the bracketed IPv6 endpoint only after those checks.
+
+Use `ss -H -lun4 'sport = :9090'` and `ss -H -lun6 'sport = :9090'` to
+inspect socket families. Confirm the address and route with `ip -6 addr show
+scope global` and `ip -6 route show default`. A dual-stack-capable binary on a
+host with no provider IPv6 is **ready**, not **reachable**, and must remain
+listed as IPv4-only. Full-tunnel clients route IPv6 through a verified tunnel
+or blackhole it fail-closed; they never leave the physical IPv6 default active
+as an accidental bypass.
+
 The node also limits unauthenticated hybrid-handshake payload size, work per source address, pending handshakes, and total sessions. Signed handshake timestamps must be within five minutes. These bounds are especially relevant to post-quantum deployments because signature and KEM operations make unauthenticated handshake exhaustion more expensive than ordinary packet rejection.
 
 ## Bounded data-plane tuning
@@ -45,6 +65,14 @@ Comparable claims require the same hosts, MTU, cipher workload, direction,
 concurrency and loss conditions. Linux UDP GSO/GRO can reduce per-packet cost,
 but must remain capability-gated and verified against the existing wire-format
 tests before deployment.
+
+The user-space TCP egress bridge grows an ACK-clocked flight from 32 KiB to at
+most 8 MiB. At a 64 ms round trip that removes the former 512 KiB / 8 MB/s
+bandwidth-delay ceiling. A 64 MiB aggregate unacknowledged-payload budget and
+128 KiB paced batches keep the larger single-flow window from becoming an
+unbounded multi-client allocation or one event-loop-blocking UDP burst. These
+are safety bounds, not a throughput guarantee: validate releases with the same
+path, object, concurrency and packet-loss conditions before publishing a rate.
 
 An exit node should set `egress.enabled` to `true`. The default `egress.allow_private_destinations: false` rejects loopback, private, link-local, carrier-grade NAT, benchmark, multicast and reserved destinations before an outbound socket is opened. Keep the same restrictions at the host firewall for defense in depth, and reject outbound SMTP ports from the `pqvpn` service account. A dedicated bootstrap node should leave egress disabled and publish only its discovery role.
 

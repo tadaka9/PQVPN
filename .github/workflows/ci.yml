@@ -662,20 +662,29 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  mobile:
+    name: Mobile preview candidates
+    uses: ./.github/workflows/mobile.yml
+
   ci-matrix-complete:
     name: CI matrix complete
     if: always()
-    needs: [unix, windows]
+    needs: [unix, windows, mobile]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v6
+      - name: Verify mobile release contract
+        run: python3 tools/check-mobile-release-contract.py
       - name: Require every native build
         env:
           UNIX_RESULT: ${{ needs.unix.result }}
           WINDOWS_RESULT: ${{ needs.windows.result }}
+          MOBILE_RESULT: ${{ needs.mobile.result }}
         run: |
           test "$UNIX_RESULT" = success
           test "$WINDOWS_RESULT" = success
-          echo 'Every native configure, compile, help and smoke test passed.'
+          test "$MOBILE_RESULT" = success
+          echo 'Every desktop build and both mobile preview candidate builds passed.'
 
   tagged-release-readiness:
     name: Report qualification blockers (not a publication gate)

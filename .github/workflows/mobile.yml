@@ -1,0 +1,129 @@
+name: Mobile preview builds
+
+on:
+  workflow_call:
+  push:
+    branches: [main, future]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+      - '.github/dependencies.env'
+  pull_request:
+    branches: [main, future]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+      - '.github/dependencies.env'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android arm64 APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Load Qt version
+        run: |
+          cat .github/dependencies.env >> "$GITHUB_ENV"
+          echo "PQVPN_VERSION=$(tr -d '[:space:]' < PQVPN_VERSION.txt)" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK and NDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          test -n "$sdk_root"
+          sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;25.1.8937393'
+          # Qt 6.7 androiddeployqt selects the highest installed platform and
+          # ignores its newer compile-SDK target property. Hosted runners ship
+          # a broken android-36-ext19 android.jar, so remove only that preview
+          # package from this ephemeral job and keep the supported API 35.
+          while IFS= read -r preview; do
+            test -z "$preview" || "$sdkmanager" --uninstall "$preview"
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[5-9]|[4-9][0-9])/ {print $1}')
+          test -f "$sdk_root/platforms/android-34/android.jar"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[5-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
+      - name: Install Qt for Android
+        uses: jurplel/install-qt-action@v4
+        with:
+          # The aqt Linux/Android repository currently exposes 6.7.3 as
+          # its newest complete arm64 kit. Desktop/iOS remain on 6.12.
+          version: '6.7.3'
+          host: linux
+          target: android
+          arch: android_arm64_v8a
+          cache: true
+      - name: Configure Android preview
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          ndk_root="$sdk_root/ndk/25.1.8937393"
+          test -f "$ndk_root/build/cmake/android.toolchain.cmake"
+          "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_SDK_ROOT="$sdk_root" \
+            -DANDROID_NDK="$ndk_root" \
+            -DANDROID_NDK_ROOT="$ndk_root" \
+            -DQT_ANDROID_COMPILE_SDK_VERSION=34 \
+            -DQT_ANDROID_TARGET_SDK_VERSION=34
+      - name: Build APK
+        run: cmake --build build-mobile-android --target apk --parallel 2
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find build-mobile-android -type f -name '*release-unsigned.apk' -print)
+          test "${#apks[@]}" = 1
+          mkdir mobile-artifacts
+          cp "${apks[0]}" "mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-unsigned.apk"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-candidate-android-arm64
+          path: mobile-artifacts/PQVPN-*-android-arm64-preview-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: iOS unsigned app bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Load Qt version
+        run: |
+          cat .github/dependencies.env >> "$GITHUB_ENV"
+          echo "PQVPN_VERSION=$(tr -d '[:space:]' < PQVPN_VERSION.txt)" >> "$GITHUB_ENV"
+      - name: Install Qt for iOS
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ env.QT_VERSION }}'
+          host: mac
+          target: ios
+          arch: ios
+          cache: true
+      - name: Configure iOS preview
+        run: >-
+          "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-ios -G Xcode
+          -DCMAKE_BUILD_TYPE=Release
+      - name: Build unsigned iOS bundle
+        run: >-
+          cmake --build build-mobile-ios --config Release --
+          -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+      - name: Package unsigned bundle
+        run: |
+          app="$(find build-mobile-ios -type d -name 'pqvpn_mobile.app' -print -quit)"
+          test -n "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" \
+            "PQVPN-$PQVPN_VERSION-ios-arm64-preview-unsigned.zip"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-candidate-ios-arm64
+          path: PQVPN-*-ios-arm64-preview-unsigned.zip
+          if-no-files-found: error
+          retention-days: 14

@@ -22,6 +22,24 @@
     {
       "engine": "shadowsocks",
       "version": "v1.25.0",
+      "platform": "linux-armhf",
+      "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.armv7-unknown-linux-musleabihf.tar.xz",
+      "sha256": "12cd87a248c6d19ea2a0a4a8d7189ca9198a960fd1eeed027826e06ba2bb81d8",
+      "member": "sslocal",
+      "format": "tar"
+    },
+    {
+      "engine": "v2ray",
+      "version": "v5.53.0",
+      "platform": "linux-armhf",
+      "url": "https://github.com/v2fly/v2ray-core/releases/download/v5.53.0/v2ray-linux-arm32-v7a.zip",
+      "sha256": "bb90345678ea44de72599314a5aa619686b0a5f9f4a0a481de902cd45f072d72",
+      "member": "v2ray",
+      "format": "zip"
+    },
+    {
+      "engine": "shadowsocks",
+      "version": "v1.25.0",
       "platform": "linux-arm64",
       "url": "https://github.com/shadowsocks/shadowsocks-rust/releases/download/v1.25.0/shadowsocks-v1.25.0.aarch64-unknown-linux-musl.tar.xz",
       "sha256": "2c24915b56a05effdab5898848bacfbcb625bc277b18febafc7a3aa45f87f3b0",
@@ -101,6 +119,15 @@
       "format": "tar"
     },
     {
+      "engine": "udp2raw",
+      "version": "20230206.0",
+      "platform": "linux-armhf",
+      "url": "https://github.com/wangyu-/udp2raw/releases/download/20230206.0/udp2raw_binaries.tar.gz",
+      "sha256": "503cf5781aa97e50b4954c6bc4622c3ea6be02f6a35def4bb3b3eaf95bd2c7e8",
+      "member": "udp2raw_arm",
+      "format": "tar"
+    },
+    {
       "engine": "obfs4",
       "version": "0.0.14-1+b4",
       "platform": "linux-x86_64",
@@ -117,6 +144,33 @@
       "sha256": "177f99092893f391a46150616b5cde84393a46cb7a26a4468cd40edaa66c209f",
       "member": "usr/bin/obfs4proxy",
       "format": "deb"
+    },
+    {
+      "engine": "dnscrypt",
+      "version": "2.1.18",
+      "platform": "linux-x86_64",
+      "url": "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.1.18/dnscrypt-proxy-linux_x86_64-2.1.18.tar.gz",
+      "sha256": "c8c8acb35b0f6619bfe8e4eed0c192672f8fd1964f467a42881905814e261c3e",
+      "member": "linux-x86_64/dnscrypt-proxy",
+      "format": "tar"
+    },
+    {
+      "engine": "dnscrypt",
+      "version": "2.1.18",
+      "platform": "linux-arm64",
+      "url": "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.1.18/dnscrypt-proxy-linux_arm64-2.1.18.tar.gz",
+      "sha256": "0e167fc3d7903f3e2b08de9d1d522d2d57ed6f27db6c9b1371de0e1f2533059c",
+      "member": "linux-arm64/dnscrypt-proxy",
+      "format": "tar"
+    },
+    {
+      "engine": "dnscrypt",
+      "version": "2.1.18",
+      "platform": "linux-armhf",
+      "url": "https://github.com/DNSCrypt/dnscrypt-proxy/releases/download/2.1.18/dnscrypt-proxy-linux_arm-2.1.18.tar.gz",
+      "sha256": "f5bb0ce9c168b4afc6d7babe71462599d5bd15903931a67a44fb86e1f90a44e6",
+      "member": "linux-arm/dnscrypt-proxy",
+      "format": "tar"
     }
   ]
 }

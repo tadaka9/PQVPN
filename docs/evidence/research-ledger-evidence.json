@@ -1,0 +1,37 @@
+{
+  "schema": "pqvpn-research-evidence-v1",
+  "created_utc": "2026-10-17T11:56:24.717365+00:00",
+  "platform": "Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39",
+  "tests": [
+    {
+      "name": "test_research_ledger",
+      "exit_code": 0,
+      "output_sha256": "21b987c9dcfd3da7e0498d4b9b12adbedad244763a990fdfe200134d3f1a852c"
+    },
+    {
+      "name": "test_research_mesh",
+      "exit_code": 0,
+      "output_sha256": "151daed33394998215c6211865bff16c1dbc494fb21344f213bc7bcd9f139b57"
+    },
+    {
+      "name": "test_science_validator_adapter",
+      "exit_code": 0,
+      "output_sha256": "763b603c2a821b845ba820609b99f7261a9fa21fccf3af6ef6615541b8fe905d"
+    },
+    {
+      "name": "test_tunnel_dataplane",
+      "exit_code": 0,
+      "output_sha256": "751a3f1e74116d14caedcb1dc3ca87d21c75e94259741a27e184635a927e373a"
+    }
+  ],
+  "sources": {
+    "src/modules/research_ledger.hpp": "e27811e3bb7822673b0cae0923cd8602a84c79d7eafbb880536b29d1864c8d9d",
+    "src/modules/research_mesh.hpp": "bbb7c723cf896f63558c22e9c44555969862c532ae7c3bb9c736a470511f18cf",
+    "src/modules/research_store.hpp": "df3702278eaf73fee6ab9e592886b98cdb6ee0e18fc522eb749d32d88dd68cf5",
+    "src/modules/science_validator_adapter.hpp": "17883d11c39e22abb14f2d3b90a4bc6d987b6eea6994e70c2d6decc811228678",
+    "src/modules/node_module.hpp": "0bd1d791951ffc8aecc487014343097d729f7588d0c43da16938f520538b64c0",
+    "src/modules/node_module.cpp": "454eee3fbf45352e8eacf7815db5fe69edcfc5b7092a46eac0f2b2e42508411f"
+  },
+  "all_passed": true,
+  "independent_audit": false
+}

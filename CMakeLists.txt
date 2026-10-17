@@ -36,7 +36,11 @@ include(CTest)
 option(PQVPN_BUILD_MONITOR "Build the optional Qt monitor application" OFF)
 option(PQVPN_DEPLOY_QT_RUNTIME "Deploy private Qt runtime beside the monitor" ON)
 
-find_package(OpenSSL ${PQVPN_OPENSSL_VERSION} REQUIRED)
+# OPENSSL_VERSION pins the exact upstream release used and attested by CI.
+# It is not the protocol's minimum ABI requirement: treating that moving pin
+# as a minimum made supported distro builds fail whenever CI moved ahead of
+# the host package. PQVPN uses the OpenSSL 3 provider/EVP APIs.
+find_package(OpenSSL 3.0 REQUIRED)
 find_package(unofficial-argon2 CONFIG QUIET)
 if(TARGET unofficial::argon2::libargon2)
     message(STATUS "Argon2 found via vcpkg: unofficial::argon2::libargon2")
@@ -317,6 +321,8 @@ if(UNIX AND NOT APPLE)
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-shield-helper
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(PROGRAMS packaging/linux/pqvpn-research-compute
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(FILES packaging/linux/49-pqvpn-network.rules
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/rules.d)
 endif()
@@ -358,6 +364,19 @@ add_test(NAME pqvpn_tui_smoke COMMAND pqvpn_tui --smoke-test --config ${CMAKE_CU
 if(UNIX AND EXISTS "/usr/bin/dpkg")
   add_test(NAME pqvpn_package_version_labels COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tests/release/test_package_versions.sh)
   set_tests_properties(pqvpn_package_version_labels PROPERTIES LABELS "baseline;packaging")
+endif()
+if(UNIX AND NOT APPLE)
+  add_test(NAME pqvpn_linux_network_helper_syntax
+    COMMAND bash -n ${CMAKE_CURRENT_SOURCE_DIR}/packaging/linux/pqvpn-linux-network)
+  set_tests_properties(pqvpn_linux_network_helper_syntax PROPERTIES
+    TIMEOUT 30 LABELS "baseline;packaging;security")
+  find_program(PQVPN_PYTHON3 python3)
+  if(PQVPN_PYTHON3)
+    add_test(NAME pqvpn_research_compute
+      COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_compute.py)
+    set_tests_properties(pqvpn_research_compute PROPERTIES
+      TIMEOUT 30 LABELS "baseline;research;security")
+  endif()
 endif()
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")
 set_tests_properties(pqvpn_cli_validate pqvpn_cli_platform pqvpn_tui_smoke PROPERTIES TIMEOUT 30 LABELS "baseline;console")

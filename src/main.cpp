@@ -40,6 +40,28 @@
 
 namespace {
 
+bool valid_strangenet_world_event(const std::string& payload) {
+    if (payload.empty() || payload.size() > 512) return false;
+    try {
+        const auto event = nlohmann::json::parse(payload);
+        if (!event.is_object() || event.size() > 7 || event.value("v", 0) != 1 ||
+            event.value("op", std::string{}) != "move") return false;
+        const auto zone = event.value("zone", std::string{});
+        const auto facing = event.value("facing", std::string{});
+        const auto emote = event.value("emote", std::string{"none"});
+        static const std::set<std::string> zones{"commons", "forge", "garden", "gate"};
+        static const std::set<std::string> facings{"north", "south", "east", "west"};
+        static const std::set<std::string> emotes{"none", "wave", "bow", "cheer", "sit"};
+        return zones.contains(zone) && facings.contains(facing) && emotes.contains(emote) &&
+               event.contains("x") && event.at("x").is_number_integer() &&
+               event.contains("y") && event.at("y").is_number_integer() &&
+               event.at("x").get<int>() >= 0 && event.at("x").get<int>() <= 1000 &&
+               event.at("y").get<int>() >= 0 && event.at("y").get<int>() <= 1000;
+    } catch (...) {
+        return false;
+    }
+}
+
 #ifdef __linux__
 bool run_linux_network_manager(const char* action, const std::string& interface_name,
                                const std::string& exit_host, int exit_port) {
@@ -652,12 +674,35 @@ int main(int argc, char** argv) {
         strange->room = args.strangenet_room;
         strange->peer = initial_peer;
 
-        node->set_peer_session_handler([node_view = node.get()](const std::vector<std::uint8_t>& peer,
+        struct PrivacySessionCounters {
+            std::set<std::string> active;
+            std::size_t process_peak = 0;
+            std::uint64_t established_total = 0;
+        };
+        auto privacy_sessions = std::make_shared<PrivacySessionCounters>();
+
+        node->set_peer_session_handler([node_view = node.get(), privacy_sessions](const std::vector<std::uint8_t>& peer,
                                                                const asio::ip::udp::endpoint&,
                                                                const bool connected) {
+            const auto identity = encode_peer_id(peer);
+            if (connected) {
+                if (privacy_sessions->active.insert(identity).second)
+                    ++privacy_sessions->established_total;
+            } else {
+                privacy_sessions->active.erase(identity);
+            }
+            privacy_sessions->process_peak = std::max(
+                privacy_sessions->process_peak, privacy_sessions->active.size());
             emit_console_event({{"event", connected ? "peer.connected" : "peer.disconnected"},
-                                {"peer", encode_peer_id(peer)},
+                                {"peer", identity},
                                 {"ready", connected || node_view->select_tunnel_peer().has_value()}});
+            // Aggregate only: no endpoint, room, traffic volume, duration or
+            // history capable of reconstructing a participant's activity.
+            emit_console_event({{"event", "privacy.sessions"},
+                                {"active_now", privacy_sessions->active.size()},
+                                {"process_peak", privacy_sessions->process_peak},
+                                {"established_total", privacy_sessions->established_total},
+                                {"scope", "process-lifetime"}});
         });
 
         node->set_strangenet_handler([strange, node_view = node.get()](const pqvpn::strangenet::Message& message,
@@ -673,10 +718,19 @@ int main(int argc, char** argv) {
                                     {"peer", encode_peer_id(peer)}});
                 return;
             }
+            if (message.kind == pqvpn::strangenet::Kind::World &&
+                !valid_strangenet_world_event(message.text)) {
+                emit_console_event({{"event", "strangenet.rejected"},
+                                    {"reason", "invalid bounded world state"},
+                                    {"peer", encode_peer_id(peer)}});
+                return;
+            }
             const char* event_name = direct ? "strangenet.direct" : (message.kind == pqvpn::strangenet::Kind::Sticker
                 ? "strangenet.sticker" : (message.kind == pqvpn::strangenet::Kind::Reaction
                     ? "strangenet.reaction" : (message.kind == pqvpn::strangenet::Kind::Voice
-                        ? "strangenet.voice" : "strangenet.message")));
+                        ? "strangenet.voice" : (message.kind == pqvpn::strangenet::Kind::Profile
+                            ? "strangenet.profile" : (message.kind == pqvpn::strangenet::Kind::World
+                                ? "strangenet.world" : "strangenet.message")))));
             emit_console_event({{"event", event_name},
                                 {"room", message.room},
                                 {"peer", encode_peer_id(peer)},
@@ -685,6 +739,10 @@ int main(int argc, char** argv) {
                                 {"sequence", message.sequence},
                                 {"reply_to", message.reply_to},
                                 {"text", message.text}});
+            // Presence is ephemeral and high frequency. A per-step delivery
+            // receipt would amplify traffic and flood the UI without adding a
+            // useful guarantee; the authenticated session is the boundary.
+            if (message.kind == pqvpn::strangenet::Kind::World) return;
             const auto timestamp = static_cast<std::uint64_t>(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count());
@@ -760,8 +818,26 @@ int main(int argc, char** argv) {
                                 strange->peer.reset();
                                 strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
+                            } else if (name == "strangenet.block" || name == "strangenet.unblock") {
+                                const auto peer_text = command.value("peer", std::string{});
+                                const auto peer = decode_peer_id(peer_text);
+                                if (!peer) {
+                                    emit_console_event({{"event", "control.error"},
+                                                        {"message", "invalid StrangeNet Peer ID"}});
+                                    return;
+                                }
+                                const bool blocked = name == "strangenet.block";
+                                node->set_strangenet_peer_blocked(*peer, blocked);
+                                if (blocked) {
+                                    if (strange->peer && *strange->peer == *peer) strange->peer.reset();
+                                    strange->group_peers.erase(std::remove(strange->group_peers.begin(),
+                                        strange->group_peers.end(), *peer), strange->group_peers.end());
+                                }
+                                emit_console_event({{"event", blocked ? "strangenet.blocked" : "strangenet.unblocked"},
+                                                    {"peer", peer_text}});
                             } else if (name == "strangenet.send" || name == "strangenet.dm" || name == "strangenet.sticker" ||
-                                       name == "strangenet.react" || name == "strangenet.voice") {
+                                       name == "strangenet.react" || name == "strangenet.voice" || name == "strangenet.profile" ||
+                                       name == "strangenet.world") {
                                 const auto text = command.value("text", std::string{});
                                 const auto reply_to = command.value("reply_to", std::uint64_t{0});
                                 const bool direct = name == "strangenet.dm";
@@ -770,7 +846,8 @@ int main(int argc, char** argv) {
                                                                 : std::optional<std::vector<std::uint8_t>>{};
                                 if ((!direct && strange->room.empty()) || (direct && !direct_peer) || text.empty() ||
                                     text.size() > pqvpn::strangenet::kMaxMessageBytes ||
-                                    (name == "strangenet.react" && reply_to == 0)) {
+                                    (name == "strangenet.react" && reply_to == 0) ||
+                                    (name == "strangenet.world" && !valid_strangenet_world_event(text))) {
                                     emit_console_event({{"event", "control.error"},
                                                         {"message", "choose an authenticated recipient and send 1..2048 bytes"}});
                                     return;
@@ -782,7 +859,9 @@ int main(int argc, char** argv) {
                                     : (name == "strangenet.sticker" ? pqvpn::strangenet::Kind::Sticker
                                     : (name == "strangenet.react" ? pqvpn::strangenet::Kind::Reaction
                                     : (name == "strangenet.voice" ? pqvpn::strangenet::Kind::Voice
-                                                                   : pqvpn::strangenet::Kind::Text)));
+                                    : (name == "strangenet.profile" ? pqvpn::strangenet::Kind::Profile
+                                    : (name == "strangenet.world" ? pqvpn::strangenet::Kind::World
+                                                                   : pqvpn::strangenet::Kind::Text)))));
                                 const std::string delivery_room = direct ? "@direct" : strange->room;
                                 const auto monotonic_ms = static_cast<std::uint64_t>(
                                     std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -822,7 +901,9 @@ int main(int argc, char** argv) {
                                                         {"recipients", recipients},
                                                         {"kind", direct ? "direct" : (name == "strangenet.sticker" ? "sticker"
                                                                   : (name == "strangenet.react" ? "reaction"
-                                                                  : (name == "strangenet.voice" ? "voice" : "text")))}});
+                                                                  : (name == "strangenet.voice" ? "voice"
+                                                                  : (name == "strangenet.profile" ? "profile"
+                                                                  : (name == "strangenet.world" ? "world" : "text")))))}});
                                 }
                             } else {
                                 emit_console_event({{"event", "control.error"},

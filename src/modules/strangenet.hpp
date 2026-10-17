@@ -24,6 +24,8 @@ enum class Kind : std::uint8_t {
     Reaction = 4,
     Voice = 5,
     DirectText = 6,
+    Profile = 7,
+    World = 8,
 };
 
 struct Message {

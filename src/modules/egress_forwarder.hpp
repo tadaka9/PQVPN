@@ -69,6 +69,11 @@ struct TcpFlow {
     unsigned duplicate_acks = 0;
     unsigned retransmit_attempts = 0;
     std::size_t congestion_window = 32u * 1024u;
+    // Large WAN bandwidth-delay products need a wider ACK-clocked flight, but
+    // emitting that flight in one event-loop turn creates a destructive UDP
+    // burst. The pacing timer yields between bounded batches.
+    std::shared_ptr<asio::steady_timer> pacing_timer;
+    bool pacing_pending = false;
     bool s_eof = false;
     bool fin_sent_c = false;
 
@@ -254,6 +259,7 @@ private:
     void try_flush(std::weak_ptr<TcpFlow> w);
     void start_server_read(std::weak_ptr<TcpFlow> w);
     void deliver_server_bytes(std::shared_ptr<TcpFlow> f);
+    void schedule_paced_delivery(const std::shared_ptr<TcpFlow>& f);
     void process_client_ack(const std::shared_ptr<TcpFlow>& f, std::uint32_t ack);
     void arm_retransmit(const std::shared_ptr<TcpFlow>& f);
     void retransmit_oldest(const std::shared_ptr<TcpFlow>& f);
@@ -304,6 +310,11 @@ private:
     TcpMap tcp_flows_;
     UdpMap udp_flows_;
     FragMap fragments_;
+
+    // Aggregate retained TCP payload across every client. This is updated on
+    // emit, cumulative ACK and teardown, and prevents authenticated peers from
+    // multiplying the per-flow high-speed window into unbounded memory use.
+    std::size_t total_tcp_unacked_bytes_ = 0;
 
     asio::steady_timer sweeper_;
     bool sweeping_ = false;

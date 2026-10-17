@@ -19,6 +19,17 @@
 #include <memory>
 
 namespace pqvpn::console {
+inline QString normalizedEngineArchitecture(QString architecture) {
+    architecture = architecture.toLower();
+    if (architecture == "aarch64" || architecture == "arm64") return "arm64";
+    if (architecture == "armv7l" || architecture == "armv7" || architecture == "armhf") return "armhf";
+    if (architecture == "armv6l" || architecture == "armv6") return "armv6";
+    if (architecture == "amd64" || architecture == "x86_64") return "x86_64";
+    if (architecture == "i386" || architecture == "i486" || architecture == "i586" || architecture == "i686" || architecture == "x86") return "x86";
+    if (architecture == "loongarch64") return "loong64";
+    return architecture;
+}
+
 class EngineManager : public QObject {
 public:
     std::function<void(const QString&)> report;
@@ -45,8 +56,7 @@ public:
 #elif defined(Q_OS_LINUX)
         family = "linux";
 #endif
-        QString architecture = QSysInfo::currentCpuArchitecture();
-        if (architecture == "aarch64") architecture = "arm64";
+        const QString architecture = normalizedEngineArchitecture(QSysInfo::currentCpuArchitecture());
         const auto entries = QJsonDocument::fromJson(manifest.readAll()).object().value("engines").toArray();
         QJsonObject entry;
         for (const auto& value : entries) {
@@ -146,6 +156,7 @@ private:
         if (id == "shadowsocks") arguments = {"-c", configuration};
         else if (id == "v2ray") arguments = {"run", "-c", configuration};
         else if (id == "udp2raw") arguments = {"--conf-file", configuration};
+        else if (id == "dnscrypt") arguments = {"-config", configuration};
         else {
             QFile file(configuration);
             if (!file.open(QIODevice::ReadOnly)) { jobs_.remove(id); activity(id, false); process->deleteLater(); return; }

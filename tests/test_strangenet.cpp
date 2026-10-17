@@ -1,8 +1,30 @@
 #include <catch2/catch_test_macros.hpp>
 #include "strangenet.hpp"
 #include "node_module.hpp"
+#include "woockie.hpp"
 
 using namespace pqvpn::strangenet;
+
+TEST_CASE("Woockie combines a canonical peer identity with a safe resource path", "[woockie]") {
+    const std::string peer(64, 'A');
+    const auto address = pqvpn::woockie::parse(
+        "woockie://" + peer + "/strangenet/mainnet/friends/poetry");
+    REQUIRE(address.has_value());
+    CHECK(address->peer_id == std::string(64, 'a'));
+    CHECK(address->service == "strangenet");
+    CHECK(address->resource == "mainnet/friends/poetry");
+    CHECK(pqvpn::woockie::canonical(*address) ==
+        "woockie://" + std::string(64, 'a') + "/strangenet/mainnet/friends/poetry");
+}
+
+TEST_CASE("Woockie rejects web ambiguity and unregistered capabilities", "[woockie][hardening]") {
+    const std::string peer(64, '1');
+    CHECK_FALSE(pqvpn::woockie::parse("https://" + peer + "/strangenet/room"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://user@" + peer + "/strangenet/room"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/strangenet/../secret"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/shell/run"));
+    CHECK_FALSE(pqvpn::woockie::parse("woockie://" + peer + "/asgard/object?token=secret"));
+}
 
 TEST_CASE("StrangeNet messages round-trip with bounded metadata", "[strangenet]") {
     const Message sent{"riemann-lab", "peer-alice", 7, 1700000000123ULL, "hello 👋 from the other sheet"};
@@ -62,8 +84,32 @@ TEST_CASE("StrangeNet carries bounded voice chunks but no arbitrary media kind",
     CHECK(decoded->text == voice.text);
 
     Message forbidden = voice;
-    forbidden.kind = static_cast<Kind>(7); // images/video/unknown attachments are not wire kinds
+    forbidden.kind = static_cast<Kind>(0xff); // images/video/unknown attachments are not wire kinds
     CHECK_FALSE(encode(forbidden).has_value());
+}
+
+TEST_CASE("StrangeNet carries explicit session profiles without opening arbitrary media", "[strangenet][profile]") {
+    const Message profile{"mainnet/friends", "peer-alice", 13, 1700000000129ULL,
+        R"({"name":"Alice","intent":"friendship","bio":"Here for thoughtful conversation"})",
+        Kind::Profile};
+    const auto wire = encode(profile);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::Profile);
+    CHECK(decoded->text == profile.text);
+}
+
+TEST_CASE("StrangeNet carries authenticated bounded world state", "[strangenet][world]") {
+    const Message world{"mainnet/friends", "peer-alice", 14, 1700000000130ULL,
+        R"({"v":1,"op":"move","zone":"commons","x":420,"y":610,"facing":"east","emote":"wave"})",
+        Kind::World};
+    const auto wire = encode(world);
+    REQUIRE(wire.has_value());
+    const auto decoded = decode(*wire);
+    REQUIRE(decoded.has_value());
+    CHECK(decoded->kind == Kind::World);
+    CHECK(decoded->text == world.text);
 }
 
 TEST_CASE("StrangeNet rejects invalid UTF-8 and malformed acknowledgements", "[strangenet]") {
@@ -161,6 +207,27 @@ TEST_CASE("StrangeNet travels through an authenticated PQVPN session", "[strange
     asio::co_spawn(io, bob.datagram_received(*frame, alice_endpoint), asio::detached);
     io.run();
     CHECK(received.size() == 1);
+
+    bob.set_strangenet_peer_blocked(alice_id, true);
+    CHECK(bob.is_strangenet_peer_blocked(alice_id));
+    const auto blocked_frame = alice.build_strangenet_datagram(
+        bob_id, "riemann-lab", 2, 43, "must not reach the handler");
+    REQUIRE(blocked_frame.has_value());
+    io.restart();
+    asio::co_spawn(io, bob.datagram_received(*blocked_frame, alice_endpoint), asio::detached);
+    io.run();
+    CHECK(received.size() == 1);
+
+    bob.set_strangenet_peer_blocked(alice_id, false);
+    CHECK_FALSE(bob.is_strangenet_peer_blocked(alice_id));
+    const auto restored_frame = alice.build_strangenet_datagram(
+        bob_id, "riemann-lab", 3, 44, "delivery restored");
+    REQUIRE(restored_frame.has_value());
+    io.restart();
+    asio::co_spawn(io, bob.datagram_received(*restored_frame, alice_endpoint), asio::detached);
+    io.run();
+    REQUIRE(received.size() == 2);
+    CHECK(received.back().text == "delivery restored");
 }
 
 TEST_CASE("StrangeNet group delivery fails closed unless every member is ready", "[strangenet][group]") {

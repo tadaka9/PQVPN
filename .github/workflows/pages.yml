@@ -28,11 +28,20 @@ jobs:
           test -s site/app.js
           test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
+          jq -e '
+            (.peers | length > 0)
+            and ([.peers[] | has("ipv4") and has("ipv6") and has("endpoints") and has("address_status")] | all)
+            and ([.peers[] | select(.ipv6 != null) | .endpoints[] | startswith("[")] | any)
+          ' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
           grep -F 'id="support"' site/index.html >/dev/null
           grep -F 'id="strangenet-peer"' site/index.html >/dev/null
           grep -F 'id="field-manual"' site/index.html >/dev/null
           grep -F 'id="project-version"' site/index.html >/dev/null
+          grep -F 'id="mobile-android-qr"' site/index.html >/dev/null
+          grep -F 'id="mobile-ios-qr"' site/index.html >/dev/null
+          grep -F "'android-arm64':name=>name.endsWith('android-arm64-preview-unsigned.apk')" site/app.js >/dev/null
+          grep -F "'ios-arm64':name=>name.endsWith('ios-arm64-preview-unsigned.zip')" site/app.js >/dev/null
           grep -F "projectVersion.textContent=newestRelease.tag_name" site/app.js >/dev/null
           grep -F -- '--strangenet-peer ${values.peer.toLowerCase()}' site/app.js >/dev/null
           grep -F 'api.github.com/repos/tadaka9/PQVPN' site/app.js >/dev/null
@@ -53,6 +62,11 @@ jobs:
           cp -R site/. public/
           cp -R assets/brand/. public/assets/brand/
           cp docs/assets/pqvpn-console.png public/docs/assets/
+      - name: Install privacy-preserving QR generator
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends qrencode
       - name: Refresh published fleet release metadata
         shell: bash
         env:
@@ -77,6 +91,27 @@ jobs:
             and (.peers | length > 0)
             and ([.peers[].release] | all(. == $release))
           ' public/mainnet/peers.json >/dev/null
+          mobile="$(jq -c '[.[] | select(
+            .draft == false
+            and any(.assets[]?; .name == "SHA256SUMS")
+            and any(.assets[]?; (.name | endswith("android-arm64-preview-unsigned.apk")))
+            and any(.assets[]?; (.name | endswith("ios-arm64-preview-unsigned.zip")))
+          )] | sort_by(.published_at) | last // empty' <<<"$releases")"
+          if [[ -n "$mobile" ]]; then
+            mobile_tag="$(jq -r '.tag_name' <<<"$mobile")"
+            android_url="$(jq -r '.assets[] | select(.name | endswith("android-arm64-preview-unsigned.apk")) | .browser_download_url' <<<"$mobile")"
+            ios_url="$(jq -r '.assets[] | select(.name | endswith("ios-arm64-preview-unsigned.zip")) | .browser_download_url' <<<"$mobile")"
+            qrencode --type=SVG --output=public/assets/mobile-android-qr.svg -- "$android_url"
+            qrencode --type=SVG --output=public/assets/mobile-ios-qr.svg -- "$ios_url"
+            jq -n --arg tag "$mobile_tag" --arg android "$android_url" --arg ios "$ios_url" \
+              '{available:true,tag:$tag,android_url:$android,ios_url:$ios}' > public/mobile-downloads.json
+            test -s public/assets/mobile-android-qr.svg
+            test -s public/assets/mobile-ios-qr.svg
+          else
+            rm -f public/assets/mobile-android-qr.svg public/assets/mobile-ios-qr.svg
+            jq -n '{available:false}' > public/mobile-downloads.json
+          fi
+          jq -e '.available | type == "boolean"' public/mobile-downloads.json >/dev/null
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:

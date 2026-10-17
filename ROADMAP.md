@@ -38,15 +38,24 @@ verification on an elevated host with a connected adapter is still pending.
   transport.
 - [ ] Validate shutdown, recovery, and adapter cleanup across supported Windows
   and Linux environments.
+- [x] Carry IPv4 and IPv6 through packet validation, peer routing and the
+  user-space TCP/UDP egress bridge; fail closed when a full-tunnel client cannot
+  protect IPv6.
+- [x] Publish address-family state per mainnet peer instead of inferring IPv6
+  reachability from binary capability. Helsinki is dual-stack; Stockholm stays
+  IPv4-only until its provider supplies a global address and default route.
+- [ ] Add an external authenticated IPv4/IPv6 handshake probe to the release
+  gate and retain dated evidence for every advertised public endpoint.
 
 ## High-throughput data plane
 
 - [x] Make Linux user-space TCP egress apply upstream backpressure instead of
   resetting long downloads when its bounded server buffer fills.
 - [x] Negotiate TCP window scaling and use an adaptive tunnel congestion window:
-  fast growth for short interactive bursts and available high-bandwidth paths,
-  bounded additive growth at larger windows, and multiplicative reduction on
-  retransmission.
+  ACK-clocked growth for available high-bandwidth paths and multiplicative
+  reduction on retransmission. The egress bridge now permits an 8 MiB flight,
+  paces it in bounded event-loop batches and enforces a 64 MiB aggregate
+  retained-payload budget across clients.
 - [x] Preserve a strict per-flow memory ceiling while pausing and resuming
   upstream reads, so sustained download and upload performance does not trade
   away exit-node stability.
@@ -88,7 +97,77 @@ verification on an elevated host with a connected adapter is still pending.
 - [ ] Add interoperability and known-answer coverage for externally observable
   protocol behavior where applicable.
 
+## Research Commons and PQ mesh ledger
+
+- [x] Add an opt-in StrangeNet topic selector backed by real, already-attached
+  BOINC projects; enforce at most 1% local CPU time, GPU off, no credential
+  custody and fail closed around existing preference overrides.
+- [x] Record successful, reported BOINC tasks as deduplicated local hash-chain
+  receipts, each carrying one pending 1-PQ claim.
+- [x] Implement the protocol core for hybrid-signed scientific attestations,
+  parent-authorized subnet policies, permissioned Sybil resistance, 2/3+1
+  deterministic finality, fail-stop partitions, fork/replay guards, wallet
+  nonces, capped supply, signed transfers and deterministic audit snapshots.
+- [x] Add a generic authoritative-project adapter that requires dual-signed
+  valid-result receipts; client-reported BOINC status remains ineligible for
+  minting. Project-side key deployment and rotation remain operational gates.
+- [x] Define bounded hybrid-signed mesh envelopes for proposals, votes,
+  certificates, attestations and certified catch-up, with per-validator
+  monotonic replay rejection and fail-stop partition policy.
+- [x] Route research envelopes in a dedicated domain-separated authenticated
+  PQVPN datagram frame and add checksummed atomic checkpoint replacement,
+  fail-closed recovery and bounded evidence pruning.
+- [ ] Wire the handler/store into long-running node orchestration; add directory
+  fsync, crash fault injection, certified catch-up and explicit state bounds.
+- [ ] Commission an independent audit and publish its signed report plus
+  remediation evidence. Self-review must never satisfy this gate.
+- [ ] Enable transferable PQ in the GUI only after validator adapters,
+  networking, recovery, custody and independent audit are complete.
+
+## Asgard Cloud distributed storage
+
+- [x] Implement a local encrypted multi-root core with 4 MiB chunks,
+  per-chunk HKDF keys, AES-256-GCM, ciphertext addressing, rendezvous placement,
+  atomic writes, replication quorum and hostile-manifest validation.
+- [x] Issue and verify signed, expiring, zero-address storage capabilities with
+  a separate Ed25519 identity; node roles never imply storage consent. Wire
+  propagation remains gated on authenticated PQVPN storage sessions.
+- [ ] Move encrypted chunks over authenticated PQVPN sessions with explicit
+  quotas, backpressure and per-peer resource isolation.
+- [ ] Implement local-only capacity samples and hysteresis-controlled scaling:
+  warn at 60%, prepare one independent failure domain at 75%, fail closed for
+  new writes above 85%, and never purchase or enroll capacity automatically.
+- [x] Audit replicas by independent failure domain and repair only from a
+  ciphertext whose content commitment verifies; never recreate missing mounts.
+- [ ] Add garbage collection, encrypted metadata, key rotation and a
+  user-controlled keystore integration.
+- [ ] Evaluate erasure coding only after replication recovery is proven under
+  loss, corruption, churn, disk-full and malicious-peer tests.
+- [x] Implement the non-consensus foundation: bounded Ed25519-signed receipts
+  linked by hashes without IPs, paths, object IDs or placement history.
+- [ ] Specify and implement a shared Asgard consensus ledger before enabling any
+  credit purchase: consensus/finality, replay and double-spend resistance,
+  idempotent payment intents, refund/chargeback handling and separate custody.
+- [ ] Make credits non-transferable service units, keep VPN access independent
+  of payment, and publish independently reconcilable allocation evidence for
+  90% of net distributable proceeds to a named charity and 10% to PQVPN.
+- [ ] Keep every purchase control fail-closed until the charity, jurisdiction,
+  processor, fee denominator, terms and monthly accounting are configured and
+  reviewed. Do not represent the current storage foundation as a blockchain.
+
 ## Release engineering
+
+- [x] Make the Linux mainnet updater choose the highest comparable release,
+  refuse downgrade below root-owned state, pin exact tag URLs and reject
+  duplicate archive/checksum ambiguity before staging.
+- [ ] Add an offline release-signing key, pinned public verification key and
+  threshold recovery procedure; repository-hosted checksums alone are not a
+  production signature.
+
+- [x] Define an ethical interaction-psychology standard for GUI, TUI, CLI,
+  website and Pixel Commons; prohibit deceptive state and dark patterns.
+- [ ] Add accessibility and state-feedback checks to each new interactive
+  surface before release qualification.
 
 - [ ] Define supported operating systems, compilers, and dependency versions.
 - [ ] Implement the ten `packaging/gates/<target>` native gate drivers required

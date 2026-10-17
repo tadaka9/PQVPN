@@ -64,6 +64,10 @@ class NativeGateSourceTests(unittest.TestCase):
                                 text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('platform + "-desktop-test.tar.gz"', updater.read_text())
+        self.assertIn("installed_key", updater.read_text())
+        self.assertIn("key < installed_key", updater.read_text())
+        self.assertIn("exactly one checksum", updater.read_text())
+        self.assertIn('releases/download/${tag}/', updater.read_text())
         service = (ROOT / "packaging/linux/pqvpn-mainnet.service").read_text()
         self.assertIn("--no-tunnel", service)
 

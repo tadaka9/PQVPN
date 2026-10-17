@@ -90,6 +90,27 @@ TEST_CASE("Config loading invalid port", "[config]") {
     std::remove(config_path.c_str());
 }
 
+TEST_CASE("Network exposure enforces the declared listener boundary", "[config][network]") {
+    pqvpn::config::Config config;
+
+    config.network.exposure = "lan";
+    config.network.bind_address = "0.0.0.0";
+    REQUIRE(pqvpn::config::validate_config(config).has_value());
+
+    config.network.bind_address = "192.168.50.166";
+    CHECK_FALSE(pqvpn::config::validate_config(config).has_value());
+
+    config.network.bind_address = "8.8.8.8";
+    REQUIRE(pqvpn::config::validate_config(config).has_value());
+
+    config.network.exposure = "loopback";
+    config.network.bind_address = "127.0.0.1";
+    CHECK_FALSE(pqvpn::config::validate_config(config).has_value());
+
+    config.network.exposure = "public";
+    REQUIRE(pqvpn::config::validate_config(config).has_value());
+}
+
 TEST_CASE("Config loading file not found", "[config]") {
     auto result = pqvpn::config::load_config("tests/non_existent_file.json");
     REQUIRE_FALSE(result.has_value());

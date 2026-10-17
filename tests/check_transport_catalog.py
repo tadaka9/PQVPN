@@ -21,7 +21,7 @@ for entry in catalog["engines"]:
     key = (entry["engine"], entry["platform"])
     assert key not in seen
     seen.add(key)
-    assert entry["engine"] in {"udp2raw", "shadowsocks", "v2ray", "obfs4"}
+    assert entry["engine"] in {"udp2raw", "shadowsocks", "v2ray", "obfs4", "dnscrypt"}
     assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])
     assert entry["url"].startswith(("https://github.com/", "https://deb.debian.org/debian/pool/"))
     if entry["url"].endswith(".zip"):
@@ -50,7 +50,7 @@ for entry in catalog["engines"]:
         executable = Path(directory) / Path(entry["member"]).name
         executable.write_bytes(binary)
         executable.chmod(0o700)
-        option = {"udp2raw": "--help", "shadowsocks": "--version", "v2ray": "version", "obfs4": "-version"}[entry["engine"]]
+        option = {"udp2raw": "--help", "shadowsocks": "--version", "v2ray": "version", "obfs4": "-version", "dnscrypt": "-version"}[entry["engine"]]
         result = subprocess.run([str(executable), option], cwd=directory,
                                 capture_output=True, timeout=20)
         assert result.returncode == 0, entry["engine"] + " cannot start on native runner"

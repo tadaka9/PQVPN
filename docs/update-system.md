@@ -23,10 +23,13 @@ request elevation, stop a connection, or alter routes. Native package signing
 and the qualified release gates remain mandatory.
 
 The headless Linux mainnet updater has a separate operational role. It verifies
-the release archive checksum, validates the existing production configuration
-with the candidate node, stages a versioned installation, switches an atomic
-`current` symlink, restarts the service, observes stability, and rolls back the
-symlink and service if the candidate fails. Its setup is documented in
+that exactly one architecture archive and checksum list exist, selects the
+highest comparable release, refuses rollback below `current-version`, pins both
+download URLs to the exact repository and tag, and requires one unique checksum
+for the asset. It then validates the existing production configuration with the
+candidate node, stages a versioned installation, switches an atomic `current`
+symlink, restarts the service, observes stability, and rolls back the symlink
+and service if the candidate fails. Its setup is documented in
 [mainnet-operations.md](mainnet-operations.md).
 
 Maintainers create custom containers with
@@ -41,6 +44,8 @@ Current limits:
 - checksums provide integrity and release-byte binding; they do not replace
   Authenticode, Developer ID/notarization, distribution signatures, or release
   provenance;
+- the Linux updater is anti-rollback only while its root-owned install state is
+  trustworthy; production release signing still needs an offline signing key;
 - the desktop flow stages an installer and leaves installation to the user;
 - release publication remains blocked until all thirteen native functional
   gates and signing requirements are implemented and pass for the exact tag.

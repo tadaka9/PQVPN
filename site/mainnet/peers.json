@@ -10,7 +10,12 @@
       "name": "PQVPN Helsinki Bootstrap",
       "endpoint": "65.108.251.110:9090",
       "ipv4": "65.108.251.110",
-      "ipv6": null,
+      "ipv6": "2a01:4f9:c012:add9::1",
+      "endpoints": [
+        "65.108.251.110:9090",
+        "[2a01:4f9:c012:add9::1]:9090"
+      ],
+      "address_status": "dual-stack observed on host and listener",
       "region": "Helsinki, Finland",
       "roles": [
         "bootstrap"
@@ -31,6 +36,10 @@
       "endpoint": "45.248.37.87:9090",
       "ipv4": "45.248.37.87",
       "ipv6": null,
+      "endpoints": [
+        "45.248.37.87:9090"
+      ],
+      "address_status": "IPv4 public; software dual-stack ready, provider IPv6 unavailable",
       "region": "Stockholm, Sweden",
       "roles": [
         "relay",

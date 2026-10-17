@@ -12,6 +12,7 @@
 #include <limits>
 #include <optional>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -19,7 +20,6 @@
 #include <thread>
 #include <vector>
 #include <nlohmann/json.hpp>
-#include <random>
 #include "crypto_utils.hpp"
 #include "hybrid_auth.hpp"
 #include "hybrid_kdf.hpp"
@@ -48,6 +48,22 @@ std::optional<std::vector<uint8_t>> derive_strangenet_key(
         EVP_PKEY_derive(kdf.get(), output.data(), &output_size) <= 0) return std::nullopt;
     output.resize(output_size);
     return output;
+}
+
+std::optional<std::vector<uint8_t>> derive_research_mesh_key(
+    const std::vector<uint8_t>& directional_key, const std::vector<uint8_t>& session_id) {
+    if (directional_key.size() != 32 || session_id.empty()) return std::nullopt;
+    static constexpr std::string_view context = "PQVPN Research Mesh E2E v1";
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> kdf(
+        EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr), EVP_PKEY_CTX_free);
+    std::vector<uint8_t> output(32); std::size_t output_size = output.size();
+    if (!kdf || EVP_PKEY_derive_init(kdf.get()) <= 0 ||
+        EVP_PKEY_CTX_set_hkdf_md(kdf.get(), EVP_sha3_512()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_salt(kdf.get(), session_id.data(), session_id.size()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_key(kdf.get(), directional_key.data(), directional_key.size()) <= 0 ||
+        EVP_PKEY_CTX_add1_hkdf_info(kdf.get(), reinterpret_cast<const unsigned char*>(context.data()), context.size()) <= 0 ||
+        EVP_PKEY_derive(kdf.get(), output.data(), &output_size) <= 0) return std::nullopt;
+    output.resize(output_size); return output;
 }
 
 // Invokes the tunnel packet sink while isolating its failures: a throwing
@@ -205,11 +221,10 @@ std::optional<std::vector<uint8_t>> hex_field(const nlohmann::json& j, const cha
 }
 
 std::vector<uint8_t> random_bytes(std::size_t size) {
-    static thread_local std::mt19937_64 engine{std::random_device{}()};
-    std::uniform_int_distribution<unsigned> dist(0, 255);
-    std::vector<uint8_t> out;
-    out.reserve(size);
-    for (std::size_t i = 0; i < size; ++i) out.push_back(static_cast<uint8_t>(dist(engine)));
+    std::vector<uint8_t> out(size);
+    if (size != 0 && RAND_priv_bytes(out.data(), static_cast<int>(size)) != 1) {
+        throw std::runtime_error("OpenSSL CSPRNG failed");
+    }
     return out;
 }
 
@@ -663,7 +678,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     const bool strangenet_frame = data[1] == STRANGENET_FRAME;
-    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME && !strangenet_frame) || payload_size < 28) {
+    const bool research_frame = data[1] == RESEARCH_MESH_FRAME;
+    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME && !strangenet_frame && !research_frame) || payload_size < 28) {
         co_return;
     }
 
@@ -676,7 +692,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
     auto content_key = strangenet_frame
         ? derive_strangenet_key(session->aead_recv_key, session->session_id)
-        : std::optional<std::vector<uint8_t>>(session->aead_recv_key);
+        : research_frame ? derive_research_mesh_key(session->aead_recv_key, session->session_id)
+                         : std::optional<std::vector<uint8_t>>(session->aead_recv_key);
     if (!content_key) co_return;
     auto plaintext = tunnel_decrypt(
         std::span<const uint8_t>(data).subspan(28),
@@ -702,7 +719,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         auto message = strangenet::decode(*plaintext);
         const auto now_ms = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());
-        if (!message || !session->peer_id_ || message->sender != hex_id(*session->peer_id_) ||
+        if (!message || !session->peer_id_ || is_strangenet_peer_blocked(*session->peer_id_) ||
+            message->sender != hex_id(*session->peer_id_) ||
             !strangenet_flood_guard_.accept(*message, now_ms).allowed ||
             !strangenet_replay_guard_.accept(*message)) co_return;
         if (strangenet_handler_) {
@@ -712,6 +730,14 @@ asio::awaitable<void> PQVPNNode::datagram_received(
             } catch (...) {
                 pqvpn::logging::Logger::warn("StrangeNet handler failed with an unknown exception");
             }
+        }
+        co_return;
+    }
+    if (research_frame) {
+        if (!session->peer_id_ || plaintext->size() > 1024 * 1024) co_return;
+        if (research_mesh_handler_) {
+            try { research_mesh_handler_(*plaintext, *session->peer_id_); }
+            catch (...) { pqvpn::logging::Logger::warn("Research mesh handler rejected an envelope"); }
         }
         co_return;
     }
@@ -907,6 +933,7 @@ bool PQVPNNode::send_strangenet_message(
     const std::vector<uint8_t>& peer_id, const std::string& room,
     const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
     const strangenet::Kind kind, const std::uint64_t reply_to) {
+    if (is_strangenet_peer_blocked(peer_id)) return false;
     const auto frame = build_strangenet_datagram(peer_id, room, sequence, timestamp_ms, text, kind, reply_to);
     if (!frame || !transport) return false;
     const auto found = sessions_by_peer_id.find(peer_id);
@@ -915,6 +942,37 @@ bool PQVPNNode::send_strangenet_message(
         !transport_allows(transport, found->second->remote_addr)) return false;
     asio::error_code error;
     transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
+    return !error;
+}
+
+std::optional<std::vector<uint8_t>> PQVPNNode::build_research_mesh_datagram(
+    const std::vector<uint8_t>& peer_id, const std::vector<uint8_t>& envelope) {
+    if (envelope.empty() || envelope.size() > 1024 * 1024) return std::nullopt;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->state != SessionState::ESTABLISHED || found->second->session_id.size() < 8 ||
+        found->second->aead_send_key.empty() || found->second->session_iv.size() != 12 ||
+        found->second->nonce_send == std::numeric_limits<uint64_t>::max()) return std::nullopt;
+    auto& session = *found->second;
+    const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
+    const std::vector<uint8_t> hint(session.session_id.begin(), session.session_id.begin() + 8);
+    std::vector<uint8_t> reserved(nonce.size() + envelope.size() + 16);
+    auto frame = encode_outer_frame(RESEARCH_MESH_FRAME, hint, 0, reserved); frame.resize(16);
+    const auto key = derive_research_mesh_key(session.aead_send_key, session.session_id);
+    if (!key) return std::nullopt;
+    const auto encrypted = tunnel_encrypt(envelope, *key, nonce, std::span<const uint8_t>(frame));
+    frame.insert(frame.end(), nonce.begin(), nonce.end()); frame.insert(frame.end(), encrypted.begin(), encrypted.end());
+    session.bytes_sent += envelope.size(); return frame;
+}
+
+bool PQVPNNode::send_research_mesh_envelope(const std::vector<uint8_t>& peer_id,
+                                             const std::vector<uint8_t>& envelope) {
+    const auto frame = build_research_mesh_datagram(peer_id, envelope);
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (!frame || !transport || found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified() ||
+        !transport_allows(transport, found->second->remote_addr)) return false;
+    asio::error_code error; transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
     return !error;
 }
 
@@ -931,7 +989,7 @@ std::size_t PQVPNNode::send_strangenet_group(
     if (peer_ids.size() < 2 || peer_ids.size() + 1 > 64 || !transport) return 0;
     for (const auto& peer_id : peer_ids) {
         const auto found = sessions_by_peer_id.find(peer_id);
-        if (found == sessions_by_peer_id.end() || !found->second ||
+        if (is_strangenet_peer_blocked(peer_id) || found == sessions_by_peer_id.end() || !found->second ||
             found->second->state != SessionState::ESTABLISHED ||
             found->second->remote_addr.address().is_unspecified() ||
             !transport_allows(transport, found->second->remote_addr)) return 0;
@@ -952,7 +1010,7 @@ std::size_t PQVPNNode::broadcast_strangenet_message(
     std::vector<std::vector<uint8_t>> recipients;
     recipients.reserve(std::min(sessions_by_peer_id.size(), strangenet::kMaxBroadcastRecipients));
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
-        if (!session || session->state != SessionState::ESTABLISHED ||
+        if (!session || session->state != SessionState::ESTABLISHED || is_strangenet_peer_blocked(peer_id) ||
             (except_peer && peer_id == *except_peer)) continue;
         recipients.push_back(peer_id);
         if (recipients.size() == strangenet::kMaxBroadcastRecipients) break;
@@ -1906,14 +1964,16 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
         }
     }
 
-    // Decapsulate the ML-KEM ciphertext and derive the classical half against
-    // our long-term X25519 key. The transcript is the raw S1 payload exactly as
-    // received, so both sides bind identical bytes.
+    // Decapsulate ML-KEM and create a fresh responder-side X25519 key. Using
+    // ephemeral keys on BOTH sides gives the classical component forward
+    // secrecy; the responder public key is authenticated by the signed S2.
     std::vector<uint8_t> x25519_secret;
     std::vector<uint8_t> ml_kem_secret;
+    crypto::X25519KeyPair responder_ephemeral;
     try {
         ml_kem_secret = crypto::KEM::decaps(*ciphertext, ml_kem_secret_key);
-        x25519_secret = crypto::X25519::derive(x25519_private_key, *eph_pk);
+        responder_ephemeral = crypto::X25519::keygen();
+        x25519_secret = crypto::X25519::derive(responder_ephemeral.private_key, *eph_pk);
     } catch (const std::exception& error) {
         std::cerr << "S1 key derivation failed from " << endpoint << ": " << error.what() << "\n";
         co_return;
@@ -1937,16 +1997,14 @@ asio::awaitable<void> PQVPNNode::handle_s1_frame(
     std::cout << "Session established (responder) with " << endpoint
               << " id=" << hex_id(session->session_id).substr(0, 8) << "\n";
 
-    // Confirm to the initiator: signed S2 carrying our long-term X25519 key so
-    // it can derive the classical half and cross-check it against what its
-    // HELLO exchange registered for us.
+    // Confirm to the initiator with the signed responder ephemeral X25519 key.
     try {
         nlohmann::json s2 = {
             {"peerid", my_id_.has_value() ? hex_id(*my_id_) : std::string{}},
             {"sessionid", j.value("sessionid", std::string{})},
             {"ed25519_pk", hex_id(ed25519_public_key)},
             {"mldsa_pk", hex_id(ml_dsa_public_key)},
-            {"x25519_pk", hex_id(x25519_public_key)},
+            {"x25519_pk", hex_id(responder_ephemeral.public_key)},
             {"timestamp", static_cast<long long>(now_seconds())}
         };
         const auto [ed_sig, mld_sig] = sign_hybrid_message(
@@ -1975,7 +2033,10 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
     const auto session_id_hex = j.value("sessionid", std::string{});
     const auto pending_it = pending_handshakes_.find(session_id_hex);
     if (pending_it == pending_handshakes_.end()) co_return; // unknown/expired
-    const auto& pending = pending_it->second;
+    // Copy the bounded pending state: successful establishment erases its map
+    // entry before observers run, so retaining a reference would be a
+    // use-after-free in the success path.
+    const auto pending = pending_it->second;
 
     // Bind the confirmation to the peer and address we initiated toward.
     const auto peer_id = hex_field(j, "peerid");
@@ -1988,17 +2049,25 @@ asio::awaitable<void> PQVPNNode::handle_s2_frame(
         co_return;
     }
 
-    // Cross-check the responder's long-term X25519 key against what its signed
-    // HELLO registered (TOFU): a mismatch means the confirmation does not come
-    // from the identity we contacted.
+    // The signature verifier uses the keys carried in S2, so pin those keys to
+    // the identity learned in HELLO before trusting the responder's ephemeral
+    // X25519 value. Otherwise a self-signed attacker could claim the pending
+    // peer id and choose a replacement ephemeral key.
+    const auto known = known_peers_.find(hex_id(pending.peer_id));
+    if (known == known_peers_.end()) co_return;
+    for (const char* name : {"ed25519_pk", "mldsa_pk"}) {
+        const auto stored = known->second.find(name);
+        if (stored == known->second.end() || stored->second.empty() ||
+            stored->second != j.value(name, std::string{})) {
+            std::cerr << "rejecting S2 from " << endpoint
+                      << ": identity key mismatch for " << name << "\n";
+            co_return;
+        }
+    }
+
+    // This is an authenticated ephemeral key, not the long-term HELLO key.
     const auto s2_x25519_pk = hex_field(j, "x25519_pk");
     if (!s2_x25519_pk || s2_x25519_pk->size() != 32) co_return;
-    const auto registered = peer_hybrid_keys(pending.peer_id);
-    if (!registered || registered->first != *s2_x25519_pk) {
-        std::cerr << "rejecting S2 from " << endpoint
-                  << ": x25519 key does not match HELLO registration\n";
-        co_return;
-    }
 
     std::vector<uint8_t> x25519_secret;
     try {
