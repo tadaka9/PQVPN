@@ -162,7 +162,10 @@ documentation is authoritative for list contents, licensing and updates.
 StrangeNet sends a separately encrypted room message to established,
 authenticated PQVPN sessions. It is deliberately bounded: 2 KiB messages,
 per-peer and room-wide token buckets, monotonic replay guards and a capped
-direct broadcast set.
+direct broadcast set. Groups never create a server-held or participant-owned
+central secret: every member receives different ciphertext under the hybrid
+session that member helped establish. A group send fails closed unless the
+entire pinned membership is authenticated and ready.
 
 ```bash
 ./build/pqvpn_node --config config.json \
