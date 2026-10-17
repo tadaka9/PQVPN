@@ -1,122 +1,157 @@
 <div align="center">
 
-![PQVPN — post-quantum privacy with a native C++23 console](assets/brand/readme-hero.svg)
+![PQVPN — an experimental post-quantum peer network](assets/brand/readme-hero.svg)
 
 # PQVPN
 
-### Build a private path. Keep control of every key.
+### WHAT IF THE NETWORK BELONGED TO THE PEOPLE RUNNING IT?
 
-**An experimental, open-source VPN and peer network with hybrid post-quantum
-handshakes, fail-closed routing, a native desktop app, and no required account
-or hosted control plane.**
+**Build a private path between machines you control. No account. No telemetry.
+No central control plane.**
+
+PQVPN is an open-source C++23 experiment in peer-to-peer networking, hybrid
+post-quantum handshakes, user-operated relays, egress and encrypted peer chat.
+It is ambitious, inspectable—and not yet independently audited.
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00e5ff?style=for-the-badge&logo=cplusplus&logoColor=white)](https://en.cppreference.com/w/cpp/23)
 [![License: MIT](https://img.shields.io/badge/license-MIT-8a2be2?style=for-the-badge)](LICENSE)
-[![Platforms](https://img.shields.io/badge/Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-native-9b5cff?style=for-the-badge)](#platforms-and-releases)
-[![Status](https://img.shields.io/badge/status-experimental-ff506f?style=for-the-badge)](#security-and-project-status)
+[![Platforms](https://img.shields.io/badge/CI-Linux%20%C2%B7%20macOS%20%C2%B7%20Windows-9b5cff?style=for-the-badge)](#evidence-not-promises)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-ff335f?style=for-the-badge)](#the-honest-status)
 
-[Download a verified prerelease](https://github.com/tadaka9/PQVPN/releases) ·
-[Project site](https://tadaka9.github.io/PQVPN/) ·
-[Mainnet peers](https://tadaka9.github.io/PQVPN/mainnet/peers.json) ·
-[Roadmap](ROADMAP.md)
+[Try the experiment](#choose-your-first-move) ·
+[See how it works](#the-60-second-model) ·
+[Inspect the evidence](#evidence-not-promises) ·
+[Join the work](#choose-your-contribution) ·
+[Support PQVPN](#keep-the-experiment-alive)
 
 </div>
 
 ---
 
-## Privacy without surrendering the network
+## The invitation
 
-Most VPNs move trust from an ISP to a VPN operator. PQVPN is for people who
-want another option: run the nodes, choose the peers, own the identities, and
-inspect the code that protects the path.
+Most privacy products ask you to trust a company, an account or an invisible
+control plane. PQVPN asks a different question:
 
-PQVPN combines classical and post-quantum algorithms in every authenticated
-session. It can operate as a direct peer link, a relay network, or a full
-Linux tunnel through an exit node. The same C++23 core powers the desktop GUI,
-terminal console, and automation-friendly CLI.
+> **Can ordinary people operate the path, hold the keys and inspect every
+> security claim for themselves?**
 
-### Designed for practical anonymity
+The answer is not a slogan. It is an experiment you can run.
 
-PQVPN is designed to hide the origin IP from destination services and reduce
-linkability across the path: bootstrap, relay, and exit roles can be separated;
-DNS follows the protected tunnel; IPv4 and IPv6 fail closed; multi-hop routes
-limit what one intermediary can observe; and optional shaping changes simple
-size/timing patterns. The intended anonymity set grows when independently
-operated peers share relays and exits instead of every user running a unique,
-identifiable route.
+Start one node. Connect a second. Add a relay. Observe what succeeds, what
+fails closed and what still needs engineering. If something breaks, the result
+belongs in a test—not behind marketing language.
 
-That protection is conditional. It requires a healthy tunnel and kill switch,
-an exit that does not collude with the observer, enough concurrent users to
-avoid a one-person anonymity set, and application hygiene: no personal login,
-stable browser fingerprint, identifying cookie, or document metadata. The GUI
-reports network protection; it cannot certify user behavior or promise
-mathematical anonymity against a global passive adversary.
+## Why this experiment matters
 
-> PQVPN is experimental security software. It is not a promise of anonymity,
-> an audited replacement for a mature VPN, or a way to make an untrusted exit
-> trustworthy. Read [Security and project status](#security-and-project-status)
-> before relying on it.
+Traffic captured today may outlive the cryptography protecting it. Meanwhile,
+centralized VPNs move trust rather than eliminate it: the ISP sees less, but
+the VPN operator sees more.
 
-## What makes PQVPN different
+PQVPN explores another posture:
 
-| Capability | What it means |
-|---|---|
-| **Hybrid post-quantum sessions** | X25519 + ML-KEM-1024 establish key material; Ed25519 + ML-DSA-87 authenticate the same SHA3-512 transcript. Both halves are required. |
-| **No required cloud account** | Peers are configured directly. Admission uses TOFU or an explicit allowlist; identities remain on your machines. |
-| **Fail-closed tunnel policy** | Linux routes, DNS, IPv4/IPv6 handling, and the kill switch are applied as one owned state and rolled back on shutdown or failure. |
-| **User-space exit node** | TCP and UDP egress can run without privileged packet forwarding on the exit host. Creating a local OS tunnel still requires the platform permissions expected for route and adapter changes. |
-| **Adaptive transport** | PQTP can prefer UDP, fall back to TCP after bounded loss/jitter thresholds, and probe before returning to UDP. |
-| **Traffic shaping you control** | Optional encrypted padding and bounded timing shaping are configured locally. No model download, telemetry, or payload inspection is involved. |
-| **Verified transport engines** | The GUI can checksum, extract, start, and stop pinned udp2raw, Shadowsocks, V2Ray, and obfs4 builds where a native catalog entry exists. |
-| **StrangeNet groups** | Ephemeral P2P rooms support explicit groups of 3–64 participants. Each recipient gets a separately encrypted authenticated frame; offline membership fails closed instead of silently shrinking the group. |
-| **User-chosen identity verification** | Hybrid-signed, expiring claims can bind a peer to an organization, national party, or public figure. Trust anchors stay local and verification never grants message access. |
+- **Hybrid cryptography:** classical and post-quantum algorithms participate
+  in the same authenticated handshake.
+- **Peer ownership:** bootstrap, relay and exit roles run on infrastructure
+  chosen by their operators.
+- **Visible boundaries:** unsupported paths fail explicitly instead of being
+  presented as protected.
+- **Evidence over authority:** protocol behavior, hardening rules and release
+  gates live beside the source.
 
-## Native privacy console
+This does **not** prove anonymity, make operators trustworthy or replace an
+independent audit. It creates something more useful than a promise: a system
+that can be challenged, measured and improved in public.
 
-<div align="center">
+## Choose your first move
 
-![PQVPN Privacy Console](docs/assets/pqvpn-console.png)
+You do not need to understand the entire protocol before participating.
 
-</div>
+| If you have… | Start here | What you contribute |
+|---|---|---|
+| **30 seconds** | [Star the repository](https://github.com/tadaka9/PQVPN) | Help another curious builder discover it. |
+| **5 minutes** | Read [the honest status](#the-honest-status) | Decide whether the experiment fits your risk tolerance. |
+| **15 minutes** | Build and run the local smoke test | Produce a reproducible result on one more machine. |
+| **An extra server** | Operate a relay with egress disabled | Expand topology without becoming an exit. |
+| **Security experience** | Read [`SECURITY.md`](SECURITY.md) and the threat-model work | Find the assumption everyone else missed. |
+| **A stubborn bug** | Open a minimal, reproducible issue | Turn friction into shared evidence. |
 
-The Qt 6 desktop app turns configuration into a short, visible flow:
+The smallest useful commitment is intentionally small. You can stop after any
+step and still leave the project better than you found it.
 
-1. Choose and validate a profile.
-2. Inspect the exact bootstrap, exit, tunnel, DNS, and peer policy.
-3. Connect only after validation succeeds.
-4. Watch authenticated session and tunnel-ready events.
-5. Disconnect and restore the network state owned by PQVPN.
+## The 60-second model
 
-The **Transports** page exposes adaptive UDP/TCP policy, traffic-shaping
-controls, engine configuration, verified installation, live start/stop state,
-and actionable errors. The UI never treats a downloaded engine or an open
-socket as proof that the VPN is connected.
-
-![PQVPN transport controls](docs/assets/pqvpn-console-transports.png)
-
-## Try it
-
-### Install a prerelease
-
-Open [GitHub Releases](https://github.com/tadaka9/PQVPN/releases) and choose the
-package for your platform. Each protected prerelease is assembled from a
-successful five-target CI run and includes `SHA256SUMS` plus build metadata.
-
-On Ubuntu, Debian, and compatible distributions:
-
-```bash
-sudo apt install ./pqvpn_*_amd64.deb
+```text
+     machine you control          optional relay          chosen exit
+    ┌──────────────────┐       ┌────────────────┐      ┌──────────────┐
+    │ app → TUN → node │ ═════ │ PQVPN peer    │ ════ │ user-space   │ → internet
+    │ hybrid identity  │       │ egress OFF    │      │ egress ON    │
+    └──────────────────┘       └────────────────┘      └──────────────┘
+             │                          │                       │
+             └──── authenticated, encrypted peer sessions ─────┘
 ```
 
-The package installs `pqvpn_monitor`, `pqvpn_tui`, and `pqvpn_node`. It does
-not silently start a service or connect to a network.
+1. **Discover** — a node contacts endpoints listed in `bootstrap`.
+2. **Authenticate** — both peers bind classical and post-quantum material into
+   one transcript.
+3. **Establish** — role-separated session keys protect PQVPN frames.
+4. **Route** — traffic follows the peer/relay/exit policy you configured.
+5. **Reject** — malformed frames, stale nonces and partial authentication fail
+   closed.
 
-### Build from source
+There is no hosted account database or mandatory coordination service. There
+is still trust: in the code you run, the peers you admit, the machines you
+operate and the evidence you have verified.
 
-The exact upstream dependency versions are pinned in
-[`.github/dependencies.env`](.github/dependencies.env). A release build needs
-CMake 3.28+, Ninja, a C++23 compiler, OpenSSL, Argon2, liboqs, and Qt 6 for the
-desktop app.
+## What exists today
+
+| Capability | Current behavior |
+|---|---|
+| **Hybrid session setup** | X25519 + ML-KEM-1024 key establishment; Ed25519 + ML-DSA-87 authentication; SHA3-512 transcript and HKDF derivation. |
+| **Peer and relay paths** | Configured bootstrap peers, replay-bounded sessions and onion relay layers bound to their intended forwarders. |
+| **User-space egress** | TCP/UDP bridging, IPv4/IPv6 handling, fragment reassembly and bounded multi-client flow state. |
+| **Native clients** | One configuration model exposed through the node CLI, terminal console and Qt Privacy Console. |
+| **Adaptive transport policy** | UDP-preferred policy with bounded measurements, hysteresis and explicit fallback state. |
+| **StrangeNet** | Encrypted, authenticated peer rooms with bounded messages, replay checks and rate limits. |
+| **Release integrity** | Versioned packages, checksums, deterministic update containers and CI evidence gates. |
+
+### StrangeNet: conversation without a platform account
+
+StrangeNet sends a separately encrypted room message to established,
+authenticated PQVPN sessions. It is deliberately bounded: 2 KiB messages,
+per-peer and room-wide token buckets, monotonic replay guards and a capped
+direct broadcast set.
+
+```bash
+./build/pqvpn_node --config config.json \
+  --strangenet-room riemann-lab
+```
+
+Use `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
+peer. Read [`docs/strangenet.md`](docs/strangenet.md) before treating it as more
+than an experimental communication layer.
+
+## The cryptographic boundary
+
+| Layer | Policy | What it is meant to provide |
+|---|---|---|
+| Authentication | Ed25519 **and** ML-DSA-87 | Both signatures cover the same transcript digest; partial authentication is rejected. |
+| Key establishment | X25519 **and** ML-KEM-1024 | Classical and post-quantum shared secrets are combined, not selected as alternatives. |
+| Derivation | HKDF-SHA3-512 | Role-separated keys, IV material and a bound session identifier. |
+| Local password KDF | Argon2id | Salt and cost enforcement with explicit provider failure. |
+| Replay defense | Monotonic counters and bounded windows | Separation between tunnel-data and relay-layer replay domains. |
+
+These ingredients are not a security certificate. Correct algorithms can
+still be composed incorrectly, implementations can contain bugs and endpoints
+can be compromised. PQVPN needs adversarial review precisely because its goals
+are serious.
+
+## Quickstart: run the evidence before the network
+
+### 1. Build
+
+Install CMake 3.28+, Ninja, a C++23 compiler, pkg-config and the upstream
+dependency versions pinned in [`.github/dependencies.env`](.github/dependencies.env).
 
 ```bash
 git clone https://github.com/tadaka9/PQVPN.git
@@ -124,144 +159,237 @@ cd PQVPN
 
 cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
-  -DPQVPN_BUILD_MONITOR=ON
-cmake --build build --target pqvpn_node pqvpn_tui pqvpn_monitor
+  -DBUILD_TESTING=OFF
+cmake --build build --target pqvpn_node
 ```
 
-Validate before connecting:
+### 2. Inspect and validate
+
+```bash
+./build/pqvpn_node --version
+./build/pqvpn_node --platform-info
+./build/pqvpn_node --validate-config --config config.json
+./build/pqvpn_node --smoke-test --config config.json
+```
+
+The checked-in [`config.json`](config.json) is the experimental mainnet
+profile. It uses UDP `9090` and the opt-in Helsinki bootstrap published in the
+[versioned peer registry](https://tadaka9.github.io/PQVPN/mainnet/peers.json).
+Review every listener, peer and TOFU decision before starting it.
+
+### 3. Run deliberately
+
+```bash
+./build/pqvpn_node --config config.json
+```
+
+Stop with <kbd>Ctrl</kbd>+<kbd>C</kbd>. A relay or exit can run without a local
+tunnel adapter. A full-device tunnel requires operating-system networking
+support and, on Linux, appropriate TUN/network-administration privileges.
+
+### Linux packages
+
+Verified prereleases may include `.deb` packages for x86-64 and ARM64:
+
+```bash
+sudo apt install ./pqvpn_*.deb
+```
+
+Packages install `pqvpn_node`, `pqvpn_tui`, `pqvpn_monitor`, service units and
+example configuration. They do not silently opt a machine into the network.
+Review and validate the configuration first. See
+[`docs/mainnet-operations.md`](docs/mainnet-operations.md) for a managed relay.
+
+## One model, three interfaces
+
+PQVPN aims for the same validated configuration and runtime semantics across
+the CLI, terminal console and desktop console.
+
+### CLI
+
+The canonical automation and runtime interface:
 
 ```bash
 ./build/pqvpn_node --validate-config --config config.json
-./build/pqvpn_node --platform-info
+./build/pqvpn_node --print-config --config config.json
+./build/pqvpn_node --help
+```
+
+### TUI
+
+`pqvpn_tui` is the dependency-light console for SSH sessions and systems
+without Qt:
+
+```bash
+cmake --build build --target pqvpn_node pqvpn_tui
+./build/pqvpn_tui --config config.json
+```
+
+### Privacy Console
+
+The Qt 6 interface guides configuration, verification and connection while
+keeping protocol, routing and cryptography in `pqvpn_node`:
+
+```bash
+cmake -S . -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTING=OFF \
+  -DPQVPN_BUILD_MONITOR=ON
+cmake --build build --target pqvpn_node pqvpn_monitor
 ./build/pqvpn_monitor
 ```
 
-## A minimal path
+It does not auto-connect, simulate success or silently install an update.
+Reduced-motion support disables ambient and transition animation.
+
+<div align="center">
+
+![PQVPN Privacy Console overview](docs/assets/pqvpn-console.png)
+
+<sub>The real Qt application rendered through its offscreen smoke test.</sub>
+
+</div>
+
+## Evidence, not promises
+
+Every pull request and push to `future` or `main` enters a native build and
+smoke-test matrix:
+
+| Target | Runner baseline | Toolchain |
+|---|---|---|
+| Linux x86_64 | Ubuntu 24.04 | GCC + Ninja |
+| Linux ARM64 | Ubuntu 24.04 ARM | GCC + Ninja |
+| macOS Intel | macOS 15 Intel | AppleClang |
+| macOS Apple Silicon | macOS 15 | AppleClang |
+| Windows x86_64 | Windows 2025 | MSVC + vcpkg |
+
+The test graph covers handshake, key derivation, replay defense, relay
+forwarding, egress behavior, configuration validation, adapters, packaging and
+the `pqvpn_hard_kernel` security gate. CodeQL runs for C/C++.
+
+Run the same core suite locally:
+
+```bash
+cmake -S . -B build-test -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_TESTING=ON
+cmake --build build-test -j2
+ctest --test-dir build-test --output-on-failure -j2
+```
+
+A green matrix means those checks passed for that commit. It does not establish
+real-world anonymity or substitute for native deployment tests and an
+independent security audit.
+
+## The honest status
+
+> [!WARNING]
+> **PQVPN is experimental software. It has not received an independent security
+> audit. Do not rely on it for personal safety, source protection, evading a
+> capable adversary or any situation where failure has serious consequences.**
+
+Use disposable test environments, keep exposure narrow and verify the exact
+commit and configuration you run. Current release blockers and milestones are
+tracked in [`ROADMAP.md`](ROADMAP.md).
+
+Known boundaries include:
+
+- platform tunnel integration and privileged lifecycle coverage are not equal
+  across every target;
+- Windows public driver loading requires the appropriate signing path;
+- transport adapters have explicit capability limits and never imply support
+  for an unimplemented TCP/SOCKS bridge;
+- operator trust, endpoint security, traffic analysis and metadata remain part
+  of the threat model;
+- the public experimental mainnet is infrastructure for testing, not proof of
+  anonymity.
+
+Trust the boundary because it is visible—not because the project asks you to
+ignore it.
+
+## Configuration in one glance
+
+| Section | Important fields | Purpose |
+|---|---|---|
+| `network` | `port`, `bind_address` | UDP listener. |
+| `bootstrap` | `host:port` entries | Peers contacted until a session exists. |
+| `security` | TOFU, allowlist, known peers, KDF policy | Admission and local key policy. |
+| `tunnel` | enabled state, interface and exit policy | Selects relay-only or full-tunnel behavior explicitly. |
+| `egress` | enabled state and limits | Controls whether a node may open outbound flows. |
+| `tuning` | timeouts, keepalive, replay window | Bounded session and liveness behavior. |
+| `adaptive_transport` | mode and thresholds | UDP/TCP lane selection policy. |
+| `traffic_shaping` | opt-in limits | Optional delay/padding behavior; disabled unless configured. |
+
+Use `--print-config` and `--validate-config`; do not infer runtime behavior from
+an old example. The parser and runtime share the same validation contract.
+
+## Choose your contribution
+
+PQVPN does not need spectators pretending the experiment is finished. It needs
+people who can make one claim more testable.
+
+- **Break it responsibly:** follow [`SECURITY.md`](SECURITY.md) for private
+  vulnerability reports.
+- **Reproduce a failure:** use the issue templates and include the smallest
+  safe configuration that demonstrates it.
+- **Test another platform:** record the commit, package, architecture and
+  observable result.
+- **Improve the model:** review the roadmap, network policy and release gates.
+- **Write focused code:** read [`CONTRIBUTING.md`](CONTRIBUTING.md) and target
+  `future`; `main` remains the protected promotion branch.
+
+Useful maps:
+
+- [`ROADMAP.md`](ROADMAP.md) — evidence still needed before production claims
+- [`docs/network-policy-roadmap.md`](docs/network-policy-roadmap.md) — routing,
+  kill-switch and split-tunnel contract
+- [`docs/competitive-parity.md`](docs/competitive-parity.md) — desktop parity
+  gates
+- [`docs/strangenet.md`](docs/strangenet.md) — encrypted room behavior
+- [`docs/update-system.md`](docs/update-system.md) — update trust and rollback
+- [`docs/external-transports.md`](docs/external-transports.md) — transport
+  attachment boundaries
+
+## Repository map
 
 ```text
-your device                  bootstrap / relay                 exit node
-┌──────────────┐  hybrid     ┌────────────────┐  authenticated ┌──────────────┐
-│ pqvpn0 + DNS │════════════►│ peer you chose │═══════════════►│ user-space   │
-│ kill switch  │◄════════════│ optional hop   │◄═══════════════│ egress       │
-└──────────────┘  session     └────────────────┘  PQVPN frames  └──────────────┘
+PQVPN/
+├── src/                    node, protocol modules and native clients
+├── include/                public project headers
+├── tests/                  unit, integration, packaging and security tests
+├── tools/                  hardening and release validation
+├── packaging/              native packages and verified update containers
+├── docs/                   protocol, operations and product boundaries
+├── CMakeLists.txt          build and test graph
+└── ROADMAP.md              evidence required for the next milestone
 ```
-
-The repository ships reviewed example profiles. A profile selects bootstrap
-peers, an optional exit, security policy, tunnel settings, adaptive transport,
-and shaping limits. Private identity material is never embedded in release
-artifacts.
-
-```json
-{
-  "bootstrap": [
-    { "host": "YOUR_BOOTSTRAP", "port": 9090 }
-  ],
-  "tunnel": {
-    "interface_name": "pqvpn0",
-    "exit_host": "YOUR_EXIT",
-    "exit_port": 9090
-  },
-  "adaptive_transport": {
-    "enabled": true,
-    "mode": "auto"
-  },
-  "traffic_shaping": {
-    "enabled": false,
-    "max_padding_bytes": 1024,
-    "max_delay_ms": 20
-  }
-}
-```
-
-See [configuration and external transports](docs/external-transports.md),
-[mainnet operations](docs/mainnet-operations.md), and the
-[update trust model](docs/update-system.md) before deploying a real path.
-
-## Security model in one minute
-
-```mermaid
-flowchart LR
-    A[Configured peer] --> B[Hybrid authenticated handshake]
-    B --> C[X25519 + ML-KEM-1024]
-    B --> D[Ed25519 + ML-DSA-87]
-    C --> E[HKDF-SHA3-512 session keys]
-    D --> E
-    E --> F[Authenticated data / relay frames]
-    F --> G[Selected relay or exit]
-    X[Malformed · replayed · partial auth] -. reject .-> R[Fail closed]
-```
-
-- Both classical and post-quantum authentication components must verify.
-- Session keys and directions are separated by HKDF-SHA3-512.
-- Replay domains are bounded and independent.
-- Parsers enforce size limits before allocation or state changes.
-- Tunnel setup is transactional; owned routes, DNS, and firewall rules are
-  removed during rollback.
-- Engine downloads are pinned by SHA-256 and extracted to private user data.
-
-More detail lives in the [release-readiness audit](docs/release-readiness-audit.md)
-and [native qualification contract](docs/native-qualification-contract.md).
-
-## Platforms and releases
-
-Protected CI builds and exercises five native targets:
-
-- Linux x86_64
-- Linux ARM64
-- Windows x86_64
-- macOS x86_64
-- macOS ARM64
-
-The matrix compiles the node, TUI, and GUI; renders every GUI page in light,
-dark, and compact layouts; tests scroll/navigation behavior; validates pinned
-transport downloads on native runners; and runs package lifecycle gates.
-
-Development happens on [`future`](https://github.com/tadaka9/PQVPN/tree/future).
-Verified work is promoted to `main` under the
-[branch policy](docs/branch-policy.md). Tags are immutable; releases are
-published only from successful exact-tag CI artifacts.
-
-Release names use an explicit, CI-enforced participation marker: `David1`
-means David contributed requirements, implementation, review, or testing to
-that release; `David0` means he did not. Automation never infers human
-participation merely because an API commit used the repository owner's
-identity.
-
-## Security and project status
-
-PQVPN is an ambitious experimental project, not yet independently audited.
-The cryptographic building blocks are established algorithms, but the protocol
-composition and implementation still require broader review and real-world
-interoperability testing.
-
-Use it for testing, learning, and controlled networks. Do not treat it as your
-only safety layer in a high-risk environment. Endpoint compromise, traffic
-analysis, malicious exits, browser identity, account correlation, and service
-provider blocking remain outside what a VPN alone can solve.
-
-Please report vulnerabilities privately using the instructions in
-[SECURITY.md](SECURITY.md).
-
-## Help build the network
-
-Useful contributions include protocol review, hostile-network testing,
-packaging, accessibility, native driver work, reproducible benchmarks, and
-documentation that turns a failure into a clear next action.
-
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
-2. Start from the `future` branch.
-3. Keep claims tied to a test or observable runtime state.
-4. Submit focused changes with the relevant regression coverage.
-
-If the idea resonates, star the repository, test a prerelease, and share the
-failure logs that help make the next build stronger.
 
 ---
 
 <div align="center">
 
-Created and maintained by [tadaka9](https://github.com/tadaka9) · MIT licensed
+## Keep the experiment alive
 
-**Own the nodes. Own the keys. Verify the path.**
+The most valuable contribution is evidence: a test result, a careful review,
+a reproducible bug or a focused patch.
+
+If you want to help discovery, **[star PQVPN](https://github.com/tadaka9/PQVPN)**.
+If you want to help engineering, **[choose an issue](https://github.com/tadaka9/PQVPN/issues)**.
+If you want to fund CI and continued development, read
+**[`docs/SUPPORT.md`](docs/SUPPORT.md)** and verify every payment address in this
+repository before sending anything.
+
+Donations purchase no influence, support guarantee or security assurance.
+They simply give an open experiment more time to become measurable.
+
+**Run it. Question it. Improve it.**
+
+Created and developed by [tadaka9](https://github.com/tadaka9), with community
+contributions accepted under the [MIT License](LICENSE).
+
+[Project site](https://tadaka9.github.io/PQVPN/) ·
+[Releases](https://github.com/tadaka9/PQVPN/releases) ·
+[Peer registry](https://tadaka9.github.io/PQVPN/mainnet/peers.json) ·
+[Report an issue](https://github.com/tadaka9/PQVPN/issues/new/choose)
 
 </div>
