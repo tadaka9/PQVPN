@@ -84,3 +84,36 @@ TEST_CASE("tunnel data plane refuses missing sessions and empty packets", "[tunn
     REQUIRE_FALSE(node.build_tunnel_datagram({1, 2, 3}, std::vector<uint8_t>{0x45}));
     REQUIRE_FALSE(node.build_tunnel_datagram({1, 2, 3}, std::vector<uint8_t>{}));
 }
+
+TEST_CASE("research envelopes use their authenticated PQVPN datagram domain", "[research][mesh][dataplane]") {
+    SessionPair pair;
+    const std::vector<uint8_t> envelope{'P', 'Q', 'R', 'E', 'S', 'E', 'A', 'R', 'C', 'H'};
+    std::vector<std::vector<uint8_t>> delivered;
+    pair.responder.set_research_mesh_handler(
+        [&](const std::vector<uint8_t>& plaintext, const std::vector<uint8_t>& peer) {
+            CHECK(peer == pair.initiator_id);
+            delivered.push_back(plaintext);
+        });
+
+    const auto datagram = pair.initiator.build_research_mesh_datagram(pair.responder_id, envelope);
+    REQUIRE(datagram);
+    REQUIRE(datagram->at(0) == 1);
+    REQUIRE(datagram->at(1) == pqvpn::PQVPNNode::RESEARCH_MESH_FRAME);
+    pair.deliver(*datagram, pair.initiator_endpoint);
+    REQUIRE(delivered == std::vector<std::vector<uint8_t>>{envelope});
+
+    pair.deliver(*datagram, pair.initiator_endpoint);
+    CHECK(delivered.size() == 1); // shared session replay protection
+
+    auto tampered = *pair.initiator.build_research_mesh_datagram(pair.responder_id, envelope);
+    tampered.back() ^= 0x40;
+    pair.deliver(std::move(tampered), pair.initiator_endpoint);
+    CHECK(delivered.size() == 1);
+}
+
+TEST_CASE("research datagrams reject missing sessions and invalid envelopes", "[research][mesh][dataplane]") {
+    asio::io_context io;
+    pqvpn::PQVPNNode node(io);
+    CHECK_FALSE(node.build_research_mesh_datagram({1, 2, 3}, {'x'}));
+    CHECK_FALSE(node.build_research_mesh_datagram({1, 2, 3}, {}));
+}

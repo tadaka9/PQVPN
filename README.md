@@ -182,6 +182,19 @@ Use `--strangenet-peer 64_HEX_DIGITS` to restrict a room to one authenticated
 peer. Read [`docs/strangenet.md`](docs/strangenet.md) before treating it as more
 than an experimental communication layer.
 
+### Research Commons: opt-in MIMD science at 1%
+
+StrangeNet can select a scientific field and resume a matching project already
+attached to the local BOINC client. PQVPN enforces a 1% CPU-time ceiling,
+disables GPU use, never handles BOINC credentials and never accepts arbitrary
+peer-supplied code. Completed, reported tasks create tamper-evident pending
+1-PQ claims; minting is deliberately disabled until project-validator
+attestations and an audited mesh consensus layer exist. See
+[`docs/research-commons.md`](docs/research-commons.md). The implemented
+permissioned-subnet consensus core, wallet and supply rules are specified in
+[`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
+are not yet a deployed public chain.
+
 ## The cryptographic boundary
 
 | Layer | Policy | What it is meant to provide |

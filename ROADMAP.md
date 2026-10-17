@@ -97,6 +97,33 @@ verification on an elevated host with a connected adapter is still pending.
 - [ ] Add interoperability and known-answer coverage for externally observable
   protocol behavior where applicable.
 
+## Research Commons and PQ mesh ledger
+
+- [x] Add an opt-in StrangeNet topic selector backed by real, already-attached
+  BOINC projects; enforce at most 1% local CPU time, GPU off, no credential
+  custody and fail closed around existing preference overrides.
+- [x] Record successful, reported BOINC tasks as deduplicated local hash-chain
+  receipts, each carrying one pending 1-PQ claim.
+- [x] Implement the protocol core for hybrid-signed scientific attestations,
+  parent-authorized subnet policies, permissioned Sybil resistance, 2/3+1
+  deterministic finality, fail-stop partitions, fork/replay guards, wallet
+  nonces, capped supply, signed transfers and deterministic audit snapshots.
+- [x] Add a generic authoritative-project adapter that requires dual-signed
+  valid-result receipts; client-reported BOINC status remains ineligible for
+  minting. Project-side key deployment and rotation remain operational gates.
+- [x] Define bounded hybrid-signed mesh envelopes for proposals, votes,
+  certificates, attestations and certified catch-up, with per-validator
+  monotonic replay rejection and fail-stop partition policy.
+- [x] Route research envelopes in a dedicated domain-separated authenticated
+  PQVPN datagram frame and add checksummed atomic checkpoint replacement,
+  fail-closed recovery and bounded evidence pruning.
+- [ ] Wire the handler/store into long-running node orchestration; add directory
+  fsync, crash fault injection, certified catch-up and explicit state bounds.
+- [ ] Commission an independent audit and publish its signed report plus
+  remediation evidence. Self-review must never satisfy this gate.
+- [ ] Enable transferable PQ in the GUI only after validator adapters,
+  networking, recovery, custody and independent audit are complete.
+
 ## Asgard Cloud distributed storage
 
 - [x] Implement a local encrypted multi-root core with 4 MiB chunks,

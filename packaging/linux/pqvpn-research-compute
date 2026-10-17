@@ -1,0 +1,347 @@
+#!/usr/bin/env python3
+"""Opt-in, fail-closed BOINC controller for the StrangeNet Research Commons."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+
+LIMIT = 1.0
+MARKER = "PQVPN Research Commons managed file - remove with pqvpn-research-compute disable"
+TOPICS = {
+    "astronomy": ("einstein", "asteroids", "universe@home", "milkyway"),
+    "climate": ("climateprediction", "world community grid", "africa rainfall"),
+    "medicine": ("rosetta", "sidock", "world community grid", "denis@home"),
+    "physics": ("lhc@home", "einstein", "yoyo@home"),
+    "mathematics": ("primegrid", "yafu", "numberfields", "odlk", "rake search"),
+}
+TRUSTED_HOSTS = {
+    "asteroidsathome.net", "climateprediction.net", "denis.usj.es",
+    "einsteinathome.org", "lhcathome.cern.ch", "milkyway.cs.rpi.edu",
+    "numberfields.asu.edu", "boinc.multi-pool.info", "primegrid.com",
+    "boinc.bakerlab.org", "sidock.si", "universeathome.pl",
+    "worldcommunitygrid.org", "yafu.myfirewall.org", "rechenkraft.net",
+}
+
+
+class ResearchError(RuntimeError):
+    pass
+
+
+def runtime_root() -> Path:
+    base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+    return base / "pqvpn" / "research-compute"
+
+
+def atomic_write(path: Path, data: str, mode: int = 0o600) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        os.fchmod(fd, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def run_boinc(arguments: list[str]) -> str:
+    executable = shutil.which("boinccmd")
+    if not executable:
+        raise ResearchError("BOINC is not installed; install boinc-client, attach a trusted project, then try again.")
+    result = subprocess.run([executable, *arguments], text=True, capture_output=True,
+                            timeout=15, check=False)
+    if result.returncode:
+        detail = (result.stderr or result.stdout).strip().replace("\n", " ")[:400]
+        raise ResearchError(f"local BOINC command failed: {detail or 'unknown error'}")
+    return result.stdout
+
+
+def parse_projects(output: str) -> list[dict[str, object]]:
+    projects: list[dict[str, object]] = []
+    current: dict[str, object] = {}
+    for raw in output.splitlines():
+        line = raw.strip()
+        match = re.match(r"(?:master URL|master_url):\s*(\S+)", line, re.I)
+        if match:
+            if current.get("url"):
+                projects.append(current)
+            current = {"url": match.group(1), "name": "", "suspended": False}
+            continue
+        match = re.match(r"project name:\s*(.+)", line, re.I)
+        if match:
+            current["name"] = match.group(1).strip()
+        match = re.match(r"suspended via GUI:\s*(yes|no|true|false|1|0)", line, re.I)
+        if match:
+            current["suspended"] = match.group(1).lower() in {"yes", "true", "1"}
+    if current.get("url"):
+        projects.append(current)
+    return projects
+
+
+def parse_old_tasks(output: str) -> list[dict[str, str]]:
+    """Parse boinccmd --get_old_tasks without accepting an unreported task."""
+    tasks: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    aliases = {
+        "project url": "url", "master url": "url", "result name": "name",
+        "name": "name", "exit status": "exit_status",
+        "completed time": "completed_time", "completion time": "completed_time",
+    }
+    for raw in [*output.splitlines(), "-----------"]:
+        line = raw.strip()
+        if re.match(r"(?:\d+\)\s*)?-{3,}$", line):
+            if current.get("url") and current.get("name"):
+                tasks.append(current)
+            current = {}
+            continue
+        match = re.match(r"([^:]+):\s*(.*)", line)
+        if match:
+            key = aliases.get(match.group(1).strip().lower())
+            if key:
+                current[key] = match.group(2).strip()
+    return tasks
+
+
+def parse_cc_modes(output: str) -> dict[str, str]:
+    modes: dict[str, str] = {}
+    section = ""
+    for raw in output.splitlines():
+        line = raw.strip().lower()
+        if line.startswith("cpu status"):
+            section = "cpu"
+        elif line.startswith("gpu status"):
+            section = "gpu"
+        elif line.endswith("status"):
+            section = ""
+        else:
+            match = re.match(r"(?:run )?mode:\s*(always|auto|never)", line)
+            if section and match:
+                modes[section] = match.group(1)
+    return modes
+
+
+def successful_task(task: dict[str, str], selected_urls: set[str]) -> bool:
+    return task.get("url") in selected_urls and task.get("exit_status") == "0" and bool(task.get("completed_time"))
+
+
+def reward_id(task: dict[str, str]) -> str:
+    material = "\0".join((task.get("url", ""), task.get("name", ""), task.get("completed_time", "")))
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def read_ledger() -> list[dict[str, object]]:
+    ledger = runtime_root() / "rewards.jsonl"
+    if not ledger.exists():
+        return []
+    entries = []
+    previous = "0" * 64
+    for line in ledger.read_text(encoding="utf-8").splitlines():
+        entry = json.loads(line)
+        claimed_hash = entry.pop("hash")
+        canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+        actual = hashlib.sha256((previous + canonical).encode("utf-8")).hexdigest()
+        if claimed_hash != actual or entry.get("previous") != previous:
+            raise ResearchError("PQ reward ledger integrity check failed")
+        entry["hash"] = claimed_hash
+        entries.append(entry)
+        previous = claimed_hash
+    return entries
+
+
+def reconcile_rewards(state: dict[str, object]) -> tuple[int, int]:
+    """Award one local PQ Research Credit per successful, reported BOINC task."""
+    entries = read_ledger()
+    known = {str(entry["id"]) for entry in entries}
+    selected = {str(project["url"]) for project in state.get("selected", [])}
+    try:
+        tasks = parse_old_tasks(run_boinc(["--get_old_tasks"]))
+    except ResearchError:
+        return len(entries), 0
+    added = 0
+    previous = str(entries[-1]["hash"]) if entries else "0" * 64
+    ledger = runtime_root() / "rewards.jsonl"
+    lines = ledger.read_text(encoding="utf-8").splitlines() if ledger.exists() else []
+    for task in tasks:
+        identifier = reward_id(task)
+        if identifier in known or not successful_task(task, selected):
+            continue
+        entry: dict[str, object] = {
+            "id": identifier, "claim_pq": 1, "kind": "research-receipt-v1",
+            "project_url": task["url"], "result_name": task["name"],
+            "completed_time": task["completed_time"], "previous": previous,
+        }
+        canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+        previous = hashlib.sha256((previous + canonical).encode("utf-8")).hexdigest()
+        entry["hash"] = previous
+        lines.append(json.dumps(entry, sort_keys=True, separators=(",", ":")))
+        known.add(identifier)
+        added += 1
+    if added:
+        atomic_write(ledger, "\n".join(lines) + "\n")
+    return len(entries) + added, added
+
+
+def trusted(project: dict[str, object]) -> bool:
+    from urllib.parse import urlparse
+    hostname = (urlparse(str(project["url"])).hostname or "").lower()
+    return any(hostname == host or hostname.endswith("." + host) for host in TRUSTED_HOSTS)
+
+
+def matches_topic(project: dict[str, object], topic: str) -> bool:
+    haystack = f"{project.get('name', '')} {project.get('url', '')}".lower()
+    return trusted(project) and any(token in haystack for token in TOPICS[topic])
+
+
+def locate_data_dir(explicit: str | None) -> Path:
+    choices = [Path(explicit)] if explicit else [
+        Path(os.environ.get("BOINC_DATA_DIR", "")), Path("/var/lib/boinc-client"),
+        Path.home() / ".var/app/edu.berkeley.BOINC/data/boinc",
+    ]
+    for choice in choices:
+        if str(choice) not in {"", "."} and choice.is_dir() and (choice / "client_state.xml").exists():
+            return choice.resolve()
+    raise ResearchError("BOINC data directory was not found; pass --boinc-data explicitly.")
+
+
+def managed_override(data_dir: Path) -> Path:
+    return data_dir / "global_prefs_override.xml"
+
+
+def make_override() -> str:
+    root = ET.Element("global_preferences")
+    root.append(ET.Comment(f" {MARKER} "))
+    ET.SubElement(root, "cpu_usage_limit").text = f"{LIMIT:.1f}"
+    ET.SubElement(root, "max_ncpus_pct").text = "100.0"
+    ET.SubElement(root, "run_on_batteries").text = "0"
+    ET.SubElement(root, "run_gpu_if_user_active").text = "0"
+    ET.indent(root, space="  ")
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode") + "\n"
+
+
+def enable(topic: str, data: str | None) -> dict[str, object]:
+    data_dir = locate_data_dir(data)
+    override = managed_override(data_dir)
+    if override.exists() and MARKER not in override.read_text(encoding="utf-8", errors="replace"):
+        raise ResearchError("BOINC already has a preferences override; PQVPN will not replace it.")
+    projects = parse_projects(run_boinc(["--get_project_status"]))
+    selected = [project for project in projects if matches_topic(project, topic)]
+    if not selected:
+        raise ResearchError(f"no already-attached, trusted BOINC project matches '{topic}'")
+    state_path = runtime_root() / "state.json"
+    prior_state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+    if prior_state.get("topic") == topic and override.exists():
+        return status()
+    modes = parse_cc_modes(run_boinc(["--get_cc_status"]))
+    try:
+        atomic_write(override, make_override())
+    except PermissionError as error:
+        raise ResearchError(f"cannot write {override}; grant your account BOINC data-directory access") from error
+    try:
+        run_boinc(["--read_global_prefs_override"])
+        run_boinc(["--set_gpu_mode", "never"])
+        for project in projects:
+            run_boinc(["--project", str(project["url"]), "suspend"])
+        for project in selected:
+            run_boinc(["--project", str(project["url"]), "resume"])
+        run_boinc(["--set_run_mode", "auto"])
+        state = {
+            "version": 1, "topic": topic, "cpu_percent": LIMIT,
+            "data_dir": str(data_dir),
+            "selected": [{"name": p.get("name", ""), "url": p["url"]} for p in selected],
+            "previous_suspended": prior_state.get("previous_suspended") or {str(p["url"]): bool(p.get("suspended")) for p in projects},
+            "previous_modes": prior_state.get("previous_modes") or modes,
+        }
+        atomic_write(runtime_root() / "state.json", json.dumps(state, indent=2) + "\n")
+        return status()
+    except Exception:
+        if override.exists() and MARKER in override.read_text(encoding="utf-8", errors="replace"):
+            override.unlink()
+            try:
+                run_boinc(["--read_global_prefs_override"])
+            except ResearchError:
+                pass
+        for project in projects:
+            try:
+                action = "suspend" if project.get("suspended") else "resume"
+                run_boinc(["--project", str(project["url"]), action])
+            except ResearchError:
+                pass
+        raise
+
+
+def disable(data: str | None) -> dict[str, object]:
+    state_path = runtime_root() / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {}
+    data_dir = locate_data_dir(data or state.get("data_dir"))
+    projects = parse_projects(run_boinc(["--get_project_status"]))
+    run_boinc(["--set_run_mode", "never"])
+    for project in projects:
+        action = "suspend" if state.get("previous_suspended", {}).get(str(project["url"]), False) else "resume"
+        run_boinc(["--project", str(project["url"]), action])
+    override = managed_override(data_dir)
+    if override.exists():
+        content = override.read_text(encoding="utf-8", errors="replace")
+        if MARKER not in content:
+            raise ResearchError("preferences override is no longer PQVPN-managed; it was left untouched")
+        override.unlink()
+        run_boinc(["--read_global_prefs_override"])
+    modes = state.get("previous_modes", {})
+    run_boinc(["--set_gpu_mode", modes.get("gpu", "auto")])
+    run_boinc(["--set_run_mode", modes.get("cpu", "auto")])
+    state_path.unlink(missing_ok=True)
+    return {"active": False, "cpu_percent": LIMIT, "pq_balance": len(read_ledger()),
+            "message": "research compute stopped; BOINC projects restored"}
+
+
+def status() -> dict[str, object]:
+    state_path = runtime_root() / "state.json"
+    if not state_path.exists():
+        return {"active": False, "cpu_percent": LIMIT, "pq_balance": len(read_ledger()), "message": "off"}
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    override = managed_override(Path(state["data_dir"]))
+    state["active"] = override.exists() and MARKER in override.read_text(encoding="utf-8", errors="replace")
+    balance, awarded = reconcile_rewards(state) if state["active"] else (len(read_ledger()), 0)
+    state["pq_balance"] = balance
+    state["pq_awarded_now"] = awarded
+    state["pq_kind"] = "unminted research receipt"
+    state["message"] = "active" if state["active"] else "state exists but the 1% limit is not active"
+    return state
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="PQVPN opt-in BOINC research controller")
+    parser.add_argument("command", choices=("status", "enable", "disable"))
+    parser.add_argument("--topic", choices=tuple(TOPICS))
+    parser.add_argument("--boinc-data")
+    args = parser.parse_args()
+    if args.command == "enable" and not args.topic:
+        parser.error("enable requires --topic")
+    root = runtime_root()
+    root.mkdir(parents=True, exist_ok=True)
+    lock = (root / "lock").open("w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    try:
+        result = status() if args.command == "status" else enable(args.topic, args.boinc_data) if args.command == "enable" else disable(args.boinc_data)
+        print(json.dumps(result, separators=(",", ":")))
+        return 0
+    except (ResearchError, OSError, ValueError, json.JSONDecodeError) as error:
+        print(json.dumps({"active": False, "error": str(error)}, separators=(",", ":")))
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

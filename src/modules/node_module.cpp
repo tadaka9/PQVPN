@@ -50,6 +50,22 @@ std::optional<std::vector<uint8_t>> derive_strangenet_key(
     return output;
 }
 
+std::optional<std::vector<uint8_t>> derive_research_mesh_key(
+    const std::vector<uint8_t>& directional_key, const std::vector<uint8_t>& session_id) {
+    if (directional_key.size() != 32 || session_id.empty()) return std::nullopt;
+    static constexpr std::string_view context = "PQVPN Research Mesh E2E v1";
+    std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)> kdf(
+        EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, nullptr), EVP_PKEY_CTX_free);
+    std::vector<uint8_t> output(32); std::size_t output_size = output.size();
+    if (!kdf || EVP_PKEY_derive_init(kdf.get()) <= 0 ||
+        EVP_PKEY_CTX_set_hkdf_md(kdf.get(), EVP_sha3_512()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_salt(kdf.get(), session_id.data(), session_id.size()) <= 0 ||
+        EVP_PKEY_CTX_set1_hkdf_key(kdf.get(), directional_key.data(), directional_key.size()) <= 0 ||
+        EVP_PKEY_CTX_add1_hkdf_info(kdf.get(), reinterpret_cast<const unsigned char*>(context.data()), context.size()) <= 0 ||
+        EVP_PKEY_derive(kdf.get(), output.data(), &output_size) <= 0) return std::nullopt;
+    output.resize(output_size); return output;
+}
+
 // Invokes the tunnel packet sink while isolating its failures: a throwing
 // sink drops this frame only and the node keeps processing traffic. A VPN
 // daemon must not terminate because its packet consumer misbehaves (for
@@ -662,7 +678,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     }
 
     const bool strangenet_frame = data[1] == STRANGENET_FRAME;
-    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME && !strangenet_frame) || payload_size < 28) {
+    const bool research_frame = data[1] == RESEARCH_MESH_FRAME;
+    if ((data[1] != TUNNEL_DATA_FRAME && data[1] != PADDED_TUNNEL_DATA_FRAME && !strangenet_frame && !research_frame) || payload_size < 28) {
         co_return;
     }
 
@@ -675,7 +692,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
     const std::vector<uint8_t> nonce(data.begin() + 16, data.begin() + 28);
     auto content_key = strangenet_frame
         ? derive_strangenet_key(session->aead_recv_key, session->session_id)
-        : std::optional<std::vector<uint8_t>>(session->aead_recv_key);
+        : research_frame ? derive_research_mesh_key(session->aead_recv_key, session->session_id)
+                         : std::optional<std::vector<uint8_t>>(session->aead_recv_key);
     if (!content_key) co_return;
     auto plaintext = tunnel_decrypt(
         std::span<const uint8_t>(data).subspan(28),
@@ -712,6 +730,14 @@ asio::awaitable<void> PQVPNNode::datagram_received(
             } catch (...) {
                 pqvpn::logging::Logger::warn("StrangeNet handler failed with an unknown exception");
             }
+        }
+        co_return;
+    }
+    if (research_frame) {
+        if (!session->peer_id_ || plaintext->size() > 1024 * 1024) co_return;
+        if (research_mesh_handler_) {
+            try { research_mesh_handler_(*plaintext, *session->peer_id_); }
+            catch (...) { pqvpn::logging::Logger::warn("Research mesh handler rejected an envelope"); }
         }
         co_return;
     }
@@ -916,6 +942,37 @@ bool PQVPNNode::send_strangenet_message(
         !transport_allows(transport, found->second->remote_addr)) return false;
     asio::error_code error;
     transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
+    return !error;
+}
+
+std::optional<std::vector<uint8_t>> PQVPNNode::build_research_mesh_datagram(
+    const std::vector<uint8_t>& peer_id, const std::vector<uint8_t>& envelope) {
+    if (envelope.empty() || envelope.size() > 1024 * 1024) return std::nullopt;
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (found == sessions_by_peer_id.end() || !found->second ||
+        found->second->state != SessionState::ESTABLISHED || found->second->session_id.size() < 8 ||
+        found->second->aead_send_key.empty() || found->second->session_iv.size() != 12 ||
+        found->second->nonce_send == std::numeric_limits<uint64_t>::max()) return std::nullopt;
+    auto& session = *found->second;
+    const auto nonce = tunnel_nonce(session.session_iv, ++session.nonce_send);
+    const std::vector<uint8_t> hint(session.session_id.begin(), session.session_id.begin() + 8);
+    std::vector<uint8_t> reserved(nonce.size() + envelope.size() + 16);
+    auto frame = encode_outer_frame(RESEARCH_MESH_FRAME, hint, 0, reserved); frame.resize(16);
+    const auto key = derive_research_mesh_key(session.aead_send_key, session.session_id);
+    if (!key) return std::nullopt;
+    const auto encrypted = tunnel_encrypt(envelope, *key, nonce, std::span<const uint8_t>(frame));
+    frame.insert(frame.end(), nonce.begin(), nonce.end()); frame.insert(frame.end(), encrypted.begin(), encrypted.end());
+    session.bytes_sent += envelope.size(); return frame;
+}
+
+bool PQVPNNode::send_research_mesh_envelope(const std::vector<uint8_t>& peer_id,
+                                             const std::vector<uint8_t>& envelope) {
+    const auto frame = build_research_mesh_datagram(peer_id, envelope);
+    const auto found = sessions_by_peer_id.find(peer_id);
+    if (!frame || !transport || found == sessions_by_peer_id.end() || !found->second ||
+        found->second->remote_addr.address().is_unspecified() ||
+        !transport_allows(transport, found->second->remote_addr)) return false;
+    asio::error_code error; transport->send_to(asio::buffer(*frame), found->second->remote_addr, 0, error);
     return !error;
 }
 

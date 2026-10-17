@@ -42,6 +42,8 @@ public:
         std::function<void(std::vector<uint8_t>, const std::vector<uint8_t>&)>;
     using StrangeNetHandler =
         std::function<void(const strangenet::Message&, const std::vector<uint8_t>&)>;
+    using ResearchMeshHandler =
+        std::function<void(const std::vector<uint8_t>&, const std::vector<uint8_t>&)>;
     using PeerSessionHandler =
         std::function<void(const std::vector<uint8_t>&, const asio::ip::udp::endpoint&, bool)>;
     // (address, add) notification for full-tunnel route exclusions: the
@@ -61,6 +63,7 @@ public:
     static inline constexpr uint8_t TUNNEL_DATA_FRAME = 5;
     static inline constexpr uint8_t PADDED_TUNNEL_DATA_FRAME = 9;
     static inline constexpr uint8_t STRANGENET_FRAME = 10;
+    static inline constexpr uint8_t RESEARCH_MESH_FRAME = 11;
     static inline constexpr uint8_t RELAY_FRAME = 7;     // FT_RELAY
     // Tunnel liveness (post-migration addition, ROADMAP peer selection):
     // same AEAD layout as TUNNEL_DATA_FRAME with an empty plaintext, so the
@@ -236,6 +239,11 @@ public:
         preferred_exit_ = std::move(endpoint);
     }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
+    void set_research_mesh_handler(ResearchMeshHandler handler) { research_mesh_handler_ = std::move(handler); }
+    std::optional<std::vector<uint8_t>> build_research_mesh_datagram(
+        const std::vector<uint8_t>& peer_id, const std::vector<uint8_t>& envelope);
+    bool send_research_mesh_envelope(const std::vector<uint8_t>& peer_id,
+                                     const std::vector<uint8_t>& envelope);
     void set_strangenet_peer_blocked(const std::vector<uint8_t>& peer_id, bool blocked) {
         if (blocked) strangenet_blocked_peers_.insert(peer_id);
         else strangenet_blocked_peers_.erase(peer_id);
@@ -450,6 +458,7 @@ private:
     std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
     StrangeNetHandler strangenet_handler_;
+    ResearchMeshHandler research_mesh_handler_;
     std::set<std::vector<uint8_t>> strangenet_blocked_peers_;
     PeerSessionHandler peer_session_handler_;
     strangenet::ReplayGuard strangenet_replay_guard_;
