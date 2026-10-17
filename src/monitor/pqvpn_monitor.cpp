@@ -126,6 +126,8 @@ QPushButton:pressed { background: #5e3bd8; }
 QPushButton:disabled { background: #252a41; color: #68718f; border-color: #30364e; }
 QPushButton[quiet="true"] { background: rgba(255,255,255,.04); color: #b9c2df; border-color: #343d61; }
 QPushButton[danger="true"] { background: #d94172; border-color: #ff6494; }
+QPushButton[milestone="active"] { background: rgba(114,76,255,.28); color: white; border-color: #8e72ff; }
+QPushButton[milestone="done"] { background: rgba(42,190,135,.16); color: #9ff3d0; border-color: rgba(77,224,166,.48); }
 QCheckBox { color: #ced5ea; spacing: 9px; }
 QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #586488; border-radius: 5px; background: #0b1022; }
 QCheckBox::indicator:checked { background: #65e6ff; border-color: #65e6ff; }
@@ -160,6 +162,8 @@ QPushButton:pressed { background: #551711; }
 QPushButton:disabled { background: #211d17; color: #6f6657; border-color: #383027; }
 QPushButton[quiet="true"] { background: rgba(212,170,85,.05); color: #cbbd9e; border-color: #594626; }
 QPushButton[danger="true"] { background: #9b1c16; border-color: #df5b3f; }
+QPushButton[milestone="active"] { background: rgba(122,36,28,.45); color: #fff2d2; border-color: #c09548; }
+QPushButton[milestone="done"] { background: rgba(212,170,85,.14); color: #f0d48c; border-color: #9f7b38; }
 QCheckBox { color: #d8cdb6; }
 QCheckBox::indicator { background: #0e0c09; border-color: #6c5735; }
 QCheckBox::indicator:checked { background: #d4aa55; border-color: #f0ca75; }
@@ -207,6 +211,8 @@ QPushButton:pressed { background: #5433c5; }
 QPushButton:disabled { background: #e2e6ef; color: #8a93a8; border-color: #d3d9e5; }
 QPushButton[quiet="true"] { background: #ffffff; color: #4c5875; border-color: #cbd3e5; }
 QPushButton[danger="true"] { background: #c83363; border-color: #d95079; }
+QPushButton[milestone="active"] { background: rgba(104,66,232,.12); color: #4f2fc5; border-color: rgba(104,66,232,.45); }
+QPushButton[milestone="done"] { background: rgba(25,145,102,.10); color: #146b50; border-color: rgba(25,145,102,.35); }
 QCheckBox { color: #35405c; spacing: 9px; }
 QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #8792ae; border-radius: 5px; background: white; }
 QCheckBox::indicator:checked { background: #0f8fa8; border-color: #0f8fa8; }
@@ -241,8 +247,8 @@ QIcon connectionTrayIcon(pqvpn::console::ConnectionPhase phase) {
     return icon;
 }
 
-constexpr bool closeToTray(bool quitting, bool trayVisible) {
-    return !quitting && trayVisible;
+constexpr bool closeKeepsApplicationRunning(bool quitting) {
+    return !quitting;
 }
 
 }
@@ -325,7 +331,13 @@ public:
         const QString platform=qEnvironmentVariable("QT_QPA_PLATFORM");
         const bool headless=platform=="offscreen"||platform=="minimal";
         const bool software=QApplication::arguments().contains("--software-rendering")||QApplication::arguments().contains("--smoke-test")||qEnvironmentVariableIsSet("PQVPN_DISABLE_OPENGL");
-        if(!headless&&!software){
+        // QOpenGLWidget is opt-in for the scroll viewport. On Wayland/GNOME,
+        // embedding child controls in an OpenGL QAbstractScrollArea viewport
+        // can produce stale frames and incorrect mouse hit coordinates after
+        // scrolling. The native raster viewport is both faster for widgets and
+        // reliable for buttons; OpenGL remains available for diagnostics.
+        const bool openGlRequested=qEnvironmentVariableIntValue("PQVPN_ENABLE_OPENGL")>0;
+        if(openGlRequested&&!headless&&!software){
             auto* glViewport=new QOpenGLWidget;
             glViewport->setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
             setViewport(glViewport);
@@ -501,15 +513,34 @@ public:
         if(!exercisedScrolling)qInfo()<<"PQVPN interaction check: all pages fit without scrolling at this platform's smoke-test size";
         return true;
     }
+    bool verifyPrimaryActions() {
+        if(!journeyConfigure_||!journeyAuthenticate_||!journeyProtect_)return false;
+        journeyConfigure_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
+        journeyAuthenticate_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
+        journeyProtect_->click();QApplication::processEvents();if(pages_->currentIndex()!=Connection)return false;
+        pageButtons_.value(Overview)->click();QApplication::processEvents();
+        return pages_->currentIndex()==Overview;
+    }
     void prepareSmokeTheme(const QString& request) { applyTheme(request); QApplication::processEvents(); }
     bool verifyClosePolicy() const {
-        return closeToTray(false,true) && !closeToTray(true,true) && !closeToTray(false,false);
+        return closeKeepsApplicationRunning(false) && !closeKeepsApplicationRunning(true);
     }
 protected:
     void closeEvent(QCloseEvent* event) override {
-        if (closeToTray(quitting_,tray_ && tray_->isVisible())) {
-            hide(); event->ignore();
-            if (!trayNoticeShown_) { tray_->showMessage("PQVPN is still running", "Closing the window minimizes it to the tray. Use Exit PQVPN to stop the application.", QSystemTrayIcon::Information, 5000); trayNoticeShown_=true; }
+        if (closeKeepsApplicationRunning(quitting_)) {
+            savePreferences();
+            const bool trayReady=tray_&&tray_->isVisible()&&QSystemTrayIcon::isSystemTrayAvailable();
+            if(trayReady){
+                hide();
+                if(!trayNoticeShown_){tray_->showMessage("PQVPN is still running","The window was moved to the tray. Use Exit PQVPN to stop the application.",QSystemTrayIcon::Information,5000);trayNoticeShown_=true;}
+            }else{
+                // Never strand a running connection when the desktop has no
+                // StatusNotifier/AppIndicator host. Keep a recoverable taskbar
+                // window instead of interpreting the title-bar X as Exit.
+                showMinimized();
+                statusBar()->showMessage("PQVPN is still running · use File → Exit PQVPN to quit",5000);
+            }
+            event->ignore();
             return;
         }
         if (process_.state()!=QProcess::NotRunning) {
@@ -544,17 +575,18 @@ private:
     QComboBox *strangeAudience_=nullptr,*strangeWritingMode_=nullptr; QListWidget* peerDirectory_=nullptr;
     QTextBrowser* strangeTranscript_=nullptr; QPushButton *strangeJoin_=nullptr,*strangeSend_=nullptr,*strangeReply_=nullptr,*strangeVoice_=nullptr,*strangeReaction_=nullptr,*strangeProofCopy_=nullptr; QLabel *strangeBytes_=nullptr,*peerCount_=nullptr,*strangeProofStatus_=nullptr,*strangeFloodStatus_=nullptr,*strangePresence_=nullptr,*strangeComposerHint_=nullptr;QCheckBox* strangeProofEnabled_=nullptr;
     QAudioSource* strangeAudioSource_=nullptr;QIODevice* strangeAudioInput_=nullptr;QAudioSink* strangeAudioSink_=nullptr;QIODevice* strangeAudioOutput_=nullptr;
-    QPlainTextEdit* activity_=nullptr; QAction *reduceMotion_=nullptr,*compactSidebar_=nullptr,*strangeNotifications_=nullptr;
+    QPlainTextEdit* activity_=nullptr; QAction *reduceMotion_=nullptr,*compactSidebar_=nullptr,*strangeNotifications_=nullptr,*geekTelemetry_=nullptr;
     QComboBox* shieldProfile_=nullptr;QPlainTextEdit* shieldRegex_=nullptr;QLabel *shieldProfileDetail_=nullptr,*shieldStatus_=nullptr,*shieldSession_=nullptr,*shieldToday_=nullptr,*shieldTotal_=nullptr,*speedResult_=nullptr;QLineEdit* speedTarget_=nullptr;QSpinBox* speedPort_=nullptr;QPushButton *shieldApply_=nullptr,*shieldRefresh_=nullptr,*speedRun_=nullptr;QProcess shieldProcess_,speedProcess_;QList<QStringList> shieldQueue_;qulonglong shieldSessionCount_=0,shieldBaseline_=0;
     QActionGroup* themeGroup_=nullptr; QAction *systemTheme_=nullptr,*darkThemeAction_=nullptr,*lightThemeAction_=nullptr,*soulsThemeAction_=nullptr;
     QSystemTrayIcon* tray_=nullptr; QMenu* trayMenu_=nullptr; QAction *trayStatus_=nullptr,*trayToggle_=nullptr;
+    QPushButton *journeyConfigure_=nullptr,*journeyAuthenticate_=nullptr,*journeyProtect_=nullptr; QLabel* geekReadout_=nullptr;
     QByteArray processBuffer_;
     QByteArray validatedConfigHash_,validatedExecutableHash_;
     pqvpn::console::StrangeNetProofChain strangeProofChain_;
     QString themeMode_="system";
     QString lastStrangeSender_,activeStrangePeer_="auto";QStringList activeStrangeGroup_;QHash<QString,QString> authenticatedPeers_;QSet<qulonglong> ownStrangeSequences_;qulonglong lastStrangeSequence_=0,pendingReplyTo_=0;int unreadStrange_=0;qint64 lastStrangeNotificationMs_=0,strangeSendBlockedUntilMs_=0;
     bool processFailed_=false;
-    bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false,strangeActive_=false,mainnetReady_=false,tunnelReady_=false,pendingStrangeJoin_=false,systemDark_=false,activeDarkTheme_=true,applyingTheme_=false;
+    bool configValid_=false,stopping_=false,quitting_=false,pendingQuit_=false,trayNoticeShown_=false,strangeActive_=false,mainnetReady_=false,tunnelReady_=false,pendingStrangeJoin_=false,systemDark_=false,activeDarkTheme_=true,applyingTheme_=false,protectedRewardShown_=false;
 
     void refreshConnectionPresentation() {
         const QString previousTitle=stateLabel_->text();
@@ -581,6 +613,17 @@ private:
             else if(phase==Phase::Stopping){title="RETURNING TO BONFIRE";statusText_->setText("Restoring the network state owned by PQVPN…");}
             else if(phase==Phase::Failed){title="YOU DIED · FAIL CLOSED";statusText_->setText("The protected path fell. Traffic remains sealed; inspect Activity before trying again.");}
         }
+        const auto setMilestone=[](QPushButton* button,const QString& value,const QString& label){
+            if(!button)return;
+            if(button->property("milestone").toString()!=value){button->setProperty("milestone",value);button->style()->unpolish(button);button->style()->polish(button);}
+            button->setText(label);
+        };
+        setMilestone(journeyConfigure_,configValid_?"done":"active",configValid_?"✓  Configured":"1  Configure");
+        setMilestone(journeyAuthenticate_,mainnetReady_&&active?"done":configValid_&&active?"active":"pending",mainnetReady_&&active?"✓  Authenticated":"2  Authenticate");
+        setMilestone(journeyProtect_,protectedPath?"done":mainnetReady_&&active?"active":"pending",protectedPath?"✓  Protected":"3  Protect");
+        if(geekReadout_){geekReadout_->setText(QString("%1 · %2 · %3").arg(endpointMetric_?endpointMetric_->text():"UDP",verificationMetric_?verificationMetric_->text():"hybrid auth",transportMetric_?transportMetric_->text():"direct path"));geekReadout_->setVisible(geekTelemetry_&&geekTelemetry_->isChecked());}
+        if(protectedPath&&!protectedRewardShown_){protectedRewardShown_=true;statusBar()->showMessage("Protected path complete · peer, tunnel and fail-closed routes verified",7000);fadeWidget(journeyProtect_,360);}
+        if(!active)protectedRewardShown_=false;
         stateLabel_->setText(title);
         tray_->setIcon(connectionTrayIcon(phase));
         trayStatus_->setText(title);tray_->setToolTip("PQVPN · "+title);
@@ -606,17 +649,19 @@ private:
 
     void buildMenus() {
         auto* file=menuBar()->addMenu("File"); file->addAction("Choose configuration…",QKeySequence::Open,this,&Window::chooseConfig); file->addAction("Validate configuration",QKeySequence("Ctrl+Shift+V"),this,&Window::validateConfig); file->addSeparator(); file->addAction("Exit PQVPN",QKeySequence::Quit,this,&Window::quitApplication);
-        auto* view=menuBar()->addMenu("View");auto* themeMenu=view->addMenu("Appearance");themeGroup_=new QActionGroup(this);themeGroup_->setExclusive(true);systemTheme_=themeMenu->addAction("Follow system");darkThemeAction_=themeMenu->addAction("Dark");lightThemeAction_=themeMenu->addAction("Light");soulsThemeAction_=themeMenu->addAction("Dark Souls mode · fail closed");for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_}){action->setCheckable(true);themeGroup_->addAction(action);}systemTheme_->setData("system");darkThemeAction_->setData("dark");lightThemeAction_->setData("light");soulsThemeAction_->setData("souls");systemTheme_->setChecked(true);view->addSeparator();reduceMotion_=view->addAction("Reduce motion"); reduceMotion_->setCheckable(true); compactSidebar_=view->addAction("Compact sidebar"); compactSidebar_->setCheckable(true);strangeNotifications_=view->addAction("Private StrangeNet notifications");strangeNotifications_->setCheckable(true);strangeNotifications_->setChecked(true);
+        auto* view=menuBar()->addMenu("View");auto* themeMenu=view->addMenu("Appearance");themeGroup_=new QActionGroup(this);themeGroup_->setExclusive(true);systemTheme_=themeMenu->addAction("Follow system");darkThemeAction_=themeMenu->addAction("Dark");lightThemeAction_=themeMenu->addAction("Light");soulsThemeAction_=themeMenu->addAction("Dark Souls mode · fail closed");for(auto* action:{systemTheme_,darkThemeAction_,lightThemeAction_,soulsThemeAction_}){action->setCheckable(true);themeGroup_->addAction(action);}systemTheme_->setData("system");darkThemeAction_->setData("dark");lightThemeAction_->setData("light");soulsThemeAction_->setData("souls");systemTheme_->setChecked(true);view->addSeparator();reduceMotion_=view->addAction("Reduce motion"); reduceMotion_->setCheckable(true); compactSidebar_=view->addAction("Compact sidebar"); compactSidebar_->setCheckable(true);geekTelemetry_=view->addAction("Geek telemetry");geekTelemetry_->setCheckable(true);strangeNotifications_=view->addAction("Private StrangeNet notifications");strangeNotifications_->setCheckable(true);strangeNotifications_->setChecked(true);
         connect(themeGroup_,&QActionGroup::triggered,this,[this](QAction* action){applyTheme(action->data().toString());});
         connect(reduceMotion_,&QAction::toggled,this,[this](bool checked){QSettings("PQVPN","Privacy Console").setValue("reduceMotion",checked);setMotion(!checked);});
         connect(compactSidebar_,&QAction::toggled,this,&Window::setSidebarCompact);
+        connect(geekTelemetry_,&QAction::toggled,this,[this](bool checked){QSettings("PQVPN","Privacy Console").setValue("geekTelemetry",checked);if(geekReadout_)geekReadout_->setVisible(checked);});
         connect(strangeNotifications_,&QAction::toggled,this,[](bool checked){QSettings("PQVPN","Privacy Console").setValue("strangeNotifications",checked);});
         auto* tools=menuBar()->addMenu("Tools"); tools->addAction("Command palette…",QKeySequence("Ctrl+K"),this,&Window::showCommandPalette); tools->addAction("Copy diagnostics",QKeySequence("Ctrl+Shift+C"),this,&Window::copyDiagnostics);
     }
     void buildUi() {
         auto* root=new QWidget; auto* stack=new QStackedLayout(root); stack->setStackingMode(QStackedLayout::StackAll); aurora_=new Aurora;
         auto* shell=new QWidget; auto* row=new QHBoxLayout(shell); row->setContentsMargins(0,0,0,0); row->setSpacing(0); buildSidebar(row);
-        pages_=new ResponsiveStack;pages_->setAutoFillBackground(true);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->addWidget(buildOverview());pages_->addWidget(buildConnection());pages_->addWidget(buildTransports());pages_->addWidget(buildStrangeNet());pages_->addWidget(buildShield());pages_->addWidget(buildActivity());pages_->addWidget(buildPrivacy());pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->widget(index)->setAutoFillBackground(true);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAutoFillBackground(true);pageScroll_->viewport()->setAutoFillBackground(true);pageScroll_->setWidget(pages_);row->addWidget(pageScroll_,1);
+        pages_=new ResponsiveStack;pages_->setAutoFillBackground(true);pages_->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->addWidget(buildOverview());pages_->addWidget(buildConnection());pages_->addWidget(buildTransports());pages_->addWidget(buildStrangeNet());pages_->addWidget(buildShield());pages_->addWidget(buildActivity());pages_->addWidget(buildPrivacy());pages_->addWidget(buildAbout());for(int index=0;index<pages_->count();++index){pages_->widget(index)->setMinimumWidth(0);pages_->widget(index)->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);pages_->widget(index)->setAutoFillBackground(true);}pageScroll_=new StableScrollArea;pageScroll_->setObjectName("pageScroll");pageScroll_->setFrameShape(QFrame::NoFrame);pageScroll_->setWidgetResizable(true);pageScroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);pageScroll_->setAutoFillBackground(true);pageScroll_->viewport()->setAutoFillBackground(true);pageScroll_->setWidget(pages_);
+        auto* content=new QWidget;auto* contentLayout=new QVBoxLayout(content);contentLayout->setContentsMargins(16,12,16,0);contentLayout->setSpacing(10);auto* journey=new QFrame;journey->setProperty("card",true);auto* journeyLayout=new QHBoxLayout(journey);journeyLayout->setContentsMargins(14,10,14,10);journeyLayout->setSpacing(9);auto* route=text("YOUR ROUTE","eyebrow");journeyLayout->addWidget(route);journeyConfigure_=new QPushButton("1  Configure");journeyAuthenticate_=new QPushButton("2  Authenticate");journeyProtect_=new QPushButton("3  Protect");for(auto* step:{journeyConfigure_,journeyAuthenticate_,journeyProtect_}){step->setProperty("quiet",true);journeyLayout->addWidget(step);}geekReadout_=text("UDP · hybrid auth · fail-closed state","eyebrow");geekReadout_->setProperty("muted",true);journeyLayout->addStretch();journeyLayout->addWidget(geekReadout_);connect(journeyConfigure_,&QPushButton::clicked,this,[this]{switchPage(Connection);});connect(journeyAuthenticate_,&QPushButton::clicked,this,[this]{switchPage(process_.state()==QProcess::NotRunning?Connection:Activity);});connect(journeyProtect_,&QPushButton::clicked,this,[this]{switchPage(process_.state()==QProcess::NotRunning?Connection:Overview);});contentLayout->addWidget(journey);contentLayout->addWidget(pageScroll_,1);row->addWidget(content,1);
         stack->addWidget(aurora_); stack->addWidget(shell); stack->setCurrentWidget(shell); setCentralWidget(root); switchPage(Overview); setMotion(true);
     }
     void buildSidebar(QHBoxLayout* shell) {
@@ -727,7 +772,7 @@ private:
         updater_=new pqvpn::console::ReleaseUpdater(PQVPN_BUILD_VERSION,this);updater_->report=[this,updateStatus,checkUpdate](const QString& value){updateStatus->setText(value);log(value);checkUpdate->setEnabled(true);};updater_->downloadable=[downloadUpdate](bool enabled){downloadUpdate->setEnabled(enabled);};connect(checkUpdate,&QPushButton::clicked,this,[this,checkUpdate]{checkUpdate->setEnabled(false);updater_->check();});connect(downloadUpdate,&QPushButton::clicked,this,[this]{updater_->download();});body->addStretch(); return page;
     }
     void buildTray() {
-        tray_=new QSystemTrayIcon(connectionTrayIcon(pqvpn::console::ConnectionPhase::Disconnected),this); trayMenu_=new QMenu; trayStatus_=trayMenu_->addAction("Disconnected"); trayStatus_->setEnabled(false); trayMenu_->addSeparator(); auto* show=trayMenu_->addAction("Show Privacy Console"); connect(show,&QAction::triggered,this,&Window::restoreFromTray); trayToggle_=trayMenu_->addAction("Connect securely"); connect(trayToggle_,&QAction::triggered,this,[this]{restoreFromTray(); if(process_.state()==QProcess::NotRunning&&!configValid_)switchPage(Connection); else toggleConnection();}); trayMenu_->addSeparator(); auto* exit=trayMenu_->addAction("Exit PQVPN"); connect(exit,&QAction::triggered,this,&Window::quitApplication); tray_->setContextMenu(trayMenu_); connect(tray_,&QSystemTrayIcon::activated,this,[this](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger||reason==QSystemTrayIcon::DoubleClick)restoreFromTray();}); if(QSystemTrayIcon::isSystemTrayAvailable())tray_->show();
+        tray_=new QSystemTrayIcon(connectionTrayIcon(pqvpn::console::ConnectionPhase::Disconnected),this); trayMenu_=new QMenu; trayStatus_=trayMenu_->addAction("Disconnected"); trayStatus_->setEnabled(false); trayMenu_->addSeparator(); auto* show=trayMenu_->addAction("Show Privacy Console"); connect(show,&QAction::triggered,this,&Window::restoreFromTray); trayToggle_=trayMenu_->addAction("Connect securely"); connect(trayToggle_,&QAction::triggered,this,[this]{restoreFromTray(); if(process_.state()==QProcess::NotRunning&&!configValid_)switchPage(Connection); else toggleConnection();}); trayMenu_->addSeparator(); auto* exit=trayMenu_->addAction("Exit PQVPN"); connect(exit,&QAction::triggered,this,&Window::quitApplication); tray_->setContextMenu(trayMenu_); connect(tray_,&QSystemTrayIcon::activated,this,[this](QSystemTrayIcon::ActivationReason reason){if(reason==QSystemTrayIcon::Trigger||reason==QSystemTrayIcon::DoubleClick)restoreFromTray();}); tray_->show();
     }
     QString defaultExecutable() const { const QString name=
 #ifdef _WIN32
@@ -1021,7 +1066,7 @@ private:
         refreshConnectionPresentation();
         if(changed&&isVisible())fadeWidget(centralWidget(),220);
     }
-    void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");settings.remove("minimizeToTray");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());if(shieldProfile_)shieldProfile_->setCurrentIndex(qBound(0,settings.value("shieldProfile",0).toInt(),shieldProfile_->count()-1));if(shieldRegex_)shieldRegex_->setPlainText(settings.value("shieldRegex").toString());applyTheme(settings.value("theme","system").toString());}
+    void applyPreferences(){QSettings settings("PQVPN","Privacy Console");systemDark_=qApp->palette().color(QPalette::Window).lightness()<128;restoreGeometry(settings.value("geometry").toByteArray());const QString stored=settings.value("config").toString();if(!stored.isEmpty()&&QFileInfo(stored).isFile())configPath_->setText(stored);else if(!stored.isEmpty())settings.remove("config");settings.remove("minimizeToTray");reduceMotion_->setChecked(settings.value("reduceMotion",false).toBool());compactSidebar_->setChecked(settings.value("compactSidebar",false).toBool());geekTelemetry_->setChecked(settings.value("geekTelemetry",false).toBool());strangeNotifications_->setChecked(settings.value("strangeNotifications",true).toBool());if(shieldProfile_)shieldProfile_->setCurrentIndex(qBound(0,settings.value("shieldProfile",0).toInt(),shieldProfile_->count()-1));if(shieldRegex_)shieldRegex_->setPlainText(settings.value("shieldRegex").toString());applyTheme(settings.value("theme","system").toString());}
     void savePreferences(){QSettings settings("PQVPN","Privacy Console");settings.setValue("geometry",saveGeometry());settings.setValue("config",configPath_->text());settings.remove("minimizeToTray");settings.setValue("strangeNotifications",strangeNotifications_->isChecked());settings.setValue("theme",themeMode_);}
     void log(const QString& message){const QString stamp=QDateTime::currentDateTime().toString("HH:mm:ss");for(const QString& line:message.split('\n',Qt::SkipEmptyParts))activity_->appendPlainText(stamp+"  "+line.left(16384));}
     void copyDiagnostics(){const auto phase=pqvpn::console::connection_phase({process_.state()!=QProcess::NotRunning,mainnetReady_,tunnelReady_,noTunnel_&&noTunnel_->isChecked(),stopping_,processFailed_});const QString state=QString::fromUtf8(pqvpn::console::phase_label(phase).data());const QString value=QString("PQVPN Privacy Console\nQt %1\nOS %2\nNode %3\nConfig %4\nState %5\nTransport %6\nShaping %7").arg(qVersion(),QSysInfo::prettyProductName(),executablePath_->text(),configPath_->text(),state,transportMetric_->text(),shapingMetric_->text());QApplication::clipboard()->setText(value);statusBar()->showMessage("Diagnostics copied — activity log excluded",3000);log("Diagnostics copied");}
@@ -1035,6 +1080,6 @@ int main(int argc,char** argv){bool softwareRendering=false;for(int index=1;inde
         if(QFontDatabase::families().contains(name,Qt::CaseInsensitive)&&QFontMetrics(candidate).inFont(QChar('A'))){uiFont=candidate;break;}
     }
 #endif
-    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!window.verifyClosePolicy()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
+    app.setFont(uiFont);app.setApplicationName("PQVPN Privacy Console");app.setOrganizationName("PQVPN");app.setQuitOnLastWindowClosed(false);app.setWindowIcon(QIcon(":/brand/logo.svg"));Window window;if(qEnvironmentVariableIsSet("PQVPN_SMOKE_COMPACT"))window.resize(window.minimumSize());window.show();if(app.arguments().contains("--smoke-test")){if(!window.verifyTrayIcons()||!window.verifyClosePolicy()||!window.verifyPrimaryActions()||!pqvpn::console::StrangeNetProofChain::selfTest()||!pqvpn::console::ReleaseUpdater::selfTest())return 1;if(app.arguments().contains("--verify-installation")&&!window.verifyInstallation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));window.prepareSmokeTheme(qEnvironmentVariable("PQVPN_SMOKE_THEME"));app.processEvents();if(!window.verifyScrollNavigation())return 1;window.prepareSmokePage(qEnvironmentVariable("PQVPN_SMOKE_PAGE"));app.processEvents();const QPixmap frame=window.grab();if(frame.isNull())return 1;const QString output=qEnvironmentVariable("PQVPN_SMOKE_IMAGE");if(!output.isEmpty()&&!frame.save(output))return 1;if(!window.verifyVisualLayout())return 1;return 0;}return app.exec();}
 
 #include "pqvpn_monitor.moc"
