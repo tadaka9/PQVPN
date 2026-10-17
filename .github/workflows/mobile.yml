@@ -30,9 +30,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Install Android SDK and NDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
@@ -40,7 +41,6 @@ jobs:
           host: linux
           target: android
           arch: android_arm64_v8a
-          modules: 'qtdeclarative qtshadertools'
           cache: true
       - name: Configure Android preview
         env:
@@ -75,7 +75,6 @@ jobs:
           host: mac
           target: ios
           arch: ios
-          modules: 'qtdeclarative qtshadertools'
           cache: true
       - name: Configure iOS preview
         run: >-
