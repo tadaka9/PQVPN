@@ -125,6 +125,7 @@ operate and the evidence you have verified.
 | **Hybrid session setup** | X25519 + ML-KEM-1024 key establishment; Ed25519 + ML-DSA-87 authentication; SHA3-512 transcript and HKDF derivation. |
 | **Peer and relay paths** | Configured bootstrap peers, replay-bounded sessions and onion relay layers bound to their intended forwarders. |
 | **User-space egress** | TCP/UDP bridging, IPv4/IPv6 handling, fragment reassembly and bounded multi-client flow state. |
+| **Dual-stack policy** | IPv4/IPv6 transport, tunnel and egress paths with per-peer registry state; unavailable IPv6 is blocked rather than leaked or advertised. |
 | **Native clients** | One configuration model exposed through the node CLI, terminal console and Qt Privacy Console. |
 | **Adaptive transport policy** | UDP-preferred policy with bounded measurements, hysteresis and explicit fallback state. |
 | **StrangeNet** | Encrypted, authenticated peer rooms with bounded messages, replay checks and rate limits. |

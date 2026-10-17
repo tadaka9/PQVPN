@@ -28,6 +28,11 @@ jobs:
           test -s site/app.js
           test "$(head -c 4 site/wasm/quantum_field.wasm | od -An -tx1 | tr -d ' \n')" = '0061736d'
           jq -e '.schema_version == 1 and (.peers | type == "array")' site/mainnet/peers.json >/dev/null
+          jq -e '
+            (.peers | length > 0)
+            and ([.peers[] | has("ipv4") and has("ipv6") and has("endpoints") and has("address_status")] | all)
+            and ([.peers[] | select(.ipv6 != null) | .endpoints[] | startswith("[")] | any)
+          ' site/mainnet/peers.json >/dev/null
           grep -F 'id="mainnet"' site/index.html >/dev/null
           grep -F 'id="support"' site/index.html >/dev/null
           grep -F 'id="strangenet-peer"' site/index.html >/dev/null

@@ -121,14 +121,14 @@
     </section>
 
     <section class="section mainnet" id="mainnet">
-      <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This version-controlled registry lists only operators who deliberately publish a reachable bootstrap peer. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
+      <div class="section-head reveal"><p class="eyebrow">Public coordination, explicit consent</p><h2>PQVPN Mainnet registry</h2><p>This version-controlled registry lists only operators who deliberately publish a reachable peer. Address-family state is reported per endpoint: software readiness is never presented as provider connectivity. Inclusion is discovery, not endorsement, uptime or permission to abuse a node.</p></div>
       <div class="network-panel reveal">
         <div class="network-top"><div><span class="status-dot"></span><strong id="registry-status">Loading live registry</strong><p id="registry-meta">Automatic refresh every 60 seconds…</p></div><div class="registry-controls"><button class="copy" id="refresh-registry" type="button">Refresh now</button><button class="copy" id="copy-registry" type="button">Copy registry URL</button></div></div>
         <div class="peer-list" id="peer-list" aria-live="polite"><p class="empty">Loading declared peers…</p></div>
         <div class="network-actions"><button class="button primary" id="open-registry" type="button" aria-expanded="false" aria-controls="registry-details">Open peer registry</button><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/site/mainnet/CONTRIBUTING.md">Publish a peer</a></div>
         <div class="registry-details" id="registry-details" hidden><div><small>NETWORK</small><strong id="registry-network">pqvpn-mainnet-alpha</strong></div><div><small>POLICY</small><span id="registry-notice">Opt-in discovery only.</span></div><a href="mainnet/peers.json" download="pqvpn-mainnet-peers.json">Download versioned registry JSON</a></div>
       </div>
-      <div class="driver-note reveal"><div><p class="eyebrow">Hardened operations</p><h3>Small attack surface. Automatic recovery.</h3><p>The dedicated bootstrap and mainnet exit run without login privileges, expose PQVPN only over UDP/9090, bound pre-authentication work, and install checksum-verified releases through atomic updaters with rollback.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/mainnet-operations.md">Operations guide</a></div>
+      <div class="driver-note reveal"><div><p class="eyebrow">Dual-stack without theatre</p><h3>IPv4 and IPv6 are measured separately.</h3><p>The protocol, tunnel and egress paths accept both address families and fail closed when IPv6 cannot be protected. Helsinki currently publishes IPv4 and IPv6; Stockholm publishes IPv4 while its provider route remains unavailable. Both expose PQVPN only over UDP/9090.</p></div><a class="button ghost" href="https://github.com/tadaka9/PQVPN/blob/main/docs/mainnet-operations.md#dual-stack-readiness">Dual-stack checklist</a></div>
     </section>
 
     <section class="section strange" id="strangenet">

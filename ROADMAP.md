@@ -38,6 +38,14 @@ verification on an elevated host with a connected adapter is still pending.
   transport.
 - [ ] Validate shutdown, recovery, and adapter cleanup across supported Windows
   and Linux environments.
+- [x] Carry IPv4 and IPv6 through packet validation, peer routing and the
+  user-space TCP/UDP egress bridge; fail closed when a full-tunnel client cannot
+  protect IPv6.
+- [x] Publish address-family state per mainnet peer instead of inferring IPv6
+  reachability from binary capability. Helsinki is dual-stack; Stockholm stays
+  IPv4-only until its provider supplies a global address and default route.
+- [ ] Add an external authenticated IPv4/IPv6 handshake probe to the release
+  gate and retain dated evidence for every advertised public endpoint.
 
 ## High-throughput data plane
 

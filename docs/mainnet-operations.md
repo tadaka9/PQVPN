@@ -26,6 +26,26 @@ boundaries and their current limits are compared in
 
 The host should expose only SSH and the configured UDP listener. Use key-only SSH, disable forwarding and X11, keep the firewall default-deny, and run the node without capabilities. The service already applies `NoNewPrivileges`, a closed device policy, a read-only system image, namespace and syscall restrictions, and bounded tasks, memory, and file descriptors. Keep the node configuration and `node_keys.json` owned by `pqvpn` with modes `0640` and `0600` respectively.
 
+## Dual-stack readiness
+
+IPv6 readiness is an end-to-end property, not a build flag. A public node may
+advertise IPv6 only when all of these checks pass:
+
+1. the provider assigns a stable global IPv6 address and a default route;
+2. PQVPN listens on UDP 9090 through an IPv6 or verified dual-stack socket;
+3. the host and provider firewalls permit UDP 9090 for IPv6 without opening TCP;
+4. an external IPv6 client completes the authenticated PQVPN handshake;
+5. relay/egress tests cover IPv4 and IPv6 TCP, UDP, DNS and failure recovery;
+6. the registry publishes the bracketed IPv6 endpoint only after those checks.
+
+Use `ss -H -lun4 'sport = :9090'` and `ss -H -lun6 'sport = :9090'` to
+inspect socket families. Confirm the address and route with `ip -6 addr show
+scope global` and `ip -6 route show default`. A dual-stack-capable binary on a
+host with no provider IPv6 is **ready**, not **reachable**, and must remain
+listed as IPv4-only. Full-tunnel clients route IPv6 through a verified tunnel
+or blackhole it fail-closed; they never leave the physical IPv6 default active
+as an accidental bypass.
+
 The node also limits unauthenticated hybrid-handshake payload size, work per source address, pending handshakes, and total sessions. Signed handshake timestamps must be within five minutes. These bounds are especially relevant to post-quantum deployments because signature and KEM operations make unauthenticated handshake exhaustion more expensive than ordinary packet rejection.
 
 ## Bounded data-plane tuning
