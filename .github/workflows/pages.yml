@@ -50,6 +50,30 @@ jobs:
           cp -R site/. public/
           cp -R assets/brand/. public/assets/brand/
           cp docs/assets/pqvpn-console.png public/docs/assets/
+      - name: Refresh published fleet release metadata
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          releases="$(curl --fail --silent --show-error --retry 3 \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            'https://api.github.com/repos/tadaka9/PQVPN/releases?per_page=20')"
+          latest="$(jq -er '[.[] | select(.draft == false and (.tag_name | startswith("v")))] | sort_by(.published_at) | last | .tag_name' <<<"$releases")"
+          checked_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          jq --arg release "$latest" --arg checked "$checked_at" '
+            .updated_at = $checked
+            | .release_basis = "latest published PQVPN release; runtime availability remains independently observable"
+            | .peers |= map(.release = $release)
+          ' public/mainnet/peers.json > public/mainnet/peers.json.tmp
+          mv public/mainnet/peers.json.tmp public/mainnet/peers.json
+          jq -e --arg release "$latest" '
+            (.updated_at | type == "string")
+            and (.peers | length > 0)
+            and ([.peers[].release] | all(. == $release))
+          ' public/mainnet/peers.json >/dev/null
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'
         with:
