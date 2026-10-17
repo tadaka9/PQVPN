@@ -140,6 +140,11 @@
         <canvas id="pixel-game-canvas" width="960" height="480" aria-label="Pixel Commons game world"></canvas>
         <div class="pixel-game-panel">
           <div><strong id="pixel-game-zone">GATE</strong><span id="pixel-game-status" aria-live="polite">Speak with the Signal Keeper. Move with WASD or arrows; interact with E.</span></div>
+          <form class="pixel-chat" id="pixel-game-chat" autocomplete="off">
+            <label for="pixel-game-message">Local character bubble</label>
+            <span><input id="pixel-game-message" maxlength="140" placeholder="Say something nearby…" aria-describedby="pixel-chat-privacy"><button type="submit">SAY</button></span>
+            <small id="pixel-chat-privacy">Session-only roleplay. Nothing is sent or stored.</small>
+          </form>
           <div class="pixel-game-controls" aria-label="Game controls">
             <span class="pixel-dpad"><button type="button" data-pixel-move="up" aria-label="Move up">▲</button><button type="button" data-pixel-move="left" aria-label="Move left">◀</button><button type="button" data-pixel-move="down" aria-label="Move down">▼</button><button type="button" data-pixel-move="right" aria-label="Move right">▶</button></span>
             <button class="pixel-action" id="pixel-game-action" type="button">INTERACT · E</button>

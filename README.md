@@ -339,7 +339,9 @@ The project website includes a complete local-first Pixel Commons quest. It is
 playable with keyboard, pointer or touch, saves only to browser local storage,
 and makes no gameplay network request. Restoring the three signals awards
 **PQ**, bounded local ecosystem progress credits. In this release PQ are not
-money, cryptocurrency, transferable assets or purchasable tokens.
+money, cryptocurrency, transferable assets or purchasable tokens. A bounded
+local roleplay composer renders speech bubbles over the player and lets the
+Signal Keeper answer nearby; bubble text is never persisted or transmitted.
 
 The native desktop client now carries bounded `World` presence events through
 the same authenticated, pairwise-encrypted StrangeNet sessions as chat. Users

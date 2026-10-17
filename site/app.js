@@ -230,7 +230,9 @@ function startPixelCommons(){
   const hud=document.querySelector('#pixel-game-hud');
   const action=document.querySelector('#pixel-game-action');
   const reset=document.querySelector('#pixel-game-reset');
-  if(!shell||!canvas||!status||!zoneLabel||!hud||!action||!reset)return;
+  const chat=document.querySelector('#pixel-game-chat');
+  const chatMessage=document.querySelector('#pixel-game-message');
+  if(!shell||!canvas||!status||!zoneLabel||!hud||!action||!reset||!chat||!chatMessage)return;
   const context=canvas.getContext('2d');
   const storageKey='pqvpn.pixelCommons.v1';
   const start={x:118,y:245,pq:0,signals:[],quest:false,complete:false};
@@ -257,9 +259,15 @@ function startPixelCommons(){
   let target=null;
   let last=performance.now();
   let messageTimer=0;
+  let saveTimer=0;
+  let visible=true;
+  let currentZone=zoneAt(state.x,state.y);
+  const speech={player:'',playerUntil:0,keeper:'',keeperUntil:0};
+  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
   function save(){
     try{localStorage.setItem(storageKey,JSON.stringify({x:Math.round(state.x),y:Math.round(state.y),pq:state.pq,signals:state.signals,quest:state.quest,complete:state.complete}))}catch{}
   }
+  function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,900)}
   function say(message){status.textContent=message;messageTimer=performance.now()+8500}
   function zoneAt(x,y){
     if(x<260&&y<260)return'GATE';
@@ -276,19 +284,28 @@ function startPixelCommons(){
   function move(dx,dy){
     const nextX=state.x+dx;
     const nextY=state.y+dy;
+    const beforeX=state.x,beforeY=state.y;
     if(!collides(nextX,state.y))state.x=nextX;
     if(!collides(state.x,nextY))state.y=nextY;
+    if(state.x!==beforeX||state.y!==beforeY)queueSave();
     const zone=zoneAt(state.x,state.y);
     zoneLabel.textContent=zone;
+    if(zone!==currentZone){
+      currentZone=zone;
+      const mood={GATE:'Trust begins with a choice.',FORGE:'Ideas ring louder near the Forge.',GARDEN:'The Garden leaves room between words.',COMMONS:'The Commons waits for real authenticated peers.',PATHS:'Every route reveals a different edge.'};
+      say(mood[zone]);
+    }
     target=null;
   }
   function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
   function interact(){
     if(distance(state,keeper)<58){
-      if(!state.quest){state.quest=true;say('Signal Keeper: recover the three lost signals. Each restored signal grants 25 PQ. Return here when all three answer.');save()}
-      else if(state.signals.length===3&&!state.complete){state.complete=true;state.pq+=100;say('The Commons can hear itself again. +100 PQ. These PQ are local progress credits, not money or cryptocurrency.');save()}
-      else if(state.complete)say('Signal Keeper: the path is stable. Your PQ stay on this device; the native client is required for real E2E peers.');
-      else say(`Signal Keeper: ${3-state.signals.length} signal${state.signals.length===2?'':'s'} still silent.`);
+      let reply='';
+      if(!state.quest){state.quest=true;reply='Recover the three lost signals. Each restored signal grants 25 PQ. Return when all three answer.';save()}
+      else if(state.signals.length===3&&!state.complete){state.complete=true;state.pq+=100;reply='The Commons can hear itself again. +100 PQ. Progress, not cryptocurrency.';save()}
+      else if(state.complete)reply='The path is stable. Your PQ stay on this device; real E2E peers live in the native client.';
+      else reply=`${3-state.signals.length} signal${state.signals.length===2?'':'s'} still silent.`;
+      speech.keeper=reply;speech.keeperUntil=performance.now()+8500;say(`Signal Keeper: ${reply}`);
       updateHud();return;
     }
     const nearby=signals.find(signal=>!state.signals.includes(signal.id)&&distance(state,signal)<54);
@@ -311,6 +328,17 @@ function startPixelCommons(){
     context.fillStyle=color;context.fillRect(x-6,y-19,12,10);context.fillRect(x-9,y-5,18,20);
     context.fillStyle='#fff8e7';context.font='bold 11px monospace';context.textAlign='center';context.fillText(label,x,y+35);
   }
+  function speechBubble(x,y,text,accent){
+    if(!text)return;
+    const words=text.split(/\s+/);const lines=[''];
+    for(const word of words){const index=lines.length-1;const candidate=(lines[index]+' '+word).trim();if(candidate.length>31&&lines.length<3)lines.push(word);else lines[index]=candidate}
+    if(lines[2]?.length>31)lines[2]=`${lines[2].slice(0,28)}…`;
+    context.font='bold 11px monospace';const width=Math.min(300,Math.max(96,...lines.map(line=>context.measureText(line).width+24)));const height=18+lines.length*15;
+    const left=Math.max(8,Math.min(canvas.width-width-8,x-width/2));const top=Math.max(70,y-height-38);
+    context.fillStyle='rgba(8,13,29,.96)';context.fillRect(left,top,width,height);context.strokeStyle=accent;context.lineWidth=2;context.strokeRect(left+.5,top+.5,width-1,height-1);
+    context.fillStyle=accent;context.beginPath();context.moveTo(x-7,top+height);context.lineTo(x+7,top+height);context.lineTo(x,top+height+8);context.fill();
+    context.fillStyle='#fff8e7';context.textAlign='left';lines.forEach((line,index)=>context.fillText(line,left+12,top+18+index*15));
+  }
   function render(time){
     context.fillStyle='#202b4b';context.fillRect(0,0,canvas.width,canvas.height);
     const tile=24;
@@ -323,14 +351,19 @@ function startPixelCommons(){
     avatar(keeper.x,keeper.y,'#b7f34a','KEEPER');
     for(const signal of signals){
       if(state.signals.includes(signal.id))continue;
-      const pulse=3+Math.sin(time/240+signal.x)*2;
+      const pulse=reducedMotion?3:3+Math.sin(time/240+signal.x)*2;
       context.fillStyle=signal.color;context.fillRect(signal.x-8-pulse,signal.y-8-pulse,16+pulse*2,16+pulse*2);
       context.strokeStyle='#fff8e7';context.strokeRect(signal.x-13-pulse,signal.y-13-pulse,26+pulse*2,26+pulse*2);
     }
     avatar(state.x,state.y,'#71e9ff','YOU');
+    if(time<speech.keeperUntil)speechBubble(keeper.x,keeper.y,speech.keeper,'#b7f34a');
+    if(time<speech.playerUntil)speechBubble(state.x,state.y,speech.player,'#71e9ff');
     if(target){context.strokeStyle='#71e9ff';context.lineWidth=2;context.strokeRect(target.x-8,target.y-8,16,16)}
   }
   function tick(time){
+    if(!visible){last=time;return}
+    const frameInterval=reducedMotion?100:32;
+    if(time-last<frameInterval){requestAnimationFrame(tick);return}
     const dt=Math.min(36,time-last);last=time;
     let dx=0,dy=0;
     if(keys.has('arrowleft')||keys.has('a'))dx--;
@@ -343,17 +376,37 @@ function startPixelCommons(){
     render(time);requestAnimationFrame(tick);
   }
   const acceptedKeys=new Set(['arrowleft','arrowright','arrowup','arrowdown','w','a','s','d']);
-  shell.addEventListener('keydown',event=>{const key=event.key.toLowerCase();if(acceptedKeys.has(key)){event.preventDefault();keys.add(key);target=null}else if(key==='e'||key===' '||key==='enter'){event.preventDefault();interact()}});
+  shell.addEventListener('keydown',event=>{if(event.target.closest('input,textarea,select,button'))return;const key=event.key.toLowerCase();if(acceptedKeys.has(key)){event.preventDefault();keys.add(key);target=null}else if(key==='e'||key===' '||key==='enter'){event.preventDefault();interact()}});
   shell.addEventListener('keyup',event=>keys.delete(event.key.toLowerCase()));
   shell.addEventListener('blur',()=>keys.clear());
   canvas.addEventListener('pointerdown',event=>{const box=canvas.getBoundingClientRect();target={x:(event.clientX-box.left)/box.width*canvas.width,y:(event.clientY-box.top)/box.height*canvas.height};shell.focus()});
   document.querySelectorAll('[data-pixel-move]').forEach(button=>{
     const vectors={up:[0,-18],down:[0,18],left:[-18,0],right:[18,0]};
-    button.addEventListener('pointerdown',event=>{event.preventDefault();const[dx,dy]=vectors[button.dataset.pixelMove];move(dx,dy);shell.focus()});
+    let repeat=0;
+    const stop=()=>{clearInterval(repeat);repeat=0};
+    button.addEventListener('pointerdown',event=>{event.preventDefault();const[dx,dy]=vectors[button.dataset.pixelMove];move(dx,dy);stop();repeat=setInterval(()=>move(dx,dy),90);shell.focus()});
+    button.addEventListener('pointerup',stop);button.addEventListener('pointercancel',stop);button.addEventListener('pointerleave',stop);
   });
   action.addEventListener('click',()=>{interact();shell.focus()});
+  chat.addEventListener('submit',event=>{
+    event.preventDefault();
+    const message=chatMessage.value.trim().replace(/\s+/g,' ').slice(0,140);
+    if(!message){chatMessage.focus();return}
+    speech.player=message;speech.playerUntil=performance.now()+8000;chatMessage.value='';
+    if(distance(state,keeper)<90){
+      const lower=message.toLocaleLowerCase();
+      let reply='I heard you. In this local story, silence is also a valid answer.';
+      if(/\b(ciao|hello|hi|salve)\b/.test(lower))reply='Welcome, traveller. Identity is proven by keys, not by volume.';
+      else if(/\b(pq|credit|credito|crediti)\b/.test(lower))reply='PQ mark local progress only. They cannot be bought, sold or transferred.';
+      else if(/\b(help|aiuto|signal|segnal)/.test(lower))reply=`Seek the pulsing signals. ${3-state.signals.length} remain.`;
+      else if(/\b(privacy|telemetr|ip)\b/.test(lower))reply='This bubble remains in memory and disappears. No IP or sentence leaves the page.';
+      speech.keeper=reply;speech.keeperUntil=performance.now()+8500;say(`Signal Keeper: ${reply}`);
+    }else say('Your words rise as a local bubble. Move near the Keeper for a reply.');
+    shell.focus();
+  });
   reset.addEventListener('click',()=>{try{localStorage.removeItem(storageKey)}catch{}state={...start,signals:[]};target=null;updateHud();zoneLabel.textContent='GATE';say('Local progress reset. Speak with the Signal Keeper to begin.');shell.focus()});
   window.addEventListener('pagehide',save);
+  new IntersectionObserver(entries=>{const wasVisible=visible;visible=Boolean(entries[0]?.isIntersecting);last=performance.now();if(visible&&!wasVisible)requestAnimationFrame(tick)},{rootMargin:'160px'}).observe(shell);
   updateHud();zoneLabel.textContent=zoneAt(state.x,state.y);
   say(state.quest?'Local journey restored. Continue collecting signals.':'Speak with the Signal Keeper. Move with WASD or arrows; interact with E.');
   requestAnimationFrame(tick);

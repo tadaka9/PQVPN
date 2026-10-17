@@ -93,7 +93,10 @@ never sent to PQVPN, GitHub or an analytics service. Each restored signal
 awards 25 PQ and completing the path awards 100 PQ. These **PQ are local
 progress credits only**: they are not cryptocurrency, money, purchasable or
 transferable. The web story never creates simulated network peers. Real
-authenticated E2E presence remains a native-client capability.
+authenticated E2E presence remains a native-client capability. The local
+roleplay composer accepts at most 140 characters, renders them above the
+player and provides deterministic nearby Signal Keeper replies. Neither the
+message nor the reply is written to storage or sent across the network.
 
 The GUI also provides visible-session search, content-free notification levels
 and a session-only peer block list. Blocking is enforced in the node before an
