@@ -236,6 +236,13 @@ public:
         preferred_exit_ = std::move(endpoint);
     }
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
+    void set_strangenet_peer_blocked(const std::vector<uint8_t>& peer_id, bool blocked) {
+        if (blocked) strangenet_blocked_peers_.insert(peer_id);
+        else strangenet_blocked_peers_.erase(peer_id);
+    }
+    bool is_strangenet_peer_blocked(const std::vector<uint8_t>& peer_id) const {
+        return strangenet_blocked_peers_.contains(peer_id);
+    }
     void leave_strangenet_room(const std::string& room) {
         strangenet_replay_guard_.leave_room(room);
     }
@@ -443,6 +450,7 @@ private:
     std::shared_ptr<traffic::MLTrafficShaper> traffic_shaper_;
     TunnelPacketHandler tunnel_packet_handler_;
     StrangeNetHandler strangenet_handler_;
+    std::set<std::vector<uint8_t>> strangenet_blocked_peers_;
     PeerSessionHandler peer_session_handler_;
     strangenet::ReplayGuard strangenet_replay_guard_;
     strangenet::FloodGuard strangenet_flood_guard_;

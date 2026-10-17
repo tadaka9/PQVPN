@@ -69,6 +69,13 @@ direct messages, group fanout, voice and delivery receipts continue through
 the normal StrangeNet controls. The scene is drawn locally by PQVPN and uses no
 third-party game assets.
 
+The GUI also provides visible-session search, content-free notification levels
+and a session-only peer block list. Blocking is enforced in the node before an
+incoming message reaches the GUI handler and excludes that Peer ID from direct,
+pinned-group and room fanout. See the
+[social feature matrix](strangenet-feature-matrix.md) for the cross-application
+comparison and for features intentionally deferred or rejected.
+
 The composer has two explicit keyboard modes:
 
 - **Conversation** sends with Enter and inserts a line break with Shift+Enter.

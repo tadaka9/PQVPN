@@ -760,6 +760,23 @@ int main(int argc, char** argv) {
                                 strange->peer.reset();
                                 strange->group_peers.clear();
                                 emit_console_event({{"event", "strangenet.left"}, {"room", room}});
+                            } else if (name == "strangenet.block" || name == "strangenet.unblock") {
+                                const auto peer_text = command.value("peer", std::string{});
+                                const auto peer = decode_peer_id(peer_text);
+                                if (!peer) {
+                                    emit_console_event({{"event", "control.error"},
+                                                        {"message", "invalid StrangeNet Peer ID"}});
+                                    return;
+                                }
+                                const bool blocked = name == "strangenet.block";
+                                node->set_strangenet_peer_blocked(*peer, blocked);
+                                if (blocked) {
+                                    if (strange->peer && *strange->peer == *peer) strange->peer.reset();
+                                    strange->group_peers.erase(std::remove(strange->group_peers.begin(),
+                                        strange->group_peers.end(), *peer), strange->group_peers.end());
+                                }
+                                emit_console_event({{"event", blocked ? "strangenet.blocked" : "strangenet.unblocked"},
+                                                    {"peer", peer_text}});
                             } else if (name == "strangenet.send" || name == "strangenet.dm" || name == "strangenet.sticker" ||
                                        name == "strangenet.react" || name == "strangenet.voice") {
                                 const auto text = command.value("text", std::string{});

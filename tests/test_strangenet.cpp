@@ -161,6 +161,27 @@ TEST_CASE("StrangeNet travels through an authenticated PQVPN session", "[strange
     asio::co_spawn(io, bob.datagram_received(*frame, alice_endpoint), asio::detached);
     io.run();
     CHECK(received.size() == 1);
+
+    bob.set_strangenet_peer_blocked(alice_id, true);
+    CHECK(bob.is_strangenet_peer_blocked(alice_id));
+    const auto blocked_frame = alice.build_strangenet_datagram(
+        bob_id, "riemann-lab", 2, 43, "must not reach the handler");
+    REQUIRE(blocked_frame.has_value());
+    io.restart();
+    asio::co_spawn(io, bob.datagram_received(*blocked_frame, alice_endpoint), asio::detached);
+    io.run();
+    CHECK(received.size() == 1);
+
+    bob.set_strangenet_peer_blocked(alice_id, false);
+    CHECK_FALSE(bob.is_strangenet_peer_blocked(alice_id));
+    const auto restored_frame = alice.build_strangenet_datagram(
+        bob_id, "riemann-lab", 3, 44, "delivery restored");
+    REQUIRE(restored_frame.has_value());
+    io.restart();
+    asio::co_spawn(io, bob.datagram_received(*restored_frame, alice_endpoint), asio::detached);
+    io.run();
+    REQUIRE(received.size() == 2);
+    CHECK(received.back().text == "delivery restored");
 }
 
 TEST_CASE("StrangeNet group delivery fails closed unless every member is ready", "[strangenet][group]") {

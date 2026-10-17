@@ -396,6 +396,7 @@ Useful maps:
 - [`docs/competitive-parity.md`](docs/competitive-parity.md) — desktop parity
   gates
 - [`docs/strangenet.md`](docs/strangenet.md) — encrypted room behavior
+- [`docs/strangenet-feature-matrix.md`](docs/strangenet-feature-matrix.md) — messaging-app comparison and privacy decisions
 - [`docs/update-system.md`](docs/update-system.md) — update trust and rollback
 - [`docs/external-transports.md`](docs/external-transports.md) — transport
   attachment boundaries

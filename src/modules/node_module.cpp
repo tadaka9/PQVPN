@@ -702,7 +702,8 @@ asio::awaitable<void> PQVPNNode::datagram_received(
         auto message = strangenet::decode(*plaintext);
         const auto now_ms = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());
-        if (!message || !session->peer_id_ || message->sender != hex_id(*session->peer_id_) ||
+        if (!message || !session->peer_id_ || is_strangenet_peer_blocked(*session->peer_id_) ||
+            message->sender != hex_id(*session->peer_id_) ||
             !strangenet_flood_guard_.accept(*message, now_ms).allowed ||
             !strangenet_replay_guard_.accept(*message)) co_return;
         if (strangenet_handler_) {
@@ -907,6 +908,7 @@ bool PQVPNNode::send_strangenet_message(
     const std::vector<uint8_t>& peer_id, const std::string& room,
     const std::uint64_t sequence, const std::uint64_t timestamp_ms, const std::string& text,
     const strangenet::Kind kind, const std::uint64_t reply_to) {
+    if (is_strangenet_peer_blocked(peer_id)) return false;
     const auto frame = build_strangenet_datagram(peer_id, room, sequence, timestamp_ms, text, kind, reply_to);
     if (!frame || !transport) return false;
     const auto found = sessions_by_peer_id.find(peer_id);
@@ -931,7 +933,7 @@ std::size_t PQVPNNode::send_strangenet_group(
     if (peer_ids.size() < 2 || peer_ids.size() + 1 > 64 || !transport) return 0;
     for (const auto& peer_id : peer_ids) {
         const auto found = sessions_by_peer_id.find(peer_id);
-        if (found == sessions_by_peer_id.end() || !found->second ||
+        if (is_strangenet_peer_blocked(peer_id) || found == sessions_by_peer_id.end() || !found->second ||
             found->second->state != SessionState::ESTABLISHED ||
             found->second->remote_addr.address().is_unspecified() ||
             !transport_allows(transport, found->second->remote_addr)) return 0;
@@ -952,7 +954,7 @@ std::size_t PQVPNNode::broadcast_strangenet_message(
     std::vector<std::vector<uint8_t>> recipients;
     recipients.reserve(std::min(sessions_by_peer_id.size(), strangenet::kMaxBroadcastRecipients));
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
-        if (!session || session->state != SessionState::ESTABLISHED ||
+        if (!session || session->state != SessionState::ESTABLISHED || is_strangenet_peer_blocked(peer_id) ||
             (except_peer && peer_id == *except_peer)) continue;
         recipients.push_back(peer_id);
         if (recipients.size() == strangenet::kMaxBroadcastRecipients) break;
