@@ -18,7 +18,7 @@ def main() -> int:
     errors += require(".github/workflows/mobile.yml", [
         "workflow_call:",
         "release-candidate-android-arm64",
-        "PQVPN-$PQVPN_VERSION-android-arm64-preview-unsigned.apk",
+        "PQVPN-$PQVPN_VERSION-android-arm64-preview-test-signed.apk",
         "release-candidate-ios-arm64",
         "PQVPN-$PQVPN_VERSION-ios-arm64-preview-unsigned.zip",
     ])
@@ -29,7 +29,7 @@ def main() -> int:
     ])
     errors += require(".github/workflows/publish-test-prerelease.yml", [
         "android-arm64 ios-arm64",
-        "PQVPN-$version-android-arm64-preview-unsigned.apk",
+        "PQVPN-$version-android-arm64-preview-test-signed.apk",
         "PQVPN-$version-ios-arm64-preview-unsigned.zip",
         '= 17',
     ])
@@ -45,7 +45,7 @@ def main() -> int:
         "No QR tracking service is contacted",
     ])
     errors += require("site/app.js", [
-        "android-arm64-preview-unsigned.apk",
+        "android-arm64-preview-test-signed.apk",
         "ios-arm64-preview-unsigned.zip",
         "assets/mobile-${platform}-qr.svg",
     ])
