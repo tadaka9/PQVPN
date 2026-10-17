@@ -48,10 +48,16 @@ std::vector<uint8_t> MLTrafficShaper::pad(std::span<const uint8_t> packet) const
     std::size_t target = minimum;
     // The public-policy mode is deliberately deterministic: its buckets are
     // configured/finalized by the control plane and never depend on private
-    // per-user traffic observations. LocalAI keeps adapting on-device only.
+    // per-user traffic observations. LocalAI keeps adapting on-device only;
+    // ConsensusGuidedAI adapts locally but cannot exceed the public bucket cap.
+    const auto public_padding = static_cast<std::size_t>(std::floor(
+        static_cast<double>(config_.max_padding_bytes) * consensus_weights_.padding_weight));
     const auto desired = config_.mode == ShapingMode::BlockchainPolicy
-        ? minimum + config_.max_padding_bytes
-        : std::max(minimum + 44, static_cast<std::size_t>(model_.predicted_size()) + 47);
+        ? minimum + public_padding
+        : config_.mode == ShapingMode::ConsensusGuidedAI
+            ? std::min(minimum + public_padding,
+                std::max(minimum + 44, static_cast<std::size_t>(model_.predicted_size()) + 47))
+            : std::max(minimum + 44, static_cast<std::size_t>(model_.predicted_size()) + 47);
     for (const std::size_t wire_bucket : {256U, 512U, 1024U, 1200U}) {
         const auto bucket = wire_bucket - 44;
         if (bucket >= minimum && bucket - minimum <= config_.max_padding_bytes) {
@@ -83,11 +89,16 @@ bool MLTrafficShaper::enqueue(std::vector<uint8_t> frame, std::size_t original_s
         return false;
     }
     const auto now = Clock::now();
-    if (config_.mode == ShapingMode::LocalAI) model_.observe(original_size, now);
+    if (config_.mode != ShapingMode::BlockchainPolicy) model_.observe(original_size, now);
+    const int public_delay = static_cast<int>(std::floor(
+        static_cast<double>(config_.max_delay_ms) * consensus_weights_.delay_weight));
     const int delay = config_.mode == ShapingMode::BlockchainPolicy
-        ? config_.max_delay_ms
-        : std::min(config_.max_delay_ms,
-            static_cast<int>(std::ceil(model_.predicted_gap_ms() / 5.0)) * 5);
+        ? public_delay
+        : config_.mode == ShapingMode::ConsensusGuidedAI
+            ? std::min({public_delay, 5,
+                static_cast<int>(std::ceil(model_.predicted_gap_ms() / 5.0)) * 5})
+            : std::min(config_.max_delay_ms,
+                static_cast<int>(std::ceil(model_.predicted_gap_ms() / 5.0)) * 5);
     auto due = now + std::chrono::milliseconds(delay);
     if (!queue_.empty()) due = std::max(due, queue_.back().due);
     const bool first = queue_.empty();
@@ -95,6 +106,15 @@ bool MLTrafficShaper::enqueue(std::vector<uint8_t> frame, std::size_t original_s
     queue_.push_back({std::move(frame), std::move(sender), due});
     if (first) arm();
     return !stopped_;
+}
+
+bool MLTrafficShaper::apply_consensus_weights(const ConsensusWeights& weights) {
+    if (!weights.verified || weights.epoch <= consensus_weights_.epoch ||
+        !std::isfinite(weights.padding_weight) || !std::isfinite(weights.delay_weight) ||
+        weights.padding_weight < 0.0 || weights.padding_weight > 1.0 ||
+        weights.delay_weight < 0.0 || weights.delay_weight > 1.0) return false;
+    consensus_weights_ = weights;
+    return true;
 }
 
 void MLTrafficShaper::arm() {

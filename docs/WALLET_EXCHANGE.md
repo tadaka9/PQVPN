@@ -8,6 +8,8 @@ The creator badge is an address match against the public creator registry in sou
 
 - a unique local hybrid wallet identity;
 - a public address that can be copied without revealing keys;
+- a short deterministic audible fingerprint and matching note sequence derived
+  from that public address, generated and played locally on explicit request;
 - deterministic creator-address verification;
 - a local scenario lens for ownership share, profit/loss direction, and annual staking projection;
 - validation rules for short-lived `PQC/EUR` exchange quotes.
@@ -17,3 +19,8 @@ The creator badge is an address match against the public creator registry in sou
 Balances are not shown as real until genesis and ledger finality are deployed. The scenario lens uses only values entered locally and is not market data, financial advice, or a yield promise. Exchange execution stays disabled until an identified venue, authenticated quote transport, signature verification, expiry checking, explicit confirmation, settlement, and applicable compliance boundaries are implemented and independently reviewed.
 
 The interface therefore never creates invented fills, an invented PQC price, hidden spread, or a false staking return.
+
+The audible fingerprint is not a digital signature, collision-resistant proof
+or replacement for address comparison. It is a bounded human cue. The public
+wallet document and its Ed25519 + ML-DSA-87 verification remain authoritative;
+PQVPN does not transmit the melody, microphone data or an audio-derived ID.

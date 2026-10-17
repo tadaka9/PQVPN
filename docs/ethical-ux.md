@@ -31,3 +31,25 @@ Pixel Commons follows the same rule: PQ communicate local progress, never
 financial value or status pressure. Character bubbles disappear and are not
 persisted. A satisfying animation may celebrate an evidenced outcome; it may
 not substitute for one.
+
+The project shorthand is **Self → Echo → Peer**: preserve the person's
+identity and agency, make the system's interpretation visible, then interact
+with another authenticated peer. **Peer respected. Peer verified.** Respect
+precedes verification; cryptography must not justify coercion, hidden compute,
+identity ranking or ideological conformity.
+
+## Civic integrity is always on
+
+Ethics is an invariant, not a toggle: conceptually **morale = 1**, never a
+user-facing mode that can be set to zero. “Antimafia nel cuore” means opposing
+coercion, corruption, intimidation and opaque concentration of power through
+auditable rules, separation of duties and accountable governance. It never
+authorizes political profiling, ideological tests, vigilantism or collection
+of personal data. Release attribution uses **David1** whenever Davide directly
+contributes to the design or implementation, and **David0** otherwise.
+
+**Different does not mean inferior.** Peer verification establishes only a
+specific technical claim; it never ranks a person's dignity. Wallet balance,
+hardware capacity, network role, disability, origin, belief, language and
+reputation signals must not become proxies for human worth or access to basic
+communication.

@@ -36,9 +36,13 @@ ledger-safe payload contains only achievement class, wallet, timestamp, nonce
 and evidence digest. Messages, rooms, coordinates, relationships and participant
 IPs are never claim fields; a validator may include or reject it later.
 
-Traffic shaping exposes the same two modes in configuration and GUI: `ai`
+Traffic shaping exposes three idempotent modes in configuration and GUI: `ai`
 trains bounded predictors locally without telemetry; `blockchain` applies
-deterministic public bounds and never queries consensus per packet.
+deterministic public bounds; and `ai_blockchain` lets the local predictor adapt
+inside quorum-verified, versioned distributed weights. Raw peer suggestions,
+stale epochs and out-of-range weights fail closed. Consensus is never queried
+per packet: AI proposes, policy constrains, and the encrypted data plane keeps
+forwarding if the control plane is unavailable.
 
 ## Privacy and abuse boundaries
 
