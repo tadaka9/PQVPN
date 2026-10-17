@@ -155,10 +155,14 @@ fi
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database --quiet /usr/share/applications || true
 fi
-# Apply PQVPN's socket-buffer ceilings immediately when systemd-sysctl is
-# available. This changes maxima only; unrelated sockets keep their defaults.
-if command -v systemd-sysctl >/dev/null 2>&1; then
-    systemd-sysctl --prefix=/net/core/rmem_max --prefix=/net/core/wmem_max || true
+# Apply PQVPN's socket-buffer ceilings immediately. systemd-sysctl commonly
+# lives outside PATH on Debian-family hosts; sysctl is a narrow fallback that
+# reads only PQVPN's file rather than reloading unrelated administrator policy.
+if [ -x /usr/lib/systemd/systemd-sysctl ]; then
+    /usr/lib/systemd/systemd-sysctl \
+        --prefix=/net/core/rmem_max --prefix=/net/core/wmem_max || true
+elif command -v sysctl >/dev/null 2>&1; then
+    sysctl -p /usr/lib/sysctl.d/60-pqvpn-network-performance.conf || true
 fi
 exit 0
 EOF
