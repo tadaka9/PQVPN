@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - name: Install Android SDK and NDK
         run: |
           sudo apt-get update
@@ -42,22 +42,20 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;25.1.8937393'
-          # Qt 6.7 androiddeployqt selects the highest installed platform and
-          # ignores its newer compile-SDK target property. Hosted runners ship
-          # a broken android-36-ext19 android.jar, so remove only that preview
-          # package from this ephemeral job and keep the supported API 35.
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
+          # Extension preview platforms can supersede the stable API selected
+          # by androiddeployqt. Keep only the stable API 36 platform.
           while IFS= read -r preview; do
             test -z "$preview" || "$sdkmanager" --uninstall "$preview"
-          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[5-9]|[4-9][0-9])/ {print $1}')
-          test -f "$sdk_root/platforms/android-34/android.jar"
-          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d \( -name '*-ext*' -o -name 'android-3[5-9]*' -o -name 'android-[4-9][0-9]*' \) -print -quit)"
+          done < <("$sdkmanager" --list_installed | awk '$1 ~ /^platforms;android-.*-ext/ || $1 ~ /^platforms;android-(3[7-9]|[4-9][0-9])/ {print $1}')
+          test -f "$sdk_root/platforms/android-36/android.jar"
+          test -z "$(find "$sdk_root/platforms" -maxdepth 1 -type d -name '*-ext*' -print -quit)"
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
-          # The aqt Linux/Android repository currently exposes 6.7.3 as
-          # its newest complete arm64 kit. Desktop/iOS remain on 6.12.
-          version: '6.7.3'
+          # Keep mobile on the repository-wide Qt release. Qt 6.12 supports
+          # API 36 and 16 KiB pages with its official NDK r27c toolchain.
+          version: '${{ env.QT_VERSION }}'
           host: linux
           target: android
           arch: android_arm64_v8a
@@ -65,15 +63,15 @@ jobs:
       - name: Configure Android preview
         run: |
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          ndk_root="$sdk_root/ndk/25.1.8937393"
+          ndk_root="$sdk_root/ndk/27.2.12479018"
           test -f "$ndk_root/build/cmake/android.toolchain.cmake"
           "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DANDROID_SDK_ROOT="$sdk_root" \
             -DANDROID_NDK="$ndk_root" \
             -DANDROID_NDK_ROOT="$ndk_root" \
-            -DQT_ANDROID_COMPILE_SDK_VERSION=34 \
-            -DQT_ANDROID_TARGET_SDK_VERSION=34
+            -DQT_ANDROID_COMPILE_SDK_VERSION=36 \
+            -DQT_ANDROID_TARGET_SDK_VERSION=36
       - name: Build APK
         run: cmake --build build-mobile-android --target apk --parallel 2
       - name: Sign and verify installable preview APK
@@ -82,13 +80,13 @@ jobs:
           mapfile -t apks < <(find build-mobile-android -type f -name '*release-unsigned.apk' -print)
           test "${#apks[@]}" = 1
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          build_tools="$sdk_root/build-tools/34.0.0"
+          build_tools="$sdk_root/build-tools/36.0.0"
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
           mkdir mobile-artifacts
           aligned="mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-aligned.apk"
           signed="mobile-artifacts/PQVPN-$PQVPN_VERSION-android-arm64-preview-test-signed.apk"
-          "$build_tools/zipalign" -f -p 4 "${apks[0]}" "$aligned"
+          "$build_tools/zipalign" -f -P 16 4 "${apks[0]}" "$aligned"
           keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/pqvpn-preview.jks" \
             -storepass pqvpn-preview -keypass pqvpn-preview -alias pqvpn-preview \
             -keyalg RSA -keysize 3072 -validity 30 \
@@ -98,7 +96,19 @@ jobs:
             --out "$signed" "$aligned"
           rm -f "$aligned" "$RUNNER_TEMP/pqvpn-preview.jks"
           "$build_tools/apksigner" verify --verbose --print-certs "$signed"
-          "$build_tools/zipalign" -c -p 4 "$signed"
+          "$build_tools/zipalign" -c -P 16 -v 4 "$signed"
+          inspect="$RUNNER_TEMP/pqvpn-elf"
+          mkdir -p "$inspect"
+          unzip -q "$signed" 'lib/arm64-v8a/*.so' -d "$inspect"
+          while IFS= read -r library; do
+            if "$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -lW "$library" \
+              | awk '$1 == "LOAD" && ($NF == "0x1000" || $NF == "0x2000") { bad=1 } END { exit bad }'; then
+              echo "16 KiB ELF alignment verified: $library"
+            else
+              echo "Non-16 KiB ELF alignment: $library" >&2
+              exit 1
+            fi
+          done < <(find "$inspect/lib/arm64-v8a" -type f -name '*.so' -print | sort)
           sha256sum "$signed" > "$signed.sha256"
       - uses: actions/upload-artifact@v6
         with:

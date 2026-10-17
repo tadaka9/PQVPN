@@ -16,6 +16,12 @@ qt_add_qml_module(pqvpn_mobile
 target_link_libraries(pqvpn_mobile PRIVATE
   Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2)
 
+if(ANDROID)
+  target_link_options(pqvpn_mobile PRIVATE
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384")
+endif()
+
 set_target_properties(pqvpn_mobile PROPERTIES
   MACOSX_BUNDLE TRUE
   MACOSX_BUNDLE_GUI_IDENTIFIER io.github.tadaka9.pqvpn.mobile
@@ -23,8 +29,8 @@ set_target_properties(pqvpn_mobile PROPERTIES
   MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
   MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
   QT_ANDROID_PACKAGE_NAME io.github.tadaka9.pqvpn
-  QT_ANDROID_COMPILE_SDK_VERSION 34
-  QT_ANDROID_TARGET_SDK_VERSION 34
+  QT_ANDROID_COMPILE_SDK_VERSION 36
+  QT_ANDROID_TARGET_SDK_VERSION 36
   QT_ANDROID_MIN_SDK_VERSION 28)
 
 install(TARGETS pqvpn_mobile
