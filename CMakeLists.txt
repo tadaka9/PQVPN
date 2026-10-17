@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt" PQVPN_PROJECT_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/PQVPN_VERSION.txt")
 string(STRIP "${PQVPN_PROJECT_VERSION}" PQVPN_PROJECT_VERSION)
 # Public labels are preserved in CLI output and artifact names. Package managers
 # and project() additionally require numeric version components.
