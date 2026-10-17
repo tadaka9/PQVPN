@@ -929,6 +929,19 @@ int main(int argc, char** argv) {
                                                                   : (name == "strangenet.profile" ? "profile"
                                                                   : (name == "strangenet.world" ? "world" : "text")))))}});
                                 }
+                            } else if(name=="resource.offer") {
+                                const auto ed=pqvpn::research::unhex(command.value("ed25519",std::string{}));
+                                const auto pq=pqvpn::research::unhex(command.value("ml_dsa_87",std::string{}));
+                                const auto es=pqvpn::research::unhex(command.value("ed25519_signature",std::string{}));
+                                const auto ps=pqvpn::research::unhex(command.value("ml_dsa_87_signature",std::string{}));
+                                if(!ed||!pq||!es||!ps){emit_console_event({{"event","resource.rejected"},{"reason","invalid encoding"}});return;}
+                                pqvpn::resource::Offer offer{pqvpn::resource::Kind::RelayAcceleration,
+                                  command.value("provider_wallet",std::string{}),command.value("peer_id",std::string{}),
+                                  command.value("latency_ms",std::uint32_t{}),command.value("capacity_bps",std::uint64_t{}),
+                                  command.value("availability_ppm",std::uint32_t{}),command.value("expires_at_ms",std::uint64_t{}),{*es,*ps}};
+                                const auto now=static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+                                const bool accepted=node->accept_acceleration_offer(offer,{*ed,*pq},now);
+                                emit_console_event({{"event",accepted?"resource.accepted":"resource.rejected"},{"kind","relay-acceleration"},{"peer",offer.peer_id}});
                             } else {
                                 emit_console_event({{"event", "control.error"},
                                                     {"message", "unknown command"}});

@@ -255,6 +255,14 @@ def validate_config(config: dict) -> None:
         if (not isinstance(minimum_free, int) or isinstance(minimum_free, bool) or
                 minimum_free < 0 or minimum_free > MAX_OBJECT_BYTES):
             raise ValueError("storage peer min_free_bytes is invalid")
+        latency = node.get("latency_ms", 1000)
+        capacity = node.get("capacity_bps", 1)
+        availability = node.get("availability_ppm", 900_000)
+        if (not isinstance(latency, int) or isinstance(latency, bool) or latency < 1 or latency > 60_000 or
+                not isinstance(capacity, int) or isinstance(capacity, bool) or capacity < 1 or
+                not isinstance(availability, int) or isinstance(availability, bool) or
+                availability < 900_000 or availability > 1_000_000):
+            raise ValueError("storage peer retrieval metrics are invalid")
         names.append(node["name"])
     if len(names) != len(set(names)):
         raise ValueError("storage peer names must be unique")
@@ -416,7 +424,10 @@ def put(source: Path, config: dict, key: bytes) -> dict:
 
 def locate_blob(config: dict, chunk: dict) -> bytes:
     by_name = {node["name"]: node for node in config["nodes"]}
-    for name in chunk["nodes"]:
+    candidates=sorted(chunk["nodes"],key=lambda name:(
+        -by_name[name].get("capacity_bps",1)*by_name[name].get("availability_ppm",900_000)/
+        (by_name[name].get("latency_ms",1000)+1),name))
+    for name in candidates:
         node = by_name.get(name)
         if not node:
             continue

@@ -130,8 +130,12 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Define hybrid-signed, expiring capacity offers for latency-aware relay
   acceleration and storage retrieval; deterministically reject invalid or
   stale offers without putting user traffic or file contents on-chain.
-- [ ] Feed finalized capacity offers into live multipath scheduling and Asgard
-  retrieval, with congestion control, erasure-coded fallback and abuse bounds.
+- [x] Feed verified, expiring relay offers into the live authenticated-session
+  scheduler with liveness fallback; rank Asgard replicas by bounded capacity,
+  availability and latency metrics with hash-verified failover.
+- [ ] Add packet-level concurrent multipath congestion control and erasure-coded
+  reconstruction; current acceleration selects one best live path per packet
+  and Asgard still relies on full encrypted replicas.
 - [ ] Wire the handler/store into long-running node orchestration; add directory
   fsync, crash fault injection, certified catch-up and explicit state bounds.
 - [ ] Commission an independent audit and publish its signed report plus

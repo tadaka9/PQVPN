@@ -1037,6 +1037,7 @@ std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
         std::chrono::system_clock::now().time_since_epoch()).count();
     const std::vector<uint8_t>* best = nullptr;
     double best_activity = 0.0;
+    const auto now_ms=static_cast<std::uint64_t>(now*1000.0);
     for (const auto& [peer_id, session] : sessions_by_peer_id) {
         if (!session || session->state != SessionState::ESTABLISHED) continue;
         if (session->remote_addr.address().is_unspecified()) continue;
@@ -1045,6 +1046,8 @@ std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
         // the packet would be delivered to a black hole, and UDP sends report
         // success either way. Failing closed here is the safe behavior.
         if (now - session->last_peer_response > liveness_window) continue;
+        if(acceleration_peer_&&now_ms<acceleration_offer_expires_ms_&&peer_id==*acceleration_peer_)
+            return peer_id;
         const bool better = best == nullptr
             ? true
             : session->last_activity > best_activity
@@ -1055,6 +1058,13 @@ std::optional<std::vector<uint8_t>> PQVPNNode::select_tunnel_peer() const {
         }
     }
     return best ? std::optional<std::vector<uint8_t>>(*best) : std::nullopt;
+}
+
+bool PQVPNNode::accept_acceleration_offer(const resource::Offer& offer,
+    const research::PublicIdentity& identity,const std::uint64_t now_ms) {
+    if(offer.kind!=resource::Kind::RelayAcceleration||!resource::valid(offer,identity,now_ms))return false;
+    const auto peer=decode_hex(offer.peer_id);if(!peer||peer->size()!=32)return false;
+    acceleration_peer_=*peer;acceleration_offer_expires_ms_=offer.expires_at_ms;return true;
 }
 
 asio::awaitable<bool> PQVPNNode::forward_adapter_packet(std::vector<uint8_t> packet) {

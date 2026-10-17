@@ -26,6 +26,7 @@
 #include <cstdint>
 #include "ml_traffic_shaper.hpp"
 #include "strangenet.hpp"
+#include "resource_market.hpp"
 
 namespace pqvpn {
 
@@ -238,6 +239,9 @@ public:
     void set_preferred_exit(asio::ip::udp::endpoint endpoint) {
         preferred_exit_ = std::move(endpoint);
     }
+    bool accept_acceleration_offer(const resource::Offer& offer,
+                                   const research::PublicIdentity& identity,
+                                   std::uint64_t now_ms);
     void set_strangenet_handler(StrangeNetHandler handler) { strangenet_handler_ = std::move(handler); }
     void set_research_mesh_handler(ResearchMeshHandler handler) { research_mesh_handler_ = std::move(handler); }
     std::optional<std::vector<uint8_t>> build_research_mesh_datagram(
@@ -465,6 +469,8 @@ private:
     strangenet::FloodGuard strangenet_flood_guard_;
     PeerRouteHook peer_route_hook_;
     std::optional<asio::ip::udp::endpoint> preferred_exit_;
+    std::optional<std::vector<uint8_t>> acceleration_peer_;
+    std::uint64_t acceleration_offer_expires_ms_ = 0;
     std::unordered_map<std::string, PendingHandshake> pending_handshakes_;
     struct PreAuthBucket {
         double tokens = 16.0;

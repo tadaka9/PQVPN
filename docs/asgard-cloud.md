@@ -13,6 +13,13 @@ wire transport, garbage collection, erasure coding and adversarial network
 testing remain release gates. Bootstrap and exit roles never imply storage
 consent.
 
+Retrieval may use optional integer `latency_ms`, `capacity_bps` and
+`availability_ppm` fields on each configured node. Values are strictly bounded;
+replicas are tried in deterministic utility order and every ciphertext hash is
+verified before decryption. A missing, slow or corrupt preferred replica falls
+through to the next independent copy. These metrics select a retrieval path;
+they never grant consensus votes or expose object contents on-chain.
+
 Example two-root development configuration:
 
 ```json
