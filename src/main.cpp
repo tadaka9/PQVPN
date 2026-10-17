@@ -37,6 +37,7 @@
 #include "serialization_module.hpp"
 #include "external_tunnel_process.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "wallet_identity.hpp"
 
 namespace {
 
@@ -94,6 +95,7 @@ struct CliArgs {
     bool print_config = false;
     bool platform_info = false;
     bool version = false;
+    bool wallet_info = false;
     std::string strangenet_room;
     std::string strangenet_peer;
     bool control_stdin = false;
@@ -116,6 +118,7 @@ void print_usage(const char* program) {
         << "      --print-config      Print normalized configuration and exit\n"
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
+        << "      --wallet-info       Create/load the local self-custody wallet and print public JSON\n"
         << "      --strangenet-room NAME  Join a bounded room; broadcasts to authenticated peers\n"
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
@@ -145,6 +148,8 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.platform_info = true;
         } else if (value == "--version") {
             args.version = true;
+        } else if (value == "--wallet-info") {
+            args.wallet_info = true;
         } else if (value == "--control-stdin") {
             args.control_stdin = true;
         } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
@@ -353,6 +358,17 @@ int main(int argc, char** argv) {
         print_platform_info();
         return 0;
     }
+    if (args.wallet_info) {
+        try {
+            const auto wallet=pqvpn::wallet::load_or_create(
+                pqvpn::wallet::path_for_config(args.config_path));
+            std::cout<<pqvpn::wallet::public_status(wallet).dump()<<'\n';
+            return 0;
+        } catch(const std::exception& error) {
+            std::cerr<<"Wallet unavailable: "<<error.what()<<'\n';
+            return 1;
+        }
+    }
 
     if (args.validate_config || args.print_config) {
         std::string config_error;
@@ -383,6 +399,14 @@ int main(int argc, char** argv) {
                   << " (" << config_error << ")\n";
         return 1;
     }
+    pqvpn::wallet::SelfCustodyIdentity wallet;
+    try {
+        wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(args.config_path));
+    } catch(const std::exception& error) {
+        std::cerr<<"Failed to load self-custody wallet: "<<error.what()<<'\n';
+        return 1;
+    }
+    if(args.control_stdin){auto status=pqvpn::wallet::public_status(wallet);status["event"]="wallet.status";emit_console_event(status);}
 
     // Start the PQVPN node runtime with the provided configuration
     asio::io_context io;

@@ -122,10 +122,16 @@ verification on an elevated host with a connected adapter is still pending.
   undeclared recipients, repeat initialization and cap overflow.
 - [ ] Nominate the public treasury wallet, publish the final genesis manifest
   and obtain validator approval. Until then, no production coins exist.
-- [ ] Give every installation a distinct self-custodied hybrid wallet keystore,
-  separate from node/StrangeNet/storage keys, with fail-closed loading,
-  encrypted export/import and hardware-backed adapters. Do not enable balances
-  in the GUI before backup and recovery tests pass.
+- [x] Give every installation a distinct self-custodied hybrid wallet keystore,
+  separate from node/StrangeNet/storage keys, with fail-closed loading and a
+  shared public-status surface in CLI, TUI and GUI.
+- [ ] Add encrypted export/import and hardware-backed wallet adapters. Do not
+  enable spend controls in the GUI before backup and recovery tests pass.
+- [x] Define hybrid-signed, expiring capacity offers for latency-aware relay
+  acceleration and storage retrieval; deterministically reject invalid or
+  stale offers without putting user traffic or file contents on-chain.
+- [ ] Feed finalized capacity offers into live multipath scheduling and Asgard
+  retrieval, with congestion control, erasure-coded fallback and abuse bounds.
 - [ ] Wire the handler/store into long-running node orchestration; add directory
   fsync, crash fault injection, certified catch-up and explicit state bounds.
 - [ ] Commission an independent audit and publish its signed report plus

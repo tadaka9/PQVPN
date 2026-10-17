@@ -427,6 +427,8 @@ set(CATCH_TESTS
   test_strangenet
   test_string_utils
   test_traffic_obfuscation
+  test_wallet_identity
+  test_resource_market
   adhoc_verify_send_onion
   test_crypto_kem_keygen
   test_crypto_serialization

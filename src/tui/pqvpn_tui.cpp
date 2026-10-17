@@ -24,6 +24,7 @@
 #include "console/default_profile.hpp"
 #include "console/terminal_text.hpp"
 #include "console/inner_tunnel_policy.hpp"
+#include "wallet_identity.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -499,7 +500,13 @@ int main(int argc, char** argv) {
     };
 
     std::string notice;
-    if(!options.no_tunnel)notice=tunnel_blocker();
+    try {
+        const auto wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(options.config));
+        notice="Wallet "+wallet.address().substr(0,12)+"… · local self-custody";
+    } catch(const std::exception& error) {
+        std::cerr<<"Wallet unavailable: "<<error.what()<<"\n";return 1;
+    }
+    if(!options.no_tunnel){const auto blocker=tunnel_blocker();if(!blocker.empty())notice=blocker;}
     bool quit = false;
     while (!quit) {
         const ScreenSize size = current_size();

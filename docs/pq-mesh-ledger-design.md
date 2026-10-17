@@ -94,13 +94,19 @@ must not be inferred from an on-chain transfer alone.
 - capped supply and evidence-backed scientific rewards;
 - one-time policy-committed genesis, canonical hash and 100,000 PQ test coverage;
 - deterministic audit snapshots and checksummed recovery.
+- distinct per-installation Ed25519 + ML-DSA-87 wallet files, created with
+  private-file permissions, reloaded stably and rejected rather than replaced
+  when corrupted; CLI, TUI and GUI use the same wallet implementation;
+- hybrid-signed, short-lived capacity offers for relay acceleration and storage
+  retrieval, with deterministic selection by capacity, availability and
+  latency. Offers coordinate the dataplane; payload bytes never enter blocks.
 
 ## Required before a public testnet
 
 1. nominate and independently verify the treasury public identity;
 2. freeze a canonical transaction/block encoding with cross-language vectors;
-3. implement the per-instance wallet keystore, encrypted backup/restore and
-   hardware-backed key adapters; raw private keys must never enter config files;
+3. add encrypted wallet backup/restore and hardware-backed key adapters; raw
+   private keys must never enter config files;
 4. implement certified checkpoint catch-up and durable anti-equivocation state;
 5. define validator admission, removal and incident governance;
 6. add storage challenges without granting storage-weighted voting power;
