@@ -87,8 +87,10 @@ The Qt 6 desktop app turns configuration into a short, visible flow:
 4. Watch authenticated session and tunnel-ready events.
 5. Disconnect and restore the network state owned by PQVPN.
 
-The **Transports** page exposes adaptive UDP/TCP policy, traffic-shaping
-controls, engine configuration, verified installation, live start/stop state,
+The **Transports** page exposes controls for adaptive UDP/TCP policy,
+traffic-shaping and an optional
+[WireGuard/OpenVPN client inside PQVPN](docs/inner-tunnels.md), plus engine
+configuration, verified installation, live start/stop state,
 and actionable errors. The UI never treats a downloaded engine or an open
 socket as proof that the VPN is connected.
 
