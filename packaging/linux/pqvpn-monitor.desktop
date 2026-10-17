@@ -4,6 +4,7 @@ Name=PQVPN
 Comment=Control and inspect the PQVPN node
 Exec=pqvpn_monitor
 Icon=pqvpn
+StartupWMClass=PQVPN
 Terminal=false
 Categories=Network;
 Keywords=VPN;privacy;network;relay;
