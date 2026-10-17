@@ -1,31 +1,31 @@
 {
   "schema": "pqvpn-research-evidence-v1",
-  "created_utc": "2026-10-17T11:56:24.717365+00:00",
+  "created_utc": "2026-10-17T13:22:52.097886+00:00",
   "platform": "Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39",
   "tests": [
     {
       "name": "test_research_ledger",
       "exit_code": 0,
-      "output_sha256": "21b987c9dcfd3da7e0498d4b9b12adbedad244763a990fdfe200134d3f1a852c"
+      "output_sha256": "5f5c8cc13af78d630242b9389d5efa7ed9b31ff6647aa90c31ccfda233f1d67c"
     },
     {
       "name": "test_research_mesh",
       "exit_code": 0,
-      "output_sha256": "151daed33394998215c6211865bff16c1dbc494fb21344f213bc7bcd9f139b57"
+      "output_sha256": "2772086d7936d8834a37c5fa434e0e106ff060e5c15598be50c044d233f6aa98"
     },
     {
       "name": "test_science_validator_adapter",
       "exit_code": 0,
-      "output_sha256": "763b603c2a821b845ba820609b99f7261a9fa21fccf3af6ef6615541b8fe905d"
+      "output_sha256": "0258cefca6757d32adbc33b5794edf4e17cea673457eac3659fad607889a2218"
     },
     {
       "name": "test_tunnel_dataplane",
       "exit_code": 0,
-      "output_sha256": "751a3f1e74116d14caedcb1dc3ca87d21c75e94259741a27e184635a927e373a"
+      "output_sha256": "b1dc8b6ac9c22bb9ac46ebe5b2fc6a45a38d56bfd9cd3135de36eeefd58856b0"
     }
   ],
   "sources": {
-    "src/modules/research_ledger.hpp": "e27811e3bb7822673b0cae0923cd8602a84c79d7eafbb880536b29d1864c8d9d",
+    "src/modules/research_ledger.hpp": "bfaae01977362a07708924675c8b5e4974e2839b406ee7490f4dcdd933679d26",
     "src/modules/research_mesh.hpp": "bbb7c723cf896f63558c22e9c44555969862c532ae7c3bb9c736a470511f18cf",
     "src/modules/research_store.hpp": "df3702278eaf73fee6ab9e592886b98cdb6ee0e18fc522eb749d32d88dd68cf5",
     "src/modules/science_validator_adapter.hpp": "17883d11c39e22abb14f2d3b90a4bc6d987b6eea6994e70c2d6decc811228678",

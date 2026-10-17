@@ -46,6 +46,7 @@ struct SubnetPolicy {
     std::set<std::string> allowed_projects;
     bool transfers_enabled = true;
     std::size_t max_rewards_per_block = 1024;
+    std::map<std::string, std::uint64_t> genesis_allocations;
 };
 
 struct PolicyVote {
@@ -86,6 +87,12 @@ struct FinalizedBlock {
 struct Wallet {
     PublicIdentity identity;
     std::string address;
+};
+
+struct GenesisManifest {
+    std::string subnet_id;
+    std::uint64_t max_supply = 0;
+    std::vector<Wallet> wallets;
 };
 
 struct Transfer {
@@ -155,6 +162,12 @@ inline bool valid_policy(const SubnetPolicy& policy) {
         if (rule.empty() || rule.size() > 256) return false;
     for (const auto& project : policy.allowed_projects)
         if (!valid_identifier(project, 192)) return false;
+    std::uint64_t genesis_supply = 0;
+    for (const auto& [address, amount] : policy.genesis_allocations) {
+        if (!group_chat::valid_peer_id(address) || amount == 0 ||
+            amount > policy.max_supply - genesis_supply) return false;
+        genesis_supply += amount;
+    }
     for (const auto& [name, identity] : policy.validators)
         if (!valid_identifier(name) || identity.ed25519.size() != 32 ||
             identity.ml_dsa_87.empty()) return false;
@@ -166,7 +179,8 @@ inline Bytes policy_payload(const SubnetPolicy& policy) {
     for (const auto& [name, identity] : policy.validators)
         validators.push_back({{"ed25519", hex(identity.ed25519)},
                               {"id", name}, {"ml_dsa_87", hex(identity.ml_dsa_87)}});
-    return encode({{"domain", "PQVPN/subnet-policy/v1"}, {"epoch", policy.epoch},
+    return encode({{"domain", "PQVPN/subnet-policy/v2"}, {"epoch", policy.epoch},
+                   {"genesis_allocations", policy.genesis_allocations},
                    {"id", policy.id}, {"max_supply", policy.max_supply},
                    {"operator_name", policy.operator_name},
                    {"operator_peer_id", policy.operator_peer_id},
@@ -223,6 +237,23 @@ inline std::string wallet_address(const PublicIdentity& identity) {
     return digest(material);
 }
 
+inline Bytes genesis_payload(const GenesisManifest& manifest) {
+    auto ordered_wallets = manifest.wallets;
+    std::sort(ordered_wallets.begin(), ordered_wallets.end(),
+        [](const Wallet& left, const Wallet& right) { return left.address < right.address; });
+    nlohmann::ordered_json wallets = nlohmann::ordered_json::array();
+    for (const auto& wallet : ordered_wallets)
+        wallets.push_back({{"address", wallet.address},
+                           {"ed25519", hex(wallet.identity.ed25519)},
+                           {"ml_dsa_87", hex(wallet.identity.ml_dsa_87)}});
+    return encode({{"domain", "PQVPN/genesis/v1"}, {"max_supply", manifest.max_supply},
+                   {"subnet_id", manifest.subnet_id}, {"wallets", wallets}});
+}
+
+inline std::string genesis_hash(const GenesisManifest& manifest) {
+    return digest(genesis_payload(manifest));
+}
+
 inline bool verify_policy_authorization(const SubnetPolicy& child,
                                         const SubnetPolicy& parent,
                                         const std::vector<PolicyVote>& votes) {
@@ -272,6 +303,7 @@ public:
     std::uint64_t height() const { return height_; }
     std::uint64_t supply() const { return supply_; }
     const std::string& head() const { return head_; }
+    const std::string& genesis() const { return genesis_hash_; }
     std::uint64_t balance(const std::string& address) const {
         const auto found = balances_.find(address);
         return found == balances_.end() ? 0 : found->second;
@@ -280,32 +312,36 @@ public:
     nlohmann::ordered_json audit_snapshot() const {
         std::map<std::string, std::uint64_t> ordered_balances(
             balances_.begin(), balances_.end());
-        return {{"balances", ordered_balances}, {"head", head_}, {"height", height_},
+        return {{"balances", ordered_balances}, {"genesis_hash", genesis_hash_},
+                {"genesis_supply", genesis_supply_}, {"head", head_}, {"height", height_},
                 {"max_supply", policy_.max_supply},
                 {"policy_digest", digest(policy_payload(policy_))},
                 {"subnet_id", policy_.id}, {"supply", supply_},
-                {"version", 1}};
+                {"version", 2}};
     }
 
     nlohmann::ordered_json checkpoint() const {
         nlohmann::ordered_json wallets=nlohmann::ordered_json::object();
         for(const auto& [address,identity]:wallets_) wallets[address]={{"ed25519",hex(identity.ed25519)},{"ml_dsa_87",hex(identity.ml_dsa_87)}};
-        nlohmann::ordered_json value={{"balances",balances_},{"head",head_},{"height",height_},{"nonces",nonces_},
+        nlohmann::ordered_json value={{"balances",balances_},{"genesis_hash",genesis_hash_},
+            {"genesis_supply",genesis_supply_},{"head",head_},{"height",height_},{"nonces",nonces_},
             {"policy_digest",digest(policy_payload(policy_))},{"seen_jobs",seen_jobs_},{"subnet_id",policy_.id},
-            {"supply",supply_},{"version",1},{"wallets",wallets}};
+            {"supply",supply_},{"version",2},{"wallets",wallets}};
         value["checksum"]=digest(encode(value)); return value;
     }
 
     static std::optional<Ledger> recover(const SubnetPolicy& policy,const nlohmann::ordered_json& source){
         try {
             auto value=source;const auto checksum=value.at("checksum").get<std::string>();value.erase("checksum");
-            if(checksum!=digest(encode(value))||value.at("version")!=1||value.at("subnet_id")!=policy.id||
+            const auto version=value.at("version").get<int>();
+            if(checksum!=digest(encode(value))||(version!=1&&version!=2)||value.at("subnet_id")!=policy.id||
                value.at("policy_digest")!=digest(policy_payload(policy)))return std::nullopt;
             Ledger ledger(policy);ledger.head_=value.at("head").get<std::string>();ledger.height_=value.at("height").get<std::uint64_t>();
             ledger.supply_=value.at("supply").get<std::uint64_t>();ledger.balances_=value.at("balances").get<decltype(ledger.balances_)>();
             ledger.nonces_=value.at("nonces").get<decltype(ledger.nonces_)>();ledger.seen_jobs_=value.at("seen_jobs").get<decltype(ledger.seen_jobs_)>();
+            if(version==2){ledger.genesis_hash_=value.at("genesis_hash").get<std::string>();ledger.genesis_supply_=value.at("genesis_supply").get<std::uint64_t>();}
             for(const auto& [address,item]:value.at("wallets").items()){auto ed=unhex(item.at("ed25519")),pq=unhex(item.at("ml_dsa_87"));if(!ed||!pq)return std::nullopt;ledger.wallets_[address]={*ed,*pq};}
-            if(ledger.height_>0)ledger.finalized_hashes_.insert(ledger.head_);
+            if(ledger.height_>0||!ledger.genesis_hash_.empty())ledger.finalized_hashes_.insert(ledger.head_);
             if(!group_chat::valid_peer_id(ledger.head_)||!ledger.verify_invariants())return std::nullopt;
             return ledger;
         }catch(...){return std::nullopt;}
@@ -318,10 +354,14 @@ public:
                 return false;
             total += value;
         }
+        const bool pristine = genesis_hash_.empty() && genesis_supply_ == 0;
         return total == supply_ && supply_ <= policy_.max_supply &&
-            (height_ == 0 || !finalized_hashes_.empty()) &&
-            (height_ == 0 ? head_ == std::string(64, '0') :
-                            finalized_hashes_.contains(head_));
+            genesis_supply_ <= supply_ &&
+            (pristine ? policy_.genesis_allocations.empty() &&
+                        (height_ != 0 || head_ == std::string(64, '0'))
+                      : group_chat::valid_peer_id(genesis_hash_)) &&
+            (height_ == 0 && pristine ? head_ == std::string(64, '0') :
+                                        finalized_hashes_.contains(head_));
     }
 
     bool register_wallet(const Wallet& wallet) {
@@ -330,9 +370,39 @@ public:
             wallets_.emplace(wallet.address, wallet.identity).second;
     }
 
+    bool initialize_genesis(const GenesisManifest& manifest) {
+        if (height_ != 0 || supply_ != 0 || !genesis_hash_.empty() ||
+            head_ != std::string(64, '0') || !wallets_.empty() ||
+            policy_.genesis_allocations.empty() || manifest.subnet_id != policy_.id ||
+            manifest.max_supply != policy_.max_supply ||
+            manifest.wallets.size() != policy_.genesis_allocations.size()) return false;
+        std::unordered_map<std::string, PublicIdentity> wallets;
+        for (const auto& wallet : manifest.wallets) {
+            if (!group_chat::valid_peer_id(wallet.address) ||
+                wallet.identity.ed25519.size() != 32 || wallet.identity.ml_dsa_87.empty() ||
+                wallet.address != wallet_address(wallet.identity) ||
+                !policy_.genesis_allocations.contains(wallet.address) ||
+                !wallets.emplace(wallet.address, wallet.identity).second) return false;
+        }
+        std::uint64_t total = 0;
+        for (const auto& [address, amount] : policy_.genesis_allocations) {
+            if (!wallets.contains(address) || amount > policy_.max_supply - total) return false;
+            total += amount;
+        }
+        wallets_ = std::move(wallets);
+        balances_.insert(policy_.genesis_allocations.begin(), policy_.genesis_allocations.end());
+        supply_ = total;
+        genesis_supply_ = total;
+        genesis_hash_ = genesis_hash(manifest);
+        head_ = genesis_hash_;
+        finalized_hashes_.insert(head_);
+        return verify_invariants();
+    }
+
     bool finalize(const FinalizedBlock& finalized) {
         const auto& block = finalized.block;
-        if (block.subnet_id != policy_.id || block.epoch != policy_.epoch ||
+        if ((!policy_.genesis_allocations.empty() && genesis_hash_.empty()) ||
+            block.subnet_id != policy_.id || block.epoch != policy_.epoch ||
             block.height != height_ + 1 || block.previous_hash != head_ ||
             block.rewards.empty() || block.rewards.size() > policy_.max_rewards_per_block ||
             policy_.validators.find(block.proposer) == policy_.validators.end()) return false;
@@ -387,7 +457,9 @@ private:
     SubnetPolicy policy_;
     std::uint64_t height_ = 0;
     std::uint64_t supply_ = 0;
+    std::uint64_t genesis_supply_ = 0;
     std::string head_ = std::string(64, '0');
+    std::string genesis_hash_;
     std::unordered_map<std::string, PublicIdentity> wallets_;
     std::unordered_map<std::string, std::uint64_t> balances_;
     std::unordered_map<std::string, std::uint64_t> nonces_;

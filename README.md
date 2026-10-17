@@ -195,6 +195,14 @@ permissioned-subnet consensus core, wallet and supply rules are specified in
 [`docs/research-ledger-consensus.md`](docs/research-ledger-consensus.md); they
 are not yet a deployed public chain.
 
+The ledger now supports a policy-committed, one-time genesis allocation. The
+proposed PQ testnet parameters are a 21,000,000 PQ cap and a transparent
+100,000 PQ premine (0.476190%): the recipient address must be supplied before
+genesis, every node derives the same genesis hash, and there is no post-launch
+owner mint key. No wallet has been nominated and no public-value network or
+sale has been activated. See [`docs/pq-genesis.md`](docs/pq-genesis.md) and the
+[`PQ Mesh Ledger design`](docs/pq-mesh-ledger-design.md).
+
 ## The cryptographic boundary
 
 | Layer | Policy | What it is meant to provide |

@@ -117,6 +117,15 @@ verification on an elevated host with a connected adapter is still pending.
 - [x] Route research envelopes in a dedicated domain-separated authenticated
   PQVPN datagram frame and add checksummed atomic checkpoint replacement,
   fail-closed recovery and bounded evidence pruning.
+- [x] Implement a deterministic, policy-committed genesis allocation with an
+  auditable 21,000,000 PQ cap and exact 100,000 PQ testnet premine; reject
+  undeclared recipients, repeat initialization and cap overflow.
+- [ ] Nominate the public treasury wallet, publish the final genesis manifest
+  and obtain validator approval. Until then, no production coins exist.
+- [ ] Give every installation a distinct self-custodied hybrid wallet keystore,
+  separate from node/StrangeNet/storage keys, with fail-closed loading,
+  encrypted export/import and hardware-backed adapters. Do not enable balances
+  in the GUI before backup and recovery tests pass.
 - [ ] Wire the handler/store into long-running node orchestration; add directory
   fsync, crash fault injection, certified catch-up and explicit state bounds.
 - [ ] Commission an independent audit and publish its signed report plus

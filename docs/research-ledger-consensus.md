@@ -57,15 +57,25 @@ Replay defenses are layered:
 - wallet nonces increasing by exactly one;
 - domain-separated signatures for policy, attestation, block and transfer.
 
-## Wallet and supply
+## Wallet, genesis and supply
 
 Wallet addresses are the first 256 bits of SHA3-512 over the domain tag and the
 Ed25519 plus ML-DSA-87 public keys. Registration proves the address matches both
-keys. Minting occurs only while applying a finalized block containing valid
-attestations. The per-result reward is a subnet policy field, currently one PQ;
-checked arithmetic prevents overflow and total supply cannot exceed the policy
-cap. Transfers require both wallet signatures, sufficient balance and the next
-nonce. Transfers never change total supply.
+keys. A subnet policy may commit an explicit address-to-amount genesis map.
+Initialization accepts exactly those public identities, canonicalizes their
+order, derives a domain-separated genesis hash and can succeed only once on an
+empty ledger. The genesis supply is included in the cap and audit snapshot.
+There is no privileged post-genesis mint method.
+
+The proposed PQ testnet commits a 21,000,000 PQ maximum and exactly 100,000 PQ
+at genesis (0.476190% of the cap). The final recipient wallet is intentionally
+not embedded until its public hybrid identity is nominated and independently
+verified. There is therefore no live premine yet. After genesis, minting occurs
+only while applying a finalized block containing valid attestations. The
+per-result reward is a subnet policy field, currently one PQ; checked arithmetic
+prevents overflow and total supply cannot exceed the policy cap. Transfers
+require both wallet signatures, sufficient balance and the next nonce.
+Transfers never change total supply.
 
 The deterministic audit snapshot exposes subnet, policy digest, height, head,
 supply cap, current supply and balances. `verify_invariants()` independently
