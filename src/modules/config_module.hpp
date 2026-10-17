@@ -204,8 +204,9 @@ namespace pqvpn::config {
             value.enabled = j.value("enabled", value.enabled);
             value.backend = j.value("backend", value.backend);
             value.config_path = j.value("config_path", value.config_path);
-            if (value.backend != "wireguard" && value.backend != "openvpn")
-                throw std::invalid_argument("inner_tunnel.backend must be wireguard or openvpn");
+            if (value.backend == "openvpn") value.backend = "openvpn3";
+            if (value.backend != "wireguard" && value.backend != "openvpn3")
+                throw std::invalid_argument("inner_tunnel.backend must be wireguard or openvpn3");
             if (value.enabled && value.config_path.empty())
                 throw std::invalid_argument("enabled inner_tunnel requires config_path");
         }
@@ -261,7 +262,8 @@ namespace pqvpn::config {
             if (value.tunnel.plugin == "wireguard" || value.tunnel.plugin == "openvpn") {
                 if (j.contains("inner_tunnel"))
                     throw std::invalid_argument("define either legacy tunnel.plugin or inner_tunnel, not both");
-                value.inner_tunnel = {true, value.tunnel.plugin, value.tunnel.config_path};
+                value.inner_tunnel = {true, value.tunnel.plugin == "openvpn" ? "openvpn3" : value.tunnel.plugin,
+                                      value.tunnel.config_path};
                 value.tunnel.plugin = "pqvpn";
                 value.tunnel.config_path.clear();
             }
@@ -342,8 +344,8 @@ namespace pqvpn::config {
         if (cfg.inner_tunnel.enabled) {
             if (!cfg.tunnel.enabled || cfg.tunnel.plugin != "pqvpn")
                 return ConfigError{"inner_tunnel requires the native PQVPN full tunnel"};
-            if (cfg.inner_tunnel.backend != "wireguard" && cfg.inner_tunnel.backend != "openvpn")
-                return ConfigError{"inner_tunnel.backend must be wireguard or openvpn"};
+            if (cfg.inner_tunnel.backend != "wireguard" && cfg.inner_tunnel.backend != "openvpn3")
+                return ConfigError{"inner_tunnel.backend must be wireguard or openvpn3"};
             try {
                 (void)tunnel::validate_config_path(
                     tunnel::backend_from_string(cfg.inner_tunnel.backend),
