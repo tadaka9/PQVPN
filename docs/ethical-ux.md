@@ -47,6 +47,21 @@ Physical feedback confirms agency; it is never a reward loop. Navigation must
 feel responsive without training the person to tap, disclose or remain in the
 application longer than intended.
 
+## Fallibility is normal
+
+People, software and operators can make mistakes. The interface must not treat
+an error as a moral failure, proof of incompetence or permission to take
+control away from the person. It should prevent predictable mistakes where it
+can, make consequences clear before an irreversible action, preserve entered
+work, and offer undo, retry or a safe route back whenever technically possible.
+
+Errors use precise, non-accusatory language: what happened, what remains safe,
+what was not changed and how to recover. A mistaken tap must not silently
+connect, publish, spend, weaken protection or destroy data. Confirmation is
+proportional to consequence rather than repeated until the person gives in.
+The system must also admit uncertainty and its own faults; it may say that a
+state is unknown, but it must never invent success to appear infallible.
+
 The following are prohibited:
 
 - fake urgency, scarcity, social proof or security state;
