@@ -41,7 +41,8 @@ echo "Installing $(basename "$apk") on ${devices[0]}"
 }
 
 component="$("$adb" shell cmd package resolve-activity --brief "$package" | tail -n 1 | tr -d '\r')"
-[[ "$component" == "$package/org.qtproject.qt.android.bindings.QtActivity" ]] || {
+expected_component="$package/.PqvpnActivity"
+[[ "$component" == "$expected_component" ]] || {
   echo "Unexpected or missing launcher activity: $component" >&2
   exit 1
 }
