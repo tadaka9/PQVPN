@@ -42,10 +42,10 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          # Qt 6.9.1's official Android binaries are built with NDK r27c.
+          # Qt 6.7.3's official Android binaries are built with NDK r26b.
           # Mixing Qt and a different libc++ produces an installable APK that
           # crashes at startup with a missing std::pmr symbol.
-          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;26.1.10909125'
           # Extension preview platforms can supersede the stable API selected
           # by androiddeployqt. Keep only the stable API 36 platform.
           while IFS= read -r preview; do
@@ -56,18 +56,15 @@ jobs:
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
-          # Qt 6.9 adds ApplicationWindow safe-area handling required by
-          # Android's enforced edge-to-edge layout.
-          version: '6.9.1'
+          version: '6.7.3'
           host: linux
           target: android
           arch: android_arm64_v8a
-          archives: qtbase qtdeclarative qtshadertools qtsvg
           cache: true
       - name: Configure Android preview
         run: |
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          ndk_root="$sdk_root/ndk/27.2.12479018"
+          ndk_root="$sdk_root/ndk/26.1.10909125"
           test -f "$ndk_root/build/cmake/android.toolchain.cmake"
           "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -93,7 +90,7 @@ jobs:
           test "${#apks[@]}" = 1
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           build_tools="$sdk_root/build-tools/36.0.0"
-          ndk_root="$sdk_root/ndk/27.2.12479018"
+          ndk_root="$sdk_root/ndk/26.1.10909125"
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
           mkdir mobile-artifacts
@@ -124,7 +121,7 @@ jobs:
           manifest="$RUNNER_TEMP/pqvpn-manifest.txt"
           "$build_tools/aapt2" dump xmltree "$signed" --file AndroidManifest.xml > "$manifest"
           grep -F 'io.github.tadaka9.pqvpn' "$manifest" >/dev/null
-          grep -F 'org.qtproject.qt.android.bindings.QtActivity' "$manifest" >/dev/null
+          grep -F 'io.github.tadaka9.pqvpn.PqvpnActivity' "$manifest" >/dev/null
           grep -F 'android.intent.category.LAUNCHER' "$manifest" >/dev/null
           grep -F 'pageSizeCompat' "$manifest" >/dev/null
           echo 'PQVPN ELF is 16 KiB aligned; Qt runtime uses the declared Android compatibility mode.'
