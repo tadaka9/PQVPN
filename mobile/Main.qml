@@ -113,9 +113,9 @@ ApplicationWindow {
         ScrollView {
             contentWidth: availableWidth
             ColumnLayout {
-                width: parent.width
+                x: 20
+                width: parent.width - 40
                 spacing: 16
-                anchors.margins: 20
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "Choose your privacy posture"; color: "white"; font.pixelSize: 28; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Text { text: "A clear choice before any network action. You can change it later."; color: root.muted; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
@@ -155,7 +155,7 @@ ApplicationWindow {
         ScrollView {
             contentWidth: availableWidth
             ColumnLayout {
-                width: parent.width; spacing: 16; anchors.margins: 20
+                x: 20; width: parent.width - 40; spacing: 16
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "StrangeNet Commons"; color: "white"; font.pixelSize: 28; font.bold: true }
                 Text { text: "A social room built around Peer IDs—not visible participant IPs."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
@@ -181,7 +181,7 @@ ApplicationWindow {
         ScrollView {
             contentWidth: availableWidth
             ColumnLayout {
-                width: parent.width; spacing: 16; anchors.margins: 20
+                x: 20; width: parent.width - 40; spacing: 16
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "Shield"; color: "white"; font.pixelSize: 28; font.bold: true }
                 Text { text: "Privacy-preserving aggregate protection status."; color: root.muted }
