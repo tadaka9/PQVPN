@@ -15,7 +15,10 @@ PQVPN maintains exactly two permanent branches:
 2. Experimental prereleases get new, immutable `v<version>` tags only after a
    successful exact-commit CI on `future`. The tag CI is run separately, and
    all five native candidate artifact groups must be present before publication
-   by the experimental prerelease publisher.
+   by the experimental prerelease publisher. A hosted Android build alone is
+   insufficient: the exact signed APK must also pass
+   `tools/verify-android-on-device.sh` on an authorized physical device before
+   publication is manually approved.
 3. Promoting into `main` requires a green PR and an explicit merge. Do not
    merge `future` automatically on every push.
 4. A stable release must originate from the protected `main` history and
