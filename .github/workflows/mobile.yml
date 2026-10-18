@@ -42,10 +42,10 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          # Qt 6.7.3's official Android binaries are built with NDK r26b.
-          # Mixing them with r25's libc++ produces an installable APK that
+          # Qt 6.9.1's official Android binaries are built with NDK r27c.
+          # Mixing Qt and a different libc++ produces an installable APK that
           # crashes at startup with a missing std::pmr symbol.
-          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;26.1.10909125'
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
           # Extension preview platforms can supersede the stable API selected
           # by androiddeployqt. Keep only the stable API 36 platform.
           while IFS= read -r preview; do
@@ -56,10 +56,9 @@ jobs:
       - name: Install Qt for Android
         uses: jurplel/install-qt-action@v4
         with:
-          # 6.7.3 is the newest complete public arm64 kit in the aqt feed.
-          # Android 17 uses the explicit page-size compatibility manifest;
-          # the PQVPN-owned library itself is linked for 16 KiB pages.
-          version: '6.7.3'
+          # Qt 6.9 adds ApplicationWindow safe-area handling required by
+          # Android's enforced edge-to-edge layout.
+          version: '6.9.1'
           host: linux
           target: android
           arch: android_arm64_v8a
@@ -67,7 +66,7 @@ jobs:
       - name: Configure Android preview
         run: |
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          ndk_root="$sdk_root/ndk/26.1.10909125"
+          ndk_root="$sdk_root/ndk/27.2.12479018"
           test -f "$ndk_root/build/cmake/android.toolchain.cmake"
           "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -76,9 +75,8 @@ jobs:
             -DANDROID_NDK_ROOT="$ndk_root" \
             -DQT_ANDROID_COMPILE_SDK_VERSION=36 \
             -DQT_ANDROID_TARGET_SDK_VERSION=36
-          # Qt 6.7 ships AGP 7.4.1 and an older Maven aapt2 which cannot read
-          # the API 36 resource table. Force the matching SDK build-tool while
-          # retaining Qt's otherwise working Android packaging template.
+          # Force the API-matched SDK aapt2 rather than an older Maven copy,
+          # while retaining Qt's otherwise working Android packaging template.
           gradle_properties="build-mobile-android/android-build/gradle.properties"
           mkdir -p "$(dirname "$gradle_properties")"
           touch "$gradle_properties"
@@ -94,7 +92,7 @@ jobs:
           test "${#apks[@]}" = 1
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           build_tools="$sdk_root/build-tools/36.0.0"
-          ndk_root="$sdk_root/ndk/26.1.10909125"
+          ndk_root="$sdk_root/ndk/27.2.12479018"
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
           mkdir mobile-artifacts

@@ -9,6 +9,10 @@ ApplicationWindow {
     visible: true
     title: "PQVPN Mobile Preview"
     color: "#080b17"
+    // The header and footer consume the vertical system insets explicitly so
+    // their backgrounds remain edge-to-edge while controls stay unobscured.
+    topPadding: 0
+    bottomPadding: 0
 
     property string cipher: "xchacha"
     property int page: 0
@@ -61,7 +65,8 @@ ApplicationWindow {
     }
 
     header: ToolBar {
-        height: 74
+        height: 74 + root.SafeArea.margins.top
+        topPadding: root.SafeArea.margins.top
         background: Rectangle { color: "#0a0e1d"; opacity: 0.96 }
         RowLayout {
             anchors.fill: parent
@@ -87,6 +92,7 @@ ApplicationWindow {
 
     footer: TabBar {
         id: navigation
+        bottomPadding: root.SafeArea.margins.bottom
         currentIndex: root.page
         onCurrentIndexChanged: root.page = currentIndex
         background: Rectangle { color: "#0a0e1d"; border.color: "#202946" }
