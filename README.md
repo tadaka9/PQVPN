@@ -171,11 +171,13 @@ learning**; RL is documented only as a non-implemented research question.
 
 ### DNS Shield: choose once, see the trade-off
 
-The Linux Privacy Console can apply a complete Pi-hole preset with one button.
-The packaged application performs one narrowly scoped administrator action:
-the helper accepts a named preset, adds only the reviewed source URLs below,
-validates optional custom expressions and rebuilds gravity. It cannot execute
-an arbitrary command or accept an arbitrary database path.
+Pi-hole is an exit-node service; it is not installed on the user's computer,
+phone or bootstrap node. In the mainnet design, each reviewed Shield profile
+is exposed through its own VPN service address. Choosing a profile selects that
+address for tunneled DNS, so the client never administers Pi-hole, edits its
+database or needs local administrator access. The signed mainnet directory is
+the authority for profile-to-address mappings; clients must not hard-code or
+guess an exit address.
 
 | Preset | Coverage | Expected friction | Best fit |
 |---|---|---:|---|
@@ -185,12 +187,15 @@ an arbitrary command or accept an arbitrary database path.
 | **Maximum** · expert | HaGeZi Pro + TIF + family categories | Higher | Operators prepared to diagnose false positives |
 
 ```text
-Privacy Console → Shield → choose a preset → Apply shield in one click
+Privacy Console → Shield → choose a preset → use its mainnet VPN address
 ```
 
-Pi-hole must already be installed locally. PQVPN does not silently install a
-DNS server, change a remote Pi-hole or pretend that DNS filtering can inspect
-encrypted page content. The shield displays aggregate counts only; it does not
+The exit operator provisions and updates the separate Pi-hole profiles. PQVPN
+does not silently install a local DNS server, grant a client control over the
+remote Pi-hole or pretend that DNS filtering can inspect encrypted page
+content. A profile endpoint must fail closed if its advertised filter is not
+healthy; it must never fall back to an unfiltered resolver under the same
+address. Shield status is aggregate and privacy-preserving: clients do not
 import query history, client addresses or browsing profiles. Category filters
 are a configurable safety aid—not surveillance, a substitute for conversation
 or a guarantee of child safety.
