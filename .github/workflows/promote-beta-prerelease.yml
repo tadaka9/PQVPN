@@ -1,4 +1,4 @@
-name: Promote verified beta tag and prerelease
+name: Promote verified experimental tag and prerelease
 
 on:
   workflow_dispatch:
@@ -12,18 +12,18 @@ on:
 
 # Trusted workflow_run event from successful CI in this repository only.
 # Tags created with GITHUB_TOKEN do not trigger push workflows, so we
-# explicitly dispatch CI on the immutable beta tag.
+  # explicitly dispatch CI on the immutable experimental tag.
 permissions:
   actions: write
   contents: write
 
 concurrency:
-  group: promote-pqvpn-beta
+  group: promote-pqvpn-experimental
   cancel-in-progress: false
 
 jobs:
   create-immutable-beta-tag:
-    name: Create new beta tag after green future CI
+    name: Create new experimental tag after green future CI
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
@@ -48,7 +48,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "$(git rev-parse origin/future)" = "$CI_SHA"
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
           tag="v$version"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists; no change is allowed."
@@ -119,7 +119,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Verify beta tag and dispatch protected publisher
+      - name: Verify experimental tag and dispatch protected publisher
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,7 +131,7 @@ jobs:
           git fetch origin future --tags
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
           TAG="v$version"
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CI_SHA"
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
@@ -143,7 +143,7 @@ jobs:
           gh workflow run publish-test-prerelease.yml \
             --repo "$GITHUB_REPOSITORY" --ref main \
             -f "tag=$TAG" -f "ci_run_id=$CI_RUN_ID"
-          echo "Dispatched attestation and protected beta publication for $TAG."
+          echo "Dispatched attestation and protected experimental publication for $TAG."
           for _ in {1..160}; do
             sleep 15
             gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
@@ -170,7 +170,7 @@ jobs:
           set -euo pipefail
           git fetch origin future --tags
           mapfile -t tags < <(git tag --merged origin/future --list 'v*' --sort=version:refname | \
-            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$')
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$')
           for tag in "${tags[@]}"; do
             gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && continue
             tag_sha="$(git rev-parse "refs/tags/$tag^{commit}")"

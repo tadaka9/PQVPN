@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing beta tag to publish
+        description: Existing alpha or beta tag to publish
         required: true
         type: string
       ci_run_id:
@@ -42,7 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           tag_sha="$(git rev-list -n 1 "$TAG")"
           test -n "$tag_sha"
@@ -171,9 +171,7 @@ jobs:
           cat > release-notes.md <<EOF
           # PQVPN ${TAG#v}
 
-          > **THE PATH OPENS. THE KEYS REMAIN YOURS.**
-
-          An experimental cross-platform PQVPN beta, built from immutable commit \`$PQVPN_RELEASE_SHA\` and admitted only after the same source passed every native build gate.
+          An experimental cross-platform PQVPN prerelease, built from immutable commit \`$PQVPN_RELEASE_SHA\` and admitted only after the same source passed every native build gate.
 
           ## Five desktop gates plus two mobile preview builds
 
@@ -208,15 +206,14 @@ jobs:
           3. Confirm the target and version before installation.
           4. Review configuration, peer policy and tunnel mode before connecting.
 
-          ## The honest boundary
+          ## Current limitations
 
           This is an **unqualified experimental prerelease**, not an anonymity guarantee or an independently audited security product. Production signing and the full native functional release gates remain incomplete. The mobile artifacts are UI previews: Android VPNService and iOS Network Extension are not integrated, and iOS is unsigned. The unsigned Windows tunnel driver is excluded. Linux portable archives use a desktop-test suffix, so the public mainnet updater will not install this prerelease automatically.
 
-          **Own the nodes. Own the keys. Verify the path.**
           EOF
           gh release create "$TAG" release/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --prerelease \
-            --title "PQVPN ${TAG#v} — The Path Opens" \
+            --title "PQVPN ${TAG#v} — Experimental prerelease" \
             --notes-file release-notes.md

@@ -18,7 +18,7 @@ offline member; it never substitutes another peer or falls back to universal
 fan-out. There is no common group secret to escrow or split. Instead, each
 member contributes to an independent X25519 + ML-KEM hybrid session, and the
 sender produces a different authenticated ciphertext for every recipient. A
-member's session key cannot decrypt another member's copy. This beta remains
+member's session key cannot decrypt another member's copy. This alpha remains
 live-session P2P: it does not yet claim asynchronous
 store-and-forward delivery or unbounded global reach.
 

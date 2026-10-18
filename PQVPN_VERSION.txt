@@ -1,1 +1,1 @@
-0.0.23-10172026-David1-beta-ETHICS
+0.7.0-10182026-David1-alpha-HONESTY

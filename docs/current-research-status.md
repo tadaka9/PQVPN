@@ -21,6 +21,11 @@ The reviewed baseline is commit `4e90b950ac630ab5ff8680a8f2433d4437a1814c`
 on `main`, tagged most recently by
 `v0.0.23-10172026-David1-beta-ETHICS`. PQVPN remains experimental and has not
 completed independent security audit or native release qualification.
+The next candidate is deliberately labelled
+`0.7.0-10182026-David1-alpha-HONESTY`. Version `0.7.0` is used so the immutable
+historical `v0.6-beta-10142026-David0-OTA` remains ordered before it; no tag or
+release history is rewritten. The candidate is not a published release until
+exact-tag CI and the protected prerelease publisher succeed.
 
 | Area | Evidence-backed state | Remaining boundary |
 |---|---|---|
@@ -51,12 +56,12 @@ or release evidence:
   read-only AIGuardian Node services were active; the designated seed also had
   its bounded TCP seed relay active.
 - Those external AIGuardian nodes use **cryptobiosis** as a local, reversible
-  dormancy policy: after inactivity they reduce optional observation and
-  analysis work, preserve bounded local state, and wake on the configured local
-  stimulus or schedule. Cryptobiosis does not stop PQVPN, change routes, inspect
-  payloads, learn a policy or grant the observer control over another service.
-  Daily Awareness is a separate scheduled read-only check, not an RL reward
-  cycle.
+  pressure/failure policy. Its fixed triggers are memory use at or above 95%,
+  disk use at or above 98%, or three consecutive sampling failures. It changes
+  the observer's sampling interval from 60 to 300 seconds; it does not stop
+  PQVPN, change routes, inspect payloads, learn a policy or grant the observer
+  control over another service. Daily Awareness is a separate scheduled
+  read-only check, not an RL reward cycle.
 - A separate ARM64 Home Assistant host previously reported AIGuardian Cognitive
   v0.2.1 healthy, connected and read-only, with local SQLite memory and Qwen
   disabled; cryptobiosis was inactive at that observation. A fresh
