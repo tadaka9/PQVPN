@@ -62,6 +62,7 @@ jobs:
           host: linux
           target: android
           arch: android_arm64_v8a
+          archives: qtbase qtdeclarative qtshadertools qtsvg
           cache: true
       - name: Configure Android preview
         run: |
