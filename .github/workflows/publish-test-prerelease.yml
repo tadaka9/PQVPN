@@ -171,6 +171,8 @@ jobs:
           cat > release-notes.md <<EOF
           # PQVPN ${TAG#v}
 
+          > **THE PATH OPENS. THE KEYS REMAIN YOURS.**
+
           An experimental cross-platform PQVPN prerelease, built from immutable commit \`$PQVPN_RELEASE_SHA\` and admitted only after the same source passed every native build gate.
 
           ## Five desktop gates plus two mobile preview builds
@@ -215,5 +217,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --prerelease \
-            --title "PQVPN ${TAG#v} — Experimental prerelease" \
+            --title "PQVPN ${TAG#v} — The Path Opens" \
             --notes-file release-notes.md
