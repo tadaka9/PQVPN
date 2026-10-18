@@ -42,7 +42,10 @@ jobs:
           sdkmanager="$sdk_root/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;25.1.8937393'
+          # Qt 6.7.3's official Android binaries are built with NDK r26b.
+          # Mixing them with r25's libc++ produces an installable APK that
+          # crashes at startup with a missing std::pmr symbol.
+          "$sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'ndk;26.1.10909125'
           # Extension preview platforms can supersede the stable API selected
           # by androiddeployqt. Keep only the stable API 36 platform.
           while IFS= read -r preview; do
@@ -64,7 +67,7 @@ jobs:
       - name: Configure Android preview
         run: |
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          ndk_root="$sdk_root/ndk/25.1.8937393"
+          ndk_root="$sdk_root/ndk/26.1.10909125"
           test -f "$ndk_root/build/cmake/android.toolchain.cmake"
           "$QT_ROOT_DIR/bin/qt-cmake" -S mobile -B build-mobile-android -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -91,7 +94,7 @@ jobs:
           test "${#apks[@]}" = 1
           sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           build_tools="$sdk_root/build-tools/36.0.0"
-          ndk_root="$sdk_root/ndk/25.1.8937393"
+          ndk_root="$sdk_root/ndk/26.1.10909125"
           test -x "$build_tools/zipalign"
           test -x "$build_tools/apksigner"
           mkdir mobile-artifacts
@@ -110,13 +113,21 @@ jobs:
           "$build_tools/zipalign" -c -P 16 -v 4 "$signed"
           inspect="$RUNNER_TEMP/pqvpn-elf"
           mkdir -p "$inspect"
-          unzip -q "$signed" 'lib/arm64-v8a/libpqvpn_mobile*.so' AndroidManifest.xml -d "$inspect"
+          unzip -q "$signed" 'lib/arm64-v8a/*.so' AndroidManifest.xml -d "$inspect"
           library="$(find "$inspect/lib/arm64-v8a" -type f -name 'libpqvpn_mobile*.so' -print -quit)"
           test -s "$library"
+          cxx_runtime="$inspect/lib/arm64-v8a/libc++_shared.so"
+          test -s "$cxx_runtime"
+          "$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -Ws "$cxx_runtime" \
+            | grep -F '_ZTVNSt6__ndk13pmr25monotonic_buffer_resourceE' >/dev/null
           "$ndk_root/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -lW "$library" \
             | awk '$1 == "LOAD" && ($NF == "0x1000" || $NF == "0x2000") { bad=1 } END { exit bad }'
-          "$build_tools/aapt2" dump xmltree "$signed" --file AndroidManifest.xml \
-            | grep -F 'pageSizeCompat' >/dev/null
+          manifest="$RUNNER_TEMP/pqvpn-manifest.txt"
+          "$build_tools/aapt2" dump xmltree "$signed" --file AndroidManifest.xml > "$manifest"
+          grep -F 'io.github.tadaka9.pqvpn' "$manifest" >/dev/null
+          grep -F 'org.qtproject.qt.android.bindings.QtActivity' "$manifest" >/dev/null
+          grep -F 'android.intent.category.LAUNCHER' "$manifest" >/dev/null
+          grep -F 'pageSizeCompat' "$manifest" >/dev/null
           echo 'PQVPN ELF is 16 KiB aligned; Qt runtime uses the declared Android compatibility mode.'
           sha256sum "$signed" > "$signed.sha256"
       - uses: actions/upload-artifact@v6
