@@ -40,6 +40,10 @@ the UDP configuration is rejected instead of silently sending raw UDP.
 trained with bounded SGD on packet sizes and arrival intervals. The model
 chooses bounded delay and encrypted padding buckets; it does not inspect
 payloads, download a model, send telemetry or train against an ISP classifier.
+This is online regression, **not reinforcement learning**: there is no agent,
+reward, exploration loop or learned control authority. RL remains an
+unimplemented research question with separate gates in
+[`reinforcement-learning-research.md`](reinforcement-learning-research.md).
 Mode `ai_blockchain` constrains those local predictions with bounded,
 quorum-verified distributed weight epochs. Unverified, stale, non-finite or
 out-of-range weights are rejected; consensus is never queried in the packet

@@ -153,6 +153,11 @@ not pretending that an application can operate without ephemeral error state.
 
 ## What exists today
 
+The dated, evidence-classified research snapshot is
+[`docs/current-research-status.md`](docs/current-research-status.md). In
+particular, the current bounded SGD traffic predictor is **not reinforcement
+learning**; RL is documented only as a non-implemented research question.
+
 | Capability | Current behavior |
 |---|---|
 | **Hybrid session setup** | X25519 + ML-KEM-1024 key establishment; Ed25519 + ML-DSA-87 authentication; SHA3-512 transcript and HKDF derivation. |
@@ -568,6 +573,10 @@ Useful maps:
 - [`docs/update-system.md`](docs/update-system.md) — update trust and rollback
 - [`docs/external-transports.md`](docs/external-transports.md) — transport
   attachment boundaries
+- [`docs/current-research-status.md`](docs/current-research-status.md) — dated
+  implemented/observed/gated/research-only status
+- [`docs/reinforcement-learning-research.md`](docs/reinforcement-learning-research.md) —
+  non-implemented RL research boundary and evidence gates
 
 ## Repository map
 
