@@ -36,7 +36,58 @@ jobs:
           }
 
           {
-            echo "OPENSSL_VERSION=$(release_tag openssl/openssl | sed 's/^openssl-//')"
+            # liboqs 0.16.0 and OpenSSL 4.1 both export optimized Keccak
+            # symbols in static Linux builds. Stay on the latest compatible
+            # OpenSSL 4.0 patch release until that upstream conflict is fixed.
+            echo "OPENSSL_VERSION=$(stable_tag openssl/openssl 'openssl-4.0.*' '^openssl-4\\.0\\.[0-9]+
+            echo "ARGON2_VERSION=$(release_tag P-H-C/phc-winner-argon2)"
+            echo "LIBOQS_VERSION=$(release_tag open-quantum-safe/liboqs)"
+            echo "SPDLOG_TAG=$(release_tag gabime/spdlog)"
+            echo "ASIO_TAG=$(stable_tag chriskohlhoff/asio 'asio-*' '^asio-[0-9]+-[0-9]+-[0-9]+$')"
+            echo "CATCH2_TAG=$(release_tag catchorg/Catch2)"
+            echo "GOOGLETEST_TAG=$(release_tag google/googletest)"
+            echo "QT_VERSION=$(stable_tag qt/qtbase 'v6.*' '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//')"
+          } > .github/dependencies.env.new
+
+          test "$(wc -l < .github/dependencies.env.new)" -eq 8
+          while IFS='=' read -r key value; do
+            test -n "$key"
+            test -n "$value"
+          done < .github/dependencies.env.new
+          mv .github/dependencies.env.new .github/dependencies.env
+
+      - name: Update future and prepare the main integration PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/dependencies.env; then
+            echo 'Every dependency already matches its latest stable upstream release.'
+            exit 0
+          fi
+
+          branch=future
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/dependencies.env
+          git commit -m 'Update upstream dependencies to latest stable releases'
+          git push origin "HEAD:$branch"
+
+          pr_number="$(gh pr list --state open --head "$branch" --base main --json number --jq '.[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            pr_url="$(gh pr create --base main --head "$branch" \
+              --title 'Integrate validated future development into main' \
+              --body 'Integrates development from future, including updates to centralized dependency pins from official stable upstream releases. Required checks and review must pass before merging into protected main.')"
+            pr_number="${pr_url##*/}"
+          fi
+
+          gh workflow run ci.yml --ref "$branch"
+          gh workflow run build.yml --ref "$branch"
+          gh workflow run codeql.yml --ref "$branch"
+          gh workflow run attribution-policy.yml --ref "$branch"
+          echo "Integration PR #$pr_number is ready for validation and review."
+ | sed 's/^openssl-//')"
             echo "ARGON2_VERSION=$(release_tag P-H-C/phc-winner-argon2)"
             echo "LIBOQS_VERSION=$(release_tag open-quantum-safe/liboqs)"
             echo "SPDLOG_TAG=$(release_tag gabime/spdlog)"
