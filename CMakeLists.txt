@@ -338,8 +338,6 @@ if(UNIX AND NOT APPLE)
     RENAME pqvpn-monitor.svg)
   install(PROGRAMS packaging/linux/pqvpn-linux-network
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
-  install(PROGRAMS packaging/linux/pqvpn-shield-helper
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-exit-shield
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(FILES packaging/linux/pqvpn-exit-shield.sudoers
