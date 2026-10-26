@@ -83,7 +83,7 @@ jobs:
       - name: Resolve qualified commit
         shell: bash
         run: echo "PQVPN_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Check native runner prerequisites
