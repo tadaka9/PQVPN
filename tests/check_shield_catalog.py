@@ -6,6 +6,8 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 gui = (root / "src/monitor/pqvpn_monitor.cpp").read_text(encoding="utf-8")
 helper = (root / "packaging/linux/pqvpn-exit-shield").read_text(encoding="utf-8")
+policy = (root / "src/modules/dns_shield_policy.hpp").read_text(encoding="utf-8")
+local_filter = (root / "src/modules/local_dns_filter.hpp").read_text(encoding="utf-8")
 
 profiles = {
     "privacy": ("https://big.oisd.nl/",),
@@ -40,4 +42,8 @@ assert "pqvpn-shield-helper" not in (root / "packaging/linux/49-pqvpn-network.ru
 assert "dns-blocklists@latest/domains/" not in gui + helper
 assert "eval " not in helper
 assert "curl " not in helper
+assert '"custom"' in gui and 'value == "custom"' in policy
+assert 'return value == "custom"' in policy
+assert "LocalDnsFilter" in local_filter
+assert "custom" not in helper.split("case \"$profile\"")[1].split("esac")[0]
 print("Shield catalog and exit-only privileged boundary are aligned")

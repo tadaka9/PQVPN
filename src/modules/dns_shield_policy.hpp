@@ -9,12 +9,19 @@
 
 namespace pqvpn::shield {
 
-inline constexpr std::array<std::string_view, 6> profiles{
-    "off", "dnscrypt", "privacy", "security", "family", "maximum"};
+inline constexpr std::array<std::string_view, 7> profiles{
+    "off", "custom", "dnscrypt", "privacy", "security", "family", "maximum"};
 
 inline bool valid_profile(std::string_view value) noexcept {
     for (const auto profile : profiles) if (profile == value) return true;
     return false;
+}
+
+// Custom filtering is deliberately client-local.  The exit must see it as
+// `off`, otherwise an operator-side Pi-hole group could accidentally be
+// applied in addition to the user's private rules.
+inline std::string_view exit_profile(std::string_view value) noexcept {
+    return value == "custom" ? std::string_view{"off"} : value;
 }
 
 // Stable CGNAT address derived from the authenticated 256-bit peer identity.

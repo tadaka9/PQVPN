@@ -255,14 +255,22 @@ namespace pqvpn::config {
     struct Config {
         struct DnsShieldConfig {
             std::string profile = "off";
+            std::vector<std::string> custom_blocklist_files;
+            std::vector<std::string> custom_rules;
             friend void from_json(const nlohmann::json& j, DnsShieldConfig& value) {
                 value.profile = j.value("profile", value.profile);
-                static const std::vector<std::string> allowed{"off", "dnscrypt", "privacy", "security", "family", "maximum"};
+                value.custom_blocklist_files = j.value("custom_blocklist_files", value.custom_blocklist_files);
+                value.custom_rules = j.value("custom_rules", value.custom_rules);
+                static const std::vector<std::string> allowed{"off", "custom", "dnscrypt", "privacy", "security", "family", "maximum"};
                 if (std::find(allowed.begin(), allowed.end(), value.profile) == allowed.end())
-                    throw std::invalid_argument("dns_shield.profile must be off, dnscrypt, privacy, security, family or maximum");
+                    throw std::invalid_argument("dns_shield.profile must be off, custom, dnscrypt, privacy, security, family or maximum");
+                if (value.custom_blocklist_files.size() > 8 || value.custom_rules.size() > 512)
+                    throw std::invalid_argument("dns_shield custom limits exceeded");
             }
             friend void to_json(nlohmann::json& j, const DnsShieldConfig& value) {
                 j = {{"profile", value.profile}};
+                if (!value.custom_blocklist_files.empty()) j["custom_blocklist_files"] = value.custom_blocklist_files;
+                if (!value.custom_rules.empty()) j["custom_rules"] = value.custom_rules;
             }
         };
         SecurityConfig security;

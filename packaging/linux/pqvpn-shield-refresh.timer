@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily, load-smoothed PQVPN exit blocklist refresh
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=3h
+AccuracySec=15m
+Persistent=true
+Unit=pqvpn-shield-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -439,7 +439,7 @@ bool parse(int argc, char** argv, Options& options) {
         else if ((arg == "--config" || arg == "-c") && index + 1 < argc) options.config = argv[++index];
         else if (arg == "--node" && index + 1 < argc) options.node = argv[++index];
         else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--shield-profile off|dnscrypt|privacy|security|family|maximum] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--shaping on|off] [--shaping-mode ai|blockchain|ai_blockchain] [--shaping-padding 0..4096] [--shaping-delay 0..100] [--smoke-test]\n";
+            std::cout << "Usage: pqvpn_tui [--config PATH] [--node PATH] [--no-tunnel] [--shield-profile off|custom|dnscrypt|privacy|security|family|maximum] [--inner-tunnel-backend wireguard|openvpn3] [--inner-tunnel-config PATH] [--no-inner-tunnel] [--shaping on|off] [--shaping-mode ai|blockchain|ai_blockchain] [--shaping-padding 0..4096] [--shaping-delay 0..100] [--smoke-test]\n";
             options.help=true;return true;
         } else {
             std::cerr << "Unknown or incomplete argument: " << arg << '\n';

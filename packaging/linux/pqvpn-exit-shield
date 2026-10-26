@@ -42,4 +42,9 @@ assign() {
   "$pihole" reloadlists >/dev/null
   echo "PQVPN Shield assigned $ip to $profile"
 }
-case "$action" in provision) provision;; assign) assign "$@";; *) echo "usage: pqvpn-exit-shield provision | assign INTERNAL_IP PROFILE" >&2; exit 2;; esac
+refresh() {
+  # One gravity refresh per timer run.  systemd supplies daily cadence,
+  # jitter and missed-run recovery; this helper supplies path portability.
+  "$pihole" -g
+}
+case "$action" in provision) provision;; assign) assign "$@";; refresh) refresh;; *) echo "usage: pqvpn-exit-shield provision | refresh | assign INTERNAL_IP PROFILE" >&2; exit 2;; esac

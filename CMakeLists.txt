@@ -353,6 +353,8 @@ if(UNIX AND NOT APPLE)
   install(FILES packaging/linux/pqvpn-seed-tcp.service
                 packaging/linux/pqvpn-seed-health.service
                 packaging/linux/pqvpn-seed-health.timer
+                packaging/linux/pqvpn-shield-refresh.service
+                packaging/linux/pqvpn-shield-refresh.timer
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system)
   install(FILES packaging/linux/49-pqvpn-network.rules
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/rules.d)

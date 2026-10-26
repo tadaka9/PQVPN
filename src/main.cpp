@@ -41,6 +41,7 @@
 #include "wallet_identity.hpp"
 #include "social_ledger.hpp"
 #include "dns_shield_policy.hpp"
+#include "local_dns_filter.hpp"
 
 namespace {
 
@@ -125,6 +126,8 @@ struct CliArgs {
     bool version = false;
     bool wallet_info = false;
     std::optional<std::string> shield_profile;
+    std::vector<std::string> shield_blocklist_files;
+    std::vector<std::string> shield_rules;
     std::string strangenet_room;
     std::string strangenet_peer;
     bool control_stdin = false;
@@ -149,7 +152,9 @@ void print_usage(const char* program) {
         << "      --platform-info     Show OS-specific tunnel capabilities\n"
         << "      --version           Show the PQVPN build version\n"
         << "      --wallet-info       Create/load the local self-custody wallet and print public JSON\n"
-        << "      --shield-profile NAME  DNS policy: off, dnscrypt, privacy, security, family or maximum\n"
+        << "      --shield-profile NAME  DNS policy: off, custom, dnscrypt, privacy, security, family or maximum\n"
+        << "      --shield-blocklist PATH  Local blocklist for the custom profile (repeatable)\n"
+        << "      --shield-rule DOMAIN     Local domain/suffix rule for custom (repeatable)\n"
         << "      --strangenet-room NAME  Join a bounded room; broadcasts to authenticated peers\n"
         << "      --strangenet-peer HEX   Optionally restrict the room to one peer identity\n"
         << "      --control-stdin      Accept newline-delimited GUI control commands\n"
@@ -187,10 +192,14 @@ std::optional<CliArgs> parse_args(int argc, char** argv) {
             args.wallet_info = true;
         } else if (value == "--shield-profile") {
             if (++index >= argc || !pqvpn::shield::valid_profile(argv[index])) {
-                std::cerr << "--shield-profile requires off, dnscrypt, privacy, security, family or maximum\n";
+                std::cerr << "--shield-profile requires off, custom, dnscrypt, privacy, security, family or maximum\n";
                 return std::nullopt;
             }
             args.shield_profile = argv[index];
+        } else if (value == "--shield-blocklist" || value == "--shield-rule") {
+            if (++index >= argc) { std::cerr << value << " requires a value\n"; return std::nullopt; }
+            if (value == "--shield-blocklist") args.shield_blocklist_files.emplace_back(argv[index]);
+            else args.shield_rules.emplace_back(argv[index]);
         } else if (value == "--control-stdin") {
             args.control_stdin = true;
         } else if (value == "--strangenet-room" || value == "--strangenet-peer") {
@@ -449,6 +458,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     if (args.shield_profile) config->dns_shield.profile = *args.shield_profile;
+    if (!args.shield_blocklist_files.empty()) config->dns_shield.custom_blocklist_files = args.shield_blocklist_files;
+    if (!args.shield_rules.empty()) config->dns_shield.custom_rules = args.shield_rules;
     pqvpn::wallet::SelfCustodyIdentity wallet;
     try {
         wallet=pqvpn::wallet::load_or_create(pqvpn::wallet::path_for_config(args.config_path));
@@ -492,7 +503,22 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to load or create node identity\n";
         return 1;
     }
-    node->set_dns_shield_profile(config->dns_shield.profile);
+    node->set_dns_shield_profile(std::string(pqvpn::shield::exit_profile(config->dns_shield.profile)));
+    auto local_dns_filter = std::make_shared<pqvpn::shield::LocalDnsFilter>();
+    if (config->dns_shield.profile == "custom") {
+        if (config->dns_shield.custom_blocklist_files.empty() && config->dns_shield.custom_rules.empty()) {
+            std::cerr << "Custom DNS Shield requires at least one local blocklist file or domain rule\n";
+            return 1;
+        }
+        try {
+            local_dns_filter->load(config->dns_shield.custom_blocklist_files,
+                                   config->dns_shield.custom_rules);
+            std::cout << "local DNS Shield active: " << local_dns_filter->size() << " domain rules\n";
+        } catch (const std::exception& error) {
+            std::cerr << "Cannot load local custom DNS Shield: " << error.what() << "\n";
+            return 1;
+        }
+    }
     const auto internal_ip = node->local_peer_id()
         ? pqvpn::shield::internal_ipv4(*node->local_peer_id()).value_or(std::string{})
         : std::string{};
@@ -606,7 +632,7 @@ int main(int argc, char** argv) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
                                        config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
-                                       config->dns_shield.profile, control_endpoints)) {
+                                       std::string(pqvpn::shield::exit_profile(config->dns_shield.profile)), control_endpoints)) {
             std::cerr << "Cannot create the protected Linux TUN device\n";
             listener.stop();
             return 1;
@@ -642,8 +668,14 @@ int main(int argc, char** argv) {
     bool linux_network_active = false;
     std::unique_ptr<pqvpn::tunnel::ExternalTunnelProcess> inner_tunnel;
     if (adapter) {
-        if (adapter->open([node](pqvpn::platform::Adapter::Packet frame) {
+        auto* local_adapter = adapter.get();
+        if (adapter->open([node, local_adapter, local_dns_filter,
+                           custom = config->dns_shield.profile == "custom"](pqvpn::platform::Adapter::Packet frame) {
                 // Adapter -> tunnel: forward to the selected established session.
+                if (custom) {
+                    auto response = local_dns_filter->filter_packet(frame);
+                    if (!response.empty()) { (void)local_adapter->write(response); return; }
+                }
 #ifdef __linux__
                 auto ethernet = pqvpn::platform::tun_packet_to_ethernet(frame);
                 if (!ethernet) return;
@@ -657,7 +689,7 @@ int main(int argc, char** argv) {
 #ifdef __linux__
             if (!run_linux_network_manager("up", config->tunnel.interface_name,
                                            config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
-                                           config->dns_shield.profile, control_endpoints)) {
+                                           std::string(pqvpn::shield::exit_profile(config->dns_shield.profile)), control_endpoints)) {
                 std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
                 adapter->close();
                 listener.stop();

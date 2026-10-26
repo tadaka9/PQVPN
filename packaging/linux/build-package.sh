@@ -141,7 +141,9 @@ EOF
 fi
 install -m 0644 packaging/linux/pqvpn-seed-tcp.service \
     packaging/linux/pqvpn-seed-health.service \
-    packaging/linux/pqvpn-seed-health.timer "$PKG_ROOT/usr/lib/systemd/system/"
+    packaging/linux/pqvpn-seed-health.timer \
+    packaging/linux/pqvpn-shield-refresh.service \
+    packaging/linux/pqvpn-shield-refresh.timer "$PKG_ROOT/usr/lib/systemd/system/"
 
 if [ -f "$BUILD_DIR/pqvpn_monitor" ] && [ -f "packaging/linux/pqvpn-monitor.desktop" ]; then
     install -m 0644 packaging/linux/pqvpn-monitor.desktop "$PKG_ROOT/usr/share/applications/"
@@ -170,6 +172,12 @@ if [ -x /usr/lib/systemd/systemd-sysctl ]; then
         --prefix=/net/core/rmem_max --prefix=/net/core/wmem_max || true
 elif command -v sysctl >/dev/null 2>&1; then
     sysctl -p /usr/lib/sysctl.d/60-pqvpn-network-performance.conf || true
+fi
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload || true
+    if [ -f /etc/pihole/gravity.db ]; then
+        systemctl enable --now pqvpn-shield-refresh.timer || true
+    fi
 fi
 exit 0
 EOF
