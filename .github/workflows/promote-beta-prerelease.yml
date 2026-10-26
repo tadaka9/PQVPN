@@ -1,30 +1,35 @@
-name: Promote verified beta tag and prerelease
+name: Promote verified experimental tag and prerelease
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-  # Recovery: workflow_run is not reliably chained after token-dispatched CI.
-  # The recovery job still demands completed successful exact-tag CI evidence.
-  push:
-    branches: [future]
+    inputs:
+      tag:
+        description: Exact existing experimental tag to publish
+        required: true
+        type: string
+      android_device_evidence:
+        description: Exact PASS line from tools/verify-android-on-device.sh
+        required: true
+        type: string
+# Publication is intentionally manual. Hosted CI may prepare candidates, but a
+# human supplies the exact tag and the physical-device PASS evidence.
 
 # Trusted workflow_run event from successful CI in this repository only.
 # Tags created with GITHUB_TOKEN do not trigger push workflows, so we
-# explicitly dispatch CI on the immutable beta tag.
+  # explicitly dispatch CI on the immutable experimental tag.
 permissions:
   actions: write
   contents: write
 
 concurrency:
-  group: promote-pqvpn-beta
+  group: promote-pqvpn-experimental
   cancel-in-progress: false
 
 jobs:
   create-immutable-beta-tag:
-    name: Create new beta tag after green future CI
+    name: Create new experimental tag after green future CI
     if: >-
+      vars.ALLOW_EXPERIMENTAL_AUTOPUBLISH == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'future' &&
@@ -48,7 +53,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "$(git rev-parse origin/future)" = "$CI_SHA"
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
           tag="v$version"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists; no change is allowed."
@@ -109,6 +114,7 @@ jobs:
   publish-verified-tag-build:
     name: Dispatch experimental prerelease after green tagged CI
     if: >-
+      vars.ALLOW_EXPERIMENTAL_AUTOPUBLISH == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'workflow_dispatch' &&
       github.event.workflow_run.head_repository.full_name == github.repository
@@ -119,7 +125,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Verify beta tag and dispatch protected publisher
+      - name: Verify experimental tag and dispatch protected publisher
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -131,7 +137,7 @@ jobs:
           git fetch origin future --tags
           version="$(tr -d '[:space:]' < PQVPN_VERSION.txt)"
           TAG="v$version"
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
           test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$CI_SHA"
           test "$(git rev-parse HEAD)" = "$CI_SHA"
           test "v$(tr -d '[:space:]' < PQVPN_VERSION.txt)" = "$TAG"
@@ -143,7 +149,7 @@ jobs:
           gh workflow run publish-test-prerelease.yml \
             --repo "$GITHUB_REPOSITORY" --ref main \
             -f "tag=$TAG" -f "ci_run_id=$CI_RUN_ID"
-          echo "Dispatched attestation and protected beta publication for $TAG."
+          echo "Dispatched attestation and protected experimental publication for $TAG."
           for _ in {1..160}; do
             sleep 15
             gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
@@ -155,7 +161,8 @@ jobs:
     name: Resume publication of all exact-tag CI assets
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/future')
+      (vars.ALLOW_EXPERIMENTAL_AUTOPUBLISH == 'true' &&
+       github.event_name == 'push' && github.ref == 'refs/heads/future')
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -166,11 +173,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          ANDROID_DEVICE_EVIDENCE: ${{ inputs.android_device_evidence }}
         run: |
           set -euo pipefail
           git fetch origin future --tags
-          mapfile -t tags < <(git tag --merged origin/future --list 'v*' --sort=version:refname | \
-            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-beta(-[0-9A-Za-z.-]+)?$')
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            [[ "$REQUESTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]
+            [[ "$ANDROID_DEVICE_EVIDENCE" =~ ^PASS:\ io\.github\.tadaka9\.pqvpn\ is\ foreground,\ PID\ [0-9]+,\ with\ a\ clean\ crash\ buffer\.$ ]]
+            mapfile -t tags < <(printf '%s\n' "$REQUESTED_TAG")
+          else
+            mapfile -t tags < <(git tag --merged origin/future --list 'v*' --sort=version:refname | \
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-[0-9A-Za-z.]+-(alpha|beta)(-[0-9A-Za-z.-]+)?$')
+          fi
           for tag in "${tags[@]}"; do
             gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && continue
             tag_sha="$(git rev-parse "refs/tags/$tag^{commit}")"

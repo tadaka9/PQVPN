@@ -20,6 +20,8 @@ manufacture.
 | External/inner transports | Architecture-aware sidecars plus config-driven WireGuard/OpenVPN | A running helper does not prove traffic uses it |
 | Exit selection | Health/capacity weighted assignment, flow affinity and fail-closed choice | More peers help only when independently healthy |
 | Flux console | Aggregate fleet health over hardened SSH aliases | No participant/payload telemetry or billing-provider access |
+| External AIGuardian observations | Separate read-only host observer with bounded local memory, daily Awareness and reversible cryptobiosis dormancy | Not part of PQVPN, not routing/security evidence, not RL and no control-plane authority |
+| Local traffic learning | Bounded SGD regression over packet size and inter-arrival timing | Not RL; no payload, destination, reward, exploration or human signal |
 | Asgard core | Encrypted chunks, independent-domain quorum, signed capabilities/receipts, audit and verified repair | Network transport, garbage collection and public cloud are gated |
 | Releases/site | Future development, protected promotion, versioned registry and refreshed metadata | Automation alone creates qualifying releases |
 
@@ -36,6 +38,7 @@ manufacture.
 | Global asynchronous StrangeNet | Origin-signed store-and-forward and abuse controls do not exist | Bounded envelopes, expiry, quotas and adversarial tests |
 | Persistent game economy | Conflicts with zero-telemetry/session-only world and introduces financial abuse | Keep exploration local unless a reviewed opt-in economy exists |
 | Faster than WireGuard | No reproducible benchmark supports the claim | Publish median/p95 throughput, latency, loss and CPU comparisons |
+| Reinforcement learning | No RL agent, reward loop or deployment authority exists; bounded SGD is not RL | Keep research-only until the separate privacy, offline, adversarial, shadow-mode and independent-review gates have direct evidence |
 
 ## Conflict resolutions
 
@@ -53,3 +56,6 @@ manufacture.
 
 Update this audit only when a gate obtains direct evidence. A GUI control,
 roadmap sentence or workflow file alone is not a finished security feature.
+The dated cross-area snapshot lives in
+[`current-research-status.md`](current-research-status.md); its operator
+observations do not satisfy repository or release gates.

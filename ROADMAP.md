@@ -107,6 +107,17 @@ verification on an elevated host with a connected adapter is still pending.
 
 ## Research Commons and PQ mesh ledger
 
+The current traffic shaper's bounded SGD predictor is not reinforcement
+learning. RL remains research-only: no implementation or deployment is planned
+by this checklist until the privacy, offline evaluation, adversarial testing,
+shadow-mode and independent-review gates in
+[`docs/reinforcement-learning-research.md`](docs/reinforcement-learning-research.md)
+have direct evidence.
+
+- [ ] Decide whether RL offers a measurable safety or privacy benefit over the
+  deterministic and bounded-SGD baselines; documentation alone does not
+  authorize implementation.
+
 - [x] Add a fail-closed local prototype of the Path Quilt Distributed
   Scientific Method: canonical falsifiable manifests, deterministic replicated
   units, distinct-peer evidence and explicit pending/reproduced/conflict states.

@@ -19,6 +19,49 @@ goals and calm reward feedback are encouraged. Expert controls remain
 available without overwhelming the primary path. Accessibility, reduced
 motion, keyboard operation and readable contrast are product requirements.
 
+## Psychological and physical navigation feedback
+
+GUI, TUI, mobile and accessibility surfaces use the same semantic feedback
+states even when their physical expression differs: **focus**, **pressed**,
+**accepted**, **pending**, **verified**, **failed** and **recovered**. Labels,
+order and meaning remain stable across platforms; layout adapts to the device.
+
+- Focus and selection identify the current place without implying that an
+  action has completed. Pressed feedback is immediate, subtle and reversible.
+- Page changes preserve spatial continuity with short, predictable motion.
+  Reduced-motion settings replace movement with an immediate state change.
+- Android and iOS may use one light haptic pulse for a deliberate accepted
+  action, and a distinct bounded pulse for a real error. They must respect the
+  operating system's haptic and accessibility settings. Passive updates,
+  scrolling, repeated navigation and unverified success never vibrate.
+- Desktop and TUI provide equivalent visible text, focus and state changes;
+  they do not imitate touch feedback with unsolicited sounds or terminal bells.
+- Waiting feedback names the operation and remains calm. Success feedback is
+  shown only after evidence from the node or platform; failure explains the
+  safe recovery path without blame, alarmism or repeated attention capture.
+- Touch targets, keyboard focus, screen-reader announcements and contrast are
+  part of the same contract. No information exists only in colour, motion,
+  sound or vibration.
+
+Physical feedback confirms agency; it is never a reward loop. Navigation must
+feel responsive without training the person to tap, disclose or remain in the
+application longer than intended.
+
+## Fallibility is normal
+
+People, software and operators can make mistakes. The interface must not treat
+an error as a moral failure, proof of incompetence or permission to take
+control away from the person. It should prevent predictable mistakes where it
+can, make consequences clear before an irreversible action, preserve entered
+work, and offer undo, retry or a safe route back whenever technically possible.
+
+Errors use precise, non-accusatory language: what happened, what remains safe,
+what was not changed and how to recover. A mistaken tap must not silently
+connect, publish, spend, weaken protection or destroy data. Confirmation is
+proportional to consequence rather than repeated until the person gives in.
+The system must also admit uncertainty and its own faults; it may say that a
+state is unknown, but it must never invent success to appear infallible.
+
 The following are prohibited:
 
 - fake urgency, scarcity, social proof or security state;

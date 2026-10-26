@@ -172,7 +172,7 @@ async function configurePlatformDownload(){
       detectedLabel.textContent=`Detected ${platformDescription(facts)} · recommended package selected`;
     }else{
       for(const button of downloadButtons)button.href=newestRelease.html_url;
-      downloadButton.textContent='Choose an available beta package';
+      downloadButton.textContent='Choose an available experimental package';
       document.querySelector('#download-panel').open=true;
       for(const button of downloadButtons)button.removeAttribute('download');
       const reason=(facts.os==='android'||facts.os==='ios')?'No mobile preview has been published yet':facts.unsupported32?'32-bit builds are not published':'Confirm your architecture or package manager';
@@ -184,7 +184,7 @@ async function configurePlatformDownload(){
     downloadButton.textContent='Open published releases';
     detectedLabel.textContent=`${platformDescription(facts)} · package list unavailable, choose from GitHub Releases`;
     releaseLabel.textContent=error.message;
-    if(projectVersion)projectVersion.textContent='beta · release feed unavailable';
+    if(projectVersion)projectVersion.textContent='alpha · release feed unavailable';
   }
 }
 configurePlatformDownload();setInterval(()=>{if(!document.hidden)configurePlatformDownload()},900000);

@@ -19,7 +19,7 @@ test "$(printf '%s\n' "$line" | grep -c .)" -eq 1 || {
 participated="${line#*=}"
 expected="David${participated}"
 
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-${expected}-beta(-[0-9A-Za-z.-]+)?$ ]]; then
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}-${expected}-(alpha|beta)(-[0-9A-Za-z.-]+)?$ ]]; then
   echo "Version '$version' conflicts with the participation manifest; expected suffix $expected." >&2
   exit 1
 fi
