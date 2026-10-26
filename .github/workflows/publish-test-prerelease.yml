@@ -146,7 +146,7 @@ jobs:
           test -z "$(find release -maxdepth 1 -type f \( -name 'PQVPN-*-linux-x86_64.tar.gz' -o -name 'PQVPN-*-linux-arm64.tar.gz' \))"
 
       - name: Attest staged release bytes
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: release/*
 
