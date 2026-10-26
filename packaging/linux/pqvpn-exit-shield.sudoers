@@ -1,0 +1,3 @@
+# The helper validates both the 100.64.0.0/10 client address and the finite
+# profile name before changing Pi-hole. Keep every other root command denied.
+pqvpn ALL=(root) NOPASSWD: /usr/lib/pqvpn/pqvpn-exit-shield assign *

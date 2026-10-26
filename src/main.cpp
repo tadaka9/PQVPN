@@ -98,8 +98,14 @@ bool apply_exit_shield(const std::string& internal_ip, const std::string& profil
     if (!pqvpn::shield::valid_profile(profile)) return false;
     const pid_t child = ::fork();
     if (child == 0) {
-        ::execl("/usr/lib/pqvpn/pqvpn-exit-shield", "pqvpn-exit-shield", "assign",
-                internal_ip.c_str(), profile.c_str(), nullptr);
+        constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-exit-shield";
+        if (::geteuid() == 0) {
+            ::execl(helper, "pqvpn-exit-shield", "assign", internal_ip.c_str(),
+                    profile.c_str(), nullptr);
+        } else {
+            ::execl("/usr/bin/sudo", "sudo", "-n", helper, "assign", internal_ip.c_str(),
+                    profile.c_str(), nullptr);
+        }
         _exit(127);
     }
     if (child < 0) return false;

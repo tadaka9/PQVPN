@@ -342,6 +342,9 @@ if(UNIX AND NOT APPLE)
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/linux/pqvpn-exit-shield
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
+  install(FILES packaging/linux/pqvpn-exit-shield.sudoers
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/sudoers.d
+    RENAME pqvpn-exit-shield)
   install(PROGRAMS packaging/linux/pqvpn-research-compute
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pqvpn)
   install(PROGRAMS packaging/transports/pqvpn-tcp-relay.py
@@ -419,10 +422,14 @@ if(UNIX AND NOT APPLE)
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_method.py)
     add_test(NAME pqvpn_unified_gui_contract
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_unified_gui_contract.py)
+    add_test(NAME pqvpn_exit_shield_contract
+      COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_exit_shield_contract.py)
     set_tests_properties(pqvpn_research_compute pqvpn_distributed_scientific_method PROPERTIES
       TIMEOUT 30 LABELS "baseline;research;security")
     set_tests_properties(pqvpn_unified_gui_contract PROPERTIES
       TIMEOUT 30 LABELS "baseline;gui;architecture")
+    set_tests_properties(pqvpn_exit_shield_contract PROPERTIES
+      TIMEOUT 30 LABELS "baseline;packaging;security")
   endif()
 endif()
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")

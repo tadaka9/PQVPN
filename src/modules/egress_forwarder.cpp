@@ -661,6 +661,14 @@ void EgressForwarder::handle_tcp(const Mac& client_mac, const asio::ip::address&
         }
         const bool local_dns = sp == 53 && srv_addr.is_v4() &&
             srv_addr.to_string() == shield::dns_service_ipv4;
+        if (local_dns) {
+            f->sock->bind(asio::ip::tcp::endpoint(c_addr, 0), open_ec);
+            if (open_ec) {
+                pqvpn::logging::Logger::warn("egress: cannot bind DNS client address {}: {}",
+                                             c_addr.to_string(), open_ec.message());
+                return;
+            }
+        }
         f->target = asio::ip::tcp::endpoint(
             local_dns ? asio::ip::make_address("127.0.0.1") : srv_addr, sp);
         f->last_activity = now_seconds();
@@ -1100,13 +1108,18 @@ void EgressForwarder::handle_udp(const Mac& client_mac, const asio::ip::address&
             pqvpn::logging::Logger::warn("egress: cannot open UDP socket: {}", open_ec.message());
             return;
         }
+        const bool local_dns = sp == 53 && srv_addr.is_v4() &&
+            srv_addr.to_string() == shield::dns_service_ipv4;
         if (srv_addr.is_v6()) {
             f->sock->bind(asio::ip::udp::endpoint(asio::ip::address_v6::any(), 0), open_ec);
         } else {
-            f->sock->bind(asio::ip::udp::endpoint(asio::ip::address_v4::any(), 0), open_ec);
+            f->sock->bind(asio::ip::udp::endpoint(
+                local_dns ? c_addr.to_v4() : asio::ip::address_v4::any(), 0), open_ec);
         }
-        const bool local_dns = sp == 53 && srv_addr.is_v4() &&
-            srv_addr.to_string() == shield::dns_service_ipv4;
+        if (open_ec) {
+            pqvpn::logging::Logger::warn("egress: cannot bind UDP socket: {}", open_ec.message());
+            return;
+        }
         f->target = asio::ip::udp::endpoint(
             local_dns ? asio::ip::make_address("127.0.0.1") : srv_addr, sp);
         f->last_activity = now_seconds();

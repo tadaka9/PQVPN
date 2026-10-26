@@ -38,6 +38,7 @@ mkdir -p \
     "$PKG_ROOT/DEBIAN" \
     "$PKG_ROOT/usr/bin" \
     "$PKG_ROOT/etc/pqvpn" \
+    "$PKG_ROOT/etc/sudoers.d" \
     "$PKG_ROOT/usr/share/pqvpn" \
     "$PKG_ROOT/usr/lib/systemd/system" \
     "$PKG_ROOT/usr/lib/sysctl.d" \
@@ -102,7 +103,7 @@ while IFS= read -r -d '' object; do
 done < <(find "$PRIVATE_ROOT" -type f -print0)
 test "${#elfs[@]}" -gt 0
 dependencies="$(cd "$PKG_ROOT"; dpkg-shlibdeps -O -xpqvpn -l"$PRIVATE_ROOT/lib" "${elfs[@]}")"
-DEPENDENCIES="${dependencies#shlibs:Depends=}, iproute2, nftables, policykit-1"
+DEPENDENCIES="${dependencies#shlibs:Depends=}, iproute2, nftables, policykit-1, sudo"
 test -n "$DEPENDENCIES"
 rm -rf "$PKG_ROOT/debian"
 
@@ -112,6 +113,7 @@ install -m 0644 README.md LICENSE "$PKG_ROOT/usr/share/pqvpn/"
 install -m 0755 packaging/linux/pqvpn-linux-network "$PKG_ROOT/usr/lib/pqvpn/pqvpn-linux-network"
 install -m 0755 packaging/linux/pqvpn-shield-helper "$PKG_ROOT/usr/lib/pqvpn/pqvpn-shield-helper"
 install -m 0755 packaging/linux/pqvpn-exit-shield "$PKG_ROOT/usr/lib/pqvpn/pqvpn-exit-shield"
+install -m 0440 packaging/linux/pqvpn-exit-shield.sudoers "$PKG_ROOT/etc/sudoers.d/pqvpn-exit-shield"
 install -m 0755 packaging/linux/pqvpn-research-compute "$PKG_ROOT/usr/lib/pqvpn/pqvpn-research-compute"
 install -m 0755 packaging/transports/pqvpn-tcp-relay.py "$PKG_ROOT/usr/lib/pqvpn/pqvpn-tcp-relay"
 install -m 0644 packaging/linux/49-pqvpn-network.rules "$PKG_ROOT/usr/share/polkit-1/rules.d/49-pqvpn-network.rules"
