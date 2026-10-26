@@ -175,7 +175,23 @@ target_link_libraries(crypto_kem_lib PRIVATE crypto_utils_lib ${PQVPN_COMMON_LIB
 
 # ... (previous lines)
 if(PQVPN_BUILD_MONITOR)
-    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network OpenGLWidgets Multimedia)
+    find_package(Qt6 ${PQVPN_QT_VERSION} REQUIRED COMPONENTS Core Gui Widgets Network OpenGLWidgets Multimedia Quick QuickControls2)
+    set(PQVPN_UI_QML "${CMAKE_CURRENT_SOURCE_DIR}/ui/Main.qml")
+    set_source_files_properties("${PQVPN_UI_QML}" PROPERTIES QT_RESOURCE_ALIAS Main.qml)
+
+    # Build the one canonical QML interface on desktop as a contract/smoke
+    # target. The existing Widgets monitor remains a temporary backend-parity
+    # oracle during migration; it must not gain new UI behavior.
+    qt_add_executable(pqvpn_unified_gui ui/main.cpp)
+    set_target_properties(pqvpn_unified_gui PROPERTIES AUTOMOC ON)
+    qt_add_qml_module(pqvpn_unified_gui
+      URI PQVPN.App
+      VERSION 1.0
+      QML_FILES "${PQVPN_UI_QML}")
+    target_link_libraries(pqvpn_unified_gui PRIVATE
+      Qt6::Core Qt6::Gui Qt6::Quick Qt6::QuickControls2)
+    target_compile_options(pqvpn_unified_gui PRIVATE
+      $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic>)
     # The privacy console controls the canonical pqvpn_node process; it does
     # not implement a second VPN or cryptographic backend.
     add_executable(pqvpn_monitor src/monitor/pqvpn_monitor.cpp src/monitor/resources.qrc)
@@ -220,8 +236,9 @@ if(PQVPN_BUILD_MONITOR)
       install(SCRIPT ${pqvpn_monitor_deploy_script})
     endif()
     if(BUILD_TESTING)
+      add_test(NAME pqvpn_unified_gui_smoke COMMAND pqvpn_unified_gui --smoke-test)
       add_test(NAME pqvpn_gui_smoke COMMAND pqvpn_monitor --smoke-test)
-      set_tests_properties(pqvpn_gui_smoke PROPERTIES
+      set_tests_properties(pqvpn_unified_gui_smoke pqvpn_gui_smoke PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
         TIMEOUT 30 LABELS "gui;baseline")
     endif()
@@ -400,8 +417,12 @@ if(UNIX AND NOT APPLE)
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_compute.py)
     add_test(NAME pqvpn_distributed_scientific_method
       COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_research_method.py)
+    add_test(NAME pqvpn_unified_gui_contract
+      COMMAND ${PQVPN_PYTHON3} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_unified_gui_contract.py)
     set_tests_properties(pqvpn_research_compute pqvpn_distributed_scientific_method PROPERTIES
       TIMEOUT 30 LABELS "baseline;research;security")
+    set_tests_properties(pqvpn_unified_gui_contract PROPERTIES
+      TIMEOUT 30 LABELS "baseline;gui;architecture")
   endif()
 endif()
 set_tests_properties(pqvpn_cli_help pqvpn_cli_smoke PROPERTIES TIMEOUT 30 LABELS "baseline")

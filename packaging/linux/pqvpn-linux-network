@@ -7,17 +7,34 @@ exit_ip="${3:-}"
 exit_port="${4:-}"
 internal_ip="${5:-}"
 shield_profile="${6:-off}"
+control_endpoints="${7:-$exit_ip:$exit_port}"
 state=/run/pqvpn/network.env
 
 [[ $EUID -eq 0 ]] || { echo "PQVPN network setup requires root" >&2; exit 1; }
 [[ "$tun" =~ ^[a-zA-Z0-9_.-]{1,15}$ ]] || { echo "invalid TUN interface" >&2; exit 2; }
 [[ "$exit_ip" =~ ^[0-9.]+$ && "$exit_port" =~ ^[0-9]{1,5}$ ]] || { echo "invalid exit endpoint" >&2; exit 2; }
-if [[ "$action" != down ]]; then
+if [[ "$action" == up ]]; then
   [[ "$internal_ip" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || {
     echo "invalid authenticated tunnel address" >&2; exit 2;
   }
 fi
 case "$shield_profile" in off|dnscrypt|privacy|security|family|maximum) ;; *) echo "invalid DNS Shield profile" >&2; exit 2;; esac
+
+control_ips_csv=""
+if [[ "$action" == up ]]; then
+  IFS=',' read -ra endpoints <<<"$control_endpoints"
+  [[ ${#endpoints[@]} -gt 0 && ${#endpoints[@]} -le 32 ]] || { echo "invalid control endpoint list" >&2; exit 2; }
+  for endpoint in "${endpoints[@]}"; do
+    host="${endpoint%:*}"
+    port="${endpoint##*:}"
+    [[ "$host" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ && "$port" =~ ^[0-9]{1,5}$ && "$port" -ge 1 && "$port" -le 65535 ]] || {
+      echo "invalid control endpoint" >&2; exit 2
+    }
+    IFS='.' read -ra octets <<<"$host"
+    for octet in "${octets[@]}"; do ((10#$octet <= 255)) || { echo "invalid control endpoint" >&2; exit 2; }; done
+    case ",$control_ips_csv," in *",$host,"*) ;; *) control_ips_csv="${control_ips_csv:+$control_ips_csv,}$host" ;; esac
+  done
+fi
 
 down() {
   nft delete table inet pqvpn 2>/dev/null || true
@@ -28,7 +45,10 @@ down() {
     # shellcheck disable=SC1090
     source "$state"
     if [[ -n "${physical_dev:-}" ]]; then
-      ip -4 route del "$exit_ip/32" dev "$physical_dev" 2>/dev/null || true
+      IFS=',' read -ra cleanup_ips <<<"${control_ips_csv:-$exit_ip}"
+      for control_ip in "${cleanup_ips[@]}"; do
+        ip -4 route del "$control_ip/32" dev "$physical_dev" 2>/dev/null || true
+      done
     fi
   fi
   ip addr flush dev "$tun" scope global 2>/dev/null || true
@@ -62,9 +82,15 @@ lan_cidr="$(ip -4 route show dev "$physical_dev" proto kernel scope link |
   echo "cannot determine directly connected LAN" >&2
   exit 4
 }
+control_rules=""
+for endpoint in "${endpoints[@]}"; do
+  host="${endpoint%:*}"
+  port="${endpoint##*:}"
+  control_rules+="    oifname \"$physical_dev\" ip daddr $host udp dport $port accept"$'\n'
+done
 install -d -m 0700 /run/pqvpn
-printf 'physical_dev=%q\nphysical_via=%q\nlan_cidr=%q\n' \
-  "$physical_dev" "$physical_via" "$lan_cidr" >"$state"
+printf 'physical_dev=%q\nphysical_via=%q\nlan_cidr=%q\ncontrol_ips_csv=%q\n' \
+  "$physical_dev" "$physical_via" "$lan_cidr" "$control_ips_csv" >"$state"
 chmod 0600 "$state"
 
 # Start from a known owned state. A crash intentionally leaves the firewall
@@ -73,9 +99,15 @@ nft delete table inet pqvpn 2>/dev/null || true
 ip link set "$tun" up mtu 1380
 ip addr replace "$internal_ip/10" dev "$tun"
 if [[ -n "$physical_via" ]]; then
-  ip -4 route replace "$exit_ip/32" via "$physical_via" dev "$physical_dev"
+  IFS=',' read -ra control_ips <<<"$control_ips_csv"
+  for control_ip in "${control_ips[@]}"; do
+    ip -4 route replace "$control_ip/32" via "$physical_via" dev "$physical_dev"
+  done
 else
-  ip -4 route replace "$exit_ip/32" dev "$physical_dev"
+  IFS=',' read -ra control_ips <<<"$control_ips_csv"
+  for control_ip in "${control_ips[@]}"; do
+    ip -4 route replace "$control_ip/32" dev "$physical_dev"
+  done
 fi
 
 nft -f - <<EOF
@@ -85,7 +117,7 @@ table inet pqvpn {
     oifname "lo" accept
     oifname "$tun" accept
     oifname "$physical_dev" ip daddr $lan_cidr accept
-    oifname "$physical_dev" ip daddr $exit_ip udp dport $exit_port accept
+$control_rules
     oifname "$physical_dev" udp sport 68 udp dport 67 accept
   }
 }

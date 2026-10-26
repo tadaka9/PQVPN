@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,14 +8,21 @@ ApplicationWindow {
     width: 430
     height: 860
     visible: true
-    title: "PQVPN Mobile Preview"
+    title: "PQVPN"
     color: "#080b17"
     property string cipher: "xchacha"
     property int page: 0
+    property bool reduceMotion: false
     readonly property color cyan: "#65e6ff"
     readonly property color violet: "#724cff"
     readonly property color panel: "#11162a"
     readonly property color muted: "#a5aec8"
+
+    function resetCurrentPageScroll() {
+        const views = [routeView, commonsView, shieldView]
+        views[root.page].contentItem.contentY = 0
+    }
+    onPageChanged: Qt.callLater(resetCurrentPageScroll)
 
     component Card: Rectangle {
         radius: 20
@@ -41,7 +49,7 @@ ApplicationWindow {
             border.color: control.activeFocus ? root.cyan : control.selected ? "#9a82ff" : "#344064"
             border.width: control.activeFocus ? 2 : 1
             scale: control.down ? 0.97 : 1
-            Behavior on scale { NumberAnimation { duration: 90 } }
+            Behavior on scale { enabled: !root.reduceMotion; NumberAnimation { duration: 90 } }
         }
     }
 
@@ -60,6 +68,7 @@ ApplicationWindow {
     }
 
     header: ToolBar {
+        z: 100
         height: 74
         background: Rectangle { color: "#0a0e1d"; opacity: 0.96 }
         RowLayout {
@@ -73,7 +82,7 @@ ApplicationWindow {
             ColumnLayout {
                 spacing: 0
                 Text { text: "PQVPN"; color: "white"; font.pixelSize: 20; font.bold: true; font.letterSpacing: 2 }
-                Text { text: "MOBILE PREVIEW"; color: root.cyan; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1.5 }
+                Text { text: "PRIVACY CONSOLE"; color: root.cyan; font.pixelSize: 10; font.bold: true; font.letterSpacing: 1.5 }
             }
             Item { Layout.fillWidth: true }
             Rectangle {
@@ -86,12 +95,17 @@ ApplicationWindow {
 
     footer: TabBar {
         id: navigation
+        z: 100
+        height: 64
         currentIndex: root.page
         onCurrentIndexChanged: root.page = currentIndex
         background: Rectangle { color: "#0a0e1d"; border.color: "#202946" }
         Repeater {
             model: ["Route", "StrangeNet", "Shield"]
             TabButton {
+                id: tabButton
+                required property string modelData
+                height: navigation.height
                 text: modelData
                 contentItem: Text {
                     text: parent.text
@@ -106,19 +120,43 @@ ApplicationWindow {
 
     SwipeView {
         anchors.fill: parent
+        focus: true
         currentIndex: root.page
         onCurrentIndexChanged: root.page = currentIndex
         clip: true
 
         ScrollView {
+            id: routeView
             contentWidth: availableWidth
             ColumnLayout {
                 x: 20
                 width: parent.width - 40
                 spacing: 16
                 Item { Layout.preferredHeight: 2 }
-                Text { text: "Choose your privacy posture"; color: "white"; font.pixelSize: 28; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                Text { text: "A clear choice before any network action. You can change it later."; color: root.muted; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { text: "Connection settings"; color: "white"; font.pixelSize: 28; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { text: "Select an encryption profile before connecting."; color: root.muted; font.pixelSize: 14; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                CheckBox {
+                    id: reduceMotionControl
+                    text: "Reduce motion"
+                    checked: root.reduceMotion
+                    onToggled: root.reduceMotion = checked
+                    Accessible.name: "Reduce interface motion"
+                    contentItem: Text {
+                        leftPadding: reduceMotionControl.indicator.width + 12
+                        text: reduceMotionControl.text
+                        color: "white"
+                        font.pixelSize: 14
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    indicator: Rectangle {
+                        implicitWidth: 24; implicitHeight: 24; radius: 7
+                        y: (reduceMotionControl.height - height) / 2
+                        color: reduceMotionControl.checked ? root.violet : "#151b31"
+                        border.color: reduceMotionControl.activeFocus ? root.cyan : "#526184"
+                        border.width: reduceMotionControl.activeFocus ? 2 : 1
+                        Text { anchors.centerIn: parent; text: "✓"; visible: reduceMotionControl.checked; color: "white"; font.bold: true }
+                    }
+                }
 
                 Card {
                     Layout.fillWidth: true; implicitHeight: cryptoColumn.implicitHeight + 40
@@ -132,7 +170,7 @@ ApplicationWindow {
                         }
                         Text {
                             Layout.fillWidth: true; wrapMode: Text.WordWrap; color: root.muted; font.pixelSize: 13
-                            text: root.cipher === "aes" ? "Best where hardware AES acceleration is available. Fast and widely standardized." : "A strong default for mobile devices: generous nonce space and consistent software performance."
+                            text: root.cipher === "aes" ? "Uses hardware AES acceleration when available." : "Software profile with an extended nonce size."
                         }
                     }
                 }
@@ -143,9 +181,9 @@ ApplicationWindow {
                     ColumnLayout {
                         id: routeColumn; anchors.fill: parent; anchors.margins: 22; spacing: 9
                         Text { text: "ROUTE STATE"; color: "#c7f8ff"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1.5 }
-                        Text { text: "Ready for native tunnel integration"; color: "white"; font.pixelSize: 23; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        Text { text: "This preview never claims protection. Android VPNService and iOS Network Extension must pass platform qualification first."; color: "#e2e6ff"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
-                        Pill { text: "Connection unavailable in preview"; enabled: false; Layout.fillWidth: true }
+                        Text { text: "Not connected"; color: "white"; font.pixelSize: 23; font.bold: true; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Text { text: "Local tunnel checks have not completed."; color: "#e2e6ff"; font.pixelSize: 13; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Pill { text: "Connection disabled"; enabled: false; Layout.fillWidth: true }
                     }
                 }
                 Item { Layout.preferredHeight: 20 }
@@ -153,12 +191,13 @@ ApplicationWindow {
         }
 
         ScrollView {
+            id: commonsView
             contentWidth: availableWidth
             ColumnLayout {
                 x: 20; width: parent.width - 40; spacing: 16
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "StrangeNet Commons"; color: "white"; font.pixelSize: 28; font.bold: true }
-                Text { text: "A social room built around Peer IDs—not visible participant IPs."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { text: "Participants are identified by Peer ID. Network addresses are not displayed."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                 Card {
                     Layout.fillWidth: true; implicitHeight: 270
                     Rectangle { anchors.fill: parent; anchors.margins: 14; radius: 14; color: "#18203a" }
@@ -174,17 +213,30 @@ ApplicationWindow {
                         }
                     }
                 }
-                Text { text: "Messaging remains disabled until the mobile transport can authenticate peers end to end."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Text { text: "Messaging remains disabled until the transport can authenticate peers end to end."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                Card {
+                    Layout.fillWidth: true; implicitHeight: researchSemantics.implicitHeight + 36
+                    ColumnLayout {
+                        id: researchSemantics; anchors.fill: parent; anchors.margins: 18; spacing: 7
+                        Text { text: "RESEARCH REVIEW"; color: root.cyan; font.pixelSize: 11; font.bold: true }
+                        Text { text: "Formal logic check · automated · no scientific verdict"; color: "white" }
+                        Text { text: "Peer review · support / challenge / abstain"; color: root.muted }
+                        Text { text: "User decision · private and local"; color: root.muted }
+                        Text { text: "BOINC evidence · validation pending"; color: root.muted }
+                        Text { text: "Ledger entry · requires project proof and quorum"; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    }
+                }
             }
         }
 
         ScrollView {
+            id: shieldView
             contentWidth: availableWidth
             ColumnLayout {
                 x: 20; width: parent.width - 40; spacing: 16
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "Shield"; color: "white"; font.pixelSize: 28; font.bold: true }
-                Text { text: "Privacy-preserving aggregate protection status."; color: root.muted }
+                Text { text: "Aggregate status. No query history is shown."; color: root.muted }
                 Repeater {
                     model: [
                         { title: "Malware", detail: "Blocklist policy staged" },
@@ -201,7 +253,7 @@ ApplicationWindow {
                                 Text { text: modelData.detail; color: root.muted; font.pixelSize: 12 }
                             }
                             Item { Layout.fillWidth: true }
-                            Text { text: "PREVIEW"; color: "#d7c9ff"; font.pixelSize: 10; font.bold: true }
+                            Text { text: "NOT ACTIVE"; color: "#d7c9ff"; font.pixelSize: 10; font.bold: true }
                         }
                     }
                 }

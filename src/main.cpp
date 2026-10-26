@@ -70,7 +70,8 @@ bool valid_strangenet_world_event(const std::string& payload) {
 bool run_linux_network_manager(const char* action, const std::string& interface_name,
                                const std::string& exit_host, int exit_port,
                                const std::string& internal_ip = {},
-                               const std::string& shield_profile = "off") {
+                               const std::string& shield_profile = "off",
+                               const std::string& control_endpoints = {}) {
     if (interface_name.empty() || exit_host.empty() || exit_port <= 0) return false;
     const auto port = std::to_string(exit_port);
     const pid_t child = ::fork();
@@ -78,10 +79,12 @@ bool run_linux_network_manager(const char* action, const std::string& interface_
         constexpr const char* helper = "/usr/lib/pqvpn/pqvpn-linux-network";
         if (::geteuid() == 0) {
             ::execl(helper, "pqvpn-linux-network", action, interface_name.c_str(),
-                    exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
+                    exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(),
+                    control_endpoints.c_str(), nullptr);
         } else {
             ::execlp("pkexec", "pkexec", helper, action, interface_name.c_str(),
-                     exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(), nullptr);
+                     exit_host.c_str(), port.c_str(), internal_ip.c_str(), shield_profile.c_str(),
+                     control_endpoints.c_str(), nullptr);
         }
         _exit(127);
     }
@@ -479,7 +482,7 @@ int main(int argc, char** argv) {
     // Load (or generate and persist) this node's hybrid identity: Ed25519 +
     // X25519 + ML-KEM-1024 + ML-DSA-87. Without it the node cannot sign HELLO/
     // S1/S2 or complete a handshake, so fail closed instead of running mute.
-    if (!node->load_or_create_identity()) {
+    if (!node->load_or_create_identity() || !node->establish_identity()) {
         std::cerr << "Failed to load or create node identity\n";
         return 1;
     }
@@ -487,6 +490,14 @@ int main(int argc, char** argv) {
     const auto internal_ip = node->local_peer_id()
         ? pqvpn::shield::internal_ipv4(*node->local_peer_id()).value_or(std::string{})
         : std::string{};
+    std::string control_endpoints = config->tunnel.exit_host + ":" +
+        std::to_string(config->tunnel.exit_port);
+    for (const auto& peer : config->bootstrap) {
+        if (peer.host == config->tunnel.exit_host && peer.port == config->tunnel.exit_port) continue;
+        asio::error_code error;
+        const auto address = asio::ip::make_address_v4(peer.host, error);
+        if (!error) control_endpoints += "," + address.to_string() + ":" + std::to_string(peer.port);
+    }
 #ifdef __linux__
     if (config->egress.enabled) {
         node->set_dns_shield_handler([](const std::vector<uint8_t>&, const std::string& ip,
@@ -589,7 +600,7 @@ int main(int argc, char** argv) {
 #ifdef __linux__
         if (!run_linux_network_manager("prepare", config->tunnel.interface_name,
                                        config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
-                                       config->dns_shield.profile)) {
+                                       config->dns_shield.profile, control_endpoints)) {
             std::cerr << "Cannot create the protected Linux TUN device\n";
             listener.stop();
             return 1;
@@ -640,7 +651,7 @@ int main(int argc, char** argv) {
 #ifdef __linux__
             if (!run_linux_network_manager("up", config->tunnel.interface_name,
                                            config->tunnel.exit_host, config->tunnel.exit_port, internal_ip,
-                                           config->dns_shield.profile)) {
+                                           config->dns_shield.profile, control_endpoints)) {
                 std::cerr << "Linux route/DNS/killswitch setup failed; refusing an unprotected connection\n";
                 adapter->close();
                 listener.stop();
