@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh PQVPN exit Pi-hole blocklists
+After=network-online.target pihole-FTL.service
+Wants=network-online.target
+ConditionPathExists=/etc/pihole/gravity.db
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/pqvpn/pqvpn-exit-shield refresh
+Nice=10
+IOSchedulingClass=idle

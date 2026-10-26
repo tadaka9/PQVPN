@@ -1,0 +1,42 @@
+# Exit-node DNSCrypt policy. Debian's systemd socket owns 127.0.2.1:53.
+listen_addresses = []
+max_clients = 250
+ipv4_servers = true
+ipv6_servers = false
+dnscrypt_servers = true
+doh_servers = false
+require_dnssec = false
+require_nolog = true
+require_nofilter = false
+force_tcp = false
+timeout = 5000
+ignore_system_dns = false
+cache = true
+cache_size = 256
+cache_min_ttl = 600
+cache_max_ttl = 86400
+cache_neg_ttl = 60
+
+# Select dynamically instead of pinning one resolver. The estimator continually
+# updates the fastest pair; each query chooses one member of that pair.
+lb_strategy = 'p2'
+lb_estimator = true
+
+[sources]
+[sources.'cs-resolvers']
+urls = ['https://cryptostorm.is/cs-resolvers.md', 'https://raw.githubusercontent.com/cryptostorm/cstorm_deepDNS/master/cs-resolvers.md']
+cache_file = '/var/cache/dnscrypt-proxy/cs-resolvers.md'
+minisign_key = 'RWTzXTWKLLKfM3fRQW0CUwSN17U3YMsVcVdfi3ERraxuttv2tL8dsdUE'
+refresh_delay = 72
+
+[sources.'cs-relays']
+urls = ['https://cryptostorm.is/cs-relays.md', 'https://raw.githubusercontent.com/cryptostorm/cstorm_deepDNS/master/cs-relays.md']
+cache_file = '/var/cache/dnscrypt-proxy/cs-relays.md'
+minisign_key = 'RWTzXTWKLLKfM3fRQW0CUwSN17U3YMsVcVdfi3ERraxuttv2tL8dsdUE'
+refresh_delay = 72
+prefix = ''
+
+[anonymized_dns]
+routes = [{ server_name='*', via=['*'] }]
+skip_incompatible = true
+

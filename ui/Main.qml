@@ -237,6 +237,15 @@ ApplicationWindow {
                 Item { Layout.preferredHeight: 2 }
                 Text { text: "Shield"; color: "white"; font.pixelSize: 28; font.bold: true }
                 Text { text: "Aggregate status. No query history is shown."; color: root.muted }
+                Card {
+                    Layout.fillWidth: true; implicitHeight: 104
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: 18; spacing: 6
+                        Text { text: "CUSTOM · LOCAL ONLY"; color: root.cyan; font.pixelSize: 11; font.bold: true }
+                        Text { text: "Off on the exit + your blocklist files and domain rules"; color: "white"; font.pixelSize: 15; font.bold: true }
+                        Text { text: "Files and rules stay on this device and are never sent to Pi-hole."; color: root.muted; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                    }
+                }
                 Repeater {
                     model: [
                         { title: "Malware", detail: "Blocklist policy staged" },

@@ -12,12 +12,16 @@ INSERT OR IGNORE INTO \"group\" (name,description,enabled) VALUES
  ('PQVPN-off','No exit filtering',1),('PQVPN-dnscrypt','Client DNSCrypt bypass',1),
  ('PQVPN-privacy','OISD privacy baseline',1),('PQVPN-security','Privacy plus threat intelligence',1),
  ('PQVPN-family','Security plus content boundaries',1),('PQVPN-maximum','Maximum curated filtering',1);
+DELETE FROM gravity WHERE adlist_id IN (SELECT id FROM adlist WHERE comment LIKE 'PQVPN Shield:%');
+DELETE FROM antigravity WHERE adlist_id IN (SELECT id FROM adlist WHERE comment LIKE 'PQVPN Shield:%');
+DELETE FROM adlist_by_group WHERE adlist_id IN (SELECT id FROM adlist WHERE comment LIKE 'PQVPN Shield:%');
+DELETE FROM adlist WHERE comment LIKE 'PQVPN Shield:%';
 INSERT OR IGNORE INTO adlist(address,enabled,comment) VALUES
  ('https://big.oisd.nl/',1,'PQVPN Shield: OISD Big'),
- ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/tif.txt',1,'PQVPN Shield: HaGeZi TIF'),
- ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/pro.txt',1,'PQVPN Shield: HaGeZi Pro'),
- ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/nsfw.txt',1,'PQVPN Shield: HaGeZi NSFW'),
- ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/gambling.txt',1,'PQVPN Shield: HaGeZi Gambling');
+ ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt',1,'PQVPN Shield: HaGeZi TIF'),
+ ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt',1,'PQVPN Shield: HaGeZi Pro'),
+ ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/nsfw.txt',1,'PQVPN Shield: HaGeZi NSFW'),
+ ('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/gambling.txt',1,'PQVPN Shield: HaGeZi Gambling');
 DELETE FROM adlist_by_group WHERE adlist_id IN (SELECT id FROM adlist WHERE comment LIKE 'PQVPN Shield:%');
 INSERT OR IGNORE INTO adlist_by_group SELECT a.id,g.id FROM adlist a,\"group\" g WHERE a.address='https://big.oisd.nl/' AND g.name IN ('PQVPN-privacy','PQVPN-security','PQVPN-family','PQVPN-maximum');
 INSERT OR IGNORE INTO adlist_by_group SELECT a.id,g.id FROM adlist a,\"group\" g WHERE a.address LIKE '%/tif.txt' AND g.name IN ('PQVPN-security','PQVPN-family','PQVPN-maximum');
@@ -30,8 +34,17 @@ assign() {
   local ip="${2:-}" profile="${3:-}"
   [[ "$ip" =~ ^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || { echo "invalid internal address" >&2; exit 2; }
   case "$profile" in off|dnscrypt|privacy|security|family|maximum) ;; *) echo "invalid Shield profile" >&2; exit 2;; esac
+  # The user-space egress binds its local DNS socket to this authenticated
+  # tunnel address. Pi-hole can then apply one group per peer without exposing
+  # DNS publicly or trusting a client-provided source address.
+  /usr/sbin/ip address replace "$ip/32" dev lo
   "${db[@]}" "BEGIN IMMEDIATE; INSERT OR IGNORE INTO client(ip,comment) VALUES ('$ip','Authenticated PQVPN tunnel address'); DELETE FROM client_by_group WHERE client_id=(SELECT id FROM client WHERE ip='$ip'); INSERT OR IGNORE INTO client_by_group SELECT c.id,g.id FROM client c,\"group\" g WHERE c.ip='$ip' AND g.name='PQVPN-$profile'; COMMIT;"
   "$pihole" reloadlists >/dev/null
   echo "PQVPN Shield assigned $ip to $profile"
 }
-case "$action" in provision) provision;; assign) assign "$@";; *) echo "usage: pqvpn-exit-shield provision | assign INTERNAL_IP PROFILE" >&2; exit 2;; esac
+refresh() {
+  # One gravity refresh per timer run.  systemd supplies daily cadence,
+  # jitter and missed-run recovery; this helper supplies path portability.
+  "$pihole" -g
+}
+case "$action" in provision) provision;; assign) assign "$@";; refresh) refresh;; *) echo "usage: pqvpn-exit-shield provision | refresh | assign INTERNAL_IP PROFILE" >&2; exit 2;; esac

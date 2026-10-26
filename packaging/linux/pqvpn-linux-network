@@ -18,7 +18,7 @@ if [[ "$action" == up ]]; then
     echo "invalid authenticated tunnel address" >&2; exit 2;
   }
 fi
-case "$shield_profile" in off|dnscrypt|privacy|security|family|maximum) ;; *) echo "invalid DNS Shield profile" >&2; exit 2;; esac
+case "$shield_profile" in off|custom|dnscrypt|privacy|security|family|maximum) ;; *) echo "invalid DNS Shield profile" >&2; exit 2;; esac
 
 control_ips_csv=""
 if [[ "$action" == up ]]; then
@@ -136,7 +136,7 @@ case "$shield_profile" in
     }
     resolvectl dns "$tun" 127.0.2.1
     ;;
-  off) resolvectl dns "$tun" 9.9.9.9 149.112.112.112 ;;
+  off|custom) resolvectl dns "$tun" 9.9.9.9 149.112.112.112 ;;
   *) resolvectl dns "$tun" 100.64.0.1 ;;
 esac
 resolvectl domain "$tun" '~.'
