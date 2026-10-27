@@ -18,7 +18,7 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate static site and Mainnet registry
         shell: bash
         run: |
