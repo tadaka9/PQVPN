@@ -126,7 +126,7 @@ jobs:
           grep -F 'pageSizeCompat' "$manifest" >/dev/null
           echo 'PQVPN ELF is 16 KiB aligned; Qt runtime uses the declared Android compatibility mode.'
           sha256sum "$signed" > "$signed.sha256"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: release-candidate-android-arm64
           path: |
@@ -166,7 +166,7 @@ jobs:
           test -n "$app"
           ditto -c -k --sequesterRsrc --keepParent "$app" \
             "PQVPN-$PQVPN_VERSION-ios-arm64-preview-unsigned.zip"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: release-candidate-ios-arm64
           path: PQVPN-*-ios-arm64-preview-unsigned.zip

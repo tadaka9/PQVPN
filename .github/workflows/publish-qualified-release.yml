@@ -152,7 +152,7 @@ jobs:
         run: sha256sum * | sort -k2 > SHA256SUMS
 
       - name: Upload verified publication bundle
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: verified-release-${{ inputs.tag }}
           path: release/*
