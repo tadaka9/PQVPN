@@ -24,7 +24,7 @@ jobs:
     name: Android arm64 APK
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Load Qt version
         run: |
           cat .github/dependencies.env >> "$GITHUB_ENV"
@@ -139,7 +139,7 @@ jobs:
     name: iOS unsigned app bundle
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Load Qt version
         run: |
           cat .github/dependencies.env >> "$GITHUB_ENV"

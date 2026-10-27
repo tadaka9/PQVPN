@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Load dependency versions
         shell: bash
@@ -344,7 +344,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Load dependency versions
         shell: bash
@@ -672,7 +672,7 @@ jobs:
     needs: [unix, windows, mobile]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Verify mobile release contract
         run: python3 tools/check-mobile-release-contract.py
       - name: Require every native build
@@ -694,7 +694,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # Native build CI should report qualification gaps, not pretend it is the
