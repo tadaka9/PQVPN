@@ -112,7 +112,7 @@ jobs:
             jq -n '{available:false}' > public/mobile-downloads.json
           fi
           jq -e '.available | type == "boolean"' public/mobile-downloads.json >/dev/null
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: public
