@@ -186,7 +186,7 @@ jobs:
           done
 
       - name: Preserve Privacy Console render
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: privacy-console-${{ matrix.target }}
           path: ${{ runner.temp }}/pqvpn-console
@@ -319,7 +319,7 @@ jobs:
           python3 packaging/update/build-package.py verify "$output"
 
       - name: Upload release candidate
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-candidate-${{ matrix.target }}
           path: |
@@ -497,7 +497,7 @@ jobs:
 
       - name: Preserve Privacy Console render
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: privacy-console-${{ matrix.target }}
           path: ${{ runner.temp }}/pqvpn-console
@@ -645,14 +645,14 @@ jobs:
 
       - name: Preserve installer test logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: installer-test-logs-windows-x86_64
           path: ${{ runner.temp }}/pqvpn-package-tests/*.log
           if-no-files-found: ignore
 
       - name: Upload release candidate
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-candidate-${{ matrix.target }}
           path: |
