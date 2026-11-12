@@ -18,7 +18,7 @@ jobs:
     name: Validate immutable tag and manifest before native tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag }}
@@ -76,7 +76,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag }}
